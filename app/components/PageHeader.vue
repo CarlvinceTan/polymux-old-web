@@ -44,6 +44,9 @@ function tabLinkTarget(pathWithOptionalQuery: string): RouteLocationRaw {
   return { path, query }
 }
 
+/** Always return "Archetype" as the section name. */
+const sectionName = computed(() => 'Archetype')
+
 /** Which tab label is active: longest matching route prefix (exact or `path + '/'`). */
 const activeLabel = computed(() => {
   const path = normalizePath(route.path)
@@ -69,7 +72,7 @@ function isActive(label: string) {
   <div class="flex h-14 w-full min-w-0 items-center px-3 sm:px-4">
     <div class="flex items-baseline gap-10">
       <h1 class="text-lg font-bold tracking-tight text-neutral-950 sm:text-xl sm:font-bold">
-        Archetype
+        {{ sectionName }}
       </h1>
       <nav class="flex items-center gap-4">
         <NuxtLink

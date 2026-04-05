@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const headerTabs = {
-  Connected: '/accounts/connected',
-  Pending: '/accounts/pending',
+  PERSONAL: '/storage/personal',
+  SHARED: '/storage/shared',
 } as const satisfies Record<string, string>
 </script>
 
@@ -13,7 +13,9 @@ const headerTabs = {
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
         <div class="p-4 sm:p-5">
-        <Placeholder message="Placeholder — connected accounts and permissions will appear here.">
+        <Placeholder
+          message="Placeholder — content and workflows your team shares will appear here."
+        >
           <template #icon>
             <svg
               class="size-8 text-neutral-400"
@@ -23,8 +25,10 @@ const headerTabs = {
               stroke-width="2"
               aria-hidden="true"
             >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           </template>
         </Placeholder>

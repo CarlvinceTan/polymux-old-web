@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const headerTabs = {
   Home: '/dashboard/home',
+  Connections: '/dashboard/connections',
   Marketplace: '/dashboard/marketplace',
 } as const satisfies Record<string, string>
 </script>

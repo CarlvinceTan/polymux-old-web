@@ -16,8 +16,8 @@ const route = useRoute()
 
 const navItems = [
   { to: '/workspace', label: 'Workspace', key: 'workspace' },
+  { to: '/storage/personal', label: 'Storage', key: 'storage' },
   { to: '/vault', label: 'Vault', key: 'vault' },
-  { to: '/accounts', label: 'Accounts', key: 'accounts' },
 ] as const
 
 // Search modal state
@@ -78,6 +78,18 @@ function openChat(index: number) {
 }
 
 const activeDropdownIndex = ref<number | null>(null)
+
+// Workspace dropdown state
+const isWorkspaceDropdownOpen = ref(false)
+const workspaceDropdownRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
+
+function toggleWorkspaceDropdown() {
+  isWorkspaceDropdownOpen.value = !isWorkspaceDropdownOpen.value
+}
+
+function closeWorkspaceDropdown() {
+  isWorkspaceDropdownOpen.value = false
+}
 
 function canDeleteChat(): boolean {
   return chats.value.length > 1
@@ -145,11 +157,21 @@ function getDropdownPosition(index: number) {
 }
 
 function handleClickOutside(event: MouseEvent) {
+  // Close chat list dropdown
   const dropdown = document.querySelector('.chat-list-dropdown')
   if (dropdown && !dropdown.contains(event.target as Node)) {
     const trigger = document.querySelector('.chat-list-trigger')
     if (trigger && !trigger.contains(event.target as Node)) {
       closeDropdown()
+    }
+  }
+
+  // Close workspace dropdown
+  const dropdownEl = workspaceDropdownRef.value?.dropdownRef
+  if (dropdownEl && !dropdownEl.contains(event.target as Node)) {
+    const workspaceTrigger = document.querySelector('.workspace-dropdown-trigger')
+    if (workspaceTrigger && !workspaceTrigger.contains(event.target as Node)) {
+      closeWorkspaceDropdown()
     }
   }
 }
@@ -164,26 +186,47 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <aside class="flex h-full min-h-0 w-full max-h-full flex-col overflow-hidden bg-neutral-100 py-3 px-3 lg:w-64" aria-label="Main sidebar">
+  <aside class="flex h-full min-h-0 w-full max-h-full flex-col overflow-hidden bg-neutral-100 py-3 px-3 lg:w-64"
+    aria-label="Main sidebar">
     <!-- Logo & CTA -->
     <div class="shrink-0 space-y-4">
-      <div class="flex items-center gap-3">
-        <!-- Logo Icon -->
-        <div class="flex h-[32px] w-[32px] items-center justify-center rounded-md bg-neutral-950" aria-hidden="true">
-          <svg class="size-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
+      <div class="relative">
+        <div class="flex items-center gap-3 cursor-pointer workspace-dropdown-trigger w-full"
+          @click="toggleWorkspaceDropdown">
+          <!-- Logo Icon -->
+          <AccountIcon initials="DP" size="md" />
+          <!-- Title & Company -->
+          <div class="flex flex-col flex-1">
+            <div class="flex items-end justify-between">
+              <span class="text-base font-bold text-neutral-950">Design Prototype</span>
+              <svg class="size-4.5 text-neutral-500 mb-px" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+            <span class="text-xs font-medium tracking-wide text-neutral-500">Entreprise Plan</span>
+          </div>
         </div>
-        <!-- Title & Company -->
-        <div class="flex flex-col">
-          <span class="text-lg font-bold text-neutral-950">Design Prototype</span>
-          <span class="text-caption font-medium tracking-wide text-neutral-500">ARCHETYPE PTY LTD</span>
-        </div>
+
+        <!-- Workspace Dropdown -->
+        <CompactDropdown v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
+          <CompactDropdownRow text="University of Melbourne">
+            <template #icon>
+              <AccountIcon initials="UM" size="sm" color="bg-neutral-800" />
+            </template>
+          </CompactDropdownRow>
+          <CompactDropdownRow text="Add Workspace" has-divider>
+            <template #icon>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </template>
+          </CompactDropdownRow>
+        </CompactDropdown>
       </div>
       <button type="button" @click="createChat"
-        class="w-[212.8px] h-9.5 flex items-center justify-center gap-2 rounded-md bg-neutral-950 px-4 text-center text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950">
+        class="w-full h-9.5 flex items-center justify-center gap-2 rounded-md bg-neutral-950 px-4 text-center text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950">
         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
@@ -234,7 +277,7 @@ onUnmounted(() => {
           </button>
         </li>
 
-        <!-- Rest of nav items: Workspace, Vault, Accounts -->
+        <!-- Rest of nav items: Workspace, Storage, Vault -->
         <li v-for="item in navItems" :key="item.key">
           <NuxtLink :to="item.to"
             class="relative flex items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
@@ -246,25 +289,27 @@ onUnmounted(() => {
               class="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-neutral-950"
               aria-hidden="true" />
             <!-- Workspace: presentation stand -->
-            <svg v-if="item.key === 'workspace'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg v-if="item.key === 'workspace'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true">
               <path d="M2 3h20" />
               <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" />
               <path d="m7 21 5-5 5 5" />
+            </svg>
+            <!-- Storage: box/archive icon -->
+            <svg v-else-if="item.key === 'storage'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true">
+              <path d="M21 8v13H3V8" />
+              <path d="M1 3h22v5H1z" />
+              <path d="M10 12h4" />
             </svg>
             <!-- Vault: lock -->
             <svg v-else-if="item.key === 'vault'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
               aria-hidden="true">
-              <rect x="5" y="11" width="14" height="10" rx="2" />
-              <path d="M7 11V7a5 5 0 0110 0v4" />
-            </svg>
-            <!-- Accounts: user -->
-            <svg v-else-if="item.key === 'accounts'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-              aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M6 20v-1a6 6 0 0112 0v1" />
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <span>
               {{ item.label }}
@@ -343,18 +388,9 @@ onUnmounted(() => {
     </nav>
 
     <div class="mt-auto shrink-0 border-t border-neutral-200/80 pt-2">
-      <NuxtLink
-        to="/config"
-        class="flex items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors hover:bg-neutral-200/60 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-      >
-        <div class="flex size-7 shrink-0 items-center justify-center rounded-md bg-neutral-800 text-white" role="img"
-          aria-label="User profile">
-          <svg class="size-4 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            aria-hidden="true">
-            <circle cx="12" cy="8" r="3" />
-            <path d="M6 20v-1a6 6 0 0112 0v1" />
-          </svg>
-        </div>
+      <NuxtLink to="/config"
+        class="flex items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors hover:bg-neutral-200/60 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950">
+        <AccountIcon initials="CT" size="md" color="bg-neutral-800" role="img" aria-label="User profile" />
         <div class="min-w-0 flex-1">
           <p class="truncate font-semibold text-neutral-950">
             {{ userName }}

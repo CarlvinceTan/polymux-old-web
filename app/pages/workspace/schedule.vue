@@ -3,6 +3,7 @@ const headerTabs = {
   Console: '/workspace/console',
   Schedule: '/workspace/schedule',
   Visualiser: '/workspace/visualiser',
+  Settings: '/workspace/settings',
 } as const satisfies Record<string, string>
 </script>
 

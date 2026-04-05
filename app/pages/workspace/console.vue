@@ -3,6 +3,7 @@ const headerTabs = {
   Console: '/workspace/console',
   Schedule: '/workspace/schedule',
   Visualiser: '/workspace/visualiser',
+  Settings: '/workspace/settings',
 } as const satisfies Record<string, string>
 
 type LayoutMode = 'grid' | 'single'
@@ -132,14 +133,14 @@ function sendCommand(value: string) {
             class="absolute inset-0 overflow-y-auto overscroll-contain px-4 pb-36 pt-3 sm:px-5 sm:pb-40 sm:pt-4"
           >
             <div
-              class="grid gap-3 sm:gap-4"
+              class="grid items-start gap-3 sm:gap-4"
               :class="layoutMode === 'grid'
                 ? 'grid-cols-1 sm:grid-cols-2'
                 : 'mx-auto w-full max-w-lg grid-cols-1'
               "
             >
-              <div v-for="(vp, index) in viewports" :key="index">
-                <Viewport v-bind="vp" compact />
+              <div v-for="(vp, index) in viewports" :key="index" class="min-w-0 w-full">
+                <Viewport v-bind="vp" />
               </div>
             </div>
           </div>

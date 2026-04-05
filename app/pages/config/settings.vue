@@ -12,32 +12,79 @@ const headerTabs = {
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
-        <div class="p-4 sm:p-5">
-        <Placeholder message="Placeholder — application preferences, notifications, and defaults will appear here.">
-          <template #icon>
-            <svg
-              class="size-8 text-neutral-400"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="4" y1="21" x2="4" y2="14" />
-              <line x1="4" y1="10" x2="4" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12" y2="3" />
-              <line x1="20" y1="21" x2="20" y2="16" />
-              <line x1="20" y1="12" x2="20" y2="3" />
-              <line x1="1" y1="14" x2="7" y2="14" />
-              <line x1="9" y1="8" x2="15" y2="8" />
-              <line x1="17" y1="16" x2="23" y2="16" />
-            </svg>
-          </template>
-        </Placeholder>
+        <div
+          class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 sm:p-5 lg:gap-8"
+        >
+          <SettingsSection title="General">
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-language-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Language</template>
+              <template #trailing>English</template>
+            </SettingsSectionRow>
+          </SettingsSection>
+
+          <SettingsSection title="Notifications">
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-envelope-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Email</template>
+              <template #trailing>On</template>
+            </SettingsSectionRow>
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-bell-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Push</template>
+              <template #trailing>Off</template>
+            </SettingsSectionRow>
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-megaphone-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Product updates</template>
+              <template #trailing>On</template>
+            </SettingsSectionRow>
+          </SettingsSection>
+
+          <SettingsSection title="Other">
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-document-text-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Terms and conditions</template>
+              <template #trailing>View</template>
+            </SettingsSectionRow>
+            <SettingsSectionRow>
+              <template #icon>
+                <UIcon
+                  name="i-heroicons-shield-check-20-solid"
+                  class="size-4 shrink-0 text-neutral-500"
+                />
+              </template>
+              <template #label>Privacy policy</template>
+              <template #trailing>View</template>
+            </SettingsSectionRow>
+          </SettingsSection>
         </div>
+        <div class="h-4 w-full shrink-0 sm:h-5" aria-hidden="true" />
       </TabPanel>
     </div>
   </div>

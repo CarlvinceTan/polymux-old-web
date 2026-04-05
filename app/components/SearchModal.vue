@@ -70,7 +70,7 @@ onUnmounted(() => {
               ref="inputRef"
               v-model="searchQuery"
               type="text"
-              placeholder="Search chats, workspaces, vaults..."
+              placeholder="Search chats, workspaces, storage..."
               class="flex-1 bg-transparent text-body-lg outline-none placeholder:text-secondary text-on-surface"
             />
             <kbd class="rounded bg-surface-container px-2 py-0.5 text-label-md font-medium text-secondary">
@@ -81,7 +81,7 @@ onUnmounted(() => {
           <!-- Search Results Placeholder: tonal separation using background difference -->
           <div class="max-h-80 overflow-y-auto p-2 bg-surface-container-lowest">
             <div class="px-3 py-8 text-center text-body-md text-secondary">
-              Type to search across your chats, workspaces, and vault items
+              Type to search across your chats, workspaces, and storage items
             </div>
           </div>
         </div>

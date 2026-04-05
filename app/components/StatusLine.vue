@@ -3,13 +3,13 @@ withDefaults(
   defineProps<{
     isWorking?: boolean;
     isDone?: boolean;
-    /** Tighter bar for compact layouts (e.g. Viewport grid) */
-    compact?: boolean;
+    /** Narrower track for viewport thumbnails / dense rows */
+    small?: boolean;
   }>(),
   {
     isWorking: false,
     isDone: false,
-    compact: false,
+    small: false,
   },
 );
 </script>
@@ -18,7 +18,7 @@ withDefaults(
   <div class="flex h-full shrink-0 items-center">
     <div
       class="status-line__track"
-      :class="compact ? 'h-1 w-20 sm:w-24' : 'h-2 w-28 sm:w-32'"
+      :class="small ? 'h-1 w-14 sm:w-16' : 'h-2 w-28 sm:w-32'"
     >
       <div
         class="status-line__fill"

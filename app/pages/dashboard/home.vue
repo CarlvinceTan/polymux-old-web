@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const headerTabs = {
   Home: '/dashboard/home',
+  Connections: '/dashboard/connections',
   Marketplace: '/dashboard/marketplace',
 } as const satisfies Record<string, string>
 </script>
@@ -25,7 +26,7 @@ const headerTabs = {
             </div>
 
             <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Vault Items</h3>
+              <h3 class="text-body-md font-medium text-neutral-500">Storage Items</h3>
               <p class="mt-2 text-3xl font-bold text-neutral-950">28</p>
             </div>
           </div>

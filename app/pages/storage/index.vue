@@ -1,5 +1,5 @@
 <script setup lang="ts">
-await navigateTo('/accounts/connected', { replace: true })
+await navigateTo('/storage/personal', { replace: true })
 </script>
 
 <template>

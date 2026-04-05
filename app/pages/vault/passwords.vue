@@ -1,8 +1,7 @@
 <script setup lang="ts">
 const headerTabs = {
-  PERSONAL: '/vault',
-  WORKSPACES: '/vault/workspaces',
-  SHARED: '/vault/shared',
+  Passwords: '/vault/passwords',
+  Wallet: '/vault/wallet',
 } as const satisfies Record<string, string>
 </script>
 
@@ -14,7 +13,7 @@ const headerTabs = {
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
         <div class="p-4 sm:p-5">
-        <Placeholder message="Placeholder — collaborative workspaces will appear here.">
+        <Placeholder message="Placeholder — connected accounts and permissions will appear here.">
           <template #icon>
             <svg
               class="size-8 text-neutral-400"
@@ -22,14 +21,10 @@ const headerTabs = {
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
               aria-hidden="true"
             >
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <circle cx="12" cy="8" r="4" />
+              <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
             </svg>
           </template>
         </Placeholder>

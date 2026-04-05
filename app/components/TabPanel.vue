@@ -42,13 +42,9 @@ defineSlots<{
           </div>
         </template>
 
-        <div
-          class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-        >
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <!-- Sole body child (typical padded wrapper) becomes a flex column so children like Placeholder can use flex-1. -->
-          <div
-            class="flex min-h-0 min-w-0 flex-1 flex-col [&>:only-child]:flex [&>:only-child]:min-h-0 [&>:only-child]:flex-1 [&>:only-child]:flex-col"
-          >
+          <div class="flex min-h-0 min-w-0 flex-1 flex-col *:only:flex *:only:min-h-0 *:only:flex-1 *:only:flex-col">
             <slot />
           </div>
         </div>
