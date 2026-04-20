@@ -2,6 +2,7 @@
 const props = defineProps<{
   text: string
   hasDivider?: boolean
+  destructive?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,11 +17,12 @@ function handleClick() {
 <template>
   <div v-if="hasDivider" class="my-0.5 h-px bg-neutral-200 mx-2"></div>
   <button
-    class="flex w-full items-center gap-2 px-3 py-1 text-xs text-neutral-950 hover:bg-neutral-100 cursor-pointer transition-colors"
+    class="flex w-full items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors"
+    :class="destructive ? 'text-red-600 hover:bg-red-50' : 'text-neutral-950 hover:bg-neutral-100'"
     @click="handleClick"
   >
     <!-- Icon container - fixed width for alignment -->
-    <div class="flex items-center justify-center w-4 h-4 shrink-0">
+    <div class="flex items-center justify-center w-[20px] h-[20px] shrink-0">
       <slot name="icon" />
     </div>
     <!-- Text - always starts at same position -->

@@ -1,48 +1,77 @@
 <script setup lang="ts">
-const headerTabs = {
-  Home: '/dashboard/home',
-  Connections: '/dashboard/connections',
-  Marketplace: '/dashboard/marketplace',
-} as const satisfies Record<string, string>
+import type { SupportedCurrency } from '~/composables/useCurrency'
+
+const { t } = useI18n()
+const { currentWorkspace } = useWorkspaces()
+const { sessions, fetchSessions } = useChatSessions()
+const { wallet, transactions, budgets, balanceDisplay, formatCents, fetchWallet, fetchTransactions, fetchBudgets } = useWallet()
+
+const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
+
+const planLimits: Record<string, number> = { free: 2, pro: 8, max: 20, enterprise: 50 }
+
+const plan = computed(() => currentWorkspace.value?.plan ?? 'free')
+const agentCap = computed(() => planLimits[plan.value] ?? 2)
+
+const oneWeekAgo = computed(() => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+const sessionsThisWeek = computed(() =>
+  sessions.value.filter(s => s.created_at >= oneWeekAgo.value).length,
+)
+
+const activeBudgets = computed(() =>
+  budgets.value.filter(b => b.status === 'active'),
+)
+
+onMounted(async () => {
+  await Promise.all([
+    fetchSessions(),
+    fetchWallet(),
+    fetchTransactions(),
+    fetchBudgets(),
+  ])
+})
 </script>
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
+      <PageHeader :tabs="headerTabs" :separator-before-path="dashboardNavSeparatorBeforePath" raw-tab-labels />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
         <div class="space-y-6 p-4 sm:p-5">
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Total chats</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">12</p>
-            </div>
+          <DashboardWelcome />
 
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Active Workspaces</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">4</p>
-            </div>
-
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Storage Items</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">28</p>
-            </div>
+          <div class="grid gap-4 sm:grid-cols-2" :class="wallet ? 'lg:grid-cols-4' : 'lg:grid-cols-3'">
+            <DashboardStatCard
+              v-if="wallet"
+              :label="t('dashboard.walletBalance')"
+              :value="balanceDisplay"
+            />
+            <DashboardStatCard
+              :label="t('dashboard.totalChats')"
+              :value="String(sessions.length)"
+              :trend="t('dashboard.sessionsThisWeek', { count: sessionsThisWeek })"
+            />
+            <DashboardStatCard
+              :label="t('dashboard.browserAgents')"
+              :value="t('dashboard.agentsAvailable', { plan: plan.charAt(0).toUpperCase() + plan.slice(1), cap: agentCap })"
+            />
+            <DashboardStatCard
+              :label="t('dashboard.activeBudgets')"
+              :value="String(activeBudgets.length)"
+              :trend="activeBudgets.length ? t('dashboard.budgetsRunning') : undefined"
+            />
           </div>
 
-          <div class="rounded-lg ghost-panel bg-white p-4">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-950">Recent Activity</h2>
-            <div class="space-y-3">
-              <div v-for="i in 5" :key="i" class="flex items-center gap-3 py-2">
-                <div class="size-8 rounded-full bg-neutral-100" />
-                <div class="flex-1">
-                  <div class="h-4 w-48 rounded bg-neutral-100" />
-                  <div class="mt-1 h-3 w-24 rounded bg-neutral-50" />
-                </div>
-              </div>
-            </div>
-          </div>
+          <DashboardRecentSessions :sessions="sessions" />
+
+          <DashboardSpending
+            :transactions="transactions"
+            :budgets="budgets"
+            :currency="(wallet?.currency ?? 'usd') as SupportedCurrency"
+            :has-wallet="!!wallet"
+          />
         </div>
       </TabPanel>
     </div>

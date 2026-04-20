@@ -1,0 +1,370 @@
+<script setup lang="ts">
+/** Marketing home body: hero, features, pricing, reviews, CTA. Imported by `index.vue` for `/`; not a file-based route (see `nuxt.config` `pages:extend`). */
+const route = useRoute()
+
+function scrollToHash() {
+  const id = route.hash?.replace(/^#/, '')
+  if (!id) return
+  nextTick(() => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+onMounted(scrollToHash)
+watch(() => route.fullPath, scrollToHash)
+
+const heroRotatingPhrases = [
+  'Live browser sessions.',
+  'Multi-agent handoffs.',
+  'Vault-safe secrets.',
+  'Replayable workflows.',
+]
+
+const features = [
+  {
+    title: 'Multi-Agent Orchestration',
+    description:
+      'Deploy and coordinate multiple AI agents working in parallel. Each agent operates independently with its own browser session, tools, and context — while Polymux keeps them all in sync.',
+  },
+  {
+    title: 'Live Browser Sessions',
+    description:
+      'Watch your agents interact with websites in real-time. Every click, scroll, and form fill is streamed live to your dashboard, giving you full visibility into automated workflows.',
+  },
+  {
+    title: 'Secure Vault',
+    description:
+      'Enterprise-grade encryption for your credentials, API keys, and sensitive data. Agents access exactly what they need without exposing your secrets, with full audit logging.',
+  },
+  {
+    title: 'Smart Marketplace',
+    description:
+      'Discover and install pre-built agents, workflows, and integrations. Connect your favourite tools in seconds, or publish your own automations for others to use.',
+  },
+]
+
+type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
+
+interface PlanFeatureRow {
+  name: string
+  free: string | boolean
+  pro: string | boolean
+  max: string | boolean
+  enterprise: string | boolean
+}
+
+const planFeatures: PlanFeatureRow[] = [
+  { name: 'AI Agents', free: '3', pro: '10', max: 'Unlimited', enterprise: 'Custom' },
+  { name: 'Monthly Tasks', free: '100', pro: '1,000', max: 'Unlimited', enterprise: 'Unlimited' },
+  { name: 'Browser Sessions', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
+  { name: 'Vault Storage', free: '100 MB', pro: '5 GB', max: '50 GB', enterprise: 'Unlimited' },
+  { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
+  { name: 'API Access', free: false, pro: false, max: true, enterprise: true },
+  { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
+  { name: 'SSO / SAML', free: false, pro: false, max: false, enterprise: true },
+  { name: 'Dedicated Account Manager', free: false, pro: false, max: false, enterprise: true },
+]
+
+type BillingPeriod = 'annual' | 'monthly'
+
+const billingPeriod = ref<BillingPeriod>('annual')
+
+const { currency, prices, detect } = useCurrency()
+
+onMounted(() => { detect() })
+
+const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean; isSpecial: boolean }[] = [
+  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false, isSpecial: false },
+  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true, isSpecial: true },
+  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false, isSpecial: false },
+  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false, isSpecial: false },
+]
+
+function planPriceDisplay(key: PlanKey): {
+  price: string
+  period: string
+  compareAtPrice?: string
+} {
+  if (!prices.value) return { price: '—', period: '' }
+  const p = prices.value[key]
+  if (key === 'free' || key === 'enterprise') {
+    return { price: p.monthly, period: key === 'free' ? '/mo' : '' }
+  }
+  if (billingPeriod.value === 'monthly') {
+    return { price: p.monthly, period: '/mo' }
+  }
+  return {
+    price: p.annualPerMonth,
+    period: '/mo',
+    compareAtPrice: `${p.monthly}/mo`,
+  }
+}
+
+function planCellIncluded(row: PlanFeatureRow, key: PlanKey): boolean {
+  const v = row[key]
+  return typeof v === 'boolean' ? v : true
+}
+
+function planCellDetail(row: PlanFeatureRow, key: PlanKey): string | null {
+  const v = row[key]
+  return typeof v === 'string' ? v : null
+}
+
+function planItemsForKey(key: PlanKey) {
+  return planFeatures.map((row) => {
+    const included = planCellIncluded(row, key)
+    const detail = planCellDetail(row, key)
+    const label = detail ? `${row.name} (${detail})` : row.name
+    return { label, included }
+  })
+}
+
+const selectedPlanKey = ref<PlanKey>('free')
+
+function onPlanPanelSelect(key: PlanKey) {
+  if (key === 'enterprise') {
+    return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
+  }
+  selectedPlanKey.value = key
+  nextTick(() => {
+    const el = document.getElementById(`plan-panel-${key}`)
+    if (!el) return
+    el.focus({ preventScroll: true })
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  })
+}
+
+const purchaseLoading = ref(false)
+const purchaseError = ref('')
+
+async function onPurchaseNow() {
+  const key = selectedPlanKey.value
+  if (key === 'enterprise') {
+    return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
+  }
+  if (key === 'free') return
+
+  purchaseLoading.value = true
+  purchaseError.value = ''
+
+  try {
+    const { url } = await $fetch<{ url: string }>('/api/stripe/checkout', {
+      method: 'POST',
+      body: { planKey: key, billingPeriod: billingPeriod.value, currency: currency.value },
+    })
+    window.location.href = url
+  }
+  catch (err: unknown) {
+    purchaseError.value = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+    purchaseLoading.value = false
+  }
+}
+
+/** One entry forces ViewportDemo into single-slide mode (no carousel). */
+const featureDemoSources: string[] = ['']
+</script>
+
+<template>
+  <div>
+    <!-- Hero -->
+    <section class="py-16 sm:py-20 lg:py-28">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <div class="flex flex-col gap-6">
+            <h1 class="text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
+              <span class="block">AI agents for the live web</span>
+              <RotatingBlockDisplay
+                :phrases="heroRotatingPhrases"
+                class="mt-1.5 block font-medium text-neutral-600"
+              />
+            </h1>
+            <p class="max-w-lg text-lg leading-relaxed text-neutral-500">
+              Deploy, manage, and scale intelligent AI agents that automate your
+              workflows. From simple tasks to complex multi-agent orchestration
+              &mdash; Polymux puts you in control.
+            </p>
+            <div class="flex items-center gap-3 pt-2">
+              <NuxtLink
+                to="/chat/"
+                class="rounded-md bg-neutral-950 px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+               >
+                 {{ $t('landing.useNow') }}
+               </NuxtLink>
+               <NuxtLink
+                 to="/community"
+                class="rounded-md border border-neutral-300 px-6 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                Join the Community
+              </NuxtLink>
+            </div>
+          </div>
+          <div class="relative">
+            <ViewportDemo />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <div
+      id="features"
+      class="scroll-mt-16 bg-[#F9F9F9] pt-20 pb-10 sm:pt-24 sm:pb-12 lg:pt-32 lg:pb-16"
+    >
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div class="mb-16 text-center">
+          <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+            Everything you need to automate
+          </h2>
+          <p class="mt-4 text-lg text-neutral-500">
+            Powerful features to build, deploy, and manage AI-powered workflows at
+            any scale.
+          </p>
+        </div>
+        <div class="relative">
+          <div
+            class="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-neutral-300/60 lg:block"
+            aria-hidden="true"
+          />
+          <div class="flex flex-col gap-16 lg:gap-24">
+            <div v-for="(feature, index) in features" :key="feature.title" class="relative">
+              <div
+                class="absolute left-1/2 top-1/2 z-10 hidden size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-950 ring-4 ring-[#F9F9F9] lg:block"
+                aria-hidden="true"
+              />
+              <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+                <div :class="index % 2 === 1 ? 'lg:order-2' : ''">
+                  <ViewportDemo :sources="featureDemoSources" />
+                </div>
+                <div :class="index % 2 === 1 ? 'lg:order-1' : ''">
+                  <div class="lg:max-w-md" :class="index % 2 === 0 ? 'lg:ml-auto lg:pr-8' : 'lg:pl-8'">
+                    <span class="mb-3 inline-block rounded-full bg-neutral-200/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                      0{{ index + 1 }}
+                    </span>
+                    <h3 class="text-xl font-bold tracking-tight text-neutral-950 sm:text-2xl">
+                      {{ feature.title }}
+                    </h3>
+                    <p class="mt-3 leading-relaxed text-neutral-500">
+                      {{ feature.description }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div
+      id="pricing"
+      class="scroll-mt-16 pt-6 sm:pt-8 lg:pt-10"
+      :class="
+        selectedPlanKey !== 'free'
+          ? 'pb-6 sm:pb-8 lg:pb-10'
+          : 'pb-20 sm:pb-24 lg:pb-32'
+      "
+    >
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 text-center">
+          <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+            Simple, transparent pricing
+          </h2>
+          <p class="mt-3 text-lg text-neutral-500 sm:mt-4">
+            Start free. Scale as you grow. No hidden fees.
+          </p>
+        </div>
+        <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">
+          <div
+            class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
+            role="group"
+            aria-label="Billing period"
+          >
+            <button
+              type="button"
+              class="rounded-md px-4 py-2 text-sm font-semibold transition-colors"
+              :class="
+                billingPeriod === 'annual'
+                  ? 'bg-white text-neutral-950 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-800'
+              "
+              :aria-pressed="billingPeriod === 'annual'"
+              @click="billingPeriod = 'annual'"
+            >
+              Annual
+            </button>
+            <button
+              type="button"
+              class="rounded-md px-4 py-2 text-sm font-semibold transition-colors"
+              :class="
+                billingPeriod === 'monthly'
+                  ? 'bg-white text-neutral-950 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-800'
+              "
+              :aria-pressed="billingPeriod === 'monthly'"
+              @click="billingPeriod = 'monthly'"
+            >
+              Monthly
+            </button>
+          </div>
+        </div>
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <PlanPanel
+            v-for="plan in planMeta"
+            :key="plan.key"
+            :name="plan.name"
+            v-bind="planPriceDisplay(plan.key)"
+            :cta="plan.cta"
+            :highlighted="plan.highlighted"
+            :is-special="plan.isSpecial"
+            :selected="selectedPlanKey === plan.key"
+            :items="planItemsForKey(plan.key)"
+            :panel-id="`plan-panel-${plan.key}`"
+            @select="onPlanPanelSelect(plan.key)"
+          />
+        </div>
+        <div
+          v-if="selectedPlanKey !== 'free'"
+          class="mt-10 flex flex-col items-center gap-3 sm:mt-12"
+        >
+          <button
+            type="button"
+            :disabled="purchaseLoading"
+            class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="onPurchaseNow"
+          >
+            {{ purchaseLoading ? 'Redirecting…' : 'Purchase now' }}
+          </button>
+          <p v-if="purchaseError" class="text-sm text-red-600">
+            {{ purchaseError }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <ReviewCarousel />
+
+    <!-- Banner -->
+    <div class="bg-neutral-950 py-16 sm:py-20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-10 px-4 sm:px-6 lg:flex-row lg:px-8">
+        <h2 class="text-center text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-left">
+          Excited?
+        </h2>
+        <div class="flex flex-col gap-3 sm:min-w-64">
+          <NuxtLink
+            to="/community"
+            class="rounded-lg border border-neutral-600 px-8 py-3.5 text-center text-base font-medium text-white transition-colors hover:border-neutral-400 hover:bg-neutral-800"
+          >
+            Join the Community
+          </NuxtLink>
+          <NuxtLink
+            to="/chat/"
+             class="rounded-lg bg-white px-8 py-3.5 text-center text-base font-medium text-neutral-950 transition-opacity hover:opacity-90"
+           >
+             {{ $t('landing.useNow') }}
+           </NuxtLink>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

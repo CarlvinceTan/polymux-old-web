@@ -1,31 +1,38 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import type { FileAttachmentState } from '~/composables/useAttachments'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
-    /** Placeholder / hint shown in the input */
     hint?: string
-    /** When true, the primary action shows pause until dismissed */
     agentActive?: boolean
     modelValue?: string
-    /** Span full width of parent (no max-width cap) */
     fullWidth?: boolean
+    attachments?: FileAttachmentState[]
+    disabled?: boolean
   }>(),
   {
-    hint: 'Issue a global command...',
+    hint: undefined,
     agentActive: false,
     modelValue: '',
     fullWidth: false,
+    attachments: () => [],
+    disabled: false,
   },
 )
+
+const resolvedHint = computed(() => props.hint ?? t('chat.globalCommandPlaceholder'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   send: [value: string]
   pause: []
-  attach: []
+  'attach-files': [files: FileList]
+  'remove-file': [id: string]
   voice: []
-  'global-settings': []
+  settings: []
 }>()
 
 const inputValue = computed({
@@ -45,6 +52,7 @@ watch(
 const showPause = computed(() => props.agentActive && !pauseDismissed.value)
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 /** True once content needs more than one visible line (wrap or newline). */
 const expandedPrompt = ref(false)
@@ -104,11 +112,92 @@ function onTextareaKeydown(e: KeyboardEvent) {
   e.preventDefault()
   onPrimaryAction()
 }
+
+function onAttachClick() {
+  fileInputRef.value?.click()
+}
+
+function onFileInputChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+  emit('attach-files', input.files)
+  input.value = ''
+}
+
+let enterQueue: HTMLElement[] = []
+let enterFlush: ReturnType<typeof setTimeout> | undefined
+
+function onChipBeforeEnter(el: Element) {
+  ;(el as HTMLElement).style.opacity = '0'
+}
+
+function onChipEnter(el: Element, done: () => void) {
+  const htmlEl = el as HTMLElement
+  const order = enterQueue.length
+  enterQueue.push(htmlEl)
+
+  clearTimeout(enterFlush)
+  enterFlush = setTimeout(() => {
+    const batch = enterQueue
+    enterQueue = []
+    batch.forEach((item, i) => {
+      const delay = batch.length > 1 ? i * 50 : 0
+      item.style.transition = `opacity 0.15s ease ${delay}ms`
+      requestAnimationFrame(() => { item.style.opacity = '1' })
+    })
+  }, 0)
+
+  const maxDelay = (order + 1) * 50
+  setTimeout(done, 150 + maxDelay)
+}
+
+function onChipAfterEnter(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = ''
+  htmlEl.style.opacity = ''
+}
 </script>
 
 <template>
-  <div class="flex w-full flex-col px-1.5 pt-1.5 sm:px-2"
-    :class="props.fullWidth ? 'items-stretch gap-3' : 'items-center gap-4'">
+  <div class="flex w-full flex-col px-1.5 sm:px-2"
+    :class="[
+      props.fullWidth ? 'items-stretch gap-3.5' : 'items-center gap-5',
+      attachments && attachments.length > 0 ? 'pt-0' : 'pt-1.5',
+    ]">
+
+    <!-- Hidden native file input (absolute so it doesn't participate in flex gap) -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      multiple
+      class="absolute h-0 w-0 overflow-hidden opacity-0"
+      tabindex="-1"
+      aria-hidden="true"
+      @change="onFileInputChange"
+    >
+
+    <!-- Attachment chips above the input box -->
+    <TransitionGroup
+      v-if="attachments && attachments.length > 0"
+      tag="div"
+      name="chip"
+      class="relative flex w-full flex-wrap-reverse gap-1.5"
+      :class="props.fullWidth ? '' : 'max-w-3xl'"
+      @before-enter="onChipBeforeEnter"
+      @enter="onChipEnter"
+      @after-enter="onChipAfterEnter"
+    >
+      <FileAttachment
+        v-for="file in attachments"
+        :key="file.id"
+        :name="file.name"
+        :status="file.status"
+        :progress="file.progress"
+        :half-row="props.fullWidth"
+        @remove="emit('remove-file', file.id)"
+      />
+    </TransitionGroup>
+
     <div class="flex w-full transition-colors focus-within:outline" :class="props.fullWidth
       ? [
         'relative min-h-13 rounded-2xl bg-neutral-100 p-2 transition-[background-color] duration-150',
@@ -125,30 +214,30 @@ function onTextareaKeydown(e: KeyboardEvent) {
       ">
       <div class="flex flex-col items-center min-w-0 flex-1" :class="props.fullWidth ? 'pl-1 sm:pl-2 pr-12.25' : ''">
         <textarea ref="textareaRef" v-model="inputValue" rows="1"
-          class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none"
+          :disabled="props.disabled"
+          class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           :class="props.fullWidth
             ? 'text-body-md max-h-20'
             : 'min-w-0 flex-1 text-body-lg max-h-24'
-            " :placeholder="props.hint" autocomplete="off" @keydown="onTextareaKeydown" />
+            " :placeholder="resolvedHint" autocomplete="off" @keydown="onTextareaKeydown" />
       </div>
       <button type="button"
-        class="flex shrink-0 items-center justify-center text-on-primary transition-opacity hover:opacity-90 active:opacity-80"
+        class="flex shrink-0 items-center justify-center text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         :class="props.fullWidth
           ? [
             'absolute right-2 size-9 rounded-lg bg-neutral-950',
             expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2',
           ]
           : 'btn-gradient size-10 rounded-[0.375rem]'
-          " :aria-label="showPause ? 'Pause' : 'Send'" @click="onPrimaryAction">
+          " :disabled="props.disabled" :aria-label="showPause ? t('chat.stop') : t('common.send')" @click="onPrimaryAction">
         <svg v-if="!showPause" class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none"
           xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
             stroke-linejoin="round" />
         </svg>
-        <svg v-else class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true">
-          <rect x="6" y="5" width="3.5" height="14" rx="0.5" />
-          <rect x="14.5" y="5" width="3.5" height="14" rx="0.5" />
+        <svg v-else class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="5.5" y="5.5" width="13" height="13" rx="2" />
         </svg>
       </button>
     </div>
@@ -158,23 +247,36 @@ function onTextareaKeydown(e: KeyboardEvent) {
       : 'gap-x-14 text-label-md font-medium tracking-wide max-w-3xl'
       ">
       <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
-        :class="props.fullWidth ? 'gap-1' : ''" @click="emit('attach')">
+        :class="props.fullWidth ? 'gap-1' : ''" @click="onAttachClick">
         <UIcon name="i-heroicons-paper-clip-20-solid" class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? 'ATTACH' : 'Attach' }}</span>
+        <span>{{ props.fullWidth ? t('common.attach').toUpperCase() : t('common.attach') }}</span>
       </button>
       <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
         :class="props.fullWidth ? 'gap-1' : ''" @click="emit('voice')">
         <UIcon name="i-heroicons-microphone-20-solid" class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? 'VOICE' : 'Voice' }}</span>
+        <span>{{ props.fullWidth ? t('common.voice').toUpperCase() : t('common.voice') }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
-        :class="props.fullWidth ? 'gap-1' : ''" @click="emit('global-settings')">
+      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
+        :class="props.fullWidth ? 'gap-1' : ''" @click="emit('settings')">
         <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? 'SETTINGS' : 'Settings' }}</span>
+        <span>{{ props.fullWidth ? t('common.settings').toUpperCase() : t('common.settings') }}</span>
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.chip-move {
+  transition: transform 0.2s ease;
+}
+.chip-leave-active {
+  transition: opacity 0.15s ease;
+  position: absolute;
+}
+.chip-leave-to {
+  opacity: 0;
+}
+</style>

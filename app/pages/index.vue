@@ -1,7 +1,9 @@
 <script setup lang="ts">
-await navigateTo('/chat')
+import LandingPage from '~/pages/landing.vue'
+
+definePageMeta({ layout: 'landing' })
 </script>
 
 <template>
-  <div>Redirecting...</div>
+  <LandingPage />
 </template>

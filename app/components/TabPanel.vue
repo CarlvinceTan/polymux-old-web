@@ -6,10 +6,18 @@
  * - #title and/or #actions → title row; full-width divider below the header block.
  * - #header → replaces title/actions; minimal inset padding; full-width divider below.
  * - Default slot → no body padding; pages add their own inset if needed.
- * - #footer → e.g. PromptInput; full-width divider above; padded footer slot.
+ * - #footer → e.g. PromptInput; optional full-width divider above (controlled by hideFooterDivider); padded footer slot.
  *
  * Dividers span the full inner width of the panel (edge to edge inside the rounded chrome).
  */
+withDefaults(defineProps<{
+  compactFooter?: boolean
+  hideFooterDivider?: boolean
+}>(), {
+  compactFooter: false,
+  hideFooterDivider: false,
+})
+
 defineSlots<{
   header?: () => unknown
   title?: () => unknown
@@ -50,8 +58,11 @@ defineSlots<{
         </div>
 
         <template v-if="$slots.footer">
-          <div class="h-px w-full shrink-0 bg-neutral-200/90" aria-hidden="true" />
-          <div class="shrink-0 p-2.5 sm:p-3">
+          <div v-if="!hideFooterDivider" class="h-px w-full shrink-0 bg-neutral-200/90" aria-hidden="true" />
+          <div
+            class="shrink-0 px-2.5 pb-2.5 sm:px-3 sm:pb-3"
+            :class="compactFooter ? 'pt-2.5' : 'pt-2.5 sm:pt-3'"
+          >
             <slot name="footer" />
           </div>
         </template>

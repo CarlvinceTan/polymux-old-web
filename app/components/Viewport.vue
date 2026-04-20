@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Viewport props for browser preview and agent status (preview area is fixed 16:9)
+const { t } = useI18n()
+
 const props = withDefaults(defineProps<{
   isLoading?: boolean
   url?: string
@@ -19,6 +20,8 @@ const props = withDefaults(defineProps<{
   onTrafficYellow?: () => void
   /** Green — e.g. toggle expanded / modal view */
   onTrafficGreen?: () => void
+  /** Object URL for the latest JPEG screencast frame */
+  frameUrl?: string
 }>(), {
   isLoading: true,
   url: 'localhost:3001/instance_alpha/preview/session/very-long-url-to-demonstrate-truncation',
@@ -72,7 +75,7 @@ function greenClick(e: Event) {
               v-if="onTrafficRed"
               type="button"
               class="flex h-2.5 w-2.5 cursor-pointer items-center justify-center overflow-hidden rounded-full border-0 bg-[#ff5f56] p-0 ring-0"
-              aria-label="Close browser"
+              :aria-label="t('viewport.closeBrowser')"
               @click="redClick"
             >
               <UIcon
@@ -94,7 +97,7 @@ function greenClick(e: Event) {
               v-if="onTrafficYellow"
               type="button"
               class="flex h-2.5 w-2.5 cursor-pointer items-center justify-center overflow-hidden rounded-full border-0 bg-[#ffbd2e] p-0 ring-0"
-              aria-label="Move to thumbnail row"
+              :aria-label="t('viewport.moveToThumbnail')"
               @click="yellowClick"
             >
               <UIcon
@@ -116,7 +119,7 @@ function greenClick(e: Event) {
               v-if="onTrafficGreen"
               type="button"
               class="flex h-2.5 w-2.5 cursor-pointer items-center justify-center overflow-hidden rounded-full border-0 bg-[#27c93f] p-0 ring-0"
-              aria-label="Expand preview"
+              :aria-label="t('viewport.expandPreview')"
               @click="greenClick"
             >
               <UIcon
@@ -137,38 +140,40 @@ function greenClick(e: Event) {
 
           <div class="ml-3.5 flex min-w-0 flex-1 justify-start">
             <span
-              class="max-w-[min(50%,280px)] truncate font-mono text-body-md text-secondary"
+              class="max-w-[80%] truncate font-mono text-body-md text-secondary"
             >
               {{ url }}
             </span>
           </div>
         </div>
 
-        <!-- Preview: fixed 16:9 (padding-bottom % of width — immune to flex/grid stretch breaking aspect-ratio) -->
-        <div class="relative w-full bg-neutral-50">
-          <div class="relative w-full pb-[56.25%]">
-            <div class="absolute inset-0 overflow-hidden bg-neutral-50">
-              <div
-                v-if="isLoading"
-                class="absolute inset-0 flex w-full flex-col"
-                :class="thumbnail ? 'gap-2 p-2' : 'gap-6 p-8'"
-              >
-                <div
-                  class="animate-pulse rounded-full bg-neutral-200/80"
-                  :class="thumbnail ? 'h-2 w-[58%]' : 'h-4 w-2/3'"
-                />
-                <div
-                  class="animate-pulse rounded-full bg-neutral-200/70 opacity-90"
-                  :class="thumbnail ? 'h-2 w-full' : 'h-4 w-full'"
-                />
-                <div
-                  class="animate-pulse rounded-full bg-neutral-200/60 opacity-70"
-                  :class="thumbnail ? 'h-2 w-[42%]' : 'h-4 w-2/4'"
-                />
-              </div>
-              <slot />
-            </div>
+        <!-- Preview: fixed 3:2 to match the browser screencast ratio. -->
+        <div class="relative w-full overflow-hidden bg-white" style="aspect-ratio: 3 / 2">
+          <div
+            v-if="!frameUrl"
+            class="absolute inset-0 flex w-full flex-col"
+            :class="thumbnail ? 'gap-2 p-2' : 'gap-6 p-8'"
+          >
+            <div
+              class="animate-pulse rounded-full bg-neutral-200/80"
+              :class="thumbnail ? 'h-2 w-[58%]' : 'h-4 w-2/3'"
+            />
+            <div
+              class="animate-pulse rounded-full bg-neutral-200/70 opacity-90"
+              :class="thumbnail ? 'h-2 w-full' : 'h-4 w-full'"
+            />
+            <div
+              class="animate-pulse rounded-full bg-neutral-200/60 opacity-70"
+              :class="thumbnail ? 'h-2 w-[42%]' : 'h-4 w-2/4'"
+            />
           </div>
+          <img
+            v-if="frameUrl"
+            :src="frameUrl"
+            alt=""
+            class="absolute inset-0 h-full w-full object-contain"
+          >
+          <slot />
         </div>
       </div>
     </div>

@@ -4,6 +4,15 @@ import type { RouteLocationRaw } from 'vue-router'
 interface Props {
   /** Display label → route path (optional `?query` allowed; compared pathname-only for active tab). */
   tabs: Record<string, string>
+  /**
+   * Route path (pathname only, optional `?query` stripped) before which a vertical divider is shown.
+   * Use when tab labels come from i18n so divider position is stable across locales.
+   */
+  separatorBeforePath?: string
+  /**
+   * When true, tab labels are shown as-is (e.g. translated). When false, labels are title-cased for English-style keys.
+   */
+  rawTabLabels?: boolean
 }
 
 const props = defineProps<Props>()
@@ -44,9 +53,6 @@ function tabLinkTarget(pathWithOptionalQuery: string): RouteLocationRaw {
   return { path, query }
 }
 
-/** Always return "Archetype" as the section name. */
-const sectionName = computed(() => 'Archetype')
-
 /** Which tab label is active: longest matching route prefix (exact or `path + '/'`). */
 const activeLabel = computed(() => {
   const path = normalizePath(route.path)
@@ -65,29 +71,38 @@ const activeLabel = computed(() => {
 function isActive(label: string) {
   return activeLabel.value === label
 }
+
+function displayTabLabel(label: string) {
+  return props.rawTabLabels ? label : formatTabLabel(label)
+}
 </script>
 
 <template>
   <!-- Full width within the main column (same inset as page padding from parent) -->
   <div class="flex h-14 w-full min-w-0 items-center px-3 sm:px-4">
-    <div class="flex items-baseline gap-10">
-      <h1 class="text-lg font-bold tracking-tight text-neutral-950 sm:text-xl sm:font-bold">
-        {{ sectionName }}
-      </h1>
+    <div class="flex items-center gap-10">
+      <NuxtLink to="/" class="shrink-0 -translate-y-px">
+        <InlineLogo size="xl" />
+      </NuxtLink>
       <nav class="flex items-center gap-4">
-        <NuxtLink
-          v-for="(routePath, label) in tabs"
-          :key="label"
-          :to="tabLinkTarget(routePath)"
-          class="relative pb-1 text-sm font-semibold tracking-tight transition-colors sm:text-base"
-          :class="
-            isActive(label)
-              ? 'text-neutral-950 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-neutral-950'
-              : 'text-neutral-400 hover:text-neutral-600'
-          "
-        >
-          {{ formatTabLabel(label) }}
-        </NuxtLink>
+        <template v-for="(routePath, label) in tabs" :key="label">
+          <div
+            v-if="separatorBeforePath && tabPathOnly(routePath) === tabPathOnly(separatorBeforePath)"
+            class="h-4 w-[2px] shrink-0 -translate-y-px rounded-full bg-neutral-400/60"
+            aria-hidden="true"
+          />
+          <NuxtLink
+            :to="tabLinkTarget(routePath)"
+            class="relative pb-1 text-sm font-semibold tracking-tight transition-colors sm:text-base"
+            :class="
+              isActive(label)
+                ? 'text-neutral-950 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-neutral-950'
+                : 'text-neutral-400 hover:text-neutral-600'
+            "
+          >
+            {{ displayTabLabel(label) }}
+          </NuxtLink>
+        </template>
       </nav>
     </div>
   </div>

@@ -25,6 +25,14 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * It is not tightly coupled to a single page’s structure.
 * Prefer consistency: reuse or mirror existing components (e.g. dropdowns) rather than introducing new styles.
 
+## Internationalisation
+
+* When making UI changes that add, modify, or remove user-facing text, always update all locale files under `i18n/locales/` — not just `en.json`.
+* After editing any locale JSON, verify the change across all 8 locale files: `en`, `ko`, `zh`, `ja`, `de`, `fr`, `es`, `pt`.
+* The `@` symbol is a special character in vue-i18n (linked messages). Always escape it as `{'@'}` in locale JSON values. Failure to do so causes a build error (`Invalid linked format`, error code 10).
+  * Example: `"usernamePlaceholder": "you{'@'}example.com"` instead of `"usernamePlaceholder": "you@example.com"`
+* New i18n keys follow the pattern of the nearest existing keys in the `settings` object (e.g. `settings.responseCompletions`).
+
 ## Refactoring & Hygiene
 
 * Remove unused files, components, and directories after refactoring.
@@ -34,6 +42,32 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * Shorthand references:
 
-  * `chat/create` → `app/pages/chat/[id]/create.vue`
-  * `config/settings` → `app/pages/config/settings.vue`
+  * `chat/orchestrator` → `app/pages/chat/[id]/orchestrator.vue`
+  * `chat/browser` → `app/pages/chat/[id]/browser.vue`
+  * `chat/artifacts` → `app/pages/chat/[id]/artifacts.vue`
+  * `dashboard/home` → `app/pages/dashboard/home.vue`
+  * `dashboard/integrations` → `app/pages/dashboard/integrations.vue`
+  * `dashboard/marketplace` → `app/pages/dashboard/marketplace.vue`
+  * `workspace/settings` → `app/pages/workspace/settings.vue`
+  * `workspace/usage` → `app/pages/workspace/usage.vue`
+  * `workspace/team` → `app/pages/workspace/team.vue`
+  * `workspace/schedule` → `app/pages/workspace/schedule.vue`
+  * `workspace/console` → `app/pages/workspace/console.vue`
+  * `vault/wallet` → `app/pages/vault/wallet.vue`
+  * `vault/passwords` → `app/pages/vault/passwords.vue`
+  * `storage/shared` → `app/pages/storage/shared.vue`
+  * `storage/workspace` → `app/pages/storage/workspace.vue`
+  * `settings` → `app/pages/settings.vue`
+* Key reusable components:
+  * `FileBrowser` — self-contained file browser (search, view toggle, filter, icon/list grid); drop it anywhere users need to access files
+  * `SettingsSection` / `SettingsSectionRow` / `SettingsDropdown` / `SettingsToggle` / `SettingsSubpageLayout` — composable settings UI primitives
+  * `TabPanel` — scrollable tab content container
+  * `PageHeader` — top navigation with tabs
+  * `SidePanel` — persistent left sidebar
+  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition
+  * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
+  * `CompactDropdown` / `CompactDropdownRow` — lightweight dropdown menus
+  * `DashboardStatCard` / `DashboardSpending` / `DashboardWelcome` / `DashboardRecentSessions` — dashboard widgets
+  * `SearchModal` — global search overlay
+  * `ToastContainer` — toast notifications
 * Before creating new UI elements, check for existing implementations and align with their design and behaviour.
