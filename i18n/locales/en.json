@@ -270,6 +270,23 @@
       "copyLink": "Copy link",
       "linkCopied": "Link copied!",
       "done": "Done"
+    },
+    "settings": {
+      "title": "Storage settings",
+      "subtitle": "Control how files are saved across your storage providers.",
+      "saveOrderTitle": "Save order",
+      "saveOrderDesc": "Files are saved to the first available location. The order automatically shifts when a provider is unavailable or full.",
+      "providerCloud": "Cloud",
+      "providerGoogleDrive": "Google Drive",
+      "providerLocal": "Local",
+      "statusAvailable": "Available",
+      "statusUnavailable": "Unavailable",
+      "statusFull": "Full",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "currentChain": "Current chain",
+      "resolvedEmpty": "No providers are currently available.",
+      "resetDefault": "Reset to default"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "Copied!",
       "loading": "Loading passwords…",
       "saving": "Saving…"
+    }
+  },
+  "schedule": {
+    "title": "Schedule",
+    "subtitle": "Run \"{workflow}\" automatically on a recurring schedule",
+    "howOften": "How often",
+    "when": "When",
+    "preview": "Preview",
+    "save": "Save schedule",
+    "saved": "Schedule saved",
+    "activeOn": "Active",
+    "activeOff": "Paused",
+    "atMinute": "At minute",
+    "atTime": "At time",
+    "onDays": "On these days",
+    "onDayOfMonth": "On day of month",
+    "cronExpr": "Cron expression",
+    "cronHelp": "Format: minute hour day-of-month month day-of-week",
+    "invalidCron": "Invalid cron expression",
+    "timezone": "Timezone",
+    "tzLocal": "Local ({tz})",
+    "runs": "Runs",
+    "copyCron": "Copy cron",
+    "copied": "Cron expression copied",
+    "nextRuns": "Upcoming runs",
+    "nextRunsCount": "next {n}",
+    "noRuns": "No upcoming runs in the next 60 days",
+    "weeklyNoDays": "Select at least one day",
+    "freq": {
+      "hourly": "Hourly", "hourlyHint": "Every hour",
+      "daily": "Daily", "dailyHint": "Every day",
+      "weekly": "Weekly", "weeklyHint": "Chosen days",
+      "monthly": "Monthly", "monthlyHint": "Day of month",
+      "custom": "Custom", "customHint": "Cron expression"
+    },
+    "human": {
+      "hourly": "Runs every hour at minute {minute}",
+      "daily": "Runs every day at {time} ({tz})",
+      "weekly": "Runs every {days} at {time} ({tz})",
+      "monthly": "Runs on day {day} of every month at {time} ({tz})",
+      "custom": "Runs on the schedule defined by the cron expression"
+    },
+    "weekdayShort": {
+      "sun": "S", "mon": "M", "tue": "T", "wed": "W", "thu": "T", "fri": "F", "sat": "S"
+    },
+    "weekdayLong": {
+      "sun": "Sunday", "mon": "Monday", "tue": "Tuesday", "wed": "Wednesday",
+      "thu": "Thursday", "fri": "Friday", "sat": "Saturday"
+    },
+    "relative": {
+      "inMinutes": "in {n} min",
+      "inHours": "in {n} h",
+      "inDays": "in {n} d"
     }
   }
 }

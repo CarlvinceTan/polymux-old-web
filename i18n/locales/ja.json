@@ -270,6 +270,23 @@
       "copyLink": "リンクをコピー",
       "linkCopied": "リンクをコピーしました！",
       "done": "完了"
+    },
+    "settings": {
+      "title": "ストレージ設定",
+      "subtitle": "ストレージプロバイダーへのファイル保存方法を管理します。",
+      "saveOrderTitle": "保存順序",
+      "saveOrderDesc": "ファイルは最初に利用可能な場所に保存されます。プロバイダーが利用不可または満杯の場合、順序は自動的に切り替わります。",
+      "providerCloud": "クラウド",
+      "providerGoogleDrive": "Google ドライブ",
+      "providerLocal": "ローカル",
+      "statusAvailable": "利用可能",
+      "statusUnavailable": "利用不可",
+      "statusFull": "満杯",
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "currentChain": "現在のチェーン",
+      "resolvedEmpty": "現在利用可能なプロバイダーはありません。",
+      "resetDefault": "デフォルトに戻す"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "コピーしました！",
       "loading": "パスワードを読み込み中…",
       "saving": "保存中…"
+    }
+  },
+  "schedule": {
+    "title": "スケジュール",
+    "subtitle": "「{workflow}」を繰り返しスケジュールで自動実行します",
+    "howOften": "頻度",
+    "when": "いつ",
+    "preview": "プレビュー",
+    "save": "スケジュールを保存",
+    "saved": "スケジュールを保存しました",
+    "activeOn": "有効",
+    "activeOff": "一時停止",
+    "atMinute": "分",
+    "atTime": "時刻",
+    "onDays": "曜日",
+    "onDayOfMonth": "日付",
+    "cronExpr": "Cron 式",
+    "cronHelp": "形式: 分 時 日 月 曜日",
+    "invalidCron": "無効な cron 式です",
+    "timezone": "タイムゾーン",
+    "tzLocal": "ローカル ({tz})",
+    "runs": "実行",
+    "copyCron": "cron をコピー",
+    "copied": "cron 式をコピーしました",
+    "nextRuns": "今後の実行",
+    "nextRunsCount": "次の {n} 件",
+    "noRuns": "今後 60 日間に実行予定はありません",
+    "weeklyNoDays": "少なくとも 1 日選択してください",
+    "freq": {
+      "hourly": "毎時", "hourlyHint": "毎時実行",
+      "daily": "毎日", "dailyHint": "毎日実行",
+      "weekly": "毎週", "weeklyHint": "指定した曜日",
+      "monthly": "毎月", "monthlyHint": "毎月の日付",
+      "custom": "カスタム", "customHint": "cron 式"
+    },
+    "human": {
+      "hourly": "毎時 {minute} 分に実行",
+      "daily": "毎日 {time} に実行 ({tz})",
+      "weekly": "毎 {days} の {time} に実行 ({tz})",
+      "monthly": "毎月 {day} 日 {time} に実行 ({tz})",
+      "custom": "cron 式で指定されたスケジュールで実行"
+    },
+    "weekdayShort": {
+      "sun": "日", "mon": "月", "tue": "火", "wed": "水", "thu": "木", "fri": "金", "sat": "土"
+    },
+    "weekdayLong": {
+      "sun": "日曜日", "mon": "月曜日", "tue": "火曜日", "wed": "水曜日",
+      "thu": "木曜日", "fri": "金曜日", "sat": "土曜日"
+    },
+    "relative": {
+      "inMinutes": "{n} 分後",
+      "inHours": "{n} 時間後",
+      "inDays": "{n} 日後"
     }
   }
 }

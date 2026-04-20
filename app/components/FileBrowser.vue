@@ -402,6 +402,7 @@ const filteredFiles = computed(() => {
         const types = iconToFilterType(icon)
         return types.some(type => allowed.includes(type))
       })
+      resultFolders = []
     }
   }
 
@@ -994,11 +995,23 @@ function formatFileSize(bytes: number): string {
                       <button
                         v-for="item in filterItems"
                         :key="item.icon"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-body-md hover:bg-neutral-100 transition-colors cursor-pointer"
+                        class="flex w-full items-center justify-between gap-2 px-3 py-2 text-body-md hover:bg-neutral-100 transition-colors cursor-pointer"
                         :class="activeFilter === item.label ? 'text-neutral-950 font-medium' : 'text-neutral-700'"
                         @click="setFilter(item.label)"
                       >
-                        {{ item.label }}
+                        <span>{{ item.label }}</span>
+                        <svg
+                          v-if="activeFilter === item.label"
+                          class="size-4 shrink-0"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -1105,10 +1118,9 @@ function formatFileSize(bytes: number): string {
                     @click="handleDownload"
                   >
                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M19 8v6" />
-                      <path d="m16 11 3 3 3-3" />
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
                   </button>
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Download</span>

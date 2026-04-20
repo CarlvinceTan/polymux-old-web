@@ -270,6 +270,23 @@
       "copyLink": "复制链接",
       "linkCopied": "链接已复制！",
       "done": "完成"
+    },
+    "settings": {
+      "title": "存储设置",
+      "subtitle": "管理文件在各存储提供商中的保存方式。",
+      "saveOrderTitle": "保存顺序",
+      "saveOrderDesc": "文件会保存到第一个可用的位置。当某个提供商不可用或已满时，顺序会自动调整。",
+      "providerCloud": "云端",
+      "providerGoogleDrive": "Google 云端硬盘",
+      "providerLocal": "本地",
+      "statusAvailable": "可用",
+      "statusUnavailable": "不可用",
+      "statusFull": "已满",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "currentChain": "当前顺序",
+      "resolvedEmpty": "当前没有可用的提供商。",
+      "resetDefault": "恢复默认"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "已复制！",
       "loading": "加载密码中…",
       "saving": "保存中…"
+    }
+  },
+  "schedule": {
+    "title": "计划",
+    "subtitle": "按照重复的时间表自动运行「{workflow}」",
+    "howOften": "频率",
+    "when": "时间",
+    "preview": "预览",
+    "save": "保存计划",
+    "saved": "计划已保存",
+    "activeOn": "已启用",
+    "activeOff": "已暂停",
+    "atMinute": "分钟",
+    "atTime": "时间",
+    "onDays": "星期",
+    "onDayOfMonth": "每月日期",
+    "cronExpr": "Cron 表达式",
+    "cronHelp": "格式：分 时 日 月 星期",
+    "invalidCron": "无效的 cron 表达式",
+    "timezone": "时区",
+    "tzLocal": "本地 ({tz})",
+    "runs": "运行",
+    "copyCron": "复制 cron",
+    "copied": "已复制 cron 表达式",
+    "nextRuns": "即将运行",
+    "nextRunsCount": "接下来 {n} 次",
+    "noRuns": "未来 60 天内无运行计划",
+    "weeklyNoDays": "请至少选择一天",
+    "freq": {
+      "hourly": "每小时", "hourlyHint": "每小时运行",
+      "daily": "每天", "dailyHint": "每天运行",
+      "weekly": "每周", "weeklyHint": "选定的日期",
+      "monthly": "每月", "monthlyHint": "每月日期",
+      "custom": "自定义", "customHint": "cron 表达式"
+    },
+    "human": {
+      "hourly": "每小时第 {minute} 分运行",
+      "daily": "每天 {time} 运行 ({tz})",
+      "weekly": "每 {days} {time} 运行 ({tz})",
+      "monthly": "每月 {day} 日 {time} 运行 ({tz})",
+      "custom": "按 cron 表达式定义的计划运行"
+    },
+    "weekdayShort": {
+      "sun": "日", "mon": "一", "tue": "二", "wed": "三", "thu": "四", "fri": "五", "sat": "六"
+    },
+    "weekdayLong": {
+      "sun": "星期日", "mon": "星期一", "tue": "星期二", "wed": "星期三",
+      "thu": "星期四", "fri": "星期五", "sat": "星期六"
+    },
+    "relative": {
+      "inMinutes": "{n} 分钟后",
+      "inHours": "{n} 小时后",
+      "inDays": "{n} 天后"
     }
   }
 }

@@ -9,6 +9,7 @@ const headerTabs = computed(() => {
   return {
     Orchestrator: `${base}/orchestrator`,
     Browser: `${base}/browser`,
+    Schedule: `${base}/schedule`,
     Artifacts: `${base}/artifacts`,
   } satisfies Record<string, string>
 })

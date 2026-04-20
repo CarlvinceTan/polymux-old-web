@@ -2,6 +2,7 @@
 const headerTabs = {
   MAIN: '/storage/main',
   SHARED: '/storage/shared',
+  SETTINGS: '/storage/settings',
 } as const satisfies Record<string, string>
 
 const user = useSupabaseUser()

@@ -270,6 +270,23 @@
       "copyLink": "링크 복사",
       "linkCopied": "링크가 복사되었습니다!",
       "done": "완료"
+    },
+    "settings": {
+      "title": "저장소 설정",
+      "subtitle": "저장소 제공자에 파일을 저장하는 방법을 관리합니다.",
+      "saveOrderTitle": "저장 순서",
+      "saveOrderDesc": "파일은 사용 가능한 첫 번째 위치에 저장됩니다. 제공자를 사용할 수 없거나 가득 찬 경우 순서가 자동으로 조정됩니다.",
+      "providerCloud": "클라우드",
+      "providerGoogleDrive": "Google 드라이브",
+      "providerLocal": "로컬",
+      "statusAvailable": "사용 가능",
+      "statusUnavailable": "사용 불가",
+      "statusFull": "가득 참",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "currentChain": "현재 체인",
+      "resolvedEmpty": "현재 사용 가능한 제공자가 없습니다.",
+      "resetDefault": "기본값으로 재설정"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "복사됨!",
       "loading": "비밀번호 불러오는 중…",
       "saving": "저장 중…"
+    }
+  },
+  "schedule": {
+    "title": "스케줄",
+    "subtitle": "‘{workflow}’을(를) 반복 스케줄로 자동 실행합니다",
+    "howOften": "실행 빈도",
+    "when": "시점",
+    "preview": "미리보기",
+    "save": "스케줄 저장",
+    "saved": "스케줄이 저장되었습니다",
+    "activeOn": "활성",
+    "activeOff": "일시중지",
+    "atMinute": "분",
+    "atTime": "시간",
+    "onDays": "요일",
+    "onDayOfMonth": "매월 일자",
+    "cronExpr": "Cron 표현식",
+    "cronHelp": "형식: 분 시 일 월 요일",
+    "invalidCron": "잘못된 cron 표현식",
+    "timezone": "시간대",
+    "tzLocal": "로컬 ({tz})",
+    "runs": "실행",
+    "copyCron": "cron 복사",
+    "copied": "cron 표현식이 복사되었습니다",
+    "nextRuns": "다음 실행",
+    "nextRunsCount": "다음 {n}회",
+    "noRuns": "앞으로 60일 내 실행 예정이 없습니다",
+    "weeklyNoDays": "하나 이상의 요일을 선택하세요",
+    "freq": {
+      "hourly": "매시간", "hourlyHint": "매 시간",
+      "daily": "매일", "dailyHint": "매 일",
+      "weekly": "매주", "weeklyHint": "선택한 요일",
+      "monthly": "매월", "monthlyHint": "매월 일자",
+      "custom": "사용자 지정", "customHint": "cron 표현식"
+    },
+    "human": {
+      "hourly": "매시간 {minute}분에 실행",
+      "daily": "매일 {time}에 실행 ({tz})",
+      "weekly": "{days}마다 {time}에 실행 ({tz})",
+      "monthly": "매월 {day}일 {time}에 실행 ({tz})",
+      "custom": "cron 표현식에 정의된 스케줄로 실행"
+    },
+    "weekdayShort": {
+      "sun": "일", "mon": "월", "tue": "화", "wed": "수", "thu": "목", "fri": "금", "sat": "토"
+    },
+    "weekdayLong": {
+      "sun": "일요일", "mon": "월요일", "tue": "화요일", "wed": "수요일",
+      "thu": "목요일", "fri": "금요일", "sat": "토요일"
+    },
+    "relative": {
+      "inMinutes": "{n}분 후",
+      "inHours": "{n}시간 후",
+      "inDays": "{n}일 후"
     }
   }
 }

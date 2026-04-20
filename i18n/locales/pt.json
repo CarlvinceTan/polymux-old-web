@@ -270,6 +270,23 @@
       "copyLink": "Copiar link",
       "linkCopied": "Link copiado!",
       "done": "Concluído"
+    },
+    "settings": {
+      "title": "Configurações de armazenamento",
+      "subtitle": "Controle como os arquivos são salvos nos seus provedores de armazenamento.",
+      "saveOrderTitle": "Ordem de gravação",
+      "saveOrderDesc": "Os arquivos são salvos no primeiro local disponível. A ordem muda automaticamente quando um provedor está indisponível ou cheio.",
+      "providerCloud": "Nuvem",
+      "providerGoogleDrive": "Google Drive",
+      "providerLocal": "Local",
+      "statusAvailable": "Disponível",
+      "statusUnavailable": "Indisponível",
+      "statusFull": "Cheio",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "currentChain": "Cadeia atual",
+      "resolvedEmpty": "Nenhum provedor está disponível no momento.",
+      "resetDefault": "Restaurar padrão"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "Copiado!",
       "loading": "Carregando senhas…",
       "saving": "Salvando…"
+    }
+  },
+  "schedule": {
+    "title": "Agendar",
+    "subtitle": "Executar \"{workflow}\" automaticamente em um cronograma recorrente",
+    "howOften": "Frequência",
+    "when": "Quando",
+    "preview": "Pré-visualização",
+    "save": "Salvar agendamento",
+    "saved": "Agendamento salvo",
+    "activeOn": "Ativo",
+    "activeOff": "Pausado",
+    "atMinute": "No minuto",
+    "atTime": "No horário",
+    "onDays": "Nestes dias",
+    "onDayOfMonth": "No dia do mês",
+    "cronExpr": "Expressão cron",
+    "cronHelp": "Formato: minuto hora dia-do-mês mês dia-da-semana",
+    "invalidCron": "Expressão cron inválida",
+    "timezone": "Fuso horário",
+    "tzLocal": "Local ({tz})",
+    "runs": "Executa",
+    "copyCron": "Copiar cron",
+    "copied": "Expressão cron copiada",
+    "nextRuns": "Próximas execuções",
+    "nextRunsCount": "próximas {n}",
+    "noRuns": "Sem execuções nos próximos 60 dias",
+    "weeklyNoDays": "Selecione ao menos um dia",
+    "freq": {
+      "hourly": "A cada hora", "hourlyHint": "Toda hora",
+      "daily": "Diário", "dailyHint": "Todo dia",
+      "weekly": "Semanal", "weeklyHint": "Dias escolhidos",
+      "monthly": "Mensal", "monthlyHint": "Dia do mês",
+      "custom": "Personalizado", "customHint": "Expressão cron"
+    },
+    "human": {
+      "hourly": "Executa toda hora no minuto {minute}",
+      "daily": "Executa todos os dias às {time} ({tz})",
+      "weekly": "Executa toda {days} às {time} ({tz})",
+      "monthly": "Executa no dia {day} de cada mês às {time} ({tz})",
+      "custom": "Executa no cronograma definido pela expressão cron"
+    },
+    "weekdayShort": {
+      "sun": "D", "mon": "S", "tue": "T", "wed": "Q", "thu": "Q", "fri": "S", "sat": "S"
+    },
+    "weekdayLong": {
+      "sun": "Domingo", "mon": "Segunda", "tue": "Terça", "wed": "Quarta",
+      "thu": "Quinta", "fri": "Sexta", "sat": "Sábado"
+    },
+    "relative": {
+      "inMinutes": "em {n} min",
+      "inHours": "em {n} h",
+      "inDays": "em {n} d"
     }
   }
 }

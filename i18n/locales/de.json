@@ -270,6 +270,23 @@
       "copyLink": "Link kopieren",
       "linkCopied": "Link kopiert!",
       "done": "Fertig"
+    },
+    "settings": {
+      "title": "Speichereinstellungen",
+      "subtitle": "Steuern Sie, wie Dateien auf Ihren Speicheranbietern gespeichert werden.",
+      "saveOrderTitle": "Speicherreihenfolge",
+      "saveOrderDesc": "Dateien werden am ersten verfügbaren Ort gespeichert. Die Reihenfolge ändert sich automatisch, wenn ein Anbieter nicht verfügbar oder voll ist.",
+      "providerCloud": "Cloud",
+      "providerGoogleDrive": "Google Drive",
+      "providerLocal": "Lokal",
+      "statusAvailable": "Verfügbar",
+      "statusUnavailable": "Nicht verfügbar",
+      "statusFull": "Voll",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "currentChain": "Aktuelle Kette",
+      "resolvedEmpty": "Derzeit sind keine Anbieter verfügbar.",
+      "resetDefault": "Auf Standard zurücksetzen"
     }
   },
   "contact": {
@@ -338,6 +355,59 @@
       "copied": "Kopiert!",
       "loading": "Passwörter werden geladen…",
       "saving": "Speichern…"
+    }
+  },
+  "schedule": {
+    "title": "Zeitplan",
+    "subtitle": "„{workflow}“ automatisch nach einem wiederkehrenden Zeitplan ausführen",
+    "howOften": "Wie oft",
+    "when": "Wann",
+    "preview": "Vorschau",
+    "save": "Zeitplan speichern",
+    "saved": "Zeitplan gespeichert",
+    "activeOn": "Aktiv",
+    "activeOff": "Pausiert",
+    "atMinute": "In Minute",
+    "atTime": "Um Uhrzeit",
+    "onDays": "An diesen Tagen",
+    "onDayOfMonth": "Am Tag des Monats",
+    "cronExpr": "Cron-Ausdruck",
+    "cronHelp": "Format: Minute Stunde Tag-des-Monats Monat Wochentag",
+    "invalidCron": "Ungültiger Cron-Ausdruck",
+    "timezone": "Zeitzone",
+    "tzLocal": "Lokal ({tz})",
+    "runs": "Läuft",
+    "copyCron": "Cron kopieren",
+    "copied": "Cron-Ausdruck kopiert",
+    "nextRuns": "Nächste Ausführungen",
+    "nextRunsCount": "nächste {n}",
+    "noRuns": "Keine Ausführungen in den nächsten 60 Tagen",
+    "weeklyNoDays": "Wähle mindestens einen Tag",
+    "freq": {
+      "hourly": "Stündlich", "hourlyHint": "Jede Stunde",
+      "daily": "Täglich", "dailyHint": "Jeden Tag",
+      "weekly": "Wöchentlich", "weeklyHint": "Ausgewählte Tage",
+      "monthly": "Monatlich", "monthlyHint": "Tag des Monats",
+      "custom": "Benutzerdefiniert", "customHint": "Cron-Ausdruck"
+    },
+    "human": {
+      "hourly": "Läuft jede Stunde in Minute {minute}",
+      "daily": "Läuft täglich um {time} ({tz})",
+      "weekly": "Läuft jeden {days} um {time} ({tz})",
+      "monthly": "Läuft am {day} jedes Monats um {time} ({tz})",
+      "custom": "Läuft nach dem durch den Cron-Ausdruck definierten Zeitplan"
+    },
+    "weekdayShort": {
+      "sun": "So", "mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do", "fri": "Fr", "sat": "Sa"
+    },
+    "weekdayLong": {
+      "sun": "Sonntag", "mon": "Montag", "tue": "Dienstag", "wed": "Mittwoch",
+      "thu": "Donnerstag", "fri": "Freitag", "sat": "Samstag"
+    },
+    "relative": {
+      "inMinutes": "in {n} Min.",
+      "inHours": "in {n} Std.",
+      "inDays": "in {n} T."
     }
   }
 }

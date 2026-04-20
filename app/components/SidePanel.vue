@@ -344,9 +344,9 @@ onUnmounted(() => {
           <!-- Logo Icon -->
           <AccountIcon :initials="currentWorkspace?.name?.substring(0, 2).toUpperCase() || 'W'" size="md" />
           <!-- Title & Company -->
-          <div class="flex flex-col flex-1">
+          <div class="flex flex-col flex-1 min-w-0">
             <div class="flex items-end justify-between">
-              <span class="text-base font-bold text-neutral-950 truncate max-w-[120px]">{{ currentWorkspace?.name || 'Loading...' }}</span>
+              <span class="text-base font-bold text-neutral-950 truncate min-w-0 flex-1 mr-2">{{ currentWorkspace?.name || 'Loading...' }}</span>
               <svg class="size-4.5 text-neutral-500 mb-px" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m6 9 6 6 6-6" />

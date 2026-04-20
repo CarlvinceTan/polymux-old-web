@@ -47,33 +47,32 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="relative grid h-dvh grid-rows-[minmax(0,1fr)_auto] bg-neutral-50">
-    <div class="min-h-0 overflow-y-auto px-4">
-      <div class="mx-auto flex min-h-full w-full max-w-lg flex-col">
-        <div class="my-auto py-10 sm:py-12">
-          <div
-            class="rounded-2xl border border-neutral-200/90 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:px-7 sm:py-7"
-          >
-            <div class="mb-2.5 flex w-full justify-center sm:mb-3">
-              <NuxtLink
-                to="/"
-                class="inline-flex rounded-md text-neutral-950 outline-none ring-neutral-950 focus-visible:ring-2 focus-visible:ring-offset-2"
-                :aria-label="t('auth.polymuxHome')"
-              >
-                <PolymuxLogo class="size-14 shrink-0 sm:size-18" />
-              </NuxtLink>
-            </div>
+  <div class="flex h-dvh flex-col bg-neutral-50">
+    <div class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-4 sm:py-6 md:py-10">
+      <div class="w-full max-w-md">
+        <div
+          class="rounded-2xl border border-neutral-200/90 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:px-6 sm:py-5"
+        >
+          <div class="mb-2 flex w-full justify-center">
+            <NuxtLink
+              to="/"
+              class="inline-flex rounded-md text-neutral-950 outline-none ring-neutral-950 focus-visible:ring-2 focus-visible:ring-offset-2"
+              :aria-label="t('auth.polymuxHome')"
+            >
+              <PolymuxLogo class="size-12 shrink-0 sm:size-14" />
+            </NuxtLink>
+          </div>
 
-            <h1 class="text-center text-[1.375rem] font-semibold tracking-tight text-neutral-950 sm:text-2xl">
-              {{ t('auth.resetPassword') }}
-            </h1>
-            <p class="mt-1.5 text-center text-sm text-neutral-500 sm:mt-2">
-              {{ t('auth.resetPasswordDesc') }}
-            </p>
+          <h1 class="text-center text-[1.25rem] font-semibold tracking-tight text-neutral-950 sm:text-[1.375rem]">
+            {{ t('auth.resetPassword') }}
+          </h1>
+          <p class="mt-1 text-center text-[0.8125rem] text-neutral-500 sm:text-sm">
+            {{ t('auth.resetPasswordDesc') }}
+          </p>
 
             <div
               v-if="success"
-              class="mt-5 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 sm:mt-7 sm:py-4"
+              class="mt-4 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 sm:mt-5 sm:py-4"
               role="status"
             >
               <p class="font-medium text-neutral-950">
@@ -83,7 +82,7 @@ async function onSubmit() {
 
             <form
               v-else
-              class="mt-4 flex w-full flex-col gap-2.5 sm:mt-5 sm:gap-3"
+              class="mt-3.5 flex w-full flex-col gap-2.5 sm:mt-4 sm:gap-3"
               novalidate
               @submit.prevent="onSubmit"
             >
@@ -99,7 +98,7 @@ async function onSubmit() {
                     type="password"
                     name="password"
                     autocomplete="new-password"
-                    :placeholder="t('auth.newPassword')"
+                    placeholder="••••••••"
                     class="mt-1.5 h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none ring-neutral-950 placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10"
                   >
                 </div>
@@ -114,7 +113,7 @@ async function onSubmit() {
                     type="password"
                     name="password-confirm"
                     autocomplete="new-password"
-                    :placeholder="t('auth.confirmNewPassword')"
+                    placeholder="••••••••"
                     class="mt-1.5 h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none ring-neutral-950 placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10"
                   >
                 </div>
@@ -135,7 +134,7 @@ async function onSubmit() {
               </button>
             </form>
 
-            <p class="mt-5 text-center text-sm text-neutral-500 sm:mt-7">
+            <p class="mt-4 text-center text-[0.8125rem] text-neutral-500 sm:mt-5 sm:text-sm">
               <NuxtLink
                 to="/sign-in"
                 class="font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-2 transition-colors hover:opacity-80"
@@ -143,30 +142,9 @@ async function onSubmit() {
                 {{ t('auth.backToSignIn') }}
               </NuxtLink>
             </p>
-          </div>
         </div>
       </div>
     </div>
-
-    <p
-      class="bg-neutral-50 px-4 pt-4 text-center text-[0.8125rem] leading-relaxed text-neutral-500 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:pt-5 sm:pb-[max(1rem,env(safe-area-inset-bottom))]"
-    >
-      <span class="mx-auto block max-w-lg">
-        {{ t('auth.agreeToTerms') }}
-        <NuxtLink
-          to="/terms-of-service"
-          class="text-neutral-700 underline decoration-neutral-300 underline-offset-2 hover:text-neutral-950"
-        >
-          {{ t('auth.termsOfService') }}
-        </NuxtLink>
-        {{ t('auth.and') }}
-        <NuxtLink
-          to="/privacy-policy"
-          class="text-neutral-700 underline decoration-neutral-300 underline-offset-2 hover:text-neutral-950"
-        >
-          {{ t('auth.privacyPolicy') }}
-        </NuxtLink>{{ t('auth.andReceiveEmails') }}
-      </span>
-    </p>
+    <AuthTermsFooter />
   </div>
 </template>
