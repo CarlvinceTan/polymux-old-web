@@ -60,7 +60,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `settings` → `app/pages/settings.vue`
 * Key reusable components:
   * `FileBrowser` — self-contained file browser (search, view toggle, filter, icon/list grid); drop it anywhere users need to access files
-  * `SettingsSection` / `SettingsSectionRow` / `SettingsDropdown` / `SettingsToggle` / `SettingsSubpageLayout` — composable settings UI primitives
+  * `SettingsSection` / `SettingsSectionRow` / `SettingsDropdown` / `SettingsToggle` — composable settings UI primitives
   * `TabPanel` — scrollable tab content container
   * `PageHeader` — top navigation with tabs
   * `SidePanel` — persistent left sidebar
