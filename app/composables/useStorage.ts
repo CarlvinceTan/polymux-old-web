@@ -267,6 +267,58 @@ export function useStorage() {
     return moveFile(filePath, newPath)
   }
 
+  async function moveFolderContents(fromFullPrefix: string, toFullPrefix: string): Promise<boolean> {
+    const { data, error: listError } = await supabase.storage.from(BUCKET_NAME).list(fromFullPrefix, {
+      limit: 1000,
+      sortBy: { column: 'name', order: 'asc' },
+    })
+    if (listError) {
+      error.value = listError.message
+      return false
+    }
+    if (!data) return true
+
+    for (const item of data) {
+      if (item.id === null) {
+        const ok = await moveFolderContents(`${fromFullPrefix}${item.name}/`, `${toFullPrefix}${item.name}/`)
+        if (!ok) return false
+      } else {
+        const { error: mErr } = await supabase.storage
+          .from(BUCKET_NAME)
+          .move(`${fromFullPrefix}${item.name}`, `${toFullPrefix}${item.name}`)
+        if (mErr) {
+          error.value = mErr.message
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  async function renameFolder(folderPath: string, newName: string): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const safeName = sanitizeFolderSegment(newName)
+      if (!safeName) {
+        error.value = 'Enter a valid folder name.'
+        return false
+      }
+      const trimmed = folderPath.replace(/\/+$/, '')
+      const lastSlash = trimmed.lastIndexOf('/')
+      const parent = lastSlash >= 0 ? trimmed.slice(0, lastSlash + 1) : ''
+      const fromFullPrefix = fullPath(`${trimmed}/`)
+      const toFullPrefix = fullPath(`${parent}${safeName}/`)
+      if (fromFullPrefix === toFullPrefix) return true
+      return await moveFolderContents(fromFullPrefix, toFullPrefix)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to rename folder'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function createFolder(pathSegments: string[], name: string): Promise<boolean> {
     isLoading.value = true
     folderOpMessage.value = null
@@ -522,6 +574,7 @@ export function useStorage() {
     deleteFiles,
     moveFile,
     renameFile,
+    renameFolder,
     createFolder,
     copyStorageFile,
     copyStorageFolder,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const headerTabs = {
-  WORKSPACE: '/storage/main',
+  MAIN: '/storage/main',
   SHARED: '/storage/shared',
 } as const satisfies Record<string, string>
 

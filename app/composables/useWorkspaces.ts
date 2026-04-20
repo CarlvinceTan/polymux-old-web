@@ -4,6 +4,7 @@ export interface Workspace {
   slug: string
   avatar_url: string | null
   plan: string
+  role: string
   created_by: string
   created_at: string
   updated_at: string
@@ -12,7 +13,7 @@ export interface Workspace {
 export interface WorkspaceMember {
   workspace_id: string
   user_id: string
-  role: 'owner' | 'admin' | 'member' | 'viewer'
+  role: 'owner' | 'admin' | 'member'
   invited_by: string | null
   joined_at: string
   display_name?: string

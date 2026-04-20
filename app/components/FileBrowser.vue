@@ -10,7 +10,7 @@ const props = withDefaults(defineProps<{
   storageName: 'Workspace',
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, moveFile, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, listSharedWithMe, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, listSharedWithMe, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
 const { getIconForFile, getIconForFolder } = useFileIcons()
 
 // Check if this is shared files view
@@ -707,7 +707,11 @@ async function confirmRename() {
     return
   }
   const relativePath = stripUserPrefix(selectedItem.value.path)
-  await renameFile(relativePath, newName)
+  if (selectedItem.value.kind === 'folder') {
+    await renameFolder(relativePath, newName)
+  } else {
+    await renameFile(relativePath, newName)
+  }
   isRenaming.value = false
   deselectItem()
   await refreshFiles()
@@ -775,6 +779,7 @@ async function confirmMove() {
 
 function cancelMove() {
   isMoveModalOpen.value = false
+  movePath.value = []
 }
 
 async function handleDownload() {
@@ -800,8 +805,8 @@ async function onDropOnFolder(event: DragEvent, folder: StorageFolder) {
     const data = JSON.parse(event.dataTransfer.getData('text/plain'))
     if (!data.path || data.name === folder.name) return
     const relativePath = stripUserPrefix(data.path)
-    const destPath = movePath.value.length > 0
-      ? `${movePath.value.join('/')}/${folder.name}/${data.name}`
+    const destPath = currentPath.value.length > 0
+      ? `${currentPath.value.join('/')}/${folder.name}/${data.name}`
       : `${folder.name}/${data.name}`
     await moveFile(relativePath, destPath)
     deselectItem()
@@ -866,8 +871,8 @@ function formatFileSize(bytes: number): string {
             </div>
           </div>
 
-        <div class="relative z-10 shrink-0 bg-white">
-          <div class="px-3 py-2.5 sm:px-4 sm:py-3">
+        <div class="relative z-20 shrink-0 bg-white">
+          <div class="px-5 pt-5 pb-2.5 sm:px-6 sm:pt-6 sm:pb-3">
             <div class="flex items-center gap-2">
               <div v-if="currentPath.length > 0" class="shrink-0">
                 <button
@@ -883,7 +888,7 @@ function formatFileSize(bytes: number): string {
               </div>
 
               <div class="min-w-0 flex-1 flex flex-col">
-                <h2 class="truncate text-headline-md font-semibold text-neutral-950">
+                <h2 class="truncate text-headline-md font-semibold text-neutral-950 pl-2">
                   {{ currentDirName }}
                 </h2>
               </div>
@@ -1183,7 +1188,7 @@ function formatFileSize(bytes: number): string {
             <div v-else-if="listItemsForView.length === 0" class="min-h-0 flex-1" />
 
             <!-- Icon / list: scroll only the file grid -->
-            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 sm:p-5">
+            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
             <!-- Icon view -->
             <div v-if="viewMode === 'icon'" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))">
               <!-- Shared file workspace headers (in shared mode only) -->
@@ -1200,7 +1205,7 @@ function formatFileSize(bytes: number): string {
                 v-show="!('workspaceName' in file)"
                 :key="file.id"
                 data-file-item
-                class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer"
+                class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer w-[88px]"
                 :class="selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : ''"
                 :draggable="!isPendingRow(file)"
                 @click="handleRowClick(file)"
@@ -1209,8 +1214,7 @@ function formatFileSize(bytes: number): string {
                 @dragover="file.kind === 'folder' && !isPendingRow(file) ? onDragOver($event) : undefined"
                 @drop="file.kind === 'folder' && !isPendingRow(file) ? onDropOnFolder($event, { name: file.name, path: file.path, provider: file.provider as StorageProvider }) : undefined"
               >
-                <div class="relative size-12 rounded-lg flex items-center justify-center transition-all shrink-0">
-                  <svg class="size-10 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 
                     <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -1275,8 +1279,6 @@ function formatFileSize(bytes: number): string {
                     <path v-if="file.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline v-if="file.icon === 'file'" points="14 2 14 8 20 8" />
                   </svg>
-                  <StorageProviderIcon :provider="file.provider as StorageProvider" />
-                </div>
                 <!-- Duplicate inline name -->
                 <input
                   v-if="isPendingRow(file) && pendingDuplicate"
@@ -1313,9 +1315,10 @@ function formatFileSize(bytes: number): string {
                   @keydown.escape="cancelRename"
                   @blur="confirmRename"
                 >
-                <span v-else class="text-meta text-neutral-950 text-center line-clamp-2 wrap-break-word w-full px-0.5 leading-tight font-medium">
-                  {{ file.name }}
-                </span>
+                <div v-else class="flex items-center justify-center gap-1 w-full min-w-0">
+                  <span :title="file.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ file.name }}</span>
+                  <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                </div>
                 <!-- Permission badge for shared files -->
                 <span v-if="'permissionLevel' in file" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
                   {{ file.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
@@ -1348,8 +1351,8 @@ function formatFileSize(bytes: number): string {
                 @dragover="file.kind === 'folder' && !isPendingRow(file) ? onDragOver($event) : undefined"
                 @drop="file.kind === 'folder' && !isPendingRow(file) ? onDropOnFolder($event, { name: file.name, path: file.path, provider: file.provider as StorageProvider }) : undefined"
               >
-                <div class="relative size-9 rounded-lg flex items-center justify-center bg-neutral-100 border border-neutral-200 shrink-0">
-                  <svg class="size-4 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <div class="size-9 rounded-lg flex items-center justify-center bg-neutral-100 border border-neutral-200 shrink-0">
+                  <svg class="size-5 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 
                     <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -1414,7 +1417,6 @@ function formatFileSize(bytes: number): string {
                     <path v-if="file.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline v-if="file.icon === 'file'" points="14 2 14 8 20 8" />
                   </svg>
-                  <StorageProviderIcon well="muted" :provider="file.provider as StorageProvider" />
                 </div>
                 <!-- Duplicate inline name -->
                 <input
@@ -1453,9 +1455,10 @@ function formatFileSize(bytes: number): string {
                   @blur="confirmRename"
                 >
                 <template v-else>
-                  <span class="text-body-md text-neutral-950 truncate flex-1 min-w-0 font-medium">
-                    {{ file.name }}
-                  </span>
+                  <div class="flex items-center justify-center gap-1 flex-1 min-w-0">
+                    <span :title="file.name" class="text-body-md text-neutral-950 font-medium min-w-0 truncate">{{ file.name }}</span>
+                    <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                  </div>
                   <!-- Permission badge for shared files -->
                   <span v-if="'permissionLevel' in file" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium shrink-0">
                     {{ file.permissionLevel === 'viewer' ? 'View' : 'Edit' }}

@@ -236,7 +236,10 @@
   "workspace": {
     "team": "Team",
     "usage": "Usage",
-    "settings": "Settings"
+    "settings": "Settings",
+    "roleMember": "Member",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin"
   },
   "storage": {
     "workspace": "Workspace",

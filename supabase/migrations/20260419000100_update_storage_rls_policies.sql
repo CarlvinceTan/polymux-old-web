@@ -1,94 +1,123 @@
--- Update storage RLS policies for workspace-scoped access
+-- Fix SECURITY DEFINER on helper functions to break infinite RLS recursion.
+-- workspace_members SELECT policy calls is_workspace_member(), which queries
+-- workspace_members, triggering the policy again. SECURITY DEFINER bypasses RLS
+-- when executing these functions, breaking the cycle.
+create or replace function public.is_workspace_member(ws_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.workspace_members
+    where workspace_id = ws_id and user_id = auth.uid()
+  );
+$$;
 
--- Drop old user-based policies (if they exist)
-drop policy if exists "bucket_access_authenticated" on storage.objects;
-drop policy if exists "user_authenticated_select" on storage.objects;
-drop policy if exists "user_authenticated_insert" on storage.objects;
-drop policy if exists "user_authenticated_update" on storage.objects;
-drop policy if exists "user_authenticated_delete" on storage.objects;
+create or replace function public.get_workspace_role(ws_id uuid)
+returns workspace_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.workspace_members
+  where workspace_id = ws_id and user_id = auth.uid()
+  limit 1;
+$$;
 
--- Create new workspace-member based policies
+-- Replace old user-based storage policies with workspace-based ones.
+-- Previous version used a non-existent `bucket_path` column; correct version
+-- uses storage.foldername(name) which splits the object path into segments.
 
--- Select: Members of a workspace can read files in their workspace (main) and shared files they have access to
+drop policy if exists "Users can delete their own workspace files" on storage.objects;
+drop policy if exists "Users can read their own workspace files" on storage.objects;
+drop policy if exists "Users can update their own workspace files" on storage.objects;
+drop policy if exists "Users can upload their own workspace files" on storage.objects;
+drop policy if exists "workspace_members_select_files" on storage.objects;
+drop policy if exists "workspace_members_insert_files" on storage.objects;
+drop policy if exists "workspace_members_update_files" on storage.objects;
+drop policy if exists "workspace_members_delete_files" on storage.objects;
+
 create policy "workspace_members_select_files"
   on storage.objects for select
   to authenticated
   using (
-    -- User is member of workspace that owns this file (main directory)
-    exists (
-      select 1 from public.workspace_members wm
-      where wm.user_id = auth.uid()
-        and wm.workspace_id::text = (bucket_path)[1]
-    )
-    or
-    -- File is in shared directory and user's workspace has access
-    (
-      (bucket_path)[2] = 'shared'
-      and exists (
+    bucket_id = 'workspace-files'
+    and (
+      exists (
         select 1 from public.workspace_members wm
         where wm.user_id = auth.uid()
-          and exists (
-            select 1 from public.workspace_file_shares wfs
-            where wfs.shared_with_workspace_id = wm.workspace_id
-              and wfs.workspace_id::text = (bucket_path)[1]
-          )
+          and wm.workspace_id::text = (storage.foldername(name))[1]
+      )
+      or (
+        (storage.foldername(name))[2] = 'shared'
+        and exists (
+          select 1 from public.workspace_members wm
+          where wm.user_id = auth.uid()
+            and exists (
+              select 1 from public.file_shares wfs
+              where wfs.shared_with_workspace_id = wm.workspace_id
+                and wfs.workspace_id::text = (storage.foldername(name))[1]
+            )
+        )
       )
     )
   );
 
--- Insert: Members of a workspace can upload files to their main directory
 create policy "workspace_members_insert_files"
   on storage.objects for insert
   to authenticated
   with check (
-    (bucket_path)[2] = 'main'
+    bucket_id = 'workspace-files'
+    and (storage.foldername(name))[2] = 'main'
     and exists (
       select 1 from public.workspace_members wm
       where wm.user_id = auth.uid()
-        and wm.workspace_id::text = (bucket_path)[1]
+        and wm.workspace_id::text = (storage.foldername(name))[1]
     )
   );
 
--- Update: Members can modify files in main, or shared files with editor permission
 create policy "workspace_members_update_files"
   on storage.objects for update
   to authenticated
   using (
-    -- Can update own workspace main files
-    (
-      (bucket_path)[2] = 'main'
-      and exists (
-        select 1 from public.workspace_members wm
-        where wm.user_id = auth.uid()
-          and wm.workspace_id::text = (bucket_path)[1]
+    bucket_id = 'workspace-files'
+    and (
+      (
+        (storage.foldername(name))[2] = 'main'
+        and exists (
+          select 1 from public.workspace_members wm
+          where wm.user_id = auth.uid()
+            and wm.workspace_id::text = (storage.foldername(name))[1]
+        )
       )
-    )
-    or
-    -- Can update shared files with editor permission
-    (
-      (bucket_path)[2] = 'shared'
-      and exists (
-        select 1 from public.workspace_members wm
-        where wm.user_id = auth.uid()
-          and exists (
-            select 1 from public.workspace_file_shares wfs
-            where wfs.shared_with_workspace_id = wm.workspace_id
-              and wfs.workspace_id::text = (bucket_path)[1]
-              and wfs.permission_level = 'editor'
-          )
+      or (
+        (storage.foldername(name))[2] = 'shared'
+        and exists (
+          select 1 from public.workspace_members wm
+          where wm.user_id = auth.uid()
+            and exists (
+              select 1 from public.file_shares wfs
+              where wfs.shared_with_workspace_id = wm.workspace_id
+                and wfs.workspace_id::text = (storage.foldername(name))[1]
+                and wfs.permission_level = 'editor'
+            )
+        )
       )
     )
   );
 
--- Delete: Members can delete files from main directory only, not shared files
 create policy "workspace_members_delete_files"
   on storage.objects for delete
   to authenticated
   using (
-    (bucket_path)[2] = 'main'
+    bucket_id = 'workspace-files'
+    and (storage.foldername(name))[2] = 'main'
     and exists (
       select 1 from public.workspace_members wm
       where wm.user_id = auth.uid()
-        and wm.workspace_id::text = (bucket_path)[1]
+        and wm.workspace_id::text = (storage.foldername(name))[1]
     )
   );

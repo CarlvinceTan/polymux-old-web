@@ -22,23 +22,18 @@ const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const warningMessage = ref<string | null>(null)
-const hasParentShare = ref(false)
 
-// Check if current user can share (must be workspace owner)
-// Currently we assume the user can share - backend will validate
-const canShare = computed(() => {
-  return !!currentWorkspace.value && !!user.value
-})
+const canShare = computed(() => !!currentWorkspace.value && !!user.value)
 
-// Get list of other workspaces (exclude current workspace)
-const availableWorkspaces = computed(() => {
-  return workspaces.value.filter(ws => ws.id !== currentWorkspace.value?.id)
-})
+const availableWorkspaces = computed(() =>
+  workspaces.value.filter(ws => ws.id !== currentWorkspace.value?.id),
+)
 
 function toggleWorkspace(workspaceId: string) {
   if (selectedWorkspaceIds.value.has(workspaceId)) {
     selectedWorkspaceIds.value.delete(workspaceId)
-  } else {
+  }
+  else {
     selectedWorkspaceIds.value.add(workspaceId)
   }
 }
@@ -49,44 +44,34 @@ function isWorkspaceSelected(workspaceId: string): boolean {
 
 async function checkParentShare() {
   warningMessage.value = null
-  hasParentShare.value = false
-  
   try {
     const result = await validateSubdirectoryShare(props.item.path)
     if (!result.canShare) {
-      hasParentShare.value = true
       warningMessage.value = result.message || 'This directory is within an already shared folder'
     }
-  } catch (err) {
-    // Validation errors are not critical - allow sharing anyway
+  }
+  catch (err) {
     console.error('Subdirectory validation failed:', err)
   }
 }
 
 async function shareWithSelected() {
   if (selectedWorkspaceIds.value.size === 0) return
-  
-
   isLoading.value = true
   errorMessage.value = null
   successMessage.value = null
-  
   try {
-    // Share with each selected workspace
     for (const workspaceId of selectedWorkspaceIds.value) {
       const success = await shareDirectory(props.item.path, workspaceId, permissionLevel.value)
-      if (!success) {
-        throw new Error(`Failed to share with workspace`)
-      }
+      if (!success) throw new Error('Failed to share with workspace')
     }
-    
     successMessage.value = `Shared with ${selectedWorkspaceIds.value.size} workspace${selectedWorkspaceIds.value.size !== 1 ? 's' : ''}`
-    setTimeout(() => {
-      emit('close')
-    }, 1500)
-  } catch (err) {
+    setTimeout(() => emit('close'), 1500)
+  }
+  catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'Failed to share'
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }
@@ -120,64 +105,51 @@ onMounted(() => {
         leave-to-class="opacity-0 scale-95"
         appear
       >
-        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white border border-neutral-200 shadow-2xl overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-5 pt-5 pb-4">
-            <h3 class="text-headline-md font-semibold text-neutral-950 truncate pr-4">
-              {{ t('storage.share.title') }} "{{ item.name }}"
-            </h3>
+        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200 overflow-hidden">
+
+          <!-- Title -->
+          <div class="relative px-5 pt-5 pb-4">
             <button
-              class="shrink-0 flex items-center justify-center size-8 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+              class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
               @click="emit('close')"
             >
               <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
+                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
               </svg>
             </button>
+            <h3 class="text-sm font-semibold text-neutral-900 pr-8 truncate">
+              {{ t('storage.share.title') }} "{{ item.name }}"
+            </h3>
           </div>
 
-          <!-- Error message -->
-          <div v-if="errorMessage" class="px-5 pt-3 pb-2">
-            <div class="px-3 py-2 rounded-lg bg-red-50 border border-red-200">
-              <p class="text-body-sm text-red-700">{{ errorMessage }}</p>
+          <!-- Body -->
+          <div class="px-5 pb-5 border-t border-neutral-100 space-y-5 pt-4">
+
+            <!-- Status messages -->
+            <div v-if="errorMessage" class="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+              <p class="text-xs text-red-700">{{ errorMessage }}</p>
             </div>
-          </div>
-
-          <!-- Success message -->
-          <div v-if="successMessage" class="px-5 pt-3 pb-2">
-            <div class="px-3 py-2 rounded-lg bg-green-50 border border-green-200">
-              <p class="text-body-sm text-green-700">{{ successMessage }}</p>
+            <div v-if="successMessage" class="rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+              <p class="text-xs text-green-700">{{ successMessage }}</p>
             </div>
-          </div>
-
-          <!-- Warning: Parent share exists -->
-          <div v-if="warningMessage" class="px-5 pt-3 pb-2">
-            <div class="px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200">
-              <p class="text-body-sm text-yellow-700">{{ warningMessage }}</p>
+            <div v-if="warningMessage" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+              <p class="text-xs text-amber-700">{{ warningMessage }}</p>
             </div>
-          </div>
-
-          <!-- Warning: Only owners can share -->
-          <div v-if="!canShare" class="px-5 pt-3 pb-2">
-            <div class="px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200">
-              <p class="text-body-sm text-yellow-700">{{ t('storage.share.ownerOnly') || 'Only workspace owners can share files' }}</p>
+            <div v-if="!canShare" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+              <p class="text-xs text-amber-700">{{ t('storage.share.ownerOnly') || 'Only workspace owners can share files' }}</p>
             </div>
-          </div>
 
-          <!-- Content -->
-          <div class="px-5 py-4 border-t border-neutral-100">
-            <!-- Permission level selector -->
-            <div class="mb-4">
-              <p class="text-body-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2">
-                {{ t('storage.share.permissionLevel') || 'Permission Level' }}
-              </p>
-              <div class="flex gap-2">
+            <!-- Permission level -->
+            <div>
+              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.permissionLevel') || 'Permission level' }}</p>
+              <div class="flex items-center rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 w-fit">
                 <button
                   v-for="level in (['viewer', 'editor'] as PermissionLevel[])"
                   :key="level"
-                  class="flex-1 px-3 py-2 rounded-lg text-body-sm font-medium transition-colors"
-                  :class="permissionLevel === level ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'"
+                  class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+                  :class="permissionLevel === level
+                    ? 'bg-white text-neutral-950 shadow-sm ring-1 ring-neutral-200/80'
+                    : 'text-neutral-500 hover:text-neutral-700'"
                   @click="permissionLevel = level"
                 >
                   {{ level === 'viewer' ? t('storage.share.viewer') : t('storage.share.editor') }}
@@ -185,30 +157,30 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Workspaces list -->
+            <!-- Workspace list -->
             <div>
-              <p class="text-body-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-                {{ t('storage.share.selectWorkspaces') || 'Select Workspaces' }}
-              </p>
+              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.selectWorkspaces') || 'Select workspaces' }}</p>
               <div v-if="availableWorkspaces.length === 0" class="py-6 text-center">
-                <p class="text-body-sm text-neutral-500">{{ t('storage.share.noOtherWorkspaces') || 'No other workspaces available' }}</p>
+                <p class="text-sm text-neutral-400">{{ t('storage.share.noOtherWorkspaces') || 'No other workspaces available' }}</p>
               </div>
-              <div v-else class="space-y-2 max-h-64 overflow-y-auto">
+              <div v-else class="space-y-2 max-h-56 overflow-y-auto">
                 <label
                   v-for="workspace in availableWorkspaces"
                   :key="workspace.id"
-                  class="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 hover:bg-neutral-50 transition-colors cursor-pointer"
-                  :class="isWorkspaceSelected(workspace.id) ? 'bg-blue-50 border-blue-300' : ''"
+                  class="flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer"
+                  :class="isWorkspaceSelected(workspace.id)
+                    ? 'bg-neutral-50 border-neutral-400'
+                    : 'border-neutral-200 hover:bg-neutral-50'"
                 >
                   <input
                     type="checkbox"
                     :checked="isWorkspaceSelected(workspace.id)"
-                    class="rounded-md border-neutral-300 text-neutral-950 focus:ring-neutral-950"
+                    class="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
                     @change="toggleWorkspace(workspace.id)"
                   >
                   <div class="flex-1 min-w-0">
-                    <p class="text-body-md font-medium text-neutral-950">{{ workspace.name }}</p>
-                    <p class="text-body-sm text-neutral-500">{{ workspace.slug }}</p>
+                    <p class="text-sm font-medium text-neutral-950">{{ workspace.name }}</p>
+                    <p class="text-xs text-neutral-400">{{ workspace.slug }}</p>
                   </div>
                 </label>
               </div>
@@ -216,20 +188,22 @@ onMounted(() => {
           </div>
 
           <!-- Footer -->
-          <div class="border-t border-neutral-100 px-5 py-4 flex items-center justify-end gap-3">
+          <div class="border-t border-neutral-100 px-5 py-3.5 flex items-center justify-end gap-2">
             <button
-              class="px-4 py-2 rounded-lg text-body-md font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+              class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
               @click="emit('close')"
             >
               {{ t('storage.share.cancel') || 'Cancel' }}
             </button>
             <button
-              class="px-4 py-2 rounded-lg text-body-md font-medium transition-colors"
-              :class="canShare && selectedWorkspaceIds.size > 0 && !isLoading ? 'bg-neutral-950 text-white hover:bg-neutral-800' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'"
+              class="rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              :class="canShare && selectedWorkspaceIds.size > 0 && !isLoading
+                ? 'bg-neutral-950 text-white hover:bg-neutral-800'
+                : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'"
               :disabled="!canShare || selectedWorkspaceIds.size === 0 || isLoading"
               @click="shareWithSelected"
             >
-              {{ isLoading ? t('storage.share.sharing') || 'Sharing...' : t('storage.share.share') || 'Share' }}
+              {{ isLoading ? t('storage.share.sharing') || 'Sharing…' : t('storage.share.share') || 'Share' }}
             </button>
           </div>
         </div>
@@ -237,4 +211,3 @@ onMounted(() => {
     </div>
   </Transition>
 </template>
-

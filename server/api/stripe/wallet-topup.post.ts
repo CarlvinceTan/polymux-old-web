@@ -15,15 +15,30 @@ export default defineEventHandler(async (event) => {
 
   const workspaceId = body.workspaceId as string | undefined
   const amountCents = body.amountCents as number | undefined
-  const currency = (typeof body.currency === 'string' ? body.currency : 'usd') as string
+  const currency = (typeof body.currency === 'string' ? body.currency : 'usd').toLowerCase()
 
   if (!workspaceId) {
     throw createError({ statusCode: 400, statusMessage: 'workspace_id is required.' })
   }
 
-  const validAmounts = [500, 1000, 2500, 5000, 10000]
-  if (!amountCents || !validAmounts.includes(amountCents)) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid amount. Must be 500, 1000, 2500, 5000, or 10000 cents.' })
+  const supportedCurrencies = ['usd', 'eur', 'gbp', 'aud', 'cad', 'jpy', 'brl', 'krw']
+  if (!supportedCurrencies.includes(currency)) {
+    throw createError({ statusCode: 400, statusMessage: 'Unsupported currency.' })
+  }
+
+  const zeroDecimal = ['jpy', 'krw'].includes(currency)
+  const minAmount = zeroDecimal ? 100 : 100
+  const maxAmount = zeroDecimal ? 1_000_000 : 100_000
+  if (
+    typeof amountCents !== 'number'
+    || !Number.isInteger(amountCents)
+    || amountCents < minAmount
+    || amountCents > maxAmount
+  ) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Invalid amount. Must be an integer between ${minAmount} and ${maxAmount} minor units.`,
+    })
   }
 
   const stripe = useStripe()

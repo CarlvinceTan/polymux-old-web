@@ -13,17 +13,8 @@ export default defineEventHandler(async (event) => {
 
   const supabase = await serverSupabaseClient(event)
 
-  const { data: membership } = await supabase
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    throw createError({ statusCode: 403, statusMessage: 'You are not a member of this workspace.' })
-  }
-
+  // RLS on file_shares already enforces that the caller must be a member of shared_with_workspace_id.
+  // Non-members simply get an empty array rather than a 403.
   const { data, error } = await supabase
     .from('file_shares')
     .select('workspace_id, file_path, permission_level, created_by, created_at')

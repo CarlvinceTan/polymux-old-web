@@ -64,7 +64,7 @@ function memberInitials(m: WorkspaceMember) {
 
 const isInviteOpen = ref(false)
 const inviteEmails = ref('')
-const inviteRole = ref<'admin' | 'member' | 'viewer'>('member')
+const inviteRole = ref<'admin' | 'member'>('member')
 const isInviting = ref(false)
 
 function openInviteModal() {
@@ -117,10 +117,9 @@ const roleBadgeClass: Record<string, string> = {
   owner: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60',
   admin: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/60',
   member: 'bg-neutral-100 text-neutral-600',
-  viewer: 'bg-neutral-50 text-neutral-500',
 }
 
-const roles = ['owner', 'admin', 'member', 'viewer'] as const
+const roles = ['owner', 'admin', 'member'] as const
 
 function handleOutsideClick(e: MouseEvent) {
   const target = e.target as Node
@@ -313,7 +312,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           >
             <option value="admin">Admin — Can manage members and settings</option>
             <option value="member">Member — Can create and edit sessions</option>
-            <option value="viewer">Viewer — Read-only access</option>
           </select>
         </div>
       </div>

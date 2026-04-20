@@ -94,7 +94,7 @@ function select(value: string) {
         <div class="relative border-t border-neutral-200/90">
           <div
             v-if="isScrollable"
-            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-neutral-50/80 to-transparent transition-opacity duration-150"
+            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-linear-to-b from-neutral-50/80 to-transparent transition-opacity duration-150"
             :class="showTopFade ? 'opacity-100' : 'opacity-0'"
           />
           <div
@@ -121,7 +121,7 @@ function select(value: string) {
           </div>
           <div
             v-if="isScrollable"
-            class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-neutral-50/80 to-transparent transition-opacity duration-150"
+            class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-linear-to-t from-neutral-50/80 to-transparent transition-opacity duration-150"
             :class="showBottomFade ? 'opacity-100' : 'opacity-0'"
           />
         </div>

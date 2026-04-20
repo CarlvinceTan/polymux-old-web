@@ -384,13 +384,13 @@ const linkGroups = [
         </div>
 
         <div class="flex items-center gap-3">
-          <!-- Download App button -->
+          <!-- Install App button -->
           <NuxtLink
             to="/install-app"
             class="hidden rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium leading-tight text-neutral-700 transition-colors hover:bg-neutral-50 md:inline-flex md:items-center md:gap-1.5 md:justify-center"
           >
             <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-[15px] shrink-0" />
-            Download App
+            Install App
           </NuxtLink>
 
           <!-- Authenticated: account menu (desktop header only) -->
@@ -515,14 +515,14 @@ const linkGroups = [
             >
               Contact Us
             </NuxtLink>
-            <!-- Download App button -->
+            <!-- Install App button -->
             <NuxtLink
               to="/install-app"
               class="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50"
               @click="mobileOpen = false"
             >
               <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0" />
-              Download App
+              Install App
             </NuxtLink>
 
             <!-- Authenticated: profile row -->

@@ -2,7 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import type { FileAttachmentState } from '~/composables/useAttachments'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -23,7 +23,7 @@ const props = withDefaults(
   },
 )
 
-const resolvedHint = computed(() => props.hint ?? t('chat.globalCommandPlaceholder'))
+const resolvedHint = computed(() => { locale.value; return props.hint ?? t('chat.globalCommandPlaceholder') })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]

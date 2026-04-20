@@ -3,22 +3,22 @@ export type StorageProvider = 'supabase' | 'google-drive' | 'local'
 
 const props = withDefaults(defineProps<{
   provider: StorageProvider
-  /** Icon tile fill behind the cloud so the tile border doesn’t show through the outline */
   well?: 'light' | 'muted'
+  inline?: boolean
 }>(), {
   well: 'light',
+  inline: false,
 })
 
 const wellClass = computed(() => (props.well === 'muted' ? 'bg-neutral-100' : 'bg-white'))
 
-/** Google Drive: coloured mark, same corner placement as before */
-const driveBadgeClass = 'pointer-events-none absolute top-0 right-0 z-10 h-5 w-5 translate-x-1/2 -translate-y-1/2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.22)]'
+const driveBadgeClass = computed(() => props.inline
+  ? 'shrink-0 size-3'
+  : 'pointer-events-none absolute top-0 right-0 z-10 h-5 w-5 translate-x-1/2 -translate-y-1/2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.22)]')
 
-/**
- * Cloud: rounded knockout matches the file icon well, then outline cloud on top.
- * Slightly larger than the glyph so the tile’s corner border is covered.
- */
-const cloudWrapClass = 'pointer-events-none absolute top-0 right-0 z-10 flex size-4 translate-x-1/2 -translate-y-1/2 items-center justify-center text-neutral-600'
+const cloudWrapClass = computed(() => props.inline
+  ? 'shrink-0 flex size-3 items-center justify-center text-neutral-500'
+  : 'pointer-events-none absolute top-0 right-0 z-10 flex size-4 translate-x-1/2 -translate-y-1/2 items-center justify-center text-neutral-600')
 </script>
 
 <template>
@@ -29,7 +29,7 @@ const cloudWrapClass = 'pointer-events-none absolute top-0 right-0 z-10 flex siz
     aria-hidden="true"
   >
     <svg
-      class="size-3 shrink-0"
+      :class="props.inline ? 'size-3 shrink-0' : 'size-4 shrink-0'"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

@@ -39,6 +39,7 @@ export function useUserSettings() {
     }
 
     const uid = user.value.id
+    if (!uid) return
 
     // Skip re-fetch if we already have data for this user (unless forced).
     if (!force && fetchedForUserId === uid) return

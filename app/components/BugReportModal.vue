@@ -40,15 +40,15 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               aria-label="Report a bug"
               @click.stop
             >
-              <div class="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
-                <h3 class="text-sm font-semibold text-neutral-900">Report a Bug</h3>
+              <div class="relative px-5 pt-5 pb-4">
                 <button
                   type="button"
-                  class="rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                  class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
                   @click="isOpen = false"
                 >
                   <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
                 </button>
+                <h3 class="text-sm font-semibold text-neutral-900 pr-8">Report a Bug</h3>
               </div>
               <BugReportForm @close="isOpen = false" />
             </div>

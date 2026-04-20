@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const headerTabs = {
-  WORKSPACE: '/storage/main',
+  MAIN: '/storage/main',
   SHARED: '/storage/shared',
 } as const satisfies Record<string, string>
 
@@ -14,7 +14,7 @@ const user = useSupabaseUser()
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <GuestPlaceholder v-if="!user" />
-      <FileBrowser v-else storage-name="Workspace" class="min-h-0 min-w-0 flex-1" />
+      <FileBrowser v-else storage-name="Main" class="min-h-0 min-w-0 flex-1" />
     </div>
   </div>
 </template>
