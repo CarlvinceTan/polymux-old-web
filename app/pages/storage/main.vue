@@ -11,8 +11,9 @@ const headerTabs = {
     <header class="shrink-0">
       <PageHeader :tabs="headerTabs" />
     </header>
-    <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+    <div class="relative flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <FileBrowser storage-name="Main" class="min-h-0 min-w-0 flex-1" />
+      <StorageProviderUsageOverlay />
     </div>
   </div>
 </template>

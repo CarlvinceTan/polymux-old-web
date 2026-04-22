@@ -4,7 +4,7 @@ definePageMeta({ layout: 'landing' })
 
 <template>
   <LegalDocPage
-    doc-slug="about"
+    doc-slug="about-us"
     page-title="About us"
     page-subtitle="What Polymux is building and who we serve."
   />

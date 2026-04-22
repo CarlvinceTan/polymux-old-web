@@ -31,7 +31,7 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
     if (!real) return
     setPendingPrompt(real.id, { text, attachments })
     command.value = ''
-    await navigateTo(`/workflow/${real.id}/console`)
+    await navigateTo(`/workflow/${real.id}/agent`)
   } finally {
     isPromoting.value = false
   }

@@ -44,10 +44,13 @@ const {
   deleteSession,
 } = useChatSessions()
 
-// Writable list bound to the draggable directive. Synced from `sessions`
-// (draft + real) but locally mutated during drag. On drag end, the resulting
-// real-session order is written back to `realSessions` and persisted per
-// workspace.
+// Writable list bound to the draggable directive. Derived from `realSessions`
+// (source of truth) + `draft` + a per-workspace saved order. SortableJS
+// mutates this in place during drag; on drop we persist the new order to
+// localStorage. IMPORTANT: always mutate this array in place (splice) —
+// `vue-draggable-plus` captures the array reference at mount time and has no
+// `updated` hook, so reassigning `.value = newArray` leaves the library
+// pointing at a stale reference and drag reorders silently fail.
 const displaySessions = ref<ChatSession[]>([])
 
 const workflowOrderKey = computed(
@@ -71,32 +74,28 @@ function saveOrder(ids: string[]) {
   } catch {}
 }
 
+// Sort real sessions by the saved order. Sessions not yet in the saved order
+// (e.g. a freshly-promoted draft) keep their position from `list` and land at
+// the top — so a draft that upgrades to a real workflow stays in place.
 function applySavedOrder(list: ChatSession[]): ChatSession[] {
   const saved = loadSavedOrder()
   if (saved.length === 0) return list.slice()
+  const savedSet = new Set(saved)
   const byId = new Map(list.map(s => [s.id, s]))
-  const ordered: ChatSession[] = []
-  for (const id of saved) {
+  const unknowns = list.filter(s => !savedSet.has(s.id))
+  const knowns = saved.flatMap(id => {
     const s = byId.get(id)
-    if (s) { ordered.push(s); byId.delete(id) }
-  }
-  for (const s of list) {
-    if (byId.has(s.id)) ordered.push(s)
-  }
-  return ordered
-}
-
-let suppressRebuild = false
-function rebuildDisplay() {
-  const ordered = applySavedOrder(realSessions.value)
-  displaySessions.value = draft.value ? [draft.value, ...ordered] : ordered
+    return s ? [s] : []
+  })
+  return [...unknowns, ...knowns]
 }
 
 watch(
   [realSessions, draft, currentWorkspaceId],
   () => {
-    if (suppressRebuild) { suppressRebuild = false; return }
-    rebuildDisplay()
+    const ordered = applySavedOrder(realSessions.value)
+    const next = draft.value ? [draft.value, ...ordered] : ordered
+    displaySessions.value.splice(0, displaySessions.value.length, ...next)
   },
   { deep: true, immediate: true },
 )
@@ -107,27 +106,78 @@ function onDragMove(evt: { related?: HTMLElement }): boolean {
   return !evt.related?.classList?.contains('wf-draft')
 }
 
-// Lock the fallback drag preview to the Y axis. SortableJS rewrites the
-// preview's transform every frame; we strip the X component in a rAF loop so
-// the row slides only up and down within the column.
+// SortableJS rewrites the clone's transform as `matrix(...)` on every pointer
+// move and sets inline `opacity: 0.8`. Each frame we force opacity to 1, lock
+// X to 0 (column-only), and clamp Y to the first/last real row.
+//
+// `naturalY` tracks the unclamped cursor offset since drag start (by summing
+// the deltas SortableJS applies each frame). When the cursor is past a bound,
+// we hold the clone at the clamp; the clone only starts following again once
+// the cursor re-enters the valid range — rather than tracking the cursor
+// step-for-step from the clamped position.
 let dragRaf: number | null = null
+let listEl: HTMLElement | null = null
+let naturalY = 0
+let lastClampedY = 0
+// Reactive: drag-in-progress flag. Used to suppress per-row hover affordances
+// (e.g. the 3-dot menu trigger) on rows the cursor passes over during drag.
+const isDragging = ref(false)
 
-function lockDragX() {
+function constrainDragPreview() {
   const el = document.querySelector<HTMLElement>('.wf-drag')
-  if (el) {
-    const t = el.style.transform
-    const m = t.match(/translate3d\([^,]+,\s*([^,]+),/)
-    if (m) {
-      const locked = `translate3d(0px, ${m[1]}, 0px)`
-      if (t !== locked) el.style.transform = locked
+  if (el && listEl) {
+    if (el.style.opacity !== '1') el.style.opacity = '1'
+
+    let currentY = lastClampedY
+    const tf = el.style.transform
+    if (tf) {
+      try { currentY = new DOMMatrix(tf).f } catch {}
+    }
+    // SortableJS added cursor delta to our last-written Y.
+    naturalY += currentY - lastClampedY
+
+    // Exclude the draft row (pinned at top) and the clone itself (appended
+    // inside the <ul> when `fallbackOnBody: false`). That leaves the real
+    // rows + invisible ghost — the slot span the clone is allowed to cover.
+    const rows = listEl.querySelectorAll<HTMLElement>('li:not(.wf-draft):not(.wf-drag)')
+    const first = rows[0]
+    const last = rows[rows.length - 1]
+
+    if (first && last) {
+      const cloneRect = el.getBoundingClientRect()
+      // Where the clone rect would sit if we applied `naturalY` instead of
+      // whatever SortableJS currently has in the DOM.
+      const shift = naturalY - currentY
+      const naturalTop = cloneRect.top + shift
+      const naturalBottom = cloneRect.bottom + shift
+      // Use offsetTop, not getBoundingClientRect, for first/last row bounds.
+      // During sibling reorder, SortableJS applies temporary CSS transforms to
+      // animate the rows — getBoundingClientRect returns the animating visual
+      // position, which lags the final layout. offsetTop reflects the new
+      // layout immediately, so the clamp doesn't lurch during the 200ms swap.
+      const listRect = listEl.getBoundingClientRect()
+      const topBound = listRect.top + first.offsetTop - listEl.scrollTop
+      const bottomBound = listRect.top + last.offsetTop + last.offsetHeight - listEl.scrollTop
+
+      let clampedY = naturalY
+      if (naturalTop < topBound) clampedY = naturalY + (topBound - naturalTop)
+      else if (naturalBottom > bottomBound) clampedY = naturalY - (naturalBottom - bottomBound)
+
+      const locked = `translate3d(0px, ${clampedY}px, 0px)`
+      if (el.style.transform !== locked) el.style.transform = locked
+      lastClampedY = clampedY
     }
   }
-  dragRaf = requestAnimationFrame(lockDragX)
+  dragRaf = requestAnimationFrame(constrainDragPreview)
 }
 
-function onDragStart() {
+function onDragStart(evt: { from: HTMLElement }) {
+  listEl = evt.from
+  naturalY = 0
+  lastClampedY = 0
+  isDragging.value = true
   if (dragRaf != null) cancelAnimationFrame(dragRaf)
-  dragRaf = requestAnimationFrame(lockDragX)
+  dragRaf = requestAnimationFrame(constrainDragPreview)
 }
 
 function onDragEnd() {
@@ -135,10 +185,13 @@ function onDragEnd() {
     cancelAnimationFrame(dragRaf)
     dragRaf = null
   }
-  const reordered = displaySessions.value.filter(s => s.id !== DRAFT_SESSION_ID)
-  saveOrder(reordered.map(s => s.id))
-  suppressRebuild = true
-  realSessions.value = reordered
+  listEl = null
+  isDragging.value = false
+  saveOrder(
+    displaySessions.value
+      .filter(s => s.id !== DRAFT_SESSION_ID)
+      .map(s => s.id),
+  )
 }
 
 onBeforeUnmount(() => {
@@ -146,13 +199,19 @@ onBeforeUnmount(() => {
 })
 
 const draggableOptions = {
-  animation: 200,
-  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  // Match the enter/leave transitions (220ms ease) so siblings shifting for a
+  // drag reorder move with the same feel as when a workflow is added/deleted.
+  animation: 220,
+  easing: 'ease',
+  direction: 'vertical',
   filter: '.wf-draft',
   preventOnFilter: false,
   forceFallback: true,
-  fallbackOnBody: true,
+  fallbackOnBody: false,
   fallbackTolerance: 3,
+  scroll: true,
+  scrollSensitivity: 30,
+  scrollSpeed: 10,
   ghostClass: 'wf-ghost',
   chosenClass: 'wf-chosen',
   dragClass: 'wf-drag',
@@ -691,7 +750,7 @@ onUnmounted(() => {
               @mouseenter="hoveredWorkflowId = session.id"
               @mouseleave="hoveredWorkflowId = null"
               class="relative flex w-full cursor-pointer items-center rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950 outline-none"
-              :class="isWorkflowListItemActive(session.id) ? 'bg-neutral-300' : 'hover:bg-neutral-200/90'">
+              :class="isWorkflowListItemActive(session.id) ? 'bg-neutral-300' : (isDragging ? '' : 'hover:bg-neutral-200/90')">
               <span
                 class="min-w-0 flex-1 truncate"
                 :title="session.title"
@@ -699,7 +758,7 @@ onUnmounted(() => {
               >{{ session.title }}</span>
               <div
                 class="shrink-0 overflow-hidden"
-                :class="(hoveredWorkflowId === session.id || activeDropdownIndex === session.id) ? 'w-4 ml-1.5' : 'w-0'"
+                :class="(!isDragging && (hoveredWorkflowId === session.id || activeDropdownIndex === session.id)) ? 'w-4 ml-1.5' : 'w-0'"
                 @click.stop
               >
                 <svg @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
@@ -951,7 +1010,11 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* Drag-to-reorder affordance (real sessions only). */
+/* Drag-to-reorder affordance (real sessions only). Disable text selection on
+   rows so a quick mousedown before the drag threshold can't highlight text. */
+.wf-item {
+  user-select: none;
+}
 .wf-item > div:first-child {
   cursor: grab;
 }
@@ -962,20 +1025,16 @@ onUnmounted(() => {
   cursor: grabbing;
 }
 
-/* Ghost left in place while dragging. */
+/* Placeholder slot while dragging: invisible but occupies the row's space so
+   siblings animate around a gap. */
 .wf-ghost {
-  opacity: 0.35;
-  transition: opacity 0.18s ease;
-}
-.wf-ghost > div:first-child {
-  background-color: var(--color-neutral-200);
+  opacity: 0;
 }
 
-/* Floating drag preview. Transform is rewritten every frame by SortableJS
-   (with the X component zeroed by `lockDragX`), so don't transition it. */
+/* Floating clone that follows the cursor. Styled to look identical to a
+   stationary row — no shadow, no tint. Opacity and transform are rewritten
+   every frame by `constrainDragPreview`, which also clamps Y to the list. */
 .wf-drag {
-  opacity: 0.95;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.15s ease;
+  box-shadow: none;
 }
 </style>

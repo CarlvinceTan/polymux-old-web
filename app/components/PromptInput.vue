@@ -15,7 +15,7 @@ const props = withDefaults(
     fullWidth?: boolean
     attachments?: FileAttachmentState[]
     disabled?: boolean
-    sessionMode?: 'build' | 'casual'
+    sessionMode?: 'builder' | 'general'
   }>(),
   {
     hint: undefined,
@@ -24,7 +24,7 @@ const props = withDefaults(
     fullWidth: false,
     attachments: () => [],
     disabled: false,
-    sessionMode: 'build',
+    sessionMode: 'general',
   },
 )
 
@@ -300,24 +300,24 @@ function onFileInputChange(e: Event) {
       </button>
       <button type="button"
         role="switch"
-        :aria-checked="props.sessionMode === 'casual'"
-        :aria-label="t(props.sessionMode === 'build' ? 'workflow.switchToCasual' : 'workflow.switchToBuild')"
+        :aria-checked="props.sessionMode === 'general'"
+        :aria-label="t(props.sessionMode === 'builder' ? 'workflow.switchToGeneral' : 'workflow.switchToBuilder')"
         class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
         :class="props.fullWidth ? 'gap-1' : ''"
         @click="emit('toggle-mode')">
         <UIcon
-          :name="props.sessionMode === 'build' ? 'i-heroicons-wrench-screwdriver-20-solid' : 'i-heroicons-chat-bubble-oval-left-20-solid'"
+          :name="props.sessionMode === 'builder' ? 'i-heroicons-wrench-screwdriver-20-solid' : 'i-heroicons-chat-bubble-oval-left-20-solid'"
           class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
         <span class="grid">
           <span
             class="col-start-1 row-start-1 text-left"
-            :class="{ invisible: props.sessionMode !== 'build' }"
-          >{{ props.fullWidth ? t('workflow.build').toUpperCase() : t('workflow.build') }}</span>
+            :class="{ invisible: props.sessionMode !== 'builder' }"
+          >{{ props.fullWidth ? t('workflow.builder').toUpperCase() : t('workflow.builder') }}</span>
           <span
             class="col-start-1 row-start-1 text-left"
-            :class="{ invisible: props.sessionMode !== 'casual' }"
-          >{{ props.fullWidth ? t('workflow.casual').toUpperCase() : t('workflow.casual') }}</span>
+            :class="{ invisible: props.sessionMode !== 'general' }"
+          >{{ props.fullWidth ? t('workflow.general').toUpperCase() : t('workflow.general') }}</span>
         </span>
       </button>
     </div>

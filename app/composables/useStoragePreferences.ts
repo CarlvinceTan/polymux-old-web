@@ -26,12 +26,14 @@ function readPersisted(): StorageProvider[] {
 }
 
 let hydrated = false
+let healthProbed = false
 
 export function useStoragePreferences() {
   const user = useSupabaseUser()
   const { isInstalled } = useMarketplace()
 
   const saveOrder = useState<StorageProvider[]>('storage-save-order', () => readPersisted())
+  const localHealth = useState<ProviderStatus>('storage-local-health', () => 'unavailable')
 
   if (import.meta.client && !hydrated) {
     hydrated = true
@@ -39,6 +41,18 @@ export function useStoragePreferences() {
     if (JSON.stringify(persisted) !== JSON.stringify(saveOrder.value)) {
       saveOrder.value = persisted
     }
+  }
+
+  if (import.meta.client && !healthProbed) {
+    healthProbed = true
+    const { probe } = useLocalFileStorage()
+    probe()
+      .then((p) => {
+        if (!p.supported) localHealth.value = 'unavailable'
+        else if (p.full) localHealth.value = 'full'
+        else localHealth.value = 'available'
+      })
+      .catch(() => { localHealth.value = 'unavailable' })
   }
 
   function persist(next: StorageProvider[]) {
@@ -65,7 +79,7 @@ export function useStoragePreferences() {
   const providerStatus = computed<Record<StorageProvider, ProviderStatus>>(() => ({
     'supabase': user.value ? 'available' : 'unavailable',
     'google-drive': isInstalled('google-drive') ? 'available' : 'unavailable',
-    'local': 'available',
+    'local': localHealth.value,
   }))
 
   /** Preferred order filtered to providers that can currently accept writes. */

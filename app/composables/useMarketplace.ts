@@ -82,7 +82,7 @@ export function useMarketplace() {
     CATALOG.filter(item => isInstalled(item.id)),
   )
 
-  async function install(id: string, opts?: { migrate?: boolean }) {
+  async function install(id: string) {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
     if (!isAdmin.value) {
@@ -94,11 +94,7 @@ export function useMarketplace() {
 
     if (item.category === 'connection') {
       if (import.meta.client) {
-        // Drive's connect route honours `migrate=1` and round-trips it back via
-        // the OAuth state, so installed.vue can auto-kick the migration job
-        // once the callback finishes.
-        const migrateParam = opts?.migrate ? '&migrate=1' : ''
-        window.location.href = `/api/integrations/${id}/connect?workspace_id=${workspaceId}${migrateParam}`
+        window.location.href = `/api/integrations/${id}/connect?workspace_id=${workspaceId}`
       }
       return
     }

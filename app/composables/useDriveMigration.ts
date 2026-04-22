@@ -17,6 +17,17 @@ interface MigrationState {
   errors: { path: string, reason: string }[]
 }
 
+// Module-scoped singleton: migration is a client-only interaction, and
+// sharing the reactive state lets observers (e.g. the FileBrowser) react to
+// completion without having to coordinate via events or props.
+const state = reactive<MigrationState>({
+  status: 'idle',
+  totalMigrated: 0,
+  totalSkipped: 0,
+  remaining: null,
+  errors: [],
+})
+
 // Drives the Supabase → Drive migration loop. The endpoint is paginated
 // (default 50 files per call) and returns `done` when nothing supabase-backed
 // is left, so we just call it in a loop until done or the network errors out.
@@ -30,14 +41,6 @@ interface MigrationState {
 export function useDriveMigration() {
   const { currentWorkspace } = useWorkspaces()
   const toast = useAppToast()
-
-  const state = reactive<MigrationState>({
-    status: 'idle',
-    totalMigrated: 0,
-    totalSkipped: 0,
-    remaining: null,
-    errors: [],
-  })
 
   async function run() {
     const workspaceId = currentWorkspace.value?.id

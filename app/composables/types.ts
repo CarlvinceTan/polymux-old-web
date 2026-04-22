@@ -64,10 +64,10 @@ export interface SessionStatePayload {
   stream_priorities: AgentPriority[]
   browser_agent_cap: number
   agent_labels?: AgentLabelEntry[]
-  mode?: 'build' | 'casual'
+  mode?: 'builder' | 'general'
 }
 
-export type SessionMode = 'build' | 'casual'
+export type SessionMode = 'builder' | 'general'
 
 export interface SetSessionModePayload {
   mode: SessionMode
@@ -148,11 +148,6 @@ export interface ToolDescriptorPayload {
   text: string
 }
 
-export interface ToolUsePayload {
-  agent_id: string
-  tool_name: string
-}
-
 export interface PageNavigatedPayload {
   agent_id: string
   url: string
@@ -205,10 +200,8 @@ export interface ChatMessageAttachment {
 }
 
 export interface ChatMessage {
-  role: 'agent' | 'user' | 'thinking' | 'tool'
+  role: 'agent' | 'user' | 'thinking'
   text: string
-  /** For tool entries: the raw tool name (e.g. "MessageAgent") */
-  toolName?: string
   /** For thinking entries: the collapsed action summary line */
   action?: string
   /** For thinking entries: accumulated detail text (expandable) */

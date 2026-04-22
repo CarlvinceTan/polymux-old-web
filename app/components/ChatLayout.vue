@@ -48,14 +48,14 @@ const emit = defineEmits<{
 const workflowMode = ref(false)
 
 const injectedSession = inject<SessionHandle | null>('chat-session', null)
-const sessionMode = ref<SessionMode>('build')
+const sessionMode = ref<SessionMode>('general')
 
 if (injectedSession) {
   watch(injectedSession.sessionState, (s: Readonly<SessionStatePayload> | null) => {
-    if (s?.mode === 'casual' || s?.mode === 'build') sessionMode.value = s.mode
+    if (s?.mode === 'general' || s?.mode === 'builder') sessionMode.value = s.mode
   })
   injectedSession.on<SessionModeChangedPayload>('session_mode_changed', (p) => {
-    if (p.mode === 'casual' || p.mode === 'build') sessionMode.value = p.mode
+    if (p.mode === 'general' || p.mode === 'builder') sessionMode.value = p.mode
   })
 }
 
@@ -66,7 +66,7 @@ function setMode(next: SessionMode) {
 }
 
 function toggleMode() {
-  setMode(sessionMode.value === 'build' ? 'casual' : 'build')
+  setMode(sessionMode.value === 'builder' ? 'general' : 'builder')
 }
 
 // True when the user has not sent anything yet AND no viewports exist.

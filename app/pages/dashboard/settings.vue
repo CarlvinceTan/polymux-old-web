@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { WorkspaceMember } from '~/composables/useWorkspaces'
 
-const BROWSER_AGENT_CAPS: Record<string, number> = { free: 2, pro: 8, max: 20, enterprise: 50 }
-
 const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 const user = useSupabaseUser()
 
@@ -191,9 +189,24 @@ function memberInitials(m: WorkspaceMember) {
   return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
-const browserAgentCapValue = computed(() =>
-  BROWSER_AGENT_CAPS[currentWorkspace.value?.plan ?? 'free'] ?? BROWSER_AGENT_CAPS.free,
-)
+const planKey = computed(() => (currentWorkspace.value?.plan ?? 'free').toLowerCase())
+const planDisplayName = computed(() => {
+  const k = planKey.value
+  return k.charAt(0).toUpperCase() + k.slice(1)
+})
+
+const roleLabel = computed(() => {
+  const r = myRole.value
+  if (!r) return ''
+  return r.charAt(0).toUpperCase() + r.slice(1)
+})
+
+const upgradeQuery = computed(() => {
+  const q: Record<string, string> = { current: planKey.value }
+  if (currentWorkspace.value?.id) q.workspaceId = currentWorkspace.value.id
+  return q
+})
+const showUpgrade = computed(() => planKey.value !== 'enterprise')
 
 // Avatar upload
 const AVATAR_MAX_INPUT_BYTES = 1 * 1024 * 1024
@@ -340,30 +353,35 @@ async function removeAvatar() {
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
       <PageHeader
-      :tabs="headerTabs"
-      :separator-before-path="dashboardNavSeparatorBeforePath"
-      raw-tab-labels
-    />
+        :tabs="headerTabs"
+        :separator-before-path="dashboardNavSeparatorBeforePath"
+        raw-tab-labels
+      />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
-        <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:px-8 lg:pb-6 lg:pt-5">
-          <div class="mb-6 flex flex-col gap-1 border-b border-neutral-100 pb-5">
-            <h1 class="text-lg font-semibold tracking-tight text-neutral-950 sm:text-xl">
-              Settings
-            </h1>
-            <p class="text-body-md text-neutral-500">
-              Workspace name, plan, and lifecycle
-            </p>
-          </div>
-
-          <section class="min-w-0">
-            <h2 class="mb-3 text-label-md font-semibold uppercase tracking-widest text-neutral-400">General</h2>
-            <div class="divide-y divide-neutral-100">
-              <div class="pb-5">
-                <p class="block text-label-md font-medium text-neutral-500">Workspace Picture</p>
-                <div class="mt-2 flex items-center gap-4">
-                  <div class="size-16 shrink-0 overflow-hidden rounded-md">
+        <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto">
+          <div class="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
+            <!-- Workspace identity hero -->
+            <section class="relative overflow-hidden rounded-2xl border border-neutral-200/70 bg-gradient-to-br from-white via-white to-neutral-50">
+              <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-neutral-950 via-neutral-700 to-neutral-950" />
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(10,10,10,0.06),transparent_60%)]"
+                aria-hidden="true"
+              />
+              <div
+                class="pointer-events-none absolute right-0 top-0 h-full w-56 opacity-[0.035]"
+                style="background-image: linear-gradient(to right, #000 1px, transparent 1px), linear-gradient(to bottom, #000 1px, transparent 1px); background-size: 22px 22px;"
+                aria-hidden="true"
+              />
+              <div class="relative p-5 sm:p-6">
+                <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+                  <!-- Avatar with hover overlay -->
+                  <div
+                    class="group relative size-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-neutral-200/70 sm:size-24"
+                    :class="{ 'cursor-pointer': canManageMembers }"
+                    @click="canManageMembers && !isAvatarSaving ? triggerAvatarPicker() : null"
+                  >
                     <img
                       v-if="currentWorkspace?.avatar_url"
                       :src="currentWorkspace.avatar_url"
@@ -372,36 +390,72 @@ async function removeAvatar() {
                     />
                     <div
                       v-else
-                      class="flex h-full w-full items-center justify-center bg-neutral-950 text-[32px] font-bold text-white"
+                      class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950 text-2xl font-bold text-white sm:text-3xl"
                       aria-hidden="true"
                     >
                       {{ workspaceInitials }}
                     </div>
-                  </div>
-                  <div class="flex min-w-0 flex-1 flex-col gap-2">
-                    <div class="flex flex-wrap gap-2">
-                      <button
-                        v-if="canManageMembers"
-                        type="button"
-                        class="rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                        :disabled="isAvatarSaving"
-                        @click="triggerAvatarPicker"
-                      >
-                        {{ isAvatarSaving ? 'Uploading…' : (currentWorkspace?.avatar_url ? 'Change picture' : 'Upload picture') }}
-                      </button>
-                      <button
-                        v-if="canManageMembers && currentWorkspace?.avatar_url"
-                        type="button"
-                        class="rounded-lg bg-white px-4 py-2 text-body-md font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-50"
-                        :disabled="isAvatarSaving"
-                        @click="removeAvatar"
-                      >
-                        Remove
-                      </button>
+                    <div
+                      v-if="canManageMembers"
+                      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-[11px] font-medium text-white opacity-0 backdrop-blur-[2px] transition-opacity duration-200 group-hover:opacity-100"
+                    >
+                      <svg v-if="!isAvatarSaving" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.17 14.5c-.5-1.5-1.6-2.7-2.9-3.5a7.5 7.5 0 1 0-3.2 3.2c.8 1.3 2 2.4 3.5 2.9l2.6-2.6Z" />
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z" />
+                        <circle cx="12" cy="13" r="3.5" />
+                      </svg>
+                      <svg v-else class="size-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
+                        <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
+                      </svg>
+                      <span>{{ isAvatarSaving ? 'Uploading…' : 'Change' }}</span>
                     </div>
-                    <p class="text-label-sm text-neutral-400">You can only upload square images up to 1 MB.</p>
+                  </div>
+
+                  <!-- Identity info -->
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <h2 class="truncate text-lg font-semibold tracking-tight text-neutral-950 sm:text-xl">
+                        {{ currentWorkspace?.name || 'Workspace' }}
+                      </h2>
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                      <span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+                        <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></svg>
+                        {{ planDisplayName }} plan
+                      </span>
+                      <span
+                        v-if="roleLabel"
+                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                        :class="myRole === 'owner'
+                          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60'
+                          : myRole === 'admin'
+                            ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/60'
+                            : 'bg-neutral-100 text-neutral-600'"
+                      >
+                        <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                        {{ roleLabel }}
+                      </span>
+                    </div>
+                    <p v-if="canManageMembers" class="mt-3 text-[11px] text-neutral-500">
+                      Click the logo to upload a new image. PNG, JPG, WebP or GIF — up to 1 MB.
+                    </p>
+                  </div>
+
+                  <!-- Avatar actions -->
+                  <div v-if="canManageMembers && currentWorkspace?.avatar_url" class="flex shrink-0 gap-2 sm:flex-col">
+                    <button
+                      type="button"
+                      class="flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+                      :disabled="isAvatarSaving"
+                      @click="removeAvatar"
+                    >
+                      <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                      Remove
+                    </button>
                   </div>
                 </div>
+
                 <input
                   ref="avatarInput"
                   type="file"
@@ -410,16 +464,34 @@ async function removeAvatar() {
                   @change="handleAvatarSelected"
                 />
               </div>
-              <div class="py-5">
-                <label for="ws-name" class="block text-label-md font-medium text-neutral-500">Workspace Name</label>
-                <div class="mt-2 flex gap-2">
+            </section>
+
+            <!-- General: workspace name -->
+            <section class="rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6">
+              <div class="flex items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
+                  <svg class="size-4 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-sm font-semibold text-neutral-950">General</h3>
+                  <p class="mt-0.5 text-xs text-neutral-500">
+                    The display name your team sees across Polymux.
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-5">
+                <label for="ws-name" class="block text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+                  Workspace name
+                </label>
+                <div class="mt-2 flex flex-col gap-2 sm:flex-row">
                   <div class="relative min-w-0 flex-1">
                     <input
                       id="ws-name"
                       v-model="editName"
                       type="text"
                       :maxlength="WORKSPACE_NAME_MAX_LENGTH"
-                      class="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 px-3 py-2 pr-14 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-950/10"
+                      class="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 pr-16 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-500"
                       :disabled="!canManageMembers"
                       @focus="isNameFocused = true"
                       @blur="isNameFocused = false"
@@ -427,7 +499,7 @@ async function removeAvatar() {
                     />
                     <span
                       v-if="isNameFocused"
-                      class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] leading-none tabular-nums text-neutral-400"
+                      class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] leading-none tabular-nums text-neutral-400"
                     >
                       {{ editName.length }}/{{ WORKSPACE_NAME_MAX_LENGTH }}
                     </span>
@@ -435,75 +507,135 @@ async function removeAvatar() {
                   <button
                     v-if="canManageMembers"
                     type="button"
-                    class="rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+                    class="shrink-0 rounded-lg bg-neutral-950 px-4 py-2.5 text-body-md font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                     :disabled="isSaving || !nameValidation.ok || editName.trim() === currentWorkspace?.name"
                     @click="saveName"
                   >
-                    Save
+                    {{ isSaving ? 'Saving…' : 'Save' }}
                   </button>
                 </div>
-                <p class="mt-1.5 min-h-5 text-label-sm text-red-600">{{ nameError }}</p>
+                <div class="mt-1.5 flex items-center gap-2 text-[11px] leading-4">
+                  <p v-if="nameError" class="text-red-600">{{ nameError }}</p>
+                  <p v-else-if="editName.trim() && editName.trim() !== currentWorkspace?.name" class="text-neutral-500">
+                    Press Enter or click Save to apply changes.
+                  </p>
+                  <p v-else class="text-neutral-400">
+                    Letters, numbers and spaces — up to {{ WORKSPACE_NAME_MAX_LENGTH }} characters.
+                  </p>
+                </div>
               </div>
-              <dl class="grid grid-cols-1 gap-6 py-5 sm:grid-cols-2 sm:gap-8">
-                <div>
-                  <dt class="text-label-md font-medium text-neutral-400">Plan</dt>
-                  <dd class="mt-1 text-body-md capitalize text-neutral-800">{{ currentWorkspace?.plan || 'free' }}</dd>
+            </section>
+
+            <!-- Plan callout (configuration only — limits & usage live in /dashboard/usage) -->
+            <NuxtLink
+              to="/dashboard/usage"
+              class="group flex items-center gap-4 rounded-2xl border border-neutral-200/70 bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-sm sm:p-5"
+            >
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-700 transition-colors group-hover:bg-neutral-950 group-hover:text-white">
+                <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8" /><path d="M12 17v4" /></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="text-sm font-semibold text-neutral-950">{{ planDisplayName }} plan</h3>
+                  <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
+                    Workspace billing
+                  </span>
                 </div>
-                <div>
-                  <dt class="text-label-md font-medium text-neutral-400">Browser Agents</dt>
-                  <dd class="mt-1 text-body-md tabular-nums text-neutral-800">{{ browserAgentCapValue }} max</dd>
+                <p class="mt-1 text-xs text-neutral-500">
+                  See seats, sessions, storage and spend in
+                  <span class="font-medium text-neutral-700">Usage &amp; limits</span>.
+                </p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <NuxtLink
+                  v-if="showUpgrade"
+                  :to="{ path: '/pricing', query: upgradeQuery }"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  @click.stop
+                >
+                  <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+                  Upgrade
+                </NuxtLink>
+                <svg class="size-4 text-neutral-300 transition-colors group-hover:text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+              </div>
+            </NuxtLink>
+
+            <!-- Ownership / Membership -->
+            <section
+              v-if="canTransferOwnership || canLeaveWorkspace"
+              class="rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
+                  <svg class="size-4 text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M8 21H3v-5" /><path d="m3 21 7-7" /></svg>
                 </div>
-              </dl>
-            </div>
-          </section>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-semibold text-neutral-950">
+                    {{ canTransferOwnership ? 'Ownership' : 'Membership' }}
+                  </h3>
+                  <p class="mt-0.5 text-xs text-neutral-500">
+                    <template v-if="canTransferOwnership">
+                      Hand off this workspace to another member. You will keep admin access.
+                    </template>
+                    <template v-else>
+                      Step away from this workspace. You will lose access to its sessions, files and data.
+                    </template>
+                  </p>
+                </div>
+              </div>
 
-          <section v-if="canTransferOwnership" class="mt-10 min-w-0 border-t border-neutral-100 pt-8">
-            <h2 class="mb-2 text-label-md font-semibold uppercase tracking-widest text-neutral-400">Ownership</h2>
-            <p class="max-w-xl text-body-md leading-relaxed text-neutral-500">
-              Transfer this workspace to another member. You will become an admin once the transfer is complete.
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  v-if="canTransferOwnership"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                  @click="openTransferModal"
+                >
+                  <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M8 21H3v-5" /><path d="m3 21 7-7" /></svg>
+                  Transfer ownership
+                </button>
+                <button
+                  v-if="canLeaveWorkspace"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3.5 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+                  @click="openLeaveModal"
+                >
+                  <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                  Leave workspace
+                </button>
+              </div>
+            </section>
+
+            <!-- Danger zone -->
+            <section v-if="canDeleteWorkspace" class="overflow-hidden rounded-2xl border border-red-200/60 bg-red-50/30">
+              <div class="flex items-center gap-3 p-5 sm:p-6">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                  <svg class="size-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-sm font-semibold text-red-900">Delete workspace</h3>
+                  <p class="mt-0.5 text-xs text-red-700">
+                    Permanently removes all sessions, files and data. This cannot be undone.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="shrink-0 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white transition-opacity hover:bg-red-700 hover:opacity-90"
+                  @click="openDeleteModal"
+                >
+                  Delete workspace
+                </button>
+              </div>
+            </section>
+
+            <p class="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3.5 text-[11px] leading-relaxed text-neutral-500">
+              These settings apply only to
+              <span class="font-medium text-neutral-700">{{ currentWorkspace?.name ?? 'this workspace' }}</span>.
+              Each workspace is billed separately and has its own seats, storage and session quotas.
             </p>
-            <div class="mt-5">
-              <button
-                type="button"
-                class="rounded-lg bg-white px-4 py-2 text-body-md font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
-                @click="openTransferModal"
-              >
-                Transfer ownership
-              </button>
-            </div>
-          </section>
 
-          <section v-if="canLeaveWorkspace" class="mt-10 min-w-0 border-t border-neutral-100 pt-8">
-            <h2 class="mb-2 text-label-md font-semibold uppercase tracking-widest text-neutral-400">Membership</h2>
-            <p class="max-w-xl text-body-md leading-relaxed text-neutral-500">
-              Leave this workspace. You will lose access to its sessions, files, and data, and will need to be re-invited to rejoin.
-            </p>
-            <div class="mt-5">
-              <button
-                type="button"
-                class="rounded-lg bg-white px-4 py-2 text-body-md font-medium text-red-700 ring-1 ring-red-200 transition-colors hover:bg-red-50"
-                @click="openLeaveModal"
-              >
-                Leave workspace
-              </button>
-            </div>
-          </section>
-
-          <section v-if="canDeleteWorkspace" class="mt-10 min-w-0 border-t border-neutral-100 pt-8">
-            <h2 class="mb-2 text-label-md font-semibold uppercase tracking-widest text-red-600/90">Danger Zone</h2>
-            <p class="max-w-xl text-body-md leading-relaxed text-neutral-500">Deleting this workspace will permanently remove all sessions and data within it.</p>
-            <div class="mt-5">
-              <button
-                type="button"
-                class="rounded-lg bg-white px-4 py-2 text-body-md font-medium text-red-700 ring-1 ring-red-200 transition-colors hover:bg-red-50"
-                @click="openDeleteModal"
-              >
-                Delete workspace
-              </button>
-            </div>
-          </section>
-
-          <div class="h-4 w-full shrink-0 sm:h-5" aria-hidden="true" />
+            <div class="h-4 w-full shrink-0 sm:h-6" aria-hidden="true" />
+          </div>
         </div>
       </TabPanel>
     </div>

@@ -26,8 +26,7 @@ const isAwaitingResponse = computed(() => {
 function isActiveThinking(index: number): boolean {
   if (!props.isThinking) return false
   for (let i = index + 1; i < props.messages.length; i++) {
-    const r = props.messages[i]!.role
-    if (r !== 'thinking' && r !== 'tool') return false
+    if (props.messages[i]!.role !== 'thinking') return false
   }
   return true
 }
@@ -49,18 +48,6 @@ function isActiveThinking(index: number): boolean {
           :detail="msg.detail"
           :active="isActiveThinking(i)"
         />
-        <div v-else-if="msg.role === 'tool'" class="mb-2 flex items-center gap-1.5">
-          <UIcon
-            name="i-heroicons-wrench-screwdriver-20-solid"
-            class="size-3.5 shrink-0"
-            :class="isActiveThinking(i) ? 'tool-icon-pulse text-neutral-500' : 'text-neutral-400'"
-            aria-hidden="true"
-          />
-          <span
-            class="text-meta font-medium sm:text-xs"
-            :class="isActiveThinking(i) ? 'text-neutral-500' : 'text-neutral-400'"
-          >{{ msg.text }}</span>
-        </div>
         <AgentMessage v-else-if="msg.role === 'agent'" :text="msg.text" @retry="emit('retry-message', i)" />
         <UserMessage
           v-else-if="msg.role === 'user'"
@@ -95,14 +82,5 @@ function isActiveThinking(index: number): boolean {
 
 .typing-dot {
   animation: typing-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes tool-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.tool-icon-pulse {
-  animation: tool-pulse 1.8s ease-in-out infinite;
 }
 </style>

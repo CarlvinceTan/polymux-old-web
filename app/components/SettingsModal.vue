@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { marked } from 'marked'
-
 const isOpen = defineModel<boolean>('open', { default: false })
 
 const { t, locale, locales, setLocale } = useI18n()
@@ -19,11 +17,6 @@ const email = computed(() => user.value?.email || '')
 
 const isEmailAuth = computed(() => user.value?.app_metadata?.provider === 'email')
 
-const usedRequests = 4700
-const limitRequests = 10_000
-
-const usagePercent = computed(() => Math.min(100, Math.round((usedRequests / limitRequests) * 100)))
-
 const avatarUrl = computed(() => {
   const meta = user.value?.user_metadata
   return (meta?.avatar_url as string | undefined) || (meta?.picture as string | undefined) || null
@@ -36,10 +29,6 @@ const initials = computed(() => {
   const name = displayName.value.trim() || 'U'
   return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
 })
-
-function formatCount(n: number) {
-  return n.toLocaleString(locale.value)
-}
 
 async function onLogOut() {
   isOpen.value = false
@@ -136,70 +125,17 @@ watch(isOpen, (open) => {
   if (open) detectCurrency()
 })
 
-type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
-
-const { currentWorkspace, currentWorkspaceId } = useWorkspaces()
-
-const planKey = computed<PlanKey>(() => {
-  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
-  const normalised = raw.toLowerCase().trim()
-  if (['pro', 'max', 'enterprise'].includes(normalised)) return normalised as PlanKey
-  return 'free'
-})
-
-const upgradeQuery = computed(() => {
-  const q: Record<string, string> = { current: planKey.value }
-  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
-  return q
-})
-
-const planDisplayName = computed(() => {
-  const map: Record<PlanKey, string> = {
-    free: t('settings.freePlan'),
-    pro: t('settings.proPlan'),
-    max: t('settings.maxPlan'),
-    enterprise: t('settings.enterprisePlan'),
-  }
-  return map[planKey.value]
-})
-
-const showUpgrade = computed(() => planKey.value !== 'enterprise')
-const showManage = computed(() => planKey.value !== 'free')
-
-type LegalDoc = 'terms-of-service' | 'privacy-policy' | 'cookie-policy'
-type SettingsSubpage = LegalDoc | 'payment' | 'delete-account' | 'manage-subscription'
-
-const legalDocTitleKeys: Record<LegalDoc, string> = {
-  'terms-of-service': 'settings.termsAndConditions',
-  'privacy-policy': 'settings.privacyPolicy',
-  'cookie-policy': 'settings.cookiesPolicy',
-}
+type SettingsSubpage = 'payment' | 'delete-account'
 
 const activeSubpage = ref<SettingsSubpage | null>(null)
-const legalContent = ref<string | null>(null)
-const legalLoading = ref(false)
-
-const legalHtml = computed(() => {
-  if (!legalContent.value) return ''
-  const result = marked.parse(legalContent.value)
-  return typeof result === 'string' ? result : ''
-})
-
-async function openDoc(doc: LegalDoc) {
-  activeSubpage.value = doc
-  legalLoading.value = true
-  legalContent.value = null
-  try {
-    legalContent.value = await $fetch<string>(`/api/legal/${doc}`, { responseType: 'text' })
-  }
-  finally {
-    legalLoading.value = false
-  }
-}
 
 function openPayment() {
   activeSubpage.value = 'payment'
-  legalContent.value = null
+}
+
+function openLegalPage(path: '/terms-of-service' | '/privacy-policy' | '/cookie-policy') {
+  closeModal()
+  navigateTo(path)
 }
 
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -212,7 +148,6 @@ function resetScroll() {
 
 function closeSubpage() {
   activeSubpage.value = null
-  legalContent.value = null
   deleteSelectedReason.value = ''
   deleteDetail.value = ''
   deleteError.value = ''
@@ -266,18 +201,11 @@ async function confirmDeleteAccount() {
   }
 }
 
-function openManageSubscription() {
-  activeSubpage.value = 'manage-subscription'
-  legalContent.value = null
-}
-
 const subpageTitle = computed(() => {
   const s = activeSubpage.value
   if (!s) return ''
   if (s === 'payment') return t('settings.payment')
-  if (s === 'delete-account') return t('settings.deleteAccountTitle')
-  if (s === 'manage-subscription') return t('settings.manageSubscription')
-  return t(legalDocTitleKeys[s])
+  return t('settings.deleteAccountTitle')
 })
 
 function closeModal() {
@@ -400,86 +328,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </div>
                   </template>
 
-                  <!-- Legal docs -->
-                  <template v-else-if="activeSubpage !== 'payment' && activeSubpage !== 'manage-subscription'">
-                    <div v-if="legalLoading" class="flex items-center justify-center py-16 text-sm text-neutral-400">
-                      {{ t('common.loading') }}
-                    </div>
-                    <article
-                      v-else
-                      class="legal-doc-body pb-2 text-left text-[1.0625rem] leading-relaxed text-neutral-800"
-                      v-html="legalHtml"
-                    />
-                  </template>
-
-                  <!-- Manage subscription -->
-                  <template v-else-if="activeSubpage === 'manage-subscription'">
-                    <div class="flex flex-col gap-5 pb-2 text-left">
-                      <div class="rounded-lg bg-white p-4 ghost-panel sm:p-5">
-                        <div class="flex items-center justify-between">
-                          <div class="space-y-0.5">
-                            <p class="text-label-md font-medium text-neutral-600">{{ t('settings.currentPlan') }}</p>
-                            <p class="text-body-md font-semibold text-neutral-950">{{ planDisplayName }}</p>
-                          </div>
-                          <NuxtLink
-                            v-if="showUpgrade"
-                            :to="{ path: '/pricing', query: upgradeQuery }"
-                            class="rounded-md bg-neutral-950 px-3 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                            @click="closeModal"
-                          >
-                            {{ t('common.upgrade') }}
-                          </NuxtLink>
-                        </div>
-                      </div>
-                      <div class="space-y-2">
-                        <div class="flex items-baseline justify-between gap-3 text-label-md">
-                          <span class="font-medium text-neutral-600">{{ t('settings.requestUsage') }}</span>
-                          <span class="shrink-0 font-semibold tabular-nums text-neutral-950">{{ usagePercent }}%</span>
-                        </div>
-                        <div class="h-2.5 overflow-hidden rounded-full bg-neutral-100" role="progressbar" :aria-valuenow="usagePercent" aria-valuemin="0" aria-valuemax="100">
-                          <div class="h-full rounded-full bg-neutral-950 transition-[width] duration-300 ease-out" :style="{ width: `${usagePercent}%` }" />
-                        </div>
-                        <p class="text-label-md text-neutral-500">
-                          {{ t('settings.requestsUsed', { used: formatCount(usedRequests), limit: formatCount(limitRequests) }) }}
-                        </p>
-                      </div>
-                      <div class="divide-y divide-neutral-200/90 overflow-hidden rounded-lg bg-white ghost-panel">
-                        <button type="button" class="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 active:bg-neutral-100 sm:px-5">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-body-md font-medium text-neutral-950">{{ t('settings.changePlan') }}</p>
-                            <p class="mt-0.5 text-label-md text-neutral-500">{{ t('settings.changePlanDesc') }}</p>
-                          </div>
-                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                        </button>
-                        <button type="button" class="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 active:bg-neutral-100 sm:px-5">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-body-md font-medium text-neutral-950">{{ t('settings.topUpCredits') }}</p>
-                            <p class="mt-0.5 text-label-md text-neutral-500">{{ t('settings.topUpCreditsDesc') }}</p>
-                          </div>
-                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                        </button>
-                        <button type="button" class="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 active:bg-neutral-100 sm:px-5">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-body-md font-medium text-neutral-950">{{ t('settings.paymentMethod') }}</p>
-                            <p class="mt-0.5 text-label-md text-neutral-500">{{ t('settings.paymentMethodDesc') }}</p>
-                          </div>
-                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                        </button>
-                        <button type="button" class="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 active:bg-neutral-100 sm:px-5">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-body-md font-medium text-neutral-950">{{ t('settings.billingHistory') }}</p>
-                            <p class="mt-0.5 text-label-md text-neutral-500">{{ t('settings.billingHistoryDesc') }}</p>
-                          </div>
-                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                        </button>
-                      </div>
-                      <button type="button" class="flex w-full items-center justify-center gap-2.5 rounded-lg bg-white px-4 py-2.5 text-body-md font-medium text-error-700 transition-colors ghost-panel hover:bg-error-50">
-                        {{ t('settings.cancelSubscription') }}
-                      </button>
-                      <p class="text-center text-label-md text-neutral-400">{{ t('settings.cancelSubscriptionDesc') }}</p>
-                    </div>
-                  </template>
-
                   <!-- Payment placeholder -->
                   <p v-else class="pb-2 text-left text-[1.0625rem] leading-relaxed text-neutral-600">
                     {{ t('settings.paymentPlaceholder') }}
@@ -540,42 +388,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         </button>
                       </template>
                     </section>
-
-                  <!-- Plan & Usage -->
-                  <section class="min-w-0">
-                    <h2 class="mb-3 text-body-md font-semibold tracking-tight text-neutral-950">{{ t('settings.planAndUsage') }}</h2>
-                      <div class="space-y-5 rounded-lg bg-white p-4 ghost-panel sm:p-5">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-                          <div class="min-w-0 flex-1 space-y-1">
-                            <p class="text-label-md font-medium text-neutral-600">{{ t('settings.currentPlan') }}</p>
-                            <p class="text-body-md font-medium text-neutral-950">{{ planDisplayName }}</p>
-                            <p v-if="currentWorkspace" class="truncate text-label-md text-neutral-400">
-                              {{ currentWorkspace.name }}
-                            </p>
-                          </div>
-                          <div class="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-                            <NuxtLink v-if="showUpgrade" :to="{ path: '/pricing', query: upgradeQuery }" class="rounded-md bg-neutral-950 px-3 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="closeModal">
-                              {{ t('common.upgrade') }}
-                            </NuxtLink>
-                            <button v-if="showManage" type="button" class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md font-normal text-neutral-950 transition-colors hover:bg-neutral-50 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="openManageSubscription">
-                              {{ t('common.manage') }}
-                            </button>
-                          </div>
-                        </div>
-                        <div class="space-y-2">
-                          <div class="flex items-baseline justify-between gap-3 text-label-md">
-                            <span class="font-medium text-neutral-600">{{ t('settings.requestUsage') }}</span>
-                            <span class="shrink-0 font-semibold tabular-nums text-neutral-950">{{ usagePercent }}%</span>
-                          </div>
-                          <div class="h-2.5 overflow-hidden rounded-full bg-neutral-100" role="progressbar" :aria-valuenow="usagePercent" aria-valuemin="0" aria-valuemax="100">
-                            <div class="h-full rounded-full bg-neutral-950 transition-[width] duration-300 ease-out" :style="{ width: `${usagePercent}%` }" />
-                          </div>
-                          <p class="text-label-md text-neutral-500">
-                            {{ t('settings.requestsUsed', { used: formatCount(usedRequests), limit: formatCount(limitRequests) }) }}
-                          </p>
-                        </div>
-                      </div>
-                  </section>
 
                   <!-- Account -->
                   <SettingsSection :title="t('settings.account')">
@@ -659,17 +471,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
                   <!-- Other / Legal -->
                   <SettingsSection :title="t('settings.other')">
-                    <SettingsSectionRow clickable @click="openDoc('terms-of-service')">
+                    <SettingsSectionRow clickable @click="openLegalPage('/terms-of-service')">
                       <template #icon><UIcon name="i-heroicons-document-text-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.termsAndConditions') }}</template>
                       <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
                     </SettingsSectionRow>
-                    <SettingsSectionRow clickable @click="openDoc('privacy-policy')">
+                    <SettingsSectionRow clickable @click="openLegalPage('/privacy-policy')">
                       <template #icon><UIcon name="i-heroicons-shield-check-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.privacyPolicy') }}</template>
                       <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
                     </SettingsSectionRow>
-                    <SettingsSectionRow clickable @click="openDoc('cookie-policy')">
+                    <SettingsSectionRow clickable @click="openLegalPage('/cookie-policy')">
                       <template #icon><UIcon name="i-ph-cookie-fill" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.cookiesPolicy') }}</template>
                       <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
@@ -698,21 +510,3 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
   </ClientOnly>
 </template>
 
-<style scoped>
-.legal-doc-body :deep(p) { margin-top: 0; margin-bottom: 1rem; }
-.legal-doc-body :deep(p:last-child) { margin-bottom: 0; }
-.legal-doc-body :deep(strong) { font-weight: 600; color: rgb(10 10 10); }
-.legal-doc-body :deep(h2) { margin-top: 2.5rem; margin-bottom: 0.75rem; font-size: 1.25rem; font-weight: 600; line-height: 1.35; letter-spacing: -0.02em; color: rgb(10 10 10); }
-.legal-doc-body :deep(h2:first-child) { margin-top: 0; }
-.legal-doc-body :deep(ul), .legal-doc-body :deep(ol) { margin: 0 0 1rem; padding-left: 1.25rem; }
-.legal-doc-body :deep(li) { margin-bottom: 0.375rem; }
-.legal-doc-body :deep(li:last-child) { margin-bottom: 0; }
-.legal-doc-body :deep(a) { color: rgb(10 10 10); text-decoration: underline; text-decoration-color: rgb(212 212 212); text-underline-offset: 2px; transition: color 150ms ease, text-decoration-color 150ms ease; }
-.legal-doc-body :deep(a:hover) { color: rgb(58 58 58); text-decoration-color: rgb(163 163 163); }
-.legal-doc-body :deep(hr) { margin: 2rem 0; border: 0; border-top: 1px solid rgb(229 229 229); }
-.legal-doc-body :deep(table) { width: 100%; margin: 1rem 0 1.25rem; border-collapse: collapse; font-size: 0.9375rem; }
-.legal-doc-body :deep(th), .legal-doc-body :deep(td) { border: 1px solid rgb(229 229 229); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
-.legal-doc-body :deep(th) { font-weight: 600; background-color: rgb(250 250 250); color: rgb(10 10 10); }
-.legal-doc-body :deep(code) { font-size: 0.9em; padding: 0.1em 0.35em; border-radius: 0.25rem; background-color: rgb(245 245 245); color: rgb(23 23 23); }
-.legal-doc-body :deep(blockquote) { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid rgb(229 229 229); color: rgb(82 82 82); }
-</style>

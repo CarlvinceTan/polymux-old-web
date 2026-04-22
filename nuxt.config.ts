@@ -33,8 +33,8 @@ export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@nuxtjs/supabase", "@nuxtjs/i18n"],
   supabase: {
     redirect: false,
-    key: process.env.SUPABASE_ANON_KEY,
-    serviceKey: process.env.SUPABASE_SECRET_KEY,
+    key: process.env.SUPABASE_PUBLISHABLE_KEY,
+    secretKey: process.env.SUPABASE_SECRET_KEY,
   },
   i18n: {
     defaultLocale: "en",

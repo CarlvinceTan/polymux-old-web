@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vDraggable } from 'vue-draggable-plus'
 import type { StorageFile, StorageFolder, SharedFileReference } from '~/composables/useStorage'
 import type { SelectedItem } from '~/components/ContextualActionBar.vue'
 import type { FileIconName } from '~/composables/useFileIcons'
@@ -10,9 +11,10 @@ const props = withDefaults(defineProps<{
   storageName: 'Workspace',
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, listSharedWithMe, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, listSharedWithMe, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
 const { getIconForFile, getIconForFolder } = useFileIcons()
 const { t, locale } = useI18n()
+const toast = useAppToast()
 
 const kindI18nKey: Record<FileIconName, string> = {
   'folder': 'storage.kinds.folder',
@@ -65,6 +67,7 @@ const historyIndex = ref(0)
 
 const folders = ref<StorageFolder[]>([])
 const files = ref<StorageFile[]>([])
+const currentOrder = ref<string[]>([])
 
 // Shared files grouped by source workspace
 interface SharedFileGroup {
@@ -290,6 +293,7 @@ async function refreshFiles() {
     const result = await listFiles(currentPath.value)
     folders.value = result.folders
     files.value = result.files
+    currentOrder.value = result.order ?? []
     sharedFileGroups.value = []
   }
 }
@@ -297,6 +301,15 @@ async function refreshFiles() {
 watch(currentPath, () => {
   refreshFiles()
 }, { immediate: true })
+
+// Refresh when a Drive migration finishes so provider icons reflect the
+// new backend without requiring a manual reload.
+const { state: driveMigrationState } = useDriveMigration()
+watch(() => driveMigrationState.status, (status, prev) => {
+  if (prev === 'running' && (status === 'done' || status === 'failed')) {
+    refreshFiles()
+  }
+})
 
 function toggleSearch() {
   searchExpanded.value = !searchExpanded.value
@@ -460,11 +473,25 @@ const filteredFiles = computed(() => {
     ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt })),
   ]
 
-  allItems.sort((a, b) => {
-    if (a.kind === 'folder' && b.kind !== 'folder') return -1
-    if (a.kind !== 'folder' && b.kind === 'folder') return 1
-    return a.name.localeCompare(b.name)
-  })
+  if (currentOrder.value.length) {
+    const rank = new Map<string, number>()
+    currentOrder.value.forEach((n, i) => rank.set(n, i))
+    allItems.sort((a, b) => {
+      const ra = rank.get(a.name) ?? Number.POSITIVE_INFINITY
+      const rb = rank.get(b.name) ?? Number.POSITIVE_INFINITY
+      if (ra !== rb) return ra - rb
+      // Unranked items: folders first, then alphabetical.
+      if (a.kind === 'folder' && b.kind !== 'folder') return -1
+      if (a.kind !== 'folder' && b.kind === 'folder') return 1
+      return a.name.localeCompare(b.name)
+    })
+  } else {
+    allItems.sort((a, b) => {
+      if (a.kind === 'folder' && b.kind !== 'folder') return -1
+      if (a.kind !== 'folder' && b.kind === 'folder') return 1
+      return a.name.localeCompare(b.name)
+    })
+  }
 
   return allItems
 })
@@ -722,14 +749,6 @@ function handleRowDblClick(item: (typeof listItemsForView.value)[number]) {
   else openPreview(item)
 }
 
-function onRowDragStart(e: DragEvent, item: (typeof listItemsForView.value)[number]) {
-  if (isPendingRow(item)) {
-    e.preventDefault()
-    return
-  }
-  onDragStart(e, item)
-}
-
 function startRename() {
   if (!selectedItem.value) return
   isRenaming.value = true
@@ -815,7 +834,7 @@ async function confirmMove() {
   const destinationPath = movePath.value.length > 0
     ? `${movePath.value.join('/')}/${itemName}`
     : itemName
-  await moveFile(itemRelativePath, destinationPath)
+  await moveFile(itemRelativePath, destinationPath, selectedItem.value.kind)
   isMoveModalOpen.value = false
   deselectItem()
   await refreshFiles()
@@ -832,37 +851,170 @@ async function handleDownload() {
   await downloadFile(relativePath)
 }
 
-function onDragStart(event: DragEvent, item: typeof filteredFiles.value[number]) {
-  if (!event.dataTransfer) return
-  event.dataTransfer.setData('text/plain', JSON.stringify({
-    kind: item.kind,
-    name: item.name,
-    path: item.path,
-  }))
-  event.dataTransfer.effectAllowed = 'move'
-}
+// ---------------------------------------------------------------------------
+// Drag-and-drop: reorder + drop-into-folder via vue-draggable-plus.
+//
+// `displayItems` is a writable mirror of `listItemsForView` that SortableJS
+// mutates during a drag. On drag end we either persist the new order (pure
+// reorder) or trigger `moveFile` (drop-into-folder), depending on which zone
+// the pointer was in when the user released.
 
-async function onDropOnFolder(event: DragEvent, folder: StorageFolder) {
-  event.preventDefault()
-  if (!event.dataTransfer) return
-  try {
-    const data = JSON.parse(event.dataTransfer.getData('text/plain'))
-    if (!data.path || data.name === folder.name) return
-    const relativePath = stripUserPrefix(data.path)
-    const destPath = currentPath.value.length > 0
-      ? `${currentPath.value.join('/')}/${folder.name}/${data.name}`
-      : `${folder.name}/${data.name}`
-    await moveFile(relativePath, destPath)
-    deselectItem()
-    await refreshFiles()
-  } catch {}
-}
+type DisplayItem = (typeof listItemsForView.value)[number]
+const displayItems = ref<DisplayItem[]>([])
+let suppressRebuild = false
+let pendingDropInto: { name: string; path: string; element: HTMLElement } | null = null
 
-function onDragOver(event: DragEvent) {
-  event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
+watch(listItemsForView, (next) => {
+  if (suppressRebuild) {
+    suppressRebuild = false
+    return
   }
+  displayItems.value = [...next]
+}, { immediate: true, deep: true })
+
+function clearDropIntoHighlight() {
+  document.querySelectorAll('.fb-drop-into').forEach(el => el.classList.remove('fb-drop-into'))
+}
+
+function parseRowData(el: HTMLElement | null | undefined): { kind: 'file' | 'folder'; name: string; path: string } | null {
+  const raw = el?.dataset?.item
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && (parsed.kind === 'file' || parsed.kind === 'folder') && typeof parsed.path === 'string') {
+      return parsed
+    }
+  } catch {}
+  return null
+}
+
+function onSortableMove(evt: any, originalEvent?: Event): boolean {
+  clearDropIntoHighlight()
+  pendingDropInto = null
+
+  const related = evt.related as HTMLElement | null
+  const dragged = parseRowData(evt.dragged as HTMLElement | null)
+  const target = parseRowData(related)
+  if (!dragged || !target) return true
+
+  // Never drop onto self.
+  if (target.path === dragged.path) return false
+  // Never drop a folder into its own descendant.
+  if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
+
+  // Drop-into-folder zone: middle ~30% of a folder row. A narrower band leaves
+  // more of the row available for reorder, so siblings visibly shift as the
+  // cursor crosses row boundaries instead of being swallowed by the drop-into
+  // highlight.
+  if (target.kind === 'folder' && related) {
+    const rect: DOMRect = (evt.relatedRect as DOMRect | undefined) ?? related.getBoundingClientRect()
+    let y = 0
+    if (originalEvent) {
+      if ('clientY' in originalEvent && typeof (originalEvent as MouseEvent).clientY === 'number') {
+        y = (originalEvent as MouseEvent).clientY
+      } else if ('touches' in originalEvent && (originalEvent as TouchEvent).touches[0]) {
+        y = (originalEvent as TouchEvent).touches[0]!.clientY
+      }
+    }
+    const inMid = y >= rect.top + rect.height * 0.35 && y <= rect.bottom - rect.height * 0.35
+    if (inMid) {
+      related.classList.add('fb-drop-into')
+      pendingDropInto = { name: target.name, path: target.path, element: related }
+      return false
+    }
+  }
+  return true
+}
+
+// SortableJS's onMove only fires while the cursor is over another sortable
+// row, so moving into empty space (or back onto the dragged item) leaves
+// `pendingDropInto` stuck on the last folder that was hovered. This listener
+// runs during the whole drag and clears the pending target as soon as the
+// cursor leaves the stored folder's drop-into zone, so the highlight lets go
+// in real time and the drop doesn't fall into the wrong folder.
+function onDragPointerMove(ev: PointerEvent) {
+  if (!pendingDropInto) return
+  const rect = pendingDropInto.element.getBoundingClientRect()
+  const inside =
+    ev.clientX >= rect.left && ev.clientX <= rect.right &&
+    ev.clientY >= rect.top + rect.height * 0.35 &&
+    ev.clientY <= rect.bottom - rect.height * 0.35
+  if (!inside) {
+    pendingDropInto.element.classList.remove('fb-drop-into')
+    pendingDropInto = null
+  }
+}
+
+function onSortableStart() {
+  document.addEventListener('pointermove', onDragPointerMove, true)
+}
+
+async function onSortableEnd(evt: any) {
+  document.removeEventListener('pointermove', onDragPointerMove, true)
+  const dropTarget = pendingDropInto
+  pendingDropInto = null
+  clearDropIntoHighlight()
+
+  if (dropTarget) {
+    const dragged = parseRowData(evt.item as HTMLElement)
+    if (!dragged) {
+      suppressRebuild = true
+      displayItems.value = [...listItemsForView.value]
+      return
+    }
+
+    // Optimistic UI: the item is now (conceptually) inside the target folder,
+    // so drop it from the current view immediately instead of snapping it back
+    // and waiting on the backend. Filter from listItemsForView so the order
+    // reflects source-of-truth rather than SortableJS's mid-drag mutation.
+    suppressRebuild = true
+    displayItems.value = listItemsForView.value.filter((item) => {
+      const p = (item as { path?: unknown }).path
+      return typeof p !== 'string' || p !== dragged.path
+    })
+    deselectItem()
+
+    const relativePath = stripUserPrefix(dragged.path)
+    const destPath = `${dropTarget.path}/${dragged.name}`
+
+    // Fire-and-forget backend sync. refreshFiles reconciles with real state
+    // (including reverting the optimistic removal if the move failed).
+    void (async () => {
+      const ok = await moveFile(relativePath, destPath, dragged.kind)
+      if (!ok) toast.show(t('storage.orderSaveFailed'), 'error')
+      await refreshFiles()
+    })()
+    return
+  }
+
+  // Pure reorder — persist the new order. Pending rows and shared-mode
+  // workspace headers are excluded from the persisted list.
+  const parentPath = currentPath.value.join('/')
+  const orderedNames = displayItems.value
+    .filter(item => !isPendingRow(item) && !('workspaceName' in item))
+    .map(item => item.name)
+  currentOrder.value = orderedNames
+  const ok = await reorderFiles(parentPath, orderedNames)
+  if (!ok) {
+    toast.show(t('storage.orderSaveFailed'), 'error')
+    await refreshFiles()
+  }
+}
+
+const sortableCommon = {
+  animation: 180,
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  forceFallback: true,
+  fallbackOnBody: true,
+  fallbackTolerance: 3,
+  filter: '.fb-pending-row',
+  preventOnFilter: false,
+  ghostClass: 'fb-ghost',
+  chosenClass: 'fb-chosen',
+  dragClass: 'fb-drag',
+  onStart: onSortableStart,
+  onMove: onSortableMove,
+  onEnd: onSortableEnd,
 }
 
 function formatFileSize(bytes: number): string {
@@ -1253,29 +1405,22 @@ function formatFileSize(bytes: number): string {
 
             <!-- Icon view: padded grid with outer scroll -->
             <div v-else-if="viewMode === 'icon'" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
-            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))">
-              <!-- Shared file workspace headers (in shared mode only) -->
-              <template v-if="isSharedMode">
-                <div v-for="item in listItemsForView" :key="item.id">
-                  <div v-if="'workspaceName' in item" class="col-span-full py-2 px-2 mb-2">
-                    <p class="text-sm font-semibold text-neutral-600">{{ item.workspaceName }}</p>
-                  </div>
-                </div>
-              </template>
-              <!-- Regular file items -->
+            <div
+              v-if="!isSharedMode"
+              v-draggable="[displayItems, sortableCommon]"
+              class="grid gap-4"
+              style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))"
+            >
               <div
-                v-for="file in listItemsForView"
-                v-show="!('workspaceName' in file)"
+                v-for="file in displayItems"
                 :key="file.id"
                 data-file-item
+                :data-kind="file.kind"
+                :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path })"
                 class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer w-[88px]"
-                :class="selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : ''"
-                :draggable="!isPendingRow(file)"
+                :class="[selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : '', isPendingRow(file) ? 'fb-pending-row' : '']"
                 @click="handleRowClick(file)"
                 @dblclick="handleRowDblClick(file)"
-                @dragstart="onRowDragStart($event, file)"
-                @dragover="file.kind === 'folder' && !isPendingRow(file) ? onDragOver($event) : undefined"
-                @drop="file.kind === 'folder' && !isPendingRow(file) ? onDropOnFolder($event, { name: file.name, path: file.path, provider: file.provider as StorageProvider }) : undefined"
               >
                 <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -1388,6 +1533,47 @@ function formatFileSize(bytes: number): string {
                 </span>
               </div>
             </div>
+            <!-- Shared mode: non-draggable grid grouped by source workspace -->
+            <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))">
+              <template v-for="item in listItemsForView" :key="item.id">
+                <div v-if="'workspaceName' in item" class="col-span-full py-2 px-2 mb-2">
+                  <p class="text-sm font-semibold text-neutral-600">{{ item.workspaceName }}</p>
+                </div>
+                <div
+                  v-else
+                  data-file-item
+                  class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer w-[88px]"
+                  :class="selectedItemId === item.id ? 'bg-neutral-50 shadow-sm' : ''"
+                  @click="handleRowClick(item)"
+                  @dblclick="handleRowDblClick(item)"
+                >
+                  <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path v-if="item.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    <path v-if="item.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    <rect v-if="item.icon === 'image'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle v-if="item.icon === 'image'" cx="9" cy="9" r="2" />
+                    <path v-if="item.icon === 'image'" d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    <path v-if="item.icon === 'file-code'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline v-if="item.icon === 'file-code'" points="14 2 14 8 20 8" />
+                    <path v-if="item.icon === 'file-code'" d="m9 13 2 2 4-4" />
+                    <path v-if="item.icon === 'file-text'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline v-if="item.icon === 'file-text'" points="14 2 14 8 20 8" />
+                    <line v-if="item.icon === 'file-text'" x1="16" y1="13" x2="8" y2="13" />
+                    <line v-if="item.icon === 'file-text'" x1="16" y1="17" x2="8" y2="17" />
+                    <line v-if="item.icon === 'file-text'" x1="10" y1="9" x2="8" y2="9" />
+                    <path v-if="item.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline v-if="item.icon === 'file'" points="14 2 14 8 20 8" />
+                  </svg>
+                  <div class="flex items-center justify-center gap-1 w-full min-w-0">
+                    <span :title="item.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ item.name }}</span>
+                    <StorageProviderIcon :provider="item.provider as StorageProvider" inline />
+                  </div>
+                  <span v-if="'permissionLevel' in item" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+                    {{ item.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
+                  </span>
+                </div>
+              </template>
+            </div>
             </div>
 
             <!-- List view: Finder-style table with column headers -->
@@ -1408,28 +1594,27 @@ function formatFileSize(bytes: number): string {
                 <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
                   <!-- Shared file workspace headers (in shared mode only) -->
                   <template v-if="isSharedMode">
-                    <template v-for="item in listItemsForView" :key="item.id">
+                    <template v-for="item in displayItems" :key="item.id">
                       <div v-if="'workspaceName' in item" class="border-b border-neutral-100 bg-neutral-50 px-3 py-1.5">
                         <p class="text-xs font-semibold text-neutral-600">{{ item.workspaceName }}</p>
                       </div>
                     </template>
                   </template>
 
-                  <!-- Regular file rows -->
+                  <!-- Regular file rows (draggable in non-shared mode) -->
+                  <div v-draggable="[displayItems, { ...sortableCommon, disabled: isSharedMode }]" class="flex flex-col">
                   <div
-                    v-for="file in listItemsForView"
+                    v-for="file in displayItems"
                     v-show="!('workspaceName' in file)"
                     :key="file.id"
                     data-file-item
+                    :data-kind="file.kind"
+                    :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path })"
                     class="grid items-center border-b border-neutral-100 px-3 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer last:border-b-0"
-                    :class="selectedItemId === file.id ? 'bg-neutral-50' : ''"
+                    :class="[selectedItemId === file.id ? 'bg-neutral-50' : '', isPendingRow(file) ? 'fb-pending-row' : '']"
                     style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
-                    :draggable="!isPendingRow(file)"
                     @click="handleRowClick(file)"
                     @dblclick="handleRowDblClick(file)"
-                    @dragstart="onRowDragStart($event, file)"
-                    @dragover="file.kind === 'folder' && !isPendingRow(file) ? onDragOver($event) : undefined"
-                    @drop="file.kind === 'folder' && !isPendingRow(file) ? onDropOnFolder($event, { name: file.name, path: file.path, provider: file.provider as StorageProvider }) : undefined"
                   >
                     <!-- Name column: icon + name bunched left -->
                     <div class="flex min-w-0 items-center gap-2">
@@ -1559,6 +1744,7 @@ function formatFileSize(bytes: number): string {
                       {{ 'createdAt' in file && file.createdAt ? formatListDate(file.createdAt as string) : '—' }}
                     </div>
                   </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1678,3 +1864,25 @@ function formatFileSize(bytes: number): string {
     </Transition>
   </div>
 </template>
+
+<style scoped>
+/* Drag-and-drop visual states, mirrored from SidePanel's workflow reorder. */
+.fb-chosen {
+  cursor: grabbing;
+}
+.fb-ghost {
+  opacity: 0.35;
+  transition: opacity 0.18s ease;
+  background-color: var(--color-neutral-100);
+}
+.fb-drag {
+  opacity: 0.95;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+.fb-drop-into {
+  outline: 2px solid var(--color-neutral-950);
+  outline-offset: -2px;
+  background-color: var(--color-neutral-100) !important;
+}
+</style>

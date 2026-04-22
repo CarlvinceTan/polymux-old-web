@@ -97,8 +97,8 @@ export default defineEventHandler(async (event) => {
       .from(STORAGE_BUCKET)
       .move(storageKey(workspaceId, from), storageKey(workspaceId, to))
     if (mErr) {
-      console.error('[files] move error', mErr)
-      throw createError({ statusCode: 500, statusMessage: mErr.message })
+      console.error('[files] move error', mErr, { from, to })
+      throw createError({ statusCode: 500, statusMessage: `${mErr.message} (from=${from} to=${to})` })
     }
   }
 

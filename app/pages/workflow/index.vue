@@ -14,7 +14,7 @@ onMounted(async () => {
   // Per-tab memory: within the same tab, `/workflow` restores the last-viewed workflow.
   const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
   if (stored && sessions.value.some(s => s.id === stored)) {
-    await navigateTo(stored === DRAFT_SESSION_ID ? `/workflow/${DRAFT_SESSION_ID}` : `/workflow/${stored}/console`)
+    await navigateTo(stored === DRAFT_SESSION_ID ? `/workflow/${DRAFT_SESSION_ID}` : `/workflow/${stored}/agent`)
     return
   }
 

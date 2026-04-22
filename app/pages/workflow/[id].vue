@@ -7,7 +7,7 @@ const workflowId = computed(() => route.params.id as string)
 const headerTabs = computed(() => {
   const base = `/workflow/${workflowId.value}`
   return {
-    Console: `${base}/console`,
+    Agent: `${base}/agent`,
     Schedule: `${base}/schedule`,
     Artifacts: `${base}/artifacts`,
   } satisfies Record<string, string>

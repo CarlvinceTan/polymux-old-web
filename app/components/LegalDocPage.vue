@@ -16,11 +16,46 @@ const { data, error } = await useAsyncData(
 )
 
 const html = computed(() => (data.value ? marked.parse(data.value) : ''))
+
+const router = useRouter()
+const canGoBack = ref(false)
+
+onMounted(() => {
+  canGoBack.value = window.history.length > 1
+})
+
+function goBack() {
+  if (!import.meta.client) return
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+  navigateTo('/')
+}
 </script>
 
 <template>
   <div class="flex w-full justify-center px-4 pb-20 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-20">
     <div class="w-full max-w-[680px]">
+      <button
+        v-if="canGoBack"
+        type="button"
+        class="mb-6 flex size-9 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+        aria-label="Go back"
+        @click="goBack"
+      >
+        <svg
+          class="size-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
+
       <header class="text-center">
         <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
           {{ pageTitle }}

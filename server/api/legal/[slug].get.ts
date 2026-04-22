@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const SLUG_TO_FILE: Record<string, string> = {
-  about: "about.md",
+  "about-us": "about-us.md",
   "api-reference": "api-reference.md",
   community: "community.md",
   documentation: "documentation.md",

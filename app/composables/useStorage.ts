@@ -18,6 +18,7 @@ export interface StorageFolder {
 export interface StorageDirectory {
   files: StorageFile[]
   folders: StorageFolder[]
+  order?: string[]
 }
 
 export interface FileShare {
@@ -191,7 +192,7 @@ export function useStorage() {
     }
   }
 
-  async function moveFile(fromPath: string, toPath: string): Promise<boolean> {
+  async function moveFile(fromPath: string, toPath: string, kind: 'file' | 'folder' = 'file'): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
@@ -199,7 +200,7 @@ export function useStorage() {
       if (!base) return false
       await $fetch(`${base}/move`, {
         method: 'POST',
-        body: { from: fromPath, to: toPath, kind: 'file' },
+        body: { from: fromPath, to: toPath, kind },
       })
       return true
     } catch (err) {
@@ -207,6 +208,21 @@ export function useStorage() {
       return false
     } finally {
       isLoading.value = false
+    }
+  }
+
+  async function reorderFiles(parentPath: string, orderedNames: string[]): Promise<boolean> {
+    const base = baseUrl()
+    if (!base) return false
+    try {
+      await $fetch(`${base}/reorder`, {
+        method: 'POST',
+        body: { parent: parentPath, orderedNames },
+      })
+      return true
+    } catch (err) {
+      error.value = errorMessage(err, 'Failed to save order')
+      return false
     }
   }
 
@@ -432,6 +448,7 @@ export function useStorage() {
     uploadFile,
     deleteFiles,
     moveFile,
+    reorderFiles,
     renameFile,
     renameFolder,
     createFolder,

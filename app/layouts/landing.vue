@@ -286,17 +286,17 @@ const linkGroups = [
     ],
   },
   {
-    title: 'Resources',
+    title: 'Community',
     links: [
+      { label: 'Blog', to: '/blog' },
       { label: 'Documentation', to: '/documentation' },
-      { label: 'API Reference', to: '/api-reference' },
-      { label: 'Community', to: '/community' },
+      { label: 'Forum', to: '/forum' },
     ],
   },
   {
     title: 'Company',
     links: [
-      { label: 'About', to: '/about' },
+      { label: 'About us', to: '/about-us' },
       { label: 'Contact Us', to: '/contact' },
     ],
   },

@@ -15,24 +15,8 @@ import type {
   StopAgentPayload,
   TitleRequestPayload,
   TitleResponsePayload,
-  ToolUsePayload,
 } from './types'
 import type { SessionHandle } from './useSession'
-
-const toolDisplayNames: Record<string, string> = {
-  MessageAgent: 'Message Agent',
-  CheckAgent: 'Check Agent',
-  StopAgent: 'Stop Agent',
-  ListAgents: 'List Agents',
-  WebSearch: 'Web Search',
-  Question: 'Question',
-  Bash: 'Bash',
-  SaveWorkflow: 'Save Workflow',
-}
-
-function humaniseToolName(name: string): string {
-  return toolDisplayNames[name] ?? name.replace(/([a-z])([A-Z])/g, '$1 $2')
-}
 
 interface ChatState {
   messages: Ref<ChatMessage[]>
@@ -101,7 +85,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
       const updated = [...state.messages.value]
       const existing = updated[index]
       if (!existing) return
-      updated[index] = { role: existing.role, text, toolName: existing.toolName, action: existing.action, detail: existing.detail, attachments: attachments.length > 0 ? attachments : undefined }
+      updated[index] = { role: existing.role, text, action: existing.action, detail: existing.detail, attachments: attachments.length > 0 ? attachments : undefined }
       state.messages.value = updated
     }
 
@@ -225,24 +209,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     }]
   }
 
-  function handleToolUse(p: ToolUsePayload) {
-    const chatId = p.agent_id || 'orchestrator'
-    const state = getState(chatId)
-
-    if (state.streamingBuffer) {
-      const updated = [...state.messages.value]
-      const lastIdx = updated.length - 1
-      if (lastIdx >= 0 && updated[lastIdx]!.role === 'agent') {
-        updated.splice(lastIdx, 1)
-        state.messages.value = updated
-      }
-      state.streamingBuffer = null
-    }
-
-    const display = humaniseToolName(p.tool_name)
-    state.messages.value = [...state.messages.value, { role: 'tool', text: display, toolName: p.tool_name }]
-  }
-
   function handleAskUser(p: AskUserPayload) {
     orchestratorState.waitingForAgent.value = false
     orchestratorState.pendingQuestion.value = {
@@ -270,7 +236,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
 
   session.on<AgentMessagePayload>('agent_message', handleAgentMessage)
   session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
-  session.on<ToolUsePayload>('tool_use', handleToolUse)
   session.on<AskUserPayload>('ask_user', handleAskUser)
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
@@ -279,7 +244,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   onUnmounted(() => {
     session.off('agent_message', handleAgentMessage)
     session.off('agent_thinking', handleAgentThinking)
-    session.off('tool_use', handleToolUse)
     session.off('ask_user', handleAskUser)
     session.off('browser_spawned', handleBrowserSpawned)
     session.off('browser_agent_released', handleBrowserAgentReleased)

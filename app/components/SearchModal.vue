@@ -29,7 +29,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 function handleResultClick(sessionId: string) {
-  navigateTo(`/workflow/${sessionId}/console`)
+  navigateTo(`/workflow/${sessionId}/agent`)
   isOpen.value = false
   searchQuery.value = ''
 }

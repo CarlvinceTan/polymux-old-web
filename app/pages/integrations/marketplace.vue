@@ -95,9 +95,9 @@ const filteredItems = computed(() => {
   return list
 })
 
-function toggleItem(id: string, opts?: { migrate?: boolean }) {
+function toggleItem(id: string) {
   if (isInstalled(id)) uninstall(id)
-  else install(id, opts)
+  else install(id)
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -222,7 +222,7 @@ onUnmounted(() => {
             :category="item.category"
             :author="item.author"
             :installed="isInstalled(item.id)"
-            @toggle="(opts) => toggleItem(item.id, opts)"
+            @toggle="() => toggleItem(item.id)"
           />
         </div>
 

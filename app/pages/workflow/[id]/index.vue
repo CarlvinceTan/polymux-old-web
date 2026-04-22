@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  redirect: (to) => `/workflow/${to.params.id}/console`,
+  redirect: (to) => `/workflow/${to.params.id}/agent`,
 })
 </script>
 
