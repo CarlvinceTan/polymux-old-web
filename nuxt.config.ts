@@ -33,6 +33,8 @@ export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@nuxtjs/supabase", "@nuxtjs/i18n"],
   supabase: {
     redirect: false,
+    key: process.env.SUPABASE_ANON_KEY,
+    serviceKey: process.env.SUPABASE_SECRET_KEY,
   },
   i18n: {
     defaultLocale: "en",
@@ -72,6 +74,19 @@ export default defineNuxtConfig({
     resendApiKey: process.env.RESEND_API_KEY || "",
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    integrationEncryptionKey: process.env.INTEGRATION_ENCRYPTION_KEY || "",
+    internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN || "",
+    oauthStateSecret: process.env.OAUTH_STATE_SECRET || "",
+    googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    githubClientId: process.env.GITHUB_CLIENT_ID || "",
+    githubClientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+    slackClientId: process.env.SLACK_CLIENT_ID || "",
+    slackClientSecret: process.env.SLACK_CLIENT_SECRET || "",
+    notionClientId: process.env.NOTION_CLIENT_ID || "",
+    notionClientSecret: process.env.NOTION_CLIENT_SECRET || "",
+    linearClientId: process.env.LINEAR_CLIENT_ID || "",
+    linearClientSecret: process.env.LINEAR_CLIENT_SECRET || "",
     public: {
       serverUrl: process.env.SERVER_URL || "http://localhost:8080",
       appUrl: process.env.APP_URL || "http://localhost:3000",

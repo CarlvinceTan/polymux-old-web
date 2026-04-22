@@ -38,7 +38,7 @@ export function useUserSettings() {
       return
     }
 
-    const uid = user.value.id
+    const uid = user.value.sub
     if (!uid) return
 
     // Skip re-fetch if we already have data for this user (unless forced).
@@ -97,7 +97,7 @@ export function useUserSettings() {
       settings.value = {
         blog_newsletter_subscribed: result.blog_newsletter_subscribed,
       }
-      fetchedForUserId = user.value.id
+      fetchedForUserId = user.value.sub
     }
     catch (e) {
       console.error('[useUserSettings] save error:', e)

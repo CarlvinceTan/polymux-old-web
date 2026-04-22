@@ -8,129 +8,133 @@ export interface GeolocationCoords {
   accuracy: number
 }
 
-export function useGeolocation() {
-  const coords = ref<GeolocationCoords | null>(null)
-  const permissionState = ref<GeolocationPermissionState>('prompt')
-  const error = ref<string | null>(null)
-  const enabled = ref(false)
+const coords = ref<GeolocationCoords | null>(null)
+const permissionState = ref<GeolocationPermissionState>('prompt')
+const error = ref<string | null>(null)
+const enabled = ref(false)
 
-  let watchId: number | null = null
-  let permissionStatus: PermissionStatus | null = null
+let watchId: number | null = null
+let permissionStatus: PermissionStatus | null = null
+let consumers = 0
+let initialized = false
 
-  function readCookie(): boolean {
-    if (!import.meta.client) return false
-    const cookie = useCookie<string | undefined>('polymux_location')
-    return cookie.value === 'on'
+function readCookie(): boolean {
+  if (!import.meta.client) return false
+  const cookie = useCookie<string | undefined>('polymux_location')
+  return cookie.value === 'on'
+}
+
+function writeCookie(value: boolean) {
+  const cookie = useCookie<string>('polymux_location')
+  cookie.value = value ? 'on' : 'off'
+}
+
+async function queryPermission() {
+  if (!import.meta.client) return
+  if (!navigator.geolocation) {
+    permissionState.value = 'unsupported'
+    return
   }
-
-  function writeCookie(value: boolean) {
-    const cookie = useCookie<string>('polymux_location')
-    cookie.value = value ? 'on' : 'off'
-  }
-
-  async function queryPermission() {
-    if (!import.meta.client) return
-    if (!navigator.geolocation) {
-      permissionState.value = 'unsupported'
-      return
-    }
-    try {
-      permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
-      permissionState.value = permissionStatus.state as GeolocationPermissionState
-      permissionStatus.onchange = () => {
-        if (permissionStatus) {
-          permissionState.value = permissionStatus.state as GeolocationPermissionState
-          if (permissionStatus.state === 'denied') {
-            stopWatching()
-          }
+  try {
+    permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
+    permissionState.value = permissionStatus.state as GeolocationPermissionState
+    permissionStatus.onchange = () => {
+      if (permissionStatus) {
+        permissionState.value = permissionStatus.state as GeolocationPermissionState
+        if (permissionStatus.state === 'denied') {
+          stopWatching()
         }
       }
     }
-    catch {
-      // Permissions API not available; fall back to 'prompt'
-      permissionState.value = 'prompt'
+  }
+  catch {
+    permissionState.value = 'prompt'
+  }
+}
+
+function requestLocation(): Promise<GeolocationCoords | null> {
+  return new Promise((resolve) => {
+    if (!import.meta.client || !navigator.geolocation) {
+      error.value = 'Geolocation not supported'
+      resolve(null)
+      return
     }
-  }
-
-  function requestLocation(): Promise<GeolocationCoords | null> {
-    return new Promise((resolve) => {
-      if (!import.meta.client || !navigator.geolocation) {
-        error.value = 'Geolocation not supported'
-        resolve(null)
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const c: GeolocationCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-          }
-          coords.value = c
-          error.value = null
-          resolve(c)
-        },
-        (err) => {
-          error.value = err.message
-          resolve(null)
-        },
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
-      )
-    })
-  }
-
-  function startWatching() {
-    if (!import.meta.client || !navigator.geolocation || watchId !== null) return
-    watchId = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(
       (pos) => {
-        coords.value = {
+        const c: GeolocationCoords = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
         }
+        coords.value = c
         error.value = null
+        resolve(c)
       },
       (err) => {
         error.value = err.message
+        resolve(null)
       },
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     )
-  }
+  })
+}
 
-  function stopWatching() {
-    if (watchId !== null && import.meta.client) {
-      navigator.geolocation.clearWatch(watchId)
-      watchId = null
-    }
-  }
+function startWatching() {
+  if (!import.meta.client || !navigator.geolocation || watchId !== null) return
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      coords.value = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      }
+      error.value = null
+    },
+    (err) => {
+      error.value = err.message
+    },
+    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+  )
+}
 
-  async function enable() {
-    enabled.value = true
-    writeCookie(true)
-    const result = await requestLocation()
-    if (result) {
-      startWatching()
-    }
-    await queryPermission()
+function stopWatching() {
+  if (watchId !== null && import.meta.client) {
+    navigator.geolocation.clearWatch(watchId)
+    watchId = null
   }
+}
 
-  function disable() {
-    enabled.value = false
-    writeCookie(false)
-    stopWatching()
-    coords.value = null
+async function enable() {
+  enabled.value = true
+  writeCookie(true)
+  const result = await requestLocation()
+  if (result) {
+    startWatching()
   }
+  await queryPermission()
+}
 
-  function toggle() {
-    if (enabled.value) {
-      disable()
-    }
-    else {
-      enable()
-    }
+function disable() {
+  enabled.value = false
+  writeCookie(false)
+  stopWatching()
+  coords.value = null
+}
+
+function toggle() {
+  if (enabled.value) {
+    disable()
   }
+  else {
+    enable()
+  }
+}
 
+export function useGeolocation() {
   onMounted(async () => {
+    consumers++
+    if (initialized) return
+    initialized = true
     await queryPermission()
     if (readCookie() && permissionState.value === 'granted') {
       enabled.value = true
@@ -143,10 +147,14 @@ export function useGeolocation() {
   })
 
   onUnmounted(() => {
-    stopWatching()
-    if (permissionStatus) {
-      permissionStatus.onchange = null
-      permissionStatus = null
+    consumers = Math.max(0, consumers - 1)
+    if (consumers === 0) {
+      stopWatching()
+      if (permissionStatus) {
+        permissionStatus.onchange = null
+        permissionStatus = null
+      }
+      initialized = false
     }
   })
 

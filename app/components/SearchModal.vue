@@ -29,7 +29,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 function handleResultClick(sessionId: string) {
-  navigateTo(`/chat/${sessionId}/orchestrator`)
+  navigateTo(`/workflow/${sessionId}/console`)
   isOpen.value = false
   searchQuery.value = ''
 }

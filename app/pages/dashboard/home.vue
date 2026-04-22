@@ -3,7 +3,7 @@ import type { SupportedCurrency } from '~/composables/useCurrency'
 
 const { t } = useI18n()
 const { currentWorkspace } = useWorkspaces()
-const { sessions, fetchSessions } = useChatSessions()
+const { realSessions: sessions, fetchSessions } = useChatSessions()
 const { wallet, transactions, budgets, balanceDisplay, formatCents, fetchWallet, fetchTransactions, fetchBudgets } = useWallet()
 
 const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()

@@ -64,6 +64,32 @@ export interface SessionStatePayload {
   stream_priorities: AgentPriority[]
   browser_agent_cap: number
   agent_labels?: AgentLabelEntry[]
+  mode?: 'build' | 'casual'
+}
+
+export type SessionMode = 'build' | 'casual'
+
+export interface SetSessionModePayload {
+  mode: SessionMode
+}
+
+export interface SessionModeChangedPayload {
+  mode: SessionMode
+}
+
+export interface WorkflowSaveRejectedPayload {
+  name: string
+  reason: string
+}
+
+export interface WorkflowRunEventPayload {
+  run_id: string
+  node_id?: string
+  path?: string[]
+  status?: string
+  error?: string
+  iteration?: number
+  occurred_at?: string
 }
 
 export interface SpawnBrowserAgentPayload {}

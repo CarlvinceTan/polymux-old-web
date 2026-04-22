@@ -1,13 +1,5 @@
--- Cleanup function for orphaned anonymous users (no linked identity, older than 7 days).
--- Call this manually or schedule it via pg_cron / Supabase cron jobs.
-create or replace function cleanup_anonymous_users()
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  delete from auth.users
-  where is_anonymous = true
-    and created_at < now() - interval '7 days';
-end;
-$$;
+-- Anonymous auth has been removed from the app. Purge any existing anonymous users so
+-- their workspaces, sessions, and related rows cascade away instead of sitting orphaned.
+-- The Supabase project setting "Enable anonymous sign-ins" should also be disabled in the
+-- dashboard (auth settings) since this is not configurable via SQL.
+delete from auth.users where is_anonymous = true;

@@ -47,7 +47,7 @@ async function checkParentShare() {
   try {
     const result = await validateSubdirectoryShare(props.item.path)
     if (!result.canShare) {
-      warningMessage.value = result.message || 'This directory is within an already shared folder'
+      warningMessage.value = result.message || t('storage.share.subdirectoryWarning')
     }
   }
   catch (err) {
@@ -63,13 +63,14 @@ async function shareWithSelected() {
   try {
     for (const workspaceId of selectedWorkspaceIds.value) {
       const success = await shareDirectory(props.item.path, workspaceId, permissionLevel.value)
-      if (!success) throw new Error('Failed to share with workspace')
+      if (!success) throw new Error(t('storage.share.failedToShareWorkspace'))
     }
-    successMessage.value = `Shared with ${selectedWorkspaceIds.value.size} workspace${selectedWorkspaceIds.value.size !== 1 ? 's' : ''}`
+    const n = selectedWorkspaceIds.value.size
+    successMessage.value = t(n === 1 ? 'storage.share.sharedWithOne' : 'storage.share.sharedWithMany', { n })
     setTimeout(() => emit('close'), 1500)
   }
   catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to share'
+    errorMessage.value = err instanceof Error ? err.message : t('storage.share.failedToShare')
   }
   finally {
     isLoading.value = false
@@ -136,12 +137,12 @@ onMounted(() => {
               <p class="text-xs text-amber-700">{{ warningMessage }}</p>
             </div>
             <div v-if="!canShare" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-              <p class="text-xs text-amber-700">{{ t('storage.share.ownerOnly') || 'Only workspace owners can share files' }}</p>
+              <p class="text-xs text-amber-700">{{ t('storage.share.ownerOnly') }}</p>
             </div>
 
             <!-- Permission level -->
             <div>
-              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.permissionLevel') || 'Permission level' }}</p>
+              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.permissionLevel') }}</p>
               <div class="flex items-center rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 w-fit">
                 <button
                   v-for="level in (['viewer', 'editor'] as PermissionLevel[])"
@@ -159,9 +160,9 @@ onMounted(() => {
 
             <!-- Workspace list -->
             <div>
-              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.selectWorkspaces') || 'Select workspaces' }}</p>
+              <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('storage.share.selectWorkspaces') }}</p>
               <div v-if="availableWorkspaces.length === 0" class="py-6 text-center">
-                <p class="text-sm text-neutral-400">{{ t('storage.share.noOtherWorkspaces') || 'No other workspaces available' }}</p>
+                <p class="text-sm text-neutral-400">{{ t('storage.share.noOtherWorkspaces') }}</p>
               </div>
               <div v-else class="space-y-2 max-h-56 overflow-y-auto">
                 <label
@@ -193,7 +194,7 @@ onMounted(() => {
               class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
               @click="emit('close')"
             >
-              {{ t('storage.share.cancel') || 'Cancel' }}
+              {{ t('storage.share.cancel') }}
             </button>
             <button
               class="rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
@@ -203,7 +204,7 @@ onMounted(() => {
               :disabled="!canShare || selectedWorkspaceIds.size === 0 || isLoading"
               @click="shareWithSelected"
             >
-              {{ isLoading ? t('storage.share.sharing') || 'Sharing…' : t('storage.share.share') || 'Share' }}
+              {{ isLoading ? t('storage.share.sharing') : t('storage.share.submit') }}
             </button>
           </div>
         </div>

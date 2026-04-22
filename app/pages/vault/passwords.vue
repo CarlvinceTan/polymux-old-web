@@ -2,7 +2,6 @@
 import { useI18n } from '#imports'
 
 const { t } = useI18n()
-const user = useSupabaseUser()
 
 const headerTabs = {
   Passwords: '/vault/passwords',
@@ -150,8 +149,7 @@ onUnmounted(() => {
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
-      <GuestPlaceholder v-if="!user" />
-      <div v-else class="relative" style="padding: 5rem 6rem 2.5rem">
+      <div class="relative" style="padding: 5rem 6rem 2.5rem">
         <div class="mb-4 flex items-center gap-2">
           <div
             class="min-w-0 flex-1 flex items-center gap-2 rounded-lg border bg-neutral-100 px-3 py-2 transition-all"

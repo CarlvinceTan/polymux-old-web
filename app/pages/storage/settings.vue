@@ -8,7 +8,6 @@ const headerTabs = {
 } as const satisfies Record<string, string>
 
 const { t } = useI18n()
-const user = useSupabaseUser()
 const {
   saveOrder,
   providerStatus,
@@ -31,11 +30,18 @@ const statusLabel = (provider: StorageProvider) => {
   return t('storage.settings.statusUnavailable')
 }
 
-const statusClass = (provider: StorageProvider) => {
+const statusDotClass = (provider: StorageProvider) => {
   const status = providerStatus.value[provider]
-  if (status === 'available') return 'bg-green-50 text-green-700 ring-green-600/20'
-  if (status === 'full') return 'bg-amber-50 text-amber-800 ring-amber-600/20'
-  return 'bg-neutral-100 text-neutral-500 ring-neutral-300/70'
+  if (status === 'available') return 'bg-green-500'
+  if (status === 'full') return 'bg-amber-500'
+  return 'bg-neutral-300'
+}
+
+const statusTextClass = (provider: StorageProvider) => {
+  const status = providerStatus.value[provider]
+  if (status === 'available') return 'text-green-700'
+  if (status === 'full') return 'text-amber-800'
+  return 'text-neutral-500'
 }
 
 const resolvedSummary = computed(() => {
@@ -51,8 +57,7 @@ const resolvedSummary = computed(() => {
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
-        <GuestPlaceholder v-if="!user" />
-        <div v-else class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:px-8 lg:pb-6 lg:pt-5">
+        <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:px-8 lg:pb-6 lg:pt-5">
           <div class="mb-6 flex flex-col gap-1 border-b border-neutral-100 pb-5">
             <h1 class="text-lg font-semibold tracking-tight text-neutral-950 sm:text-xl">
               {{ t('storage.settings.title') }}
@@ -63,7 +68,7 @@ const resolvedSummary = computed(() => {
           </div>
 
           <SettingsSection :title="t('storage.settings.saveOrderTitle')">
-            <div class="px-4 py-3.5 sm:px-5">
+            <div class="px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
               <p class="text-label-md text-neutral-500">
                 {{ t('storage.settings.saveOrderDesc') }}
               </p>
@@ -72,21 +77,32 @@ const resolvedSummary = computed(() => {
               <li
                 v-for="(provider, index) in saveOrder"
                 :key="provider"
-                class="flex items-center gap-3 px-4 py-3 sm:px-5"
+                class="group flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-3.5"
               >
-                <span class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-label-md font-semibold tabular-nums text-neutral-600">
+                <span class="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-[11px] font-semibold leading-none tabular-nums text-neutral-600">
                   {{ index + 1 }}
                 </span>
-                <StorageProviderIcon :provider="provider" inline />
-                <span class="min-w-0 flex-1 truncate text-body-md font-medium text-neutral-950">
-                  {{ providerLabel[provider] }}
+                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-50 ring-1 ring-inset ring-neutral-200/80">
+                  <StorageProviderIcon :provider="provider" tile />
                 </span>
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-label-md font-medium ring-1 ring-inset"
-                  :class="statusClass(provider)"
-                >
-                  {{ statusLabel(provider) }}
-                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-body-md font-medium text-neutral-950">
+                    {{ providerLabel[provider] }}
+                  </div>
+                  <div class="mt-0.5 flex items-center gap-1.5">
+                    <span
+                      class="size-1.5 shrink-0 rounded-full"
+                      :class="statusDotClass(provider)"
+                      aria-hidden="true"
+                    />
+                    <span
+                      class="text-label-md font-medium"
+                      :class="statusTextClass(provider)"
+                    >
+                      {{ statusLabel(provider) }}
+                    </span>
+                  </div>
+                </div>
                 <div class="flex shrink-0 items-center gap-0.5">
                   <button
                     type="button"
@@ -109,7 +125,7 @@ const resolvedSummary = computed(() => {
                 </div>
               </li>
             </ul>
-            <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div class="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5 sm:py-4">
               <p class="min-w-0 flex-1 text-label-md text-neutral-500">
                 <span class="font-medium text-neutral-600">{{ t('storage.settings.currentChain') }}:</span>
                 {{ resolvedSummary }}

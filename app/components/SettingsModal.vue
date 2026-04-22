@@ -6,10 +6,6 @@ const isOpen = defineModel<boolean>('open', { default: false })
 const { t, locale, locales, setLocale } = useI18n()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
-const router = useRouter()
-const route = useRoute()
-
-const isGuest = computed(() => !user.value)
 
 const displayName = computed(() => {
   const meta = user.value?.user_metadata
@@ -46,9 +42,9 @@ function formatCount(n: number) {
 }
 
 async function onLogOut() {
-  await supabase.auth.signOut()
   isOpen.value = false
-  router.push('/')
+  const { signOut } = useSignOut()
+  await signOut()
 }
 
 const editingProfile = ref(false)
@@ -142,13 +138,19 @@ watch(isOpen, (open) => {
 
 type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
 
+const { currentWorkspace, currentWorkspaceId } = useWorkspaces()
+
 const planKey = computed<PlanKey>(() => {
-  const raw = (user.value?.app_metadata?.plan as string | undefined)
-    || (user.value?.user_metadata?.plan as string | undefined)
-    || 'free'
+  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
   const normalised = raw.toLowerCase().trim()
   if (['pro', 'max', 'enterprise'].includes(normalised)) return normalised as PlanKey
   return 'free'
+})
+
+const upgradeQuery = computed(() => {
+  const q: Record<string, string> = { current: planKey.value }
+  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
+  return q
 })
 
 const planDisplayName = computed(() => {
@@ -252,9 +254,9 @@ async function confirmDeleteAccount() {
       method: 'POST',
       body: { reason: deleteSelectedReason.value, detail: deleteDetail.value.trim() },
     })
-    await supabase.auth.signOut()
     isOpen.value = false
-    router.push('/')
+    const { signOut } = useSignOut()
+    await signOut()
   }
   catch (err: unknown) {
     deleteError.value = err instanceof Error ? err.message : t('settings.deleteError')
@@ -421,7 +423,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                           </div>
                           <NuxtLink
                             v-if="showUpgrade"
-                            :to="{ path: '/pricing', query: { current: planKey } }"
+                            :to="{ path: '/pricing', query: upgradeQuery }"
                             class="rounded-md bg-neutral-950 px-3 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
                             @click="closeModal"
                           >
@@ -486,26 +488,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
                 <!-- Main settings content -->
                 <div v-else class="flex flex-col gap-6 px-5 pt-16 pb-5">
-                  <!-- Guest profile -->
-                  <section v-if="isGuest" class="flex flex-col items-center gap-3 py-2">
-                    <div class="flex size-20 items-center justify-center rounded-full bg-neutral-100 ring-1 ring-neutral-200/80">
-                      <UIcon name="i-heroicons-user-20-solid" class="size-9 text-neutral-400" />
-                    </div>
-                    <div class="space-y-0.5 text-center">
-                      <h2 class="text-lg font-semibold text-neutral-950">{{ t('settings.guest') }}</h2>
-                      <p class="text-body-md text-neutral-400">{{ t('settings.notSignedIn') }}</p>
-                    </div>
-                    <NuxtLink
-                      :to="{ path: '/sign-in', query: { redirect: route.fullPath } }"
-                      class="mt-1 flex items-center justify-center rounded-md bg-neutral-950 px-5 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                      @click="closeModal"
-                    >
-                      {{ t('common.signIn') }}
-                    </NuxtLink>
-                  </section>
-
-                  <!-- Authenticated profile -->
-                  <section v-if="!isGuest" class="flex flex-col items-center gap-3 py-2">
+                  <!-- Profile -->
+                  <section class="flex flex-col items-center gap-3 py-2">
                       <img
                         v-if="avatarUrl && !avatarError"
                         :src="avatarUrl"
@@ -558,16 +542,19 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </section>
 
                   <!-- Plan & Usage -->
-                  <section v-if="!isGuest" class="min-w-0">
+                  <section class="min-w-0">
                     <h2 class="mb-3 text-body-md font-semibold tracking-tight text-neutral-950">{{ t('settings.planAndUsage') }}</h2>
                       <div class="space-y-5 rounded-lg bg-white p-4 ghost-panel sm:p-5">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
                           <div class="min-w-0 flex-1 space-y-1">
                             <p class="text-label-md font-medium text-neutral-600">{{ t('settings.currentPlan') }}</p>
                             <p class="text-body-md font-medium text-neutral-950">{{ planDisplayName }}</p>
+                            <p v-if="currentWorkspace" class="truncate text-label-md text-neutral-400">
+                              {{ currentWorkspace.name }}
+                            </p>
                           </div>
                           <div class="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-                            <NuxtLink v-if="showUpgrade" :to="{ path: '/pricing', query: { current: planKey } }" class="rounded-md bg-neutral-950 px-3 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="closeModal">
+                            <NuxtLink v-if="showUpgrade" :to="{ path: '/pricing', query: upgradeQuery }" class="rounded-md bg-neutral-950 px-3 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="closeModal">
                               {{ t('common.upgrade') }}
                             </NuxtLink>
                             <button v-if="showManage" type="button" class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md font-normal text-neutral-950 transition-colors hover:bg-neutral-50 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="openManageSubscription">
@@ -591,7 +578,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </section>
 
                   <!-- Account -->
-                  <SettingsSection v-if="!isGuest" :title="t('settings.account')">
+                  <SettingsSection :title="t('settings.account')">
                     <SettingsSectionRow clickable @click="openPayment">
                       <template #icon>
                         <UIcon name="i-heroicons-credit-card-20-solid" class="size-4 shrink-0 text-neutral-500" />
@@ -636,7 +623,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </SettingsSection>
 
                   <!-- Notifications -->
-                  <SettingsSection v-if="!isGuest" :title="t('settings.notifications')">
+                  <SettingsSection :title="t('settings.notifications')">
                     <SettingsSectionRow>
                       <template #icon><UIcon name="i-heroicons-envelope-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.emailNotif') }}</template>
@@ -690,7 +677,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </SettingsSection>
 
                   <!-- Delete & Sign out -->
-                  <div v-if="!isGuest" class="flex flex-col gap-2.5">
+                  <div class="flex flex-col gap-2.5">
                     <button type="button" class="flex w-full items-center justify-center gap-2.5 rounded-lg bg-white px-4 py-2.5 text-body-md font-medium text-neutral-950 transition-colors ghost-panel hover:bg-neutral-50" @click="openDeleteAccount">
                       {{ t('settings.deleteAccount') }}
                     </button>

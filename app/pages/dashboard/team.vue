@@ -14,6 +14,7 @@ const {
 } = useWorkspaces()
 
 const myRole = computed(() => {
+  if (currentWorkspace.value?.role) return currentWorkspace.value.role
   if (!user.value || !members.value.length) return null
   return members.value.find(m => m.user_id === user.value!.id)?.role ?? null
 })
@@ -49,8 +50,7 @@ function toggleMemberMenu(userId: string, event: MouseEvent) {
 function closeMemberMenus() { activeMemberMenuId.value = null }
 
 function memberDisplayName(m: WorkspaceMember) {
-  if (m.user_id === user.value?.id) return 'You'
-  return m.display_name || m.user_id.substring(0, 8) + '...'
+  return m.display_name || m.email?.split('@')[0] || m.user_id.substring(0, 8) + '...'
 }
 
 function memberEmail(m: WorkspaceMember) {
@@ -147,8 +147,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
-        <GuestPlaceholder v-if="!user" />
-        <div v-else class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:px-8 lg:pb-6 lg:pt-5">
+        <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:px-8 lg:pb-6 lg:pt-5">
           <div class="mb-3 flex items-start justify-between gap-4">
             <h1 class="min-w-0 text-lg font-semibold tracking-tight text-neutral-950 sm:text-xl">
               Team

@@ -24,7 +24,7 @@ function sessionTitle(session: ChatSession): string {
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-neutral-950">{{ t('dashboard.recentSessions') }}</h2>
       <NuxtLink
-        to="/chat/"
+        to="/workflow/"
         class="text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950"
       >
         {{ t('dashboard.viewAll') }}
@@ -34,7 +34,7 @@ function sessionTitle(session: ChatSession): string {
     <div v-if="recentSessions.length === 0" class="flex flex-col items-center gap-3 py-8 text-center">
       <p class="text-sm text-neutral-400">{{ t('dashboard.noSessions') }}</p>
       <NuxtLink
-        to="/chat/"
+        to="/workflow/"
         class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
       >
         {{ t('dashboard.noSessionsCta') }}
@@ -45,7 +45,7 @@ function sessionTitle(session: ChatSession): string {
       <NuxtLink
         v-for="session in recentSessions"
         :key="session.id"
-        :to="`/chat/${session.id}/orchestrator`"
+        :to="`/workflow/${session.id}/console`"
         class="group flex items-center justify-between rounded-md px-3 py-2.5 transition-colors hover:bg-neutral-50"
       >
         <div class="min-w-0 flex-1">

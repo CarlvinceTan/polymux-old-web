@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, nextTick, computed } from 'vue'
+import { ref, nextTick, computed, watch, onBeforeUnmount } from 'vue'
+import { vDraggable } from 'vue-draggable-plus'
+import { DRAFT_SESSION_ID, type ChatSession } from '~/composables/useChatSessions'
 
 const { t, locale, locales, setLocale } = useI18n()
 
 const route = useRoute()
-const router = useRouter()
 
 // Profile dropdown state
 const user = useSupabaseUser()
-const supabase = useSupabaseClient()
 
 const {
   workspaces,
@@ -18,40 +18,185 @@ const {
   fetchWorkspaces
 } = useWorkspaces()
 
+type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
+
+const planKey = computed<PlanKey>(() => {
+  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
+  const normalised = raw.toLowerCase().trim()
+  if (['pro', 'max', 'enterprise'].includes(normalised)) return normalised as PlanKey
+  return 'free'
+})
+
+const upgradeQuery = computed(() => {
+  const q: Record<string, string> = { current: planKey.value }
+  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
+  return q
+})
+
 const {
   sessions,
+  realSessions,
+  draft,
   fetchSessions,
-  createSession,
+  createDraft,
+  restoreDraft,
   renameSession,
-  deleteSession
+  deleteSession,
 } = useChatSessions()
+
+// Writable list bound to the draggable directive. Synced from `sessions`
+// (draft + real) but locally mutated during drag. On drag end, the resulting
+// real-session order is written back to `realSessions` and persisted per
+// workspace.
+const displaySessions = ref<ChatSession[]>([])
+
+const workflowOrderKey = computed(
+  () => `polymux_workflow_order:${currentWorkspaceId.value ?? ''}`,
+)
+
+function loadSavedOrder(): string[] {
+  if (!import.meta.client) return []
+  try {
+    const raw = localStorage.getItem(workflowOrderKey.value)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveOrder(ids: string[]) {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(workflowOrderKey.value, JSON.stringify(ids))
+  } catch {}
+}
+
+function applySavedOrder(list: ChatSession[]): ChatSession[] {
+  const saved = loadSavedOrder()
+  if (saved.length === 0) return list.slice()
+  const byId = new Map(list.map(s => [s.id, s]))
+  const ordered: ChatSession[] = []
+  for (const id of saved) {
+    const s = byId.get(id)
+    if (s) { ordered.push(s); byId.delete(id) }
+  }
+  for (const s of list) {
+    if (byId.has(s.id)) ordered.push(s)
+  }
+  return ordered
+}
+
+let suppressRebuild = false
+function rebuildDisplay() {
+  const ordered = applySavedOrder(realSessions.value)
+  displaySessions.value = draft.value ? [draft.value, ...ordered] : ordered
+}
+
+watch(
+  [realSessions, draft, currentWorkspaceId],
+  () => {
+    if (suppressRebuild) { suppressRebuild = false; return }
+    rebuildDisplay()
+  },
+  { deep: true, immediate: true },
+)
+
+function onDragMove(evt: { related?: HTMLElement }): boolean {
+  // Keep the draft ("New Workflow") pinned at the top: block any move whose
+  // drop target is the draft row.
+  return !evt.related?.classList?.contains('wf-draft')
+}
+
+// Lock the fallback drag preview to the Y axis. SortableJS rewrites the
+// preview's transform every frame; we strip the X component in a rAF loop so
+// the row slides only up and down within the column.
+let dragRaf: number | null = null
+
+function lockDragX() {
+  const el = document.querySelector<HTMLElement>('.wf-drag')
+  if (el) {
+    const t = el.style.transform
+    const m = t.match(/translate3d\([^,]+,\s*([^,]+),/)
+    if (m) {
+      const locked = `translate3d(0px, ${m[1]}, 0px)`
+      if (t !== locked) el.style.transform = locked
+    }
+  }
+  dragRaf = requestAnimationFrame(lockDragX)
+}
+
+function onDragStart() {
+  if (dragRaf != null) cancelAnimationFrame(dragRaf)
+  dragRaf = requestAnimationFrame(lockDragX)
+}
+
+function onDragEnd() {
+  if (dragRaf != null) {
+    cancelAnimationFrame(dragRaf)
+    dragRaf = null
+  }
+  const reordered = displaySessions.value.filter(s => s.id !== DRAFT_SESSION_ID)
+  saveOrder(reordered.map(s => s.id))
+  suppressRebuild = true
+  realSessions.value = reordered
+}
+
+onBeforeUnmount(() => {
+  if (dragRaf != null) cancelAnimationFrame(dragRaf)
+})
+
+const draggableOptions = {
+  animation: 200,
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  filter: '.wf-draft',
+  preventOnFilter: false,
+  forceFallback: true,
+  fallbackOnBody: true,
+  fallbackTolerance: 3,
+  ghostClass: 'wf-ghost',
+  chosenClass: 'wf-chosen',
+  dragClass: 'wf-drag',
+  onStart: onDragStart,
+  onMove: onDragMove,
+  onEnd: onDragEnd,
+}
+
+async function ensureAtLeastOneWorkflow() {
+  if (!currentWorkspaceId.value) return
+  if (sessions.value.length === 0) {
+    createDraft()
+  }
+}
 
 // Initial data fetch
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
   await fetchWorkspaces()
   await fetchSessions()
+  restoreDraft()
+  await ensureAtLeastOneWorkflow()
 })
 
 // Re-fetch sessions when workspace changes
-watch(currentWorkspaceId, () => {
-  fetchSessions()
+watch(currentWorkspaceId, async () => {
+  await fetchSessions()
+  restoreDraft()
+  await ensureAtLeastOneWorkflow()
 })
 
 // User data
 const userEmail = computed(() => user.value?.email ?? 'user@example.com')
 const userName = computed(() => {
+  locale.value
   const meta = user.value?.user_metadata
   return (meta?.full_name as string | undefined)
     || (meta?.name as string | undefined)
     || user.value?.email?.split('@')[0]
-    || 'User'
+    || ''
 })
 const userPlan = computed(() => {
   locale.value
-  const raw = (user.value?.app_metadata?.plan as string | undefined)
-    || (user.value?.user_metadata?.plan as string | undefined)
-    || 'free'
+  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
   const normalised = raw.toLowerCase().trim()
   if (normalised === 'pro') return t('settings.proPlan')
   if (normalised === 'max') return t('settings.maxPlan')
@@ -62,6 +207,8 @@ const avatarUrl = computed(() => {
   const meta = user.value?.user_metadata
   return (meta?.avatar_url as string | undefined) || (meta?.picture as string | undefined) || null
 })
+const avatarFailed = ref(false)
+watch(avatarUrl, () => { avatarFailed.value = false })
 
 const navItems = computed(() => {
   locale.value // explicit reactive dependency so labels update on locale switch
@@ -76,7 +223,7 @@ const navItems = computed(() => {
 const isSearchOpen = ref(false)
 
 const isProfileDropdownOpen = ref(false)
-const profileDropdownRef = ref<InstanceType<typeof CompactDropdown> | null>(null)
+const profileDropdownRef = ref<InstanceType<typeof Menu> | null>(null)
 const isLanguageOpen = ref(false)
 const isHelpOpen = ref(false)
 const isSettingsModalOpen = ref(false)
@@ -124,22 +271,25 @@ function isMainNavItemActive(path: string): boolean {
   return isActive(path)
 }
 
-async function createChat() {
-  const s = await createSession()
-  if (s) {
-    navigateTo(`/chat/${s.id}`)
-  }
+async function createWorkflow() {
+  if (!draft.value) createDraft()
+  await navigateTo(`/workflow/${DRAFT_SESSION_ID}`)
 }
 
-const activeChatId = computed(() => route.params.id as string | undefined)
-const isChatListItemActive = (id: string) => activeChatId.value === id
+// `/workflow/new` is a static route so `route.params.id` is undefined there —
+// derive the active id from the path instead so the draft row highlights too.
+const activeWorkflowId = computed(() => {
+  const m = route.path.match(/^\/workflow\/([^/]+)/)
+  return m?.[1]
+})
+const isWorkflowListItemActive = (id: string) => activeWorkflowId.value === id
 
-function openChat(id: string) {
-  navigateTo(`/chat/${id}`)
+function openWorkflow(id: string) {
+  navigateTo(`/workflow/${id}`)
 }
 
 const activeDropdownIndex = ref<number | null>(null)
-const hoveredChatId = ref<string | null>(null)
+const hoveredWorkflowId = ref<string | null>(null)
 
 // Workspace dropdown state
 const isWorkspaceDropdownOpen = ref(false)
@@ -154,23 +304,49 @@ function closeWorkspaceDropdown() {
   isWorkspaceDropdownOpen.value = false
 }
 
-function canDeleteChat(): boolean {
-  return sessions.value.length > 0
+function canDeleteWorkflow(id: string): boolean {
+  if (sessions.value.length > 1) return true
+  // Only one entry left: allow deletion only when it's a real workflow, which
+  // gets seamlessly replaced with a fresh draft. Deleting the sole draft is a no-op.
+  return id !== DRAFT_SESSION_ID
 }
 
-async function deleteChat(id: string) {
-  if (!canDeleteChat()) return
+async function deleteWorkflow(id: string) {
+  if (!canDeleteWorkflow(id)) return
+  const wasActive = id === activeWorkflowId.value
+  const idx = sessions.value.findIndex(s => s.id === id)
+  const siblings = sessions.value.filter(s => s.id !== id)
+  const fallback = siblings[Math.min(Math.max(idx, 0), siblings.length - 1)] ?? null
+
   await deleteSession(id)
   activeDropdownIndex.value = null
-  if (id === activeChatId.value) {
-    navigateTo('/dashboard')
+
+  if (sessions.value.length === 0) {
+    // Deleted the sole real workflow with no draft — seamlessly seed a draft
+    // so the list is never empty.
+    createDraft()
+    if (wasActive) await navigateTo(`/workflow/${DRAFT_SESSION_ID}`)
+    return
+  }
+  if (wasActive && fallback) {
+    await navigateTo(`/workflow/${fallback.id}`)
   }
 }
 
 const editingId = ref<string | null>(null)
 const editingValue = ref('')
 
+function canRenameWorkflow(id: string): boolean {
+  // Draft ("New Workflow") is not renameable — its title is fixed until it's
+  // promoted to a real session by the user's first prompt.
+  return id !== DRAFT_SESSION_ID
+}
+
 function startRename(id: string, title: string) {
+  if (!canRenameWorkflow(id)) {
+    activeDropdownIndex.value = null
+    return
+  }
   editingId.value = id
   editingValue.value = title
   activeDropdownIndex.value = null
@@ -202,7 +378,7 @@ function closeDropdown() {
 }
 
 function getDropdownPosition(id: string) {
-  const trigger = document.querySelector(`.chat-list-trigger[data-id="${id}"]`)
+  const trigger = document.querySelector(`.workflow-list-trigger[data-id="${id}"]`)
   if (!trigger) return { top: 0, left: 0 }
   const rect = trigger.getBoundingClientRect()
   return {
@@ -288,16 +464,26 @@ function handleSettings() {
   closeProfileDropdown()
 }
 
+function handleInstallApp() {
+  closeProfileDropdown()
+  navigateTo('/install-app')
+}
+
+function handleUpgradePlan() {
+  closeProfileDropdown()
+  navigateTo({ path: '/pricing', query: upgradeQuery.value })
+}
+
 async function handleLogout() {
-  await supabase.auth.signOut()
-  router.push('/')
+  const { signOut } = useSignOut()
+  await signOut()
 }
 
 function handleClickOutside(event: MouseEvent) {
-  // Close chat list dropdown
-  const dropdown = document.querySelector('.chat-list-dropdown')
+  // Close workflow list dropdown
+  const dropdown = document.querySelector('.workflow-list-dropdown')
   if (dropdown && !dropdown.contains(event.target as Node)) {
-    const trigger = document.querySelector('.chat-list-trigger')
+    const trigger = document.querySelector('.workflow-list-trigger')
     if (trigger && !trigger.contains(event.target as Node)) {
       closeDropdown()
     }
@@ -342,7 +528,10 @@ onUnmounted(() => {
         <div class="flex items-center gap-3 cursor-pointer workspace-dropdown-trigger w-full"
           @click="toggleWorkspaceDropdown">
           <!-- Logo Icon -->
-          <AccountIcon :initials="currentWorkspace?.name?.substring(0, 2).toUpperCase() || 'W'" size="md" />
+          <div v-if="currentWorkspace?.avatar_url" class="h-6 w-6 shrink-0 overflow-hidden rounded-md">
+            <img :src="currentWorkspace.avatar_url" alt="" class="h-full w-full object-cover" />
+          </div>
+          <AccountIcon v-else :initials="currentWorkspace?.name?.substring(0, 2).toUpperCase() || 'W'" size="md" />
           <!-- Title & Company -->
           <div class="flex flex-col flex-1 min-w-0">
             <div class="flex items-end justify-between">
@@ -359,40 +548,43 @@ onUnmounted(() => {
         </div>
 
         <!-- Workspace Dropdown -->
-        <CompactDropdown v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
-          <CompactDropdownRow
+        <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
+          <MenuItem
             v-for="ws in workspaces"
             :key="ws.id"
             :text="ws.name"
             @click="handleWorkspaceSwitch(ws.id)"
           >
             <template #icon>
-              <AccountIcon :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
+              <div v-if="ws.avatar_url" class="h-4 w-4 shrink-0 overflow-hidden rounded-md">
+                <img :src="ws.avatar_url" alt="" class="h-full w-full object-cover" />
+              </div>
+              <AccountIcon v-else :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
             </template>
             <template v-if="ws.id === currentWorkspace?.id" #icon-right>
               <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             </template>
-          </CompactDropdownRow>
+          </MenuItem>
           
-          <CompactDropdownRow :text="t('nav.addWorkspace')" :has-divider="workspaces.length > 0" @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false">
+          <MenuItem :text="t('nav.addWorkspace')" :has-divider="workspaces.length > 0" @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false">
             <template #icon>
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
             </template>
-          </CompactDropdownRow>
-        </CompactDropdown>
+          </MenuItem>
+        </Menu>
       </div>
-      <button type="button" @click="createChat"
+      <button type="button" @click="createWorkflow"
         class="w-full h-9.5 flex items-center justify-center gap-2 rounded-md bg-neutral-950 px-4 text-center text-body-md font-normal text-white transition-opacity hover:opacity-90 outline-none">
         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
         </svg>
-        {{ t('nav.newChat') }}
+        {{ t('nav.newWorkflow') }}
       </button>
     </div>
 
@@ -479,17 +671,27 @@ onUnmounted(() => {
         </li>
       </ul>
 
-      <!-- Chats -->
+      <!-- Workflows -->
       <div class="mt-6 flex flex-col flex-1 min-h-0 relative">
-        <h3 class="mb-2 pl-2.5 text-meta font-semibold uppercase tracking-wide text-neutral-500 shrink-0">{{ t('nav.chats') }}
+        <h3 class="mb-2 pl-2.5 text-meta font-semibold uppercase tracking-wide text-neutral-500 shrink-0">{{ t('nav.workflows') }}
         </h3>
-        <ul class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative">
-          <li v-for="session in sessions" :key="session.id" class="relative">
-            <div v-if="editingId !== session.id" @click="openChat(session.id)"
-              @mouseenter="hoveredChatId = session.id"
-              @mouseleave="hoveredChatId = null"
+        <TransitionGroup
+          v-draggable="[displaySessions, draggableOptions]"
+          tag="ul"
+          name="wf"
+          class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative"
+        >
+          <li
+            v-for="session in displaySessions"
+            :key="session.id"
+            class="relative wf-item"
+            :class="session.id === DRAFT_SESSION_ID ? 'wf-draft' : ''"
+          >
+            <div v-if="editingId !== session.id" @click="openWorkflow(session.id)"
+              @mouseenter="hoveredWorkflowId = session.id"
+              @mouseleave="hoveredWorkflowId = null"
               class="relative flex w-full cursor-pointer items-center rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950 outline-none"
-              :class="isChatListItemActive(session.id) ? 'bg-neutral-300' : 'hover:bg-neutral-200/90'">
+              :class="isWorkflowListItemActive(session.id) ? 'bg-neutral-300' : 'hover:bg-neutral-200/90'">
               <span
                 class="min-w-0 flex-1 truncate"
                 :title="session.title"
@@ -497,11 +699,11 @@ onUnmounted(() => {
               >{{ session.title }}</span>
               <div
                 class="shrink-0 overflow-hidden"
-                :class="(hoveredChatId === session.id || activeDropdownIndex === session.id) ? 'w-4 ml-1.5' : 'w-0'"
+                :class="(hoveredWorkflowId === session.id || activeDropdownIndex === session.id) ? 'w-4 ml-1.5' : 'w-0'"
                 @click.stop
               >
                 <svg @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
-                  class="chat-list-trigger size-4 text-neutral-400 cursor-pointer hover:text-neutral-950"
+                  class="workflow-list-trigger size-4 text-neutral-400 cursor-pointer hover:text-neutral-950"
                   :data-id="session.id"
                   viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <circle cx="6" cy="12" r="2" />
@@ -510,10 +712,13 @@ onUnmounted(() => {
                 </svg>
 
                 <div v-if="activeDropdownIndex === session.id"
-                  class="fixed z-9999 mt-1 w-32 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden chat-list-dropdown"
+                  class="fixed z-9999 mt-1 w-32 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden workflow-list-dropdown"
                   :style="{ top: getDropdownPosition(session.id).top + 'px', left: getDropdownPosition(session.id).left + 'px' }">
-                  <button @click.stop
-                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav text-neutral-950 hover:bg-neutral-100 cursor-pointer transition-colors">
+                  <button @click.stop :disabled="session.id === DRAFT_SESSION_ID"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
+                    :class="session.id === DRAFT_SESSION_ID
+                      ? 'text-neutral-300 cursor-not-allowed'
+                      : 'text-neutral-950 hover:bg-neutral-100 cursor-pointer'">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                       <polyline points="16 6 12 2 8 6" />
@@ -522,7 +727,11 @@ onUnmounted(() => {
                     Share
                   </button>
                   <button @click.stop="startRename(session.id, session.title)"
-                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav text-neutral-950 hover:bg-neutral-100 cursor-pointer transition-colors">
+                    :disabled="session.id === DRAFT_SESSION_ID"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
+                    :class="session.id === DRAFT_SESSION_ID
+                      ? 'text-neutral-300 cursor-not-allowed'
+                      : 'text-neutral-950 hover:bg-neutral-100 cursor-pointer'">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -530,10 +739,8 @@ onUnmounted(() => {
                     Rename
                   </button>
                   <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
-                  <button @click.stop="deleteChat(session.id)" :disabled="!canDeleteChat()"
-                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors" :class="canDeleteChat()
-                      ? 'text-red-600 hover:bg-red-50 cursor-pointer'
-                      : 'text-red-300 cursor-not-allowed'">
+                  <button @click.stop="deleteWorkflow(session.id)"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav text-red-600 hover:bg-red-50 cursor-pointer transition-colors">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -552,7 +759,7 @@ onUnmounted(() => {
                 autofocus />
             </div>
           </li>
-        </ul>
+        </TransitionGroup>
         <div
           class="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-neutral-100 to-transparent pointer-events-none z-10">
         </div>
@@ -560,22 +767,30 @@ onUnmounted(() => {
     </nav>
 
     <div class="mt-auto shrink-0 border-t border-neutral-200/80 pt-2 relative">
-      <button @click="isProfileDropdownOpen = !isProfileDropdownOpen"
-        class="profile-trigger flex items-center gap-2 w-full rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors hover:bg-neutral-200/60 outline-none">
-        <template v-if="avatarUrl">
-          <img :src="avatarUrl" class="h-6 w-6 rounded-md object-cover ring-1 ring-neutral-200/80 shrink-0" alt="" />
-        </template>
-        <AccountIcon v-else :initials="(userName || 'U').split(' ').map(n => n[0]).join('').substring(0, 2)
-          .toUpperCase()" size="md" color="bg-neutral-800" role="img" aria-label="User profile" />
-        <div class="min-w-0 flex-1 text-left">
-          <p class="truncate font-semibold text-neutral-950">
-            {{ userName }}
-          </p>
-          <p class="truncate text-meta text-neutral-600">
-            {{ userPlan }}
-          </p>
-        </div>
-      </button>
+      <div class="relative">
+        <button @click="isProfileDropdownOpen = !isProfileDropdownOpen"
+          class="profile-trigger flex items-center gap-2 w-full rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors hover:bg-neutral-200/60 outline-none">
+          <template v-if="avatarUrl && !avatarFailed">
+            <img
+              :src="avatarUrl"
+              referrerpolicy="no-referrer"
+              class="h-6 w-6 rounded-md object-cover ring-1 ring-neutral-200/80 shrink-0"
+              alt=""
+              @error="avatarFailed = true"
+            />
+          </template>
+          <AccountIcon v-else :initials="(userName || 'U').split(' ').map(n => n[0]).join('').substring(0, 2)
+            .toUpperCase()" size="md" color="bg-neutral-800" role="img" aria-label="User profile" />
+          <div class="min-w-0 flex-1 text-left">
+            <p class="truncate font-semibold text-neutral-950">
+              {{ userName }}
+            </p>
+            <p class="truncate text-meta text-neutral-600">
+              {{ userPlan }}
+            </p>
+          </div>
+        </button>
+      </div>
 
       <!-- Language submenu panel — teleported to body to escape overflow-hidden -->
       <Teleport to="body">
@@ -621,22 +836,20 @@ onUnmounted(() => {
         </div>
       </Teleport>
 
-      <CompactDropdown v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above">
-        <template v-if="user">
-          <div class="px-3 py-1.5 text-xs text-neutral-500 truncate">
-            {{ userEmail }}
-          </div>
-          <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
-        </template>
-        <CompactDropdownRow :text="t('common.settings')" @click="handleSettings">
+      <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above">
+        <div class="px-3 py-1.5 text-xs text-neutral-500 truncate">
+          {{ userEmail }}
+        </div>
+        <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
+        <MenuItem :text="t('common.settings')" @click="handleSettings">
           <template #icon>
             <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" class="size-[18px]" aria-hidden="true">
               <path d="M10.549 2C11.35 2 12 2.65 12 3.451c0 .195.138.403.385.501q.102.041.204.085l.09.032c.212.06.415.007.536-.114a1.453 1.453 0 0 1 2.055.001l.774.774.1.11a1.454 1.454 0 0 1-.1 1.945c-.138.138-.187.382-.081.625l.085.205.042.087c.108.192.289.298.459.298C17.35 8 18 8.65 18 9.451v1.098C18 11.35 17.35 12 16.549 12c-.17 0-.35.106-.46.298l-.041.087-.085.204c-.106.243-.057.488.08.626a1.453 1.453 0 0 1 0 2.055l-.773.774a1.453 1.453 0 0 1-2.055 0 .55.55 0 0 0-.535-.114l-.091.033q-.1.044-.203.084c-.247.098-.386.306-.386.5C12 17.35 11.35 18 10.548 18H9.452C8.65 18 8 17.35 8 16.548a.55.55 0 0 0-.298-.46l-.087-.041-.205-.085c-.243-.106-.487-.056-.625.082a1.453 1.453 0 0 1-1.944.1l-.11-.1-.775-.774a1.453 1.453 0 0 1 0-2.055l.047-.057a.56.56 0 0 0 .066-.478l-.032-.091-.085-.204c-.098-.247-.306-.385-.5-.385C2.65 12 2 11.35 2 10.549V9.45C2 8.65 2.65 8 3.451 8c.195 0 .402-.138.5-.385l.086-.205.032-.09a.56.56 0 0 0-.066-.48l-.048-.055a1.453 1.453 0 0 1 0-2.055l.775-.775.11-.1a1.453 1.453 0 0 1 1.945.1c.138.138.382.188.625.082q.102-.045.205-.086c.247-.098.385-.305.385-.5C8 2.65 8.65 2 9.451 2zM9.45 3a.45.45 0 0 0-.45.451c0 .674-.457 1.21-1.017 1.43l-.173.072c-.554.241-1.256.187-1.733-.29a.45.45 0 0 0-.568-.059l-.07.06-.776.774a.45.45 0 0 0 0 .64c.447.446.523 1.091.332 1.626l-.042.106-.071.173C4.66 8.543 4.125 9 3.452 9A.45.45 0 0 0 3 9.451v1.098c0 .249.202.451.451.451.674 0 1.209.457 1.43 1.017l.072.172c.242.553.187 1.256-.29 1.733a.453.453 0 0 0 0 .64l.774.775.072.059a.45.45 0 0 0 .568-.06c.477-.476 1.18-.532 1.734-.29q.085.037.172.071l.104.046c.511.244.913.753.913 1.385 0 .25.203.452.452.452h1.096c.25 0 .452-.203.452-.452 0-.674.457-1.209 1.017-1.43l.172-.072.105-.042c.535-.191 1.18-.114 1.628.333a.453.453 0 0 0 .64 0l.775-.774a.453.453 0 0 0 0-.641c-.477-.477-.532-1.18-.29-1.734q.037-.085.071-.172l.046-.104c.244-.51.754-.912 1.385-.912a.45.45 0 0 0 .451-.451V9.45a.45.45 0 0 0-.451-.45c-.632 0-1.14-.402-1.385-.913l-.046-.104-.072-.172c-.242-.554-.186-1.257.29-1.734a.45.45 0 0 0 .06-.568l-.06-.072-.774-.774a.454.454 0 0 0-.569-.059l-.071.06c-.477.476-1.18.53-1.734.29l-.171-.072C11.457 4.66 11 4.125 11 3.452A.45.45 0 0 0 10.549 3zM10 7a3 3 0 1 1 0 6 3 3 0 0 1 0-6m0 1a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>
             </svg>
           </template>
-        </CompactDropdownRow>
+        </MenuItem>
         <div ref="languageBtnRef">
-          <CompactDropdownRow
+          <MenuItem
             :text="t('common.language')"
             @click.stop="isLanguageOpen ? isLanguageOpen = false : openLanguagePanel()"
             :class="isLanguageOpen ? 'bg-neutral-100' : ''"
@@ -651,24 +864,24 @@ onUnmounted(() => {
             <template #icon-right>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
             </template>
-          </CompactDropdownRow>
+          </MenuItem>
         </div>
-        <CompactDropdownRow :text="t('common.upgradePlan')">
+        <MenuItem :text="t('common.upgradePlan')" @click="handleUpgradePlan">
           <template #icon>
             <svg viewBox="0 0 20 20" fill="currentColor" class="size-[18px]" aria-hidden="true">
               <path d="M10 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15m0 1a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13m-.354 3.146a.5.5 0 0 1 .63-.064l.078.064 2.5 2.5a.5.5 0 1 1-.707.708L10.5 8.207V13l-.01.1a.5.5 0 0 1-.98 0L9.5 13V8.207L7.854 9.854a.5.5 0 0 1-.707-.708z"></path>
             </svg>
           </template>
-        </CompactDropdownRow>
-        <CompactDropdownRow :text="t('common.downloadApps')">
+        </MenuItem>
+        <MenuItem :text="t('common.installApp')" @click="handleInstallApp">
           <template #icon>
             <svg viewBox="0 0 20 20" fill="currentColor" class="size-[18px]" aria-hidden="true">
               <path d="M16.5 13a.5.5 0 0 1 .5.5v2a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-2a.5.5 0 0 1 1 0v2a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 1 .5-.5M10 3a.5.5 0 0 1 .5.5v8.686l3.126-3.518a.5.5 0 0 1 .748.664l-4 4.5-.08.071a.5.5 0 0 1-.668-.071l-4-4.5-.059-.082A.5.5 0 0 1 6.3 8.6l.075.068L9.5 12.186V3.5A.5.5 0 0 1 10 3"></path>
             </svg>
           </template>
-        </CompactDropdownRow>
+        </MenuItem>
         <div ref="helpBtnRef">
-          <CompactDropdownRow
+          <MenuItem
             :text="t('common.help')"
             @click.stop="isHelpOpen ? isHelpOpen = false : openHelpPanel()"
             :class="isHelpOpen ? 'bg-neutral-100' : ''"
@@ -683,17 +896,17 @@ onUnmounted(() => {
             <template #icon-right>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
             </template>
-          </CompactDropdownRow>
+          </MenuItem>
         </div>
         <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
-        <CompactDropdownRow :text="t('common.signOut')" destructive @click="handleLogout">
-          <template #icon>
-            <svg viewBox="0 0 20 20" fill="currentColor" class="size-[18px]" aria-hidden="true">
-              <path d="M9.5 3A1.5 1.5 0 0 1 11 4.5v3l-.01.1a.5.5 0 0 1-.98 0L10 7.5v-3a.5.5 0 0 0-.5-.5h-5l-.1.01a.5.5 0 0 0-.4.49v11a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .49-.4l.01-.1v-3a.5.5 0 0 1 1 0v3l-.008.153A1.5 1.5 0 0 1 9.5 17h-5A1.5 1.5 0 0 1 3 15.5v-11a1.5 1.5 0 0 1 1.347-1.492L4.5 3zm3.12 3.675a.5.5 0 0 1 .705-.055l3.5 3 .074.08a.5.5 0 0 1-.074.68l-3.5 3-.083.057a.5.5 0 0 1-.638-.744l.07-.073 2.474-2.12H7.5a.5.5 0 0 1 0-1h7.648l-2.473-2.12a.5.5 0 0 1-.055-.705"></path>
-            </svg>
-          </template>
-        </CompactDropdownRow>
-      </CompactDropdown>
+        <MenuItem :text="t('common.signOut')" destructive @click="handleLogout">
+            <template #icon>
+              <svg viewBox="0 0 20 20" fill="currentColor" class="size-[18px]" aria-hidden="true">
+                <path d="M9.5 3A1.5 1.5 0 0 1 11 4.5v3l-.01.1a.5.5 0 0 1-.98 0L10 7.5v-3a.5.5 0 0 0-.5-.5h-5l-.1.01a.5.5 0 0 0-.4.49v11a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .49-.4l.01-.1v-3a.5.5 0 0 1 1 0v3l-.008.153A1.5 1.5 0 0 1 9.5 17h-5A1.5 1.5 0 0 1 3 15.5v-11a1.5 1.5 0 0 1 1.347-1.492L4.5 3zm3.12 3.675a.5.5 0 0 1 .705-.055l3.5 3 .074.08a.5.5 0 0 1-.074.68l-3.5 3-.083.057a.5.5 0 0 1-.638-.744l.07-.073 2.474-2.12H7.5a.5.5 0 0 1 0-1h7.648l-2.473-2.12a.5.5 0 0 1-.055-.705"></path>
+              </svg>
+            </template>
+          </MenuItem>
+      </Menu>
     </div>
 
     <SearchModal v-model:open="isSearchOpen" />
@@ -702,3 +915,67 @@ onUnmounted(() => {
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
   </aside>
 </template>
+
+<style scoped>
+/* Leave: collapse height + fade. Staying in flow means the siblings
+   slide up smoothly as the row shrinks, no position:absolute needed
+   (which previously caused a flash alongside SortableJS). */
+.wf-leave-active {
+  transition: max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease, padding 0.22s ease;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wf-leave-from {
+  max-height: 40px;
+}
+.wf-leave-to {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Enter: matching expand + fade for added rows. */
+.wf-enter-active {
+  transition: max-height 0.22s ease, opacity 0.18s ease;
+  overflow: hidden;
+}
+.wf-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+.wf-enter-to {
+  max-height: 40px;
+  opacity: 1;
+}
+
+/* Drag-to-reorder affordance (real sessions only). */
+.wf-item > div:first-child {
+  cursor: grab;
+}
+.wf-draft > div:first-child {
+  cursor: pointer;
+}
+.wf-chosen > div:first-child {
+  cursor: grabbing;
+}
+
+/* Ghost left in place while dragging. */
+.wf-ghost {
+  opacity: 0.35;
+  transition: opacity 0.18s ease;
+}
+.wf-ghost > div:first-child {
+  background-color: var(--color-neutral-200);
+}
+
+/* Floating drag preview. Transform is rewritten every frame by SortableJS
+   (with the X component zeroed by `lockDragX`), so don't transition it. */
+.wf-drag {
+  opacity: 0.95;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+</style>

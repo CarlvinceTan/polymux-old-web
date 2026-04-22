@@ -1,4 +1,6 @@
-import type { ChatMessage } from './types'
+import type { ChatMessage, ChatMessageAttachment } from './types'
+
+export const DRAFT_SESSION_ID = 'new'
 
 export interface ChatSession {
   id: string
@@ -7,6 +9,7 @@ export interface ChatSession {
   workspace_id: string
   created_at: string
   updated_at: string
+  is_draft?: boolean
 }
 
 interface StoredMessage {
@@ -18,58 +21,126 @@ interface StoredMessage {
   created_at: string
 }
 
+export interface PendingDraftPrompt {
+  text: string
+  attachments?: ChatMessageAttachment[]
+}
+
+function draftStorageKey(workspaceID: string): string {
+  return `polymux_draft_workflow:${workspaceID}`
+}
+
+function pendingPromptKey(sessionID: string): string {
+  return `polymux_pending_prompt:${sessionID}`
+}
+
 export function useChatSessions() {
-  const sessions = useState<ChatSession[]>('chat-sessions', () => [])
+  const realSessions = useState<ChatSession[]>('chat-sessions', () => [])
+  const draft = useState<ChatSession | null>('chat-draft-session', () => null)
   const { authFetch } = useAuthFetch()
 
   const { currentWorkspaceId } = useWorkspaces()
-  const { ensureAuth } = useGuestAuth()
+  const currentUser = useSupabaseUser()
+
+  // Hide other members' in-progress "New Workflow" rows (briefly present during
+  // another user's first-prompt promotion). The caller's own drafts live purely
+  // on the client and never appear here.
+  function visibleReal(all: ChatSession[]): ChatSession[] {
+    const me = currentUser.value?.id
+    return all.filter(s => s.title !== 'New Workflow' || s.user_id === me)
+  }
+
+  const sessions = computed<ChatSession[]>(() => {
+    const real = realSessions.value
+    return draft.value ? [draft.value, ...real] : real
+  })
 
   async function fetchSessions() {
     try {
       const wsId = currentWorkspaceId.value
       const path = wsId ? `/sessions?workspace_id=${wsId}` : '/sessions'
       const data = await authFetch<ChatSession[]>(path)
-      const all = data ?? []
-      let seenNewChat = false
-      const deduped = all.filter(s => {
-        if (s.title === 'New Chat') {
-          if (seenNewChat) return false
-          seenNewChat = true
-        }
-        return true
-      })
-      sessions.value = deduped
+      realSessions.value = visibleReal(data ?? [])
     } catch (err) {
       console.error('[useChatSessions] fetchSessions failed', err)
     }
   }
 
-  async function createSession(title?: string): Promise<ChatSession | null> {
-    await ensureAuth()
-    const resolved = title?.trim() || 'New Chat'
-    if (resolved === 'New Chat' && sessions.value.some(s => s.title === 'New Chat')) {
-      return sessions.value.find(s => s.title === 'New Chat')!
+  function persistDraft(d: ChatSession | null) {
+    if (!import.meta.client) return
+    const wsId = currentWorkspaceId.value
+    if (!wsId) return
+    const key = draftStorageKey(wsId)
+    if (d) {
+      try { sessionStorage.setItem(key, JSON.stringify(d)) } catch {}
+    } else {
+      try { sessionStorage.removeItem(key) } catch {}
     }
+  }
+
+  function restoreDraft() {
+    if (!import.meta.client) return
+    const wsId = currentWorkspaceId.value
+    if (!wsId) return  // workspace not loaded yet — leave draft untouched
+    // If a draft already exists for this workspace in memory, keep it (avoid
+    // clobbering a freshly-created draft whose persist hasn't been read back).
+    if (draft.value && draft.value.workspace_id === wsId) return
+    try {
+      const raw = sessionStorage.getItem(draftStorageKey(wsId))
+      draft.value = raw ? (JSON.parse(raw) as ChatSession) : null
+    } catch {
+      draft.value = null
+    }
+  }
+
+  function createDraft(): ChatSession | null {
+    if (draft.value) return draft.value
+    const wsId = currentWorkspaceId.value ?? ''
+    const me = currentUser.value?.id ?? ''
+    const now = new Date().toISOString()
+    const d: ChatSession = {
+      id: DRAFT_SESSION_ID,
+      title: 'New Workflow',
+      user_id: me,
+      workspace_id: wsId,
+      created_at: now,
+      updated_at: now,
+      is_draft: true,
+    }
+    draft.value = d
+    persistDraft(d)
+    return d
+  }
+
+  function dropDraft() {
+    draft.value = null
+    persistDraft(null)
+  }
+
+  // Create the backing session row for the current draft and drop the draft.
+  // Called on the user's first prompt send in the draft UI.
+  async function promoteDraft(): Promise<ChatSession | null> {
     const wsId = currentWorkspaceId.value
     if (!wsId) {
-      console.error('[useChatSessions] no current workspace')
+      console.error('[useChatSessions] promoteDraft: no workspace')
       return null
     }
     try {
       const s = await authFetch<ChatSession>('/sessions', {
         method: 'POST',
-        body: JSON.stringify({ title: resolved, workspace_id: wsId }),
+        body: JSON.stringify({ title: 'New Workflow', workspace_id: wsId }),
       })
-      sessions.value = [s, ...sessions.value]
+      realSessions.value = [s, ...realSessions.value.filter(x => x.id !== s.id)]
+      dropDraft()
       return s
     } catch (err) {
-      console.error('[useChatSessions] createSession failed', err)
+      console.error('[useChatSessions] promoteDraft failed', err)
       return null
     }
   }
 
   async function renameSession(id: string, title: string) {
+    if (id === DRAFT_SESSION_ID) return
     const trimmed = title.trim()
     if (!trimmed) return
     try {
@@ -77,7 +148,7 @@ export function useChatSessions() {
         method: 'PATCH',
         body: JSON.stringify({ title: trimmed }),
       })
-      const s = sessions.value.find(s => s.id === id)
+      const s = realSessions.value.find(s => s.id === id)
       if (s) s.title = trimmed
     } catch (err) {
       console.error('[useChatSessions] renameSession failed', err)
@@ -85,34 +156,48 @@ export function useChatSessions() {
   }
 
   async function deleteSession(id: string) {
+    if (id === DRAFT_SESSION_ID) {
+      dropDraft()
+      return
+    }
     try {
       await authFetch(`/sessions/${id}`, { method: 'DELETE' })
-      sessions.value = sessions.value.filter(s => s.id !== id)
+      realSessions.value = realSessions.value.filter(s => s.id !== id)
     } catch (err) {
       console.error('[useChatSessions] deleteSession failed', err)
     }
   }
 
-  async function replaceSession(oldId: string, title: string): Promise<ChatSession | null> {
-    const wsId = currentWorkspaceId.value
-    if (!wsId) {
-      console.error('[useChatSessions] no current workspace')
-      return null
+  // Fire-and-forget backend delete for a real session that was never committed
+  // to (no messages persisted). Called on route leave from an unused workflow.
+  async function deleteSessionIfEmpty(id: string) {
+    if (id === DRAFT_SESSION_ID) {
+      dropDraft()
+      return
     }
+    const supabase = useSupabaseClient()
+    const config = useRuntimeConfig()
+    const baseURL = config.public.serverUrl as string
     try {
-      const s = await authFetch<ChatSession>('/sessions', {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim() || 'New Chat', workspace_id: wsId }),
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch(`${baseURL}/sessions/${id}`, {
+        method: 'DELETE',
+        keepalive: true,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       })
-      sessions.value = sessions.value.map(sess => sess.id === oldId ? s : sess)
-      return s
-    } catch (err) {
-      console.error('[useChatSessions] replaceSession failed', err)
-      return null
+      realSessions.value = realSessions.value.filter(s => s.id !== id)
+    }
+    catch (err) {
+      console.error('[useChatSessions] deleteSessionIfEmpty failed', err)
     }
   }
 
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[]> {
+    if (sessionId === DRAFT_SESSION_ID) return []
     try {
       let path = `/sessions/${sessionId}/messages`
       if (agentId) path += `?agent_id=eq.${agentId}`
@@ -131,5 +216,39 @@ export function useChatSessions() {
     }
   }
 
-  return { sessions, fetchSessions, createSession, renameSession, deleteSession, replaceSession, fetchMessages }
+  function setPendingPrompt(sessionID: string, prompt: PendingDraftPrompt) {
+    if (!import.meta.client) return
+    try {
+      sessionStorage.setItem(pendingPromptKey(sessionID), JSON.stringify(prompt))
+    } catch {}
+  }
+
+  function consumePendingPrompt(sessionID: string): PendingDraftPrompt | null {
+    if (!import.meta.client) return null
+    try {
+      const raw = sessionStorage.getItem(pendingPromptKey(sessionID))
+      if (!raw) return null
+      sessionStorage.removeItem(pendingPromptKey(sessionID))
+      return JSON.parse(raw) as PendingDraftPrompt
+    } catch {
+      return null
+    }
+  }
+
+  return {
+    sessions,
+    realSessions,
+    draft,
+    fetchSessions,
+    createDraft,
+    dropDraft,
+    promoteDraft,
+    restoreDraft,
+    renameSession,
+    deleteSession,
+    deleteSessionIfEmpty,
+    fetchMessages,
+    setPendingPrompt,
+    consumePendingPrompt,
+  }
 }

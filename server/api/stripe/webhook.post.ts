@@ -83,34 +83,40 @@ export default defineEventHandler(async (event) => {
     } else {
       const userId = session.metadata?.userId
       const planKey = session.metadata?.planKey
+      const workspaceId = session.metadata?.workspaceId
 
-      if (userId && planKey) {
-        const { error } = await admin.auth.admin.updateUserById(userId, {
-          app_metadata: { plan: planKey },
-        })
+      if (workspaceId && planKey) {
+        const { error } = await admin
+          .from('workspaces')
+          .update({ plan: planKey })
+          .eq('id', workspaceId)
         if (error) {
-          console.error('[stripe/webhook] Failed to update user plan', { userId, planKey, error })
+          console.error('[stripe/webhook] Failed to update workspace plan', { workspaceId, planKey, error })
         }
         else {
-          console.info('[stripe/webhook] Plan updated', { userId, planKey })
+          console.info('[stripe/webhook] Workspace plan updated', { workspaceId, planKey, userId })
         }
+      }
+      else {
+        console.warn('[stripe/webhook] checkout.session.completed missing workspaceId or planKey', { userId, workspaceId, planKey })
       }
     }
   }
 
   if (stripeEvent.type === 'customer.subscription.deleted') {
     const subscription = stripeEvent.data.object as Stripe.Subscription
-    const userId = subscription.metadata?.userId
+    const workspaceId = subscription.metadata?.workspaceId
 
-    if (userId) {
-      const { error } = await admin.auth.admin.updateUserById(userId, {
-        app_metadata: { plan: 'free' },
-      })
+    if (workspaceId) {
+      const { error } = await admin
+        .from('workspaces')
+        .update({ plan: 'free' })
+        .eq('id', workspaceId)
       if (error) {
-        console.error('[stripe/webhook] Failed to reset user plan', { userId, error })
+        console.error('[stripe/webhook] Failed to reset workspace plan', { workspaceId, error })
       }
       else {
-        console.info('[stripe/webhook] Plan reset to free', { userId })
+        console.info('[stripe/webhook] Workspace plan reset to free', { workspaceId })
       }
     }
   }

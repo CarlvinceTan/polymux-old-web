@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { useI18n } from '#imports'
+
 definePageMeta({ layout: 'landing' })
 
 useHead({
   title: 'Pricing — Polymux',
 })
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -26,17 +30,21 @@ interface PlanFeatureRow {
   enterprise: string | boolean
 }
 
-const planFeatures: PlanFeatureRow[] = [
-  { name: 'AI Agents', free: '3', pro: '10', max: 'Unlimited', enterprise: 'Custom' },
-  { name: 'Monthly Tasks', free: '100', pro: '1,000', max: 'Unlimited', enterprise: 'Unlimited' },
-  { name: 'Browser Sessions', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
-  { name: 'Vault Storage', free: '100 MB', pro: '5 GB', max: '50 GB', enterprise: 'Unlimited' },
+// Storage rows are sourced from server/utils/planLimits.ts. When you bump the
+// caps there, mirror the change here — there's no shared module because the
+// landing page intentionally avoids importing server utils.
+const planFeatures = computed<PlanFeatureRow[]>(() => [
+  { name: 'AI Agents per workspace', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
+  { name: 'Monthly Tasks per workspace', free: '100', pro: '1,000', max: '10,000', enterprise: 'Unlimited' },
+  { name: 'Browser Sessions per workspace', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
+  { name: t('pricing.storage.total'), free: '5 GB', pro: '100 GB', max: '1 TB', enterprise: '10 TB' },
+  { name: t('pricing.storage.file'), free: '100 MB', pro: '5 GB', max: '20 GB', enterprise: '100 GB' },
+  { name: t('pricing.storage.pullFolder'), free: '500 MB', pro: '10 GB', max: '100 GB', enterprise: '1 TB' },
+  { name: t('pricing.storage.artifacts'), free: '2 GB', pro: '20 GB', max: '100 GB', enterprise: '1 TB' },
+  { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
   { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
-  { name: 'API Access', free: false, pro: false, max: true, enterprise: true },
   { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
-  { name: 'SSO / SAML', free: false, pro: false, max: false, enterprise: true },
-  { name: 'Dedicated Account Manager', free: false, pro: false, max: false, enterprise: true },
-]
+])
 
 type BillingPeriod = 'annual' | 'monthly'
 
@@ -84,7 +92,7 @@ function planCellDetail(row: PlanFeatureRow, key: PlanKey): string | null {
 }
 
 function planItemsForKey(key: PlanKey) {
-  return planFeatures.map((row) => {
+  return planFeatures.value.map((row) => {
     const included = planCellIncluded(row, key)
     const detail = planCellDetail(row, key)
     const label = detail ? `${row.name} (${detail})` : row.name
@@ -96,20 +104,47 @@ const route = useRoute()
 
 const planOrder: PlanKey[] = ['free', 'pro', 'max', 'enterprise']
 
+const { workspaces, currentWorkspace, currentWorkspaceId, switchWorkspace, fetchWorkspaces } = useWorkspaces()
+
+onMounted(async () => {
+  if (workspaces.value.length === 0) await fetchWorkspaces()
+  const qsWorkspace = (route.query.workspaceId as string | undefined)?.trim()
+  if (qsWorkspace && workspaces.value.some(w => w.id === qsWorkspace)) {
+    switchWorkspace(qsWorkspace)
+  }
+})
+
+const targetWorkspacePlan = computed<PlanKey>(() => {
+  const raw = (currentWorkspace.value?.plan as string | undefined)?.toLowerCase().trim()
+  if (raw && planOrder.includes(raw as PlanKey)) return raw as PlanKey
+  return 'free'
+})
+
 const currentUserPlan = computed<PlanKey | null>(() => {
   const raw = (route.query.current as string | undefined)?.toLowerCase().trim()
   if (raw && planOrder.includes(raw as PlanKey)) return raw as PlanKey
-  return null
+  return currentWorkspace.value ? targetWorkspacePlan.value : null
 })
 
 function nextTierUp(key: PlanKey): PlanKey {
   const idx = planOrder.indexOf(key)
-  return idx >= 0 && idx < planOrder.length - 1 ? planOrder[idx + 1] : key
+  if (idx < 0 || idx >= planOrder.length - 1) return key
+  return planOrder[idx + 1] ?? key
 }
 
 const selectedPlanKey = ref<PlanKey>(
   currentUserPlan.value ? nextTierUp(currentUserPlan.value) : 'free',
 )
+
+function onWorkspaceChange(id: string) {
+  switchWorkspace(id)
+  const plan = targetWorkspacePlan.value
+  selectedPlanKey.value = nextTierUp(plan)
+}
+
+watch(targetWorkspacePlan, (plan) => {
+  selectedPlanKey.value = nextTierUp(plan)
+})
 
 function onPlanPanelSelect(key: PlanKey) {
   if (key === 'enterprise') {
@@ -135,13 +170,24 @@ async function onPurchaseNow() {
   }
   if (key === 'free') return
 
+  const workspaceId = currentWorkspaceId.value
+  if (!workspaceId) {
+    purchaseError.value = 'Select a workspace to upgrade first.'
+    return
+  }
+
   purchaseLoading.value = true
   purchaseError.value = ''
 
   try {
     const { url } = await $fetch<{ url: string }>('/api/stripe/checkout', {
       method: 'POST',
-      body: { planKey: key, billingPeriod: billingPeriod.value, currency: currency.value },
+      body: {
+        planKey: key,
+        billingPeriod: billingPeriod.value,
+        currency: currency.value,
+        workspaceId,
+      },
     })
     window.location.href = url
   }
@@ -163,31 +209,51 @@ async function onPurchaseNow() {
     "
   >
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <header class="mb-6 flex items-center gap-3 sm:mb-8 sm:gap-4">
-        <button
-          type="button"
-          class="flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
-          aria-label="Go back"
-          @click="goBack"
-        >
-          <svg
-            class="size-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
+      <header class="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:gap-4">
+        <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            class="flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+            aria-label="Go back"
+            @click="goBack"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
-        <h1 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-          Pricing
-        </h1>
+            <svg
+              class="size-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 class="min-w-0 truncate text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+            <template v-if="currentWorkspace">
+              Upgrade <span class="text-neutral-700">{{ currentWorkspace.name }}</span>'s plan
+            </template>
+            <template v-else>
+              Pricing
+            </template>
+          </h1>
+        </div>
+        <div v-if="workspaces.length > 1 && currentWorkspace" class="sm:ml-auto sm:shrink-0">
+          <label for="pricing-workspace-select" class="sr-only">Switch workspace</label>
+          <select
+            id="pricing-workspace-select"
+            :value="currentWorkspace.id"
+            class="block w-full rounded-md border border-neutral-200 bg-white py-2 pl-3 pr-8 text-sm text-neutral-900 shadow-sm outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 sm:w-56"
+            @change="onWorkspaceChange(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
+              {{ ws.name }} · {{ (ws.plan || 'free').charAt(0).toUpperCase() + (ws.plan || 'free').slice(1) }}
+            </option>
+          </select>
+        </div>
       </header>
 
       <p class="mb-6 max-w-2xl text-lg text-neutral-500 sm:mb-8">
-        Start free. Scale as you grow. No hidden fees.
+        Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
       </p>
 
       <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">

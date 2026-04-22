@@ -1,7 +1,8 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
-import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
+import type { ChatMessage, ChatMessageAttachment, SessionMode, SessionModeChangedPayload, SessionStatePayload, SetSessionModePayload, ViewportState } from '~/composables/types'
+import type { SessionHandle } from '~/composables/useSession'
 
 export type { ChatMessage, ViewportState }
 
@@ -20,9 +21,10 @@ const props = defineProps<{
   waitingForAgent?: boolean
   browserAgentCap?: number
   activeAgentId: string | null
-  chatDisabled?: boolean
-  activeView: 'chat' | 'browser'
   browserMode: boolean
+  hideViewSwitch?: boolean
+  hideTitle?: boolean
+  showHeaderDivider?: boolean
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -41,13 +43,38 @@ const emit = defineEmits<{
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'retry-message': [index: number]
   pause: []
-  settings: []
 }>()
 
 const workflowMode = ref(false)
 
-const showBrowserDock = computed(() => props.browserMode && props.activeView === 'browser')
-const showWorkflowDock = computed(() => workflowMode.value)
+const injectedSession = inject<SessionHandle | null>('chat-session', null)
+const sessionMode = ref<SessionMode>('build')
+
+if (injectedSession) {
+  watch(injectedSession.sessionState, (s: Readonly<SessionStatePayload> | null) => {
+    if (s?.mode === 'casual' || s?.mode === 'build') sessionMode.value = s.mode
+  })
+  injectedSession.on<SessionModeChangedPayload>('session_mode_changed', (p) => {
+    if (p.mode === 'casual' || p.mode === 'build') sessionMode.value = p.mode
+  })
+}
+
+function setMode(next: SessionMode) {
+  if (next === sessionMode.value) return
+  sessionMode.value = next
+  injectedSession?.send<SetSessionModePayload>('set_session_mode', { mode: next })
+}
+
+function toggleMode() {
+  setMode(sessionMode.value === 'build' ? 'casual' : 'build')
+}
+
+// True when the user has not sent anything yet AND no viewports exist.
+// Chat view with viewports still wants the dock visible even if the
+// transcript is momentarily empty (reconnects, etc.).
+const showWelcome = computed(() => props.welcome && !props.browserMode && !workflowMode.value)
+
+const showSplitLayout = computed(() => !showWelcome.value)
 
 const agentActive = computed(() => !!props.waitingForAgent)
 
@@ -105,15 +132,11 @@ function onSend(value: string) {
   emit('send', value, files)
   clearAll()
 }
-
-function toggleWorkflow() {
-  workflowMode.value = !workflowMode.value
-}
 </script>
 
 <template>
-  <TabPanel v-bind="$attrs" class="min-h-0 min-w-0 flex-1" :compact-footer="attachments.length > 0" hide-footer-divider>
-    <template v-if="!welcome" #title>
+  <TabPanel v-bind="$attrs" class="min-h-0 min-w-0 flex-1" :compact-footer="attachments.length > 0" hide-footer-divider :hide-header-divider="!props.showHeaderDivider">
+    <template v-if="!hideTitle" #title>
       <EditableTitle
         :model-value="chatTitle"
         :disabled="renameable === false"
@@ -121,7 +144,7 @@ function toggleWorkflow() {
       />
     </template>
 
-    <template v-if="!welcome" #actions>
+    <template v-if="!hideViewSwitch" #actions>
       <div class="flex items-center rounded-lg bg-neutral-100 p-0.5">
         <button
           type="button"
@@ -152,35 +175,19 @@ function toggleWorkflow() {
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <ChatWelcome
-        v-if="welcome && !(activeView === 'browser' && !browserMode)"
+        v-if="showWelcome"
         :user-name="userName"
         :welcome-suggestion="welcomeSuggestion"
         @suggestion="emit('welcomeSuggestion')"
       />
 
       <div
-        v-else-if="activeView === 'browser' && !browserMode"
-        class="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center"
-      >
-        <UIcon name="i-heroicons-globe-alt-20-solid" class="mb-3 size-8 text-neutral-300" />
-        <p class="mb-4 text-sm text-neutral-400">{{ t('chat.noBrowserAgents') }}</p>
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-          @click="emit('spawnBrowserAgent')"
-        >
-          <UIcon name="i-heroicons-plus-20-solid" class="size-4" />
-          {{ t('chat.spawnBrowserAgent') }}
-        </button>
-      </div>
-
-      <div
-        v-else
+        v-else-if="showSplitLayout"
         ref="layoutContainer"
         class="flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-out md:flex-row md:gap-0"
       >
         <BrowserDock
-          v-if="showBrowserDock"
+          v-if="browserMode"
           :viewport-list="viewportList"
           :frame-urls="frameUrls"
           :browser-agent-cap="props.browserAgentCap"
@@ -193,21 +200,22 @@ function toggleWorkflow() {
         />
 
         <div
-          v-if="showBrowserDock"
-          class="hidden shrink-0 cursor-col-resize items-center justify-center md:flex"
+          v-if="browserMode"
+          class="relative z-10 hidden shrink-0 cursor-col-resize items-center justify-center md:flex"
           :class="isDragging ? 'bg-neutral-200' : 'hover:bg-neutral-100'"
           @pointerdown="startResize"
         >
+          <div class="absolute inset-y-0 -left-2 -right-2" />
           <div class="h-full w-px bg-neutral-200" />
         </div>
 
         <div
           class="flex min-h-0 flex-col"
-          :class="showBrowserDock ? 'shrink-0' : 'min-w-0 flex-1'"
-          :style="showBrowserDock && chatPanelWidth ? { width: chatPanelWidth + 'px' } : {}"
+          :class="browserMode ? 'shrink-0' : 'min-w-0 flex-1'"
+          :style="browserMode && chatPanelWidth ? { width: chatPanelWidth + 'px' } : {}"
         >
           <ChatMessages
-            v-if="!showWorkflowDock && !(chatDisabled && showBrowserDock)"
+            v-if="!workflowMode"
             :messages="messages"
             :is-thinking="isThinking"
             :waiting-for-agent="waitingForAgent"
@@ -216,21 +224,14 @@ function toggleWorkflow() {
             @retry-message="(i) => emit('retry-message', i)"
           />
 
-          <div
-            v-else-if="!showWorkflowDock && chatDisabled && showBrowserDock"
-            class="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center"
-          >
-            <UIcon name="i-heroicons-chat-bubble-left-right-20-solid" class="mb-3 size-8 text-neutral-300" />
-            <p class="text-sm text-neutral-400">{{ t('browser.selectToMessage') }}</p>
-          </div>
-
           <WorkflowDock
-            v-if="showWorkflowDock"
+            v-else
+            :session-id="sessionId"
             class="min-h-0 flex-1"
           />
 
           <div
-            v-if="showBrowserDock"
+            v-if="browserMode && !workflowMode"
             class="shrink-0 bg-white px-4 pb-3 sm:px-5 sm:pb-4"
             :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'"
           >
@@ -240,19 +241,19 @@ function toggleWorkflow() {
               :hint="t('chat.messagePlaceholder')"
               :attachments="attachments"
               :agent-active="agentActive"
-              :disabled="chatDisabled"
+              :session-mode="sessionMode"
               @send="onSend"
               @pause="emit('pause')"
               @attach-files="onAttachFiles"
               @remove-file="onRemoveFile"
-              @settings="emit('settings')"
+              @toggle-mode="toggleMode"
             />
           </div>
         </div>
       </div>
     </div>
 
-    <template v-if="(!showBrowserDock && !(activeView === 'browser' && !browserMode)) || welcome" #footer>
+    <template v-if="!workflowMode && !browserMode" #footer>
       <div class="mx-auto w-full max-w-2xl">
         <PromptInput
           v-model="command"
@@ -260,11 +261,12 @@ function toggleWorkflow() {
           :hint="t('chat.messagePlaceholder')"
           :attachments="attachments"
           :agent-active="agentActive"
+          :session-mode="sessionMode"
           @send="onSend"
           @pause="emit('pause')"
           @attach-files="onAttachFiles"
           @remove-file="onRemoveFile"
-          @settings="emit('settings')"
+          @toggle-mode="toggleMode"
         />
       </div>
     </template>

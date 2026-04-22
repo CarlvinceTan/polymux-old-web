@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import type { FileAttachmentState } from '~/composables/useAttachments'
+import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/useSpeechRecognition'
+import { useAppToast } from '~/composables/useAppToast'
 
 const { t, locale } = useI18n()
+const toast = useAppToast()
 
 const props = withDefaults(
   defineProps<{
@@ -12,6 +15,7 @@ const props = withDefaults(
     fullWidth?: boolean
     attachments?: FileAttachmentState[]
     disabled?: boolean
+    sessionMode?: 'build' | 'casual'
   }>(),
   {
     hint: undefined,
@@ -20,10 +24,9 @@ const props = withDefaults(
     fullWidth: false,
     attachments: () => [],
     disabled: false,
+    sessionMode: 'build',
   },
 )
-
-const resolvedHint = computed(() => { locale.value; return props.hint ?? t('chat.globalCommandPlaceholder') })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -31,14 +34,70 @@ const emit = defineEmits<{
   pause: []
   'attach-files': [files: FileList]
   'remove-file': [id: string]
-  voice: []
-  settings: []
+  'toggle-mode': []
 }>()
 
 const inputValue = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 })
+
+const localeToBcp47: Record<string, string> = {
+  en: 'en-US', ko: 'ko-KR', zh: 'zh-CN', ja: 'ja-JP',
+  de: 'de-DE', fr: 'fr-FR', es: 'es-ES', pt: 'pt-PT',
+}
+
+let voiceBase = ''
+let voiceFinal = ''
+
+const { isSupported: voiceSupported, isListening, toggle: toggleVoice } = useSpeechRecognition({
+  lang: computed(() => localeToBcp47[locale.value] ?? locale.value),
+  onFinal: (text) => {
+    voiceFinal += text
+    inputValue.value = voiceBase + voiceFinal
+  },
+  onInterim: (text) => {
+    inputValue.value = voiceBase + voiceFinal + text
+  },
+  onEnd: () => {
+    voiceBase = inputValue.value
+    voiceFinal = ''
+  },
+  onError: (code) => {
+    if (code === 'aborted' || code === 'no-speech') return
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      toast.show(t('chat.voicePermissionBlocked'), 'warning')
+      return
+    }
+    toast.show(t('chat.voiceError'), 'error')
+  },
+})
+
+const resolvedHint = computed(() => {
+  locale.value
+  if (isListening.value) return t('chat.voiceListening')
+  return props.hint ?? t('chat.globalCommandPlaceholder')
+})
+
+async function onVoiceClick() {
+  if (!voiceSupported.value) {
+    toast.show(t('chat.voiceUnsupported'), 'warning')
+    return
+  }
+  if (!isListening.value) {
+    if (await getMicPermissionState() === 'denied') {
+      const granted = await requestMicAccess()
+      if (!granted) {
+        toast.show(t('chat.voicePermissionBlocked'), 'warning')
+        return
+      }
+    }
+    const cur = String(inputValue.value ?? '')
+    voiceBase = cur && !cur.endsWith(' ') ? cur + ' ' : cur
+    voiceFinal = ''
+  }
+  toggleVoice()
+}
 
 const pauseDismissed = ref(false)
 
@@ -124,38 +183,6 @@ function onFileInputChange(e: Event) {
   input.value = ''
 }
 
-let enterQueue: HTMLElement[] = []
-let enterFlush: ReturnType<typeof setTimeout> | undefined
-
-function onChipBeforeEnter(el: Element) {
-  ;(el as HTMLElement).style.opacity = '0'
-}
-
-function onChipEnter(el: Element, done: () => void) {
-  const htmlEl = el as HTMLElement
-  const order = enterQueue.length
-  enterQueue.push(htmlEl)
-
-  clearTimeout(enterFlush)
-  enterFlush = setTimeout(() => {
-    const batch = enterQueue
-    enterQueue = []
-    batch.forEach((item, i) => {
-      const delay = batch.length > 1 ? i * 50 : 0
-      item.style.transition = `opacity 0.15s ease ${delay}ms`
-      requestAnimationFrame(() => { item.style.opacity = '1' })
-    })
-  }, 0)
-
-  const maxDelay = (order + 1) * 50
-  setTimeout(done, 150 + maxDelay)
-}
-
-function onChipAfterEnter(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.transition = ''
-  htmlEl.style.opacity = ''
-}
 </script>
 
 <template>
@@ -181,11 +208,9 @@ function onChipAfterEnter(el: Element) {
       v-if="attachments && attachments.length > 0"
       tag="div"
       name="chip"
+      appear
       class="relative flex w-full flex-wrap-reverse gap-1.5"
       :class="props.fullWidth ? '' : 'max-w-3xl'"
-      @before-enter="onChipBeforeEnter"
-      @enter="onChipEnter"
-      @after-enter="onChipAfterEnter"
     >
       <FileAttachment
         v-for="file in attachments"
@@ -253,30 +278,64 @@ function onChipAfterEnter(el: Element) {
         <span>{{ props.fullWidth ? t('common.attach').toUpperCase() : t('common.attach') }}</span>
       </button>
       <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
-        :class="props.fullWidth ? 'gap-1' : ''" @click="emit('voice')">
-        <UIcon name="i-heroicons-microphone-20-solid" class="shrink-0"
-          :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? t('common.voice').toUpperCase() : t('common.voice') }}</span>
+        :class="[
+          props.fullWidth ? 'gap-1' : '',
+          isListening ? 'text-red-500' : '',
+        ]"
+        :aria-pressed="isListening"
+        :aria-label="isListening ? t('chat.voiceListening') : t('common.voice')"
+        @click="onVoiceClick">
+        <span class="relative inline-flex shrink-0 items-center justify-center"
+          :class="props.fullWidth ? 'size-3.5' : 'size-4'">
+          <span v-if="isListening"
+            class="absolute inset-0 animate-ping rounded-full bg-red-500/40" aria-hidden="true" />
+          <UIcon name="i-heroicons-microphone-20-solid" class="relative shrink-0"
+            :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
+        </span>
+        <span>{{
+          isListening
+            ? (props.fullWidth ? t('chat.voiceListening').toUpperCase() : t('chat.voiceListening'))
+            : (props.fullWidth ? t('common.voice').toUpperCase() : t('common.voice'))
+        }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
-        :class="props.fullWidth ? 'gap-1' : ''" @click="emit('settings')">
-        <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0"
+      <button type="button"
+        role="switch"
+        :aria-checked="props.sessionMode === 'casual'"
+        :aria-label="t(props.sessionMode === 'build' ? 'workflow.switchToCasual' : 'workflow.switchToBuild')"
+        class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
+        :class="props.fullWidth ? 'gap-1' : ''"
+        @click="emit('toggle-mode')">
+        <UIcon
+          :name="props.sessionMode === 'build' ? 'i-heroicons-wrench-screwdriver-20-solid' : 'i-heroicons-chat-bubble-oval-left-20-solid'"
+          class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? t('common.settings').toUpperCase() : t('common.settings') }}</span>
+        <span class="grid">
+          <span
+            class="col-start-1 row-start-1 text-left"
+            :class="{ invisible: props.sessionMode !== 'build' }"
+          >{{ props.fullWidth ? t('workflow.build').toUpperCase() : t('workflow.build') }}</span>
+          <span
+            class="col-start-1 row-start-1 text-left"
+            :class="{ invisible: props.sessionMode !== 'casual' }"
+          >{{ props.fullWidth ? t('workflow.casual').toUpperCase() : t('workflow.casual') }}</span>
+        </span>
       </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.chip-move {
-  transition: transform 0.2s ease;
-}
+.chip-move,
+.chip-enter-active,
 .chip-leave-active {
-  transition: opacity 0.15s ease;
-  position: absolute;
+  transition: transform 0.25s ease, opacity 0.2s ease;
 }
+.chip-enter-from,
 .chip-leave-to {
   opacity: 0;
+  transform: translateY(4px);
+}
+.chip-leave-active {
+  position: absolute;
 }
 </style>

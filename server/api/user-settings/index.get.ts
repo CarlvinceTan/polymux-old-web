@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const { data, error } = await supabase
     .from('user_settings')
     .select('blog_newsletter_subscribed, settings, updated_at')
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .single()
 
   if (error?.code === 'PGRST116') {

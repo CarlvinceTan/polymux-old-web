@@ -11,10 +11,22 @@ const supabase = useSupabaseClient()
 const router = useRouter()
 const route = useRoute()
 
-const redirectTo = computed(() => (route.query.redirect as string) || '/')
+/**
+ * Post-signin redirect:
+ * - `?redirect=<path>` wins (middleware sets this when it bounces a protected hit).
+ * - Bare `/sign-in` lands in `/workflow` since that's the primary app surface.
+ */
+const redirectTo = computed(() => (route.query.redirect as string) || '/workflow')
 
-const user = useSupabaseUser()
-const isAnonymous = computed(() => user.value?.is_anonymous === true)
+/**
+ * Back target = the last non-auth, non-protected route the user visited (tracked by the
+ * `auth-back-tracker` plugin). This skips intermediate auth hops (e.g. /sign-in ⇄ /sign-up)
+ * and avoids bouncing into a protected route that would just redirect the user back here.
+ */
+function onBack() {
+  const target = import.meta.client ? sessionStorage.getItem('polymux_auth_back') : null
+  router.replace(target || '/')
+}
 
 const email = ref('')
 const password = ref('')
@@ -24,9 +36,6 @@ const error = ref<string | null>(null)
 function storeRedirectAndOAuth(provider: 'google' | 'apple') {
   if (!import.meta.client) return
   sessionStorage.setItem('auth_redirect', redirectTo.value)
-  if (isAnonymous.value) {
-    sessionStorage.setItem('guest_sessions_saved', 'true')
-  }
   supabase.auth.signInWithOAuth({
     provider,
     options: { redirectTo: `${window.location.origin}/confirm` },
@@ -48,20 +57,12 @@ async function onSubmit() {
   error.value = null
   pending.value = true
   try {
-    if (isAnonymous.value) {
-      sessionStorage.setItem('guest_sessions_saved', 'true')
-    }
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.value.trim(),
       password: password.value,
     })
     if (authError) {
-      if (authError.code === 'ANONYMOUS_PROVIDER_DISABLED') {
-        error.value = t('auth.anonymousSignInError')
-      }
-      else {
-        error.value = authError.message
-      }
+      error.value = authError.message
     }
     else {
       router.push(redirectTo.value)
@@ -78,8 +79,18 @@ async function onSubmit() {
     <div class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-4 sm:py-6 md:py-10">
       <div class="w-full max-w-md">
         <div
-          class="rounded-2xl border border-neutral-200/90 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:px-6 sm:py-5"
+          class="relative rounded-2xl border border-neutral-200/90 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:px-6 sm:py-5"
         >
+          <button
+            type="button"
+            class="absolute left-3 top-3 inline-flex size-8 items-center justify-center rounded-md text-neutral-500 outline-none ring-neutral-950 transition-colors hover:text-neutral-950 focus-visible:ring-2"
+            :aria-label="t('common.back')"
+            @click="onBack"
+          >
+            <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 0 1 0 1.414L9.414 10l3.293 3.293a1 1 0 1 1-1.414 1.414l-4-4a1 1 0 0 1 0-1.414l4-4a1 1 0 0 1 1.414 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
           <div class="mb-2 flex w-full justify-center">
             <NuxtLink
               to="/"

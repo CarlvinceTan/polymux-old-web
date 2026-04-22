@@ -17,16 +17,14 @@ const emit = defineEmits<{
 
 const editing = ref(false)
 const editText = ref('')
-const editAttachments = ref<ChatMessageAttachment[]>([])
 const editTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const editFileInputRef = ref<HTMLInputElement | null>(null)
 
-const { attachments: newAttachments, addFiles, removeFile: removeNewFile, clearAll: clearNewAttachments } = useAttachments()
+const { attachments: editAttachments, addFiles, removeFile, clearAll, seed } = useAttachments()
 
 function startEdit() {
   editText.value = props.text
-  editAttachments.value = [...(props.attachments ?? [])]
-  clearNewAttachments()
+  seed(props.attachments ?? [])
   editing.value = true
   nextTick(() => {
     const el = editTextareaRef.value
@@ -39,23 +37,22 @@ function startEdit() {
 
 function cancelEdit() {
   editing.value = false
-  clearNewAttachments()
+  clearAll()
 }
 
 function submitEdit() {
   const trimmed = editText.value.trim()
-  const uploadedNew = newAttachments.value
+  const allAttachments = editAttachments.value
     .filter(a => a.status === 'done')
     .map(a => ({ id: a.id, name: a.name }))
-  const allAttachments = [...editAttachments.value, ...uploadedNew]
   if (!trimmed && allAttachments.length === 0) return
   editing.value = false
   emit('edit', trimmed, allAttachments)
-  clearNewAttachments()
+  clearAll()
 }
 
-function removeEditAttachment(id: string) {
-  editAttachments.value = editAttachments.value.filter(a => a.id !== id)
+function onRemoveEditFile(id: string) {
+  removeFile(id, props.sessionId)
 }
 
 function onEditAttachClick() {
@@ -114,6 +111,15 @@ function onChipAfterEnter(el: Element) {
   htmlEl.style.transition = ''
   htmlEl.style.opacity = ''
 }
+
+function onChipBeforeLeave(el: Element) {
+  const htmlEl = el as HTMLElement
+  const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = htmlEl
+  htmlEl.style.left = `${offsetLeft}px`
+  htmlEl.style.top = `${offsetTop}px`
+  htmlEl.style.width = `${offsetWidth}px`
+  htmlEl.style.height = `${offsetHeight}px`
+}
 </script>
 
 <template>
@@ -141,29 +147,23 @@ function onChipAfterEnter(el: Element) {
         @input="autoResize"
       />
       <TransitionGroup
-        v-if="editAttachments.length > 0 || newAttachments.length > 0"
+        v-if="editAttachments.length > 0"
         tag="div"
         name="chip"
         class="relative flex flex-wrap-reverse gap-1 pt-1.5"
         @before-enter="onChipBeforeEnter"
         @enter="onChipEnter"
         @after-enter="onChipAfterEnter"
+        @before-leave="onChipBeforeLeave"
       >
         <FileAttachment
           v-for="file in editAttachments"
           :key="file.id"
           :name="file.name"
-          removable
-          @remove="removeEditAttachment(file.id)"
-        />
-        <FileAttachment
-          v-for="file in newAttachments"
-          :key="file.id"
-          :name="file.name"
           :status="file.status"
           :progress="file.progress"
           removable
-          @remove="removeNewFile(file.id, sessionId)"
+          @remove="onRemoveEditFile(file.id)"
         />
       </TransitionGroup>
       <div class="mt-2 flex items-center justify-between gap-1.5">

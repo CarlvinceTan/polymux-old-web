@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .single()
 
   if (!memberCheck || !['owner', 'admin'].includes(memberCheck.role)) {
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
       quantity: 1,
     }],
     metadata: {
-      userId: user.id,
+      userId: user.sub,
       workspaceId,
       walletId: wallet.id,
       amountCents: String(amountCents),

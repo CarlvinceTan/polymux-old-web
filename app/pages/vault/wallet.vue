@@ -3,8 +3,6 @@ import { useWallet, CREDIT_PACKS } from '~/composables/useWallet'
 import { CURRENCY_OPTIONS, type SupportedCurrency } from '~/composables/useCurrency'
 import { onClickOutside, useLocalStorage } from '@vueuse/core'
 
-const user = useSupabaseUser()
-
 const headerTabs = {
   Passwords: '/vault/passwords',
   Wallet: '/vault/wallet',
@@ -368,43 +366,7 @@ const currencyLabel = computed(
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col pb-4">
       <TabPanel class="flex h-full min-h-0 min-w-0 flex-1">
-        <template #title>
-          <div class="flex items-baseline gap-3">
-            <h1 class="text-panel-title font-semibold tracking-tight text-neutral-950">Wallet</h1>
-            <span class="hidden text-xs text-neutral-500 sm:block">Balance, activity, and automation policies</span>
-          </div>
-        </template>
-        <template #actions>
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-              :class="autoTopUpEnabled
-                ? 'border-green-200 bg-green-50 text-green-700 hover:border-green-300'
-                : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'"
-              @click="autoTopUpModalOpen = true"
-            >
-              <UIcon name="i-heroicons-arrow-path" class="size-3.5" />
-              Auto top-up
-              <span
-                v-if="autoTopUpEnabled"
-                class="rounded-full bg-white px-1.5 py-px text-[10px] font-bold text-green-700 ring-1 ring-green-200"
-              >ON</span>
-            </button>
-            <button
-              type="button"
-              class="flex items-center gap-1.5 rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-              @click="openTopUp"
-            >
-              <UIcon name="i-heroicons-plus" class="size-3.5" />
-              Top up
-            </button>
-          </div>
-        </template>
-
-        <GuestPlaceholder v-if="!user" />
-
-        <div v-else class="flex min-w-0 flex-col">
+        <div class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
             class="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm sm:px-6"
@@ -466,12 +428,12 @@ const currencyLabel = computed(
                         {{ topUpCurrency }}
                         <UIcon name="i-heroicons-chevron-down" class="size-3" />
                       </button>
-                      <CompactDropdown
+                      <Menu
                         :open="currencyDropdownOpen"
                         align="left"
                         width="w-44"
                       >
-                        <CompactDropdownRow
+                        <MenuItem
                           v-for="c in CURRENCY_OPTIONS"
                           :key="c.value"
                           :text="c.label"
@@ -484,13 +446,38 @@ const currencyLabel = computed(
                               class="size-4"
                             />
                           </template>
-                        </CompactDropdownRow>
-                      </CompactDropdown>
+                        </MenuItem>
+                      </Menu>
                     </div>
                   </div>
                   <p class="mt-1 text-xs text-neutral-500">
                     New top-ups will be charged in <span class="font-medium text-neutral-700">{{ currencyLabel }}</span>
                   </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                    :class="autoTopUpEnabled
+                      ? 'border-green-200 bg-green-50 text-green-700 hover:border-green-300'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'"
+                    @click="autoTopUpModalOpen = true"
+                  >
+                    <UIcon name="i-heroicons-arrow-path" class="size-3.5" />
+                    Auto top-up
+                    <span
+                      v-if="autoTopUpEnabled"
+                      class="rounded-full bg-white px-1.5 py-px text-[10px] font-bold text-green-700 ring-1 ring-green-200"
+                    >ON</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                    @click="openTopUp"
+                  >
+                    <UIcon name="i-heroicons-plus" class="size-3.5" />
+                    Top up
+                  </button>
                 </div>
               </div>
 

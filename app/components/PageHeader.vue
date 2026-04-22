@@ -79,8 +79,8 @@ function displayTabLabel(label: string) {
 
 <template>
   <!-- Full width within the main column (same inset as page padding from parent) -->
-  <div class="flex h-14 w-full min-w-0 items-center px-3 sm:px-4">
-    <div class="flex items-center gap-10">
+  <div class="flex h-14 w-full min-w-0 items-center justify-between px-3 sm:px-4">
+    <div class="flex min-w-0 items-center gap-10">
       <NuxtLink to="/" class="shrink-0 -translate-y-px">
         <InlineLogo size="xl" />
       </NuxtLink>
@@ -104,6 +104,9 @@ function displayTabLabel(label: string) {
           </NuxtLink>
         </template>
       </nav>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <NotificationsInbox />
     </div>
   </div>
 </template>

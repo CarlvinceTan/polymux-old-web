@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', share.workspace_id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .single()
 
   if (!membership || !['owner', 'admin'].includes(membership.role)) {

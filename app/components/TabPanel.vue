@@ -13,9 +13,11 @@
 withDefaults(defineProps<{
   compactFooter?: boolean
   hideFooterDivider?: boolean
+  hideHeaderDivider?: boolean
 }>(), {
   compactFooter: false,
   hideFooterDivider: false,
+  hideHeaderDivider: false,
 })
 
 defineSlots<{
@@ -46,7 +48,7 @@ defineSlots<{
                 </div>
               </template>
             </div>
-            <div class="h-px w-full shrink-0 bg-neutral-200/90" aria-hidden="true" />
+            <div v-if="!hideHeaderDivider" class="h-px w-full shrink-0 bg-neutral-200/90" aria-hidden="true" />
           </div>
         </template>
 

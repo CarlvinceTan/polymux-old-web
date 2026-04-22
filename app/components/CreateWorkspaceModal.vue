@@ -7,6 +7,12 @@ const name = ref('')
 const isSubmitting = ref(false)
 const error = ref('')
 
+const nameValidation = computed(() => validateWorkspaceName(name.value))
+const nameError = computed(() => {
+  if (!name.value) return ''
+  return nameValidation.value.ok ? '' : nameValidation.value.error
+})
+
 interface Invite {
   email: string
   role: 'admin' | 'member'
@@ -30,7 +36,11 @@ function generateSlug(workspaceName: string): string {
 
 async function handleSubmit() {
   const trimmed = name.value.trim()
-  if (!trimmed) return
+  const validation = validateWorkspaceName(trimmed)
+  if (!validation.ok) {
+    error.value = validation.error
+    return
+  }
   isSubmitting.value = true
   error.value = ''
   try {
@@ -111,6 +121,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <p class="mt-0.5 text-xs text-neutral-400">Set up a new workspace for your team.</p>
               </div>
 
+              <!-- Per-workspace billing note -->
+              <div class="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+                <svg class="mt-0.5 size-3.5 shrink-0 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4M12 8h.01" />
+                </svg>
+                <p class="text-xs leading-relaxed text-neutral-600">
+                  New workspaces start on <span class="font-medium text-neutral-800">Free</span>. Plans and limits apply per workspace — you can upgrade each one separately from the Pricing page.
+                </p>
+              </div>
+
               <!-- Workspace name -->
               <div>
                 <label class="block text-xs font-medium text-neutral-500 mb-1.5">Workspace name</label>
@@ -118,10 +139,14 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   v-model="name"
                   placeholder="e.g. My Team"
                   autofocus
+                  :maxlength="WORKSPACE_NAME_MAX_LENGTH"
                   class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                   @keydown.enter.prevent="handleSubmit"
                 />
-                <p v-if="error" class="mt-1.5 text-xs text-red-600">{{ error }}</p>
+                <div class="mt-1.5 flex items-start justify-between gap-3 text-xs">
+                  <p class="text-red-600">{{ error || nameError }}</p>
+                  <p class="shrink-0 tabular-nums text-neutral-400">{{ name.length }}/{{ WORKSPACE_NAME_MAX_LENGTH }}</p>
+                </div>
               </div>
 
               <!-- Divider -->
@@ -207,7 +232,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               <button
                 type="button"
                 class="rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                :disabled="!name.trim() || isSubmitting"
+                :disabled="!nameValidation.ok || isSubmitting"
                 @click="handleSubmit"
               >
                 {{ isSubmitting ? 'Creating…' : 'Create workspace' }}

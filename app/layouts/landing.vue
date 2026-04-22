@@ -2,37 +2,30 @@
 const route = useRoute()
 const mobileOpen = ref(false)
 const user = useSupabaseUser()
-const supabase = useSupabaseClient()
+const { signOut } = useSignOut()
 
-async function onLandingSignOut() {
-  await supabase.auth.signOut()
-  await navigateTo('/')
+const isProfileDropdownOpen = ref(false)
+const profileMenuRef = ref<HTMLElement | null>(null)
+
+function closeProfileDropdown() {
+  isProfileDropdownOpen.value = false
 }
 
-const userMenuItems = computed(() => [
-  [
-    {
-      label: 'Settings',
-      to: '/settings',
-    },
-    {
-      label: 'Sign out',
-      color: 'error' as const,
-      onSelect: () => {
-        void onLandingSignOut()
-      },
-    },
-  ],
-])
+function handleLandingSettings() {
+  closeProfileDropdown()
+  navigateTo('/settings')
+}
 
-/** Compact account menu: no leading icons, slim rows, clear vertical rhythm. */
-const landingAccountMenuUi = {
-  content: 'min-w-[10rem] rounded-lg border border-neutral-200/90 bg-white py-1 shadow-md ring-0',
-  viewport: 'divide-y-0',
-  group: 'gap-0.5 p-1',
-  item: '!gap-0 rounded-md px-3 py-1.5 text-sm font-medium leading-none items-center',
-  itemWrapper: 'min-h-0',
-  itemLabel: 'leading-tight',
+async function handleLandingSignOut() {
+  closeProfileDropdown()
+  await signOut()
+}
+
+function handleProfileClickOutside(event: MouseEvent) {
+  const target = event.target as Node
+  const insideMenu = profileMenuRef.value?.contains(target)
+  const insideTrigger = document.querySelector('.landing-profile-trigger')?.contains(target)
+  if (!insideMenu && !insideTrigger) closeProfileDropdown()
 }
 
 const displayName = computed(() => {
@@ -221,6 +214,7 @@ function scrollLandingToTop() {
 onMounted(() => {
   attachLandingScrollHandlers()
   landingScrollEl?.addEventListener('scrollend', onLandingScrollEnd)
+  document.addEventListener('click', handleProfileClickOutside)
   nextTick(() => {
     if (!homePaths.has(route.path)) scrollLandingToTop()
     syncActiveSectionFromScroll()
@@ -266,6 +260,7 @@ onUnmounted(() => {
   landingScrollEl?.removeEventListener('scroll', onLandingScroll)
   landingScrollEl?.removeEventListener('scrollend', onLandingScrollEnd)
   landingScrollEl = null
+  document.removeEventListener('click', handleProfileClickOutside)
 })
 
 function isActiveHome() {
@@ -394,19 +389,14 @@ const linkGroups = [
           </NuxtLink>
 
           <!-- Authenticated: account menu (desktop header only) -->
-          <UDropdownMenu
-            v-if="user"
-            :items="userMenuItems"
-            size="md"
-            :ui="landingAccountMenuUi"
-            :content="{ side: 'bottom', align: 'end', sideOffset: 8 }"
-            class="hidden md:inline-flex"
-          >
+          <div v-if="user" class="relative hidden md:inline-flex">
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium leading-snug text-neutral-800 transition-colors hover:bg-neutral-100"
+              class="landing-profile-trigger inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium leading-snug text-neutral-800 transition-colors hover:bg-neutral-100 outline-none"
               aria-label="Account menu"
               aria-haspopup="menu"
+              :aria-expanded="isProfileDropdownOpen"
+              @click="isProfileDropdownOpen = !isProfileDropdownOpen"
             >
               <UIcon
                 name="i-heroicons-user-20-solid"
@@ -415,12 +405,44 @@ const linkGroups = [
               />
               <span class="max-w-[140px] truncate">{{ displayName }}</span>
             </button>
-          </UDropdownMenu>
 
-          <!-- Guest: sign in button -->
+            <Transition
+              enter-active-class="transition duration-100 ease-out"
+              leave-active-class="transition duration-75 ease-in"
+              enter-from-class="opacity-0 -translate-y-0.5"
+              leave-to-class="opacity-0 -translate-y-0.5"
+            >
+              <div
+                v-if="isProfileDropdownOpen"
+                ref="profileMenuRef"
+                class="absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                role="menu"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-neutral-800 transition-colors hover:bg-neutral-50 outline-none"
+                  @click="handleLandingSettings"
+                >
+                  Settings
+                </button>
+                <div class="mx-3 my-1 h-px bg-neutral-100"></div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-red-600 transition-colors hover:bg-red-50/70 outline-none"
+                  @click="handleLandingSignOut"
+                >
+                  Sign out
+                </button>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- Signed-out: sign in button -->
           <NuxtLink
             v-else
-            to="/sign-in"
+            to="/sign-in?redirect=/"
             class="hidden rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90 md:inline-flex md:items-center md:justify-center"
           >
             Sign in
@@ -547,10 +569,10 @@ const linkGroups = [
               <span class="truncate text-base font-medium text-neutral-800">{{ displayName }}</span>
             </NuxtLink>
 
-            <!-- Guest: sign in button -->
+            <!-- Signed-out: sign in button -->
             <NuxtLink
               v-else
-              to="/sign-in"
+              to="/sign-in?redirect=/"
               class="inline-flex w-full items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90"
             >
               Sign in

@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const user = useSupabaseUser()
 const { currentWorkspace } = useWorkspaces()
-const { createSession } = useChatSessions()
+const { draft, createDraft } = useChatSessions()
 
 const hour = new Date().getHours()
 const greetingKey = hour < 12 ? 'dashboard.goodMorning' : hour < 17 ? 'dashboard.goodAfternoon' : 'dashboard.goodEvening'
@@ -17,11 +17,9 @@ const planLabel = computed(() => {
   return t(`settings.${plan}Plan`)
 })
 
-async function handleNewChat() {
-  const session = await createSession()
-  if (session) {
-    await navigateTo(`/chat/${session.id}/orchestrator`)
-  }
+async function handleNewWorkflow() {
+  if (!draft.value) createDraft()
+  await navigateTo('/workflow/new')
 }
 </script>
 
@@ -37,9 +35,9 @@ async function handleNewChat() {
     </div>
     <button
       class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-      @click="handleNewChat"
+      @click="handleNewWorkflow"
     >
-      {{ t('dashboard.newChat') }}
+      {{ t('dashboard.newWorkflow') }}
     </button>
   </div>
 </template>

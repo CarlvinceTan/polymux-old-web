@@ -38,34 +38,30 @@ export interface SharedFileReference {
   created_at: string
 }
 
-// Multi-source storage backend interface for future integration
-export interface StorageBackend {
-  listFiles(ctx: StorageContext, path: string): Promise<StorageDirectory>
-  uploadFile(ctx: StorageContext, path: string, file: File): Promise<boolean>
-  deleteFiles(ctx: StorageContext, paths: string[]): Promise<boolean>
-  moveFile(ctx: StorageContext, from: string, to: string): Promise<boolean>
-  renameFile(ctx: StorageContext, oldPath: string, newName: string): Promise<boolean>
-  createFolder(ctx: StorageContext, path: string, name: string): Promise<boolean>
-  downloadFile(ctx: StorageContext, path: string): Promise<boolean>
-  getSignedUrl(ctx: StorageContext, path: string, expiresIn?: number): Promise<string | null>
+interface UploadUrlResponse {
+  url: string
+  token: string
+  path: string
+  backend: 'supabase'
+  expires_at: string
 }
 
-export interface StorageContext {
-  workspaceId: string
-  userId: string
+interface DownloadUrlResponse {
+  url: string
+  backend: 'supabase'
+  expires_at: string
 }
 
-const BUCKET_NAME = 'workspace-files'
-
-function pathSegmentsToString(segments: string[]): string {
-  return segments.length ? segments.join('/') + '/' : ''
+function joinSegments(segments: string[]): string {
+  return segments.filter(Boolean).join('/')
 }
 
-function parentPathString(segments: string[]): string {
-  return pathSegmentsToString(segments)
+function joinPath(a: string, b: string): string {
+  if (!a) return b
+  if (!b) return a
+  return `${a}/${b}`
 }
 
-/** Single path segment for a folder name (no slashes, trimmed). */
 function sanitizeFolderSegment(name: string): string {
   const t = name.trim().replace(/\0/g, '')
   if (!t) return ''
@@ -76,7 +72,6 @@ function sanitizeFolderSegment(name: string): string {
 }
 
 export function useStorage() {
-  const supabase = useSupabaseClient()
   const user = useSupabaseUser()
   const { isInstalled } = useMarketplace()
   const { currentWorkspace } = useWorkspaces()
@@ -88,13 +83,8 @@ export function useStorage() {
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  /** Folder create/rename failures — keep separate so listing UI isn't replaced by the global error panel */
   const folderOpMessage = ref<string | null>(null)
 
-  // Multi-source storage backend registry
-  const backends = ref<Map<string, StorageBackend>>(new Map())
-
-  /** @nuxtjs/supabase exposes JWT claims — subject is `sub`, not `id` */
   function authUserId(): string | null {
     const u = user.value
     if (!u) return null
@@ -108,72 +98,31 @@ export function useStorage() {
     return currentWorkspace.value?.id || ''
   }
 
-  function workspacePrefix(): string {
+  function baseUrl(): string | null {
     const workspaceId = getWorkspaceId()
-    return workspaceId ? `${workspaceId}/main/` : ''
+    return workspaceId ? `/api/workspaces/${workspaceId}/files` : null
   }
 
-  function fullPath(relativePath: string): string {
-    return `${workspacePrefix()}${relativePath}`
-  }
-
-  // Register a storage backend for future integration (GDrive, local folder, etc.)
-  function registerStorageBackend(name: string, backend: StorageBackend): void {
-    backends.value.set(name, backend)
+  function errorMessage(err: unknown, fallback: string): string {
+    if (err && typeof err === 'object') {
+      const maybeData = (err as { data?: { statusMessage?: string } }).data
+      if (maybeData?.statusMessage) return maybeData.statusMessage
+      if (err instanceof Error) return err.message
+    }
+    return fallback
   }
 
   async function listFiles(pathSegments: string[]): Promise<StorageDirectory> {
     isLoading.value = true
     error.value = null
-
     try {
-      if (!authUserId() || !getWorkspaceId()) {
-        return { files: [], folders: [] }
-      }
-      const prefix = fullPath(parentPathString(pathSegments))
-      const { data, error: listError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .list(prefix, {
-          limit: 1000,
-          sortBy: { column: 'name', order: 'asc' },
-        })
-
-      if (listError) {
-        error.value = listError.message
-        return { files: [], folders: [] }
-      }
-
-      if (!data) {
-        return { files: [], folders: [] }
-      }
-
-      const folders: StorageFolder[] = []
-      const files: StorageFile[] = []
-
-      for (const item of data) {
-        if (item.id === null) {
-          const folderName = item.name
-          if (folderName === '.keep') continue
-          folders.push({
-            name: folderName,
-            path: `${prefix}${folderName}`,
-            provider: provider.value,
-          })
-        } else {
-          files.push({
-            id: item.id,
-            name: item.name,
-            path: `${prefix}${item.name}`,
-            size: item.metadata?.size ?? 0,
-            createdAt: item.created_at ?? new Date().toISOString(),
-            provider: provider.value,
-          })
-        }
-      }
-
-      return { files, folders }
+      const base = baseUrl()
+      if (!authUserId() || !base) return { files: [], folders: [] }
+      const path = joinSegments(pathSegments)
+      const data = await $fetch<StorageDirectory>(base, { query: { path } })
+      return data
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to list files'
+      error.value = errorMessage(err, 'Failed to list files')
       return { files: [], folders: [] }
     } finally {
       isLoading.value = false
@@ -183,28 +132,40 @@ export function useStorage() {
   async function uploadFile(pathSegments: string[], file: File): Promise<boolean> {
     isLoading.value = true
     error.value = null
-
     try {
-      if (!authUserId() || !getWorkspaceId()) {
+      const base = baseUrl()
+      if (!authUserId() || !base) {
         error.value = 'Sign in to upload files.'
         return false
       }
-      const filePath = fullPath(`${parentPathString(pathSegments)}${file.name}`)
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        })
+      const path = joinPath(joinSegments(pathSegments), file.name)
+      const signed = await $fetch<UploadUrlResponse>(`${base}/upload-url`, {
+        method: 'POST',
+        body: { path, size: file.size, content_type: file.type },
+      })
 
-      if (uploadError) {
-        error.value = uploadError.message
+      const formData = new FormData()
+      formData.append('cacheControl', '3600')
+      formData.append('', file)
+
+      const putResponse = await fetch(signed.url, {
+        method: 'PUT',
+        headers: { 'x-upsert': 'true' },
+        body: formData,
+      })
+      if (!putResponse.ok) {
+        error.value = `Upload failed (${putResponse.status})`
         return false
       }
 
+      await $fetch(`${base}/finalize-upload`, {
+        method: 'POST',
+        body: { path, size: file.size, content_type: file.type },
+      })
+
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to upload file'
+      error.value = errorMessage(err, 'Failed to upload file')
       return false
     } finally {
       isLoading.value = false
@@ -214,21 +175,16 @@ export function useStorage() {
   async function deleteFiles(paths: string[]): Promise<boolean> {
     isLoading.value = true
     error.value = null
-
     try {
-      const fullPaths = paths.map(p => fullPath(p))
-      const { error: removeError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .remove(fullPaths)
-
-      if (removeError) {
-        error.value = removeError.message
-        return false
-      }
-
+      const base = baseUrl()
+      if (!base) return false
+      await $fetch(`${base}/delete`, {
+        method: 'POST',
+        body: { paths, kind: 'file' },
+      })
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to delete files'
+      error.value = errorMessage(err, 'Failed to delete files')
       return false
     } finally {
       isLoading.value = false
@@ -238,22 +194,16 @@ export function useStorage() {
   async function moveFile(fromPath: string, toPath: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
-
     try {
-      const fullFrom = fullPath(fromPath)
-      const fullTo = fullPath(toPath)
-      const { error: moveError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .move(fullFrom, fullTo)
-
-      if (moveError) {
-        error.value = moveError.message
-        return false
-      }
-
+      const base = baseUrl()
+      if (!base) return false
+      await $fetch(`${base}/move`, {
+        method: 'POST',
+        body: { from: fromPath, to: toPath, kind: 'file' },
+      })
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to move file'
+      error.value = errorMessage(err, 'Failed to move file')
       return false
     } finally {
       isLoading.value = false
@@ -267,38 +217,12 @@ export function useStorage() {
     return moveFile(filePath, newPath)
   }
 
-  async function moveFolderContents(fromFullPrefix: string, toFullPrefix: string): Promise<boolean> {
-    const { data, error: listError } = await supabase.storage.from(BUCKET_NAME).list(fromFullPrefix, {
-      limit: 1000,
-      sortBy: { column: 'name', order: 'asc' },
-    })
-    if (listError) {
-      error.value = listError.message
-      return false
-    }
-    if (!data) return true
-
-    for (const item of data) {
-      if (item.id === null) {
-        const ok = await moveFolderContents(`${fromFullPrefix}${item.name}/`, `${toFullPrefix}${item.name}/`)
-        if (!ok) return false
-      } else {
-        const { error: mErr } = await supabase.storage
-          .from(BUCKET_NAME)
-          .move(`${fromFullPrefix}${item.name}`, `${toFullPrefix}${item.name}`)
-        if (mErr) {
-          error.value = mErr.message
-          return false
-        }
-      }
-    }
-    return true
-  }
-
   async function renameFolder(folderPath: string, newName: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
+      const base = baseUrl()
+      if (!base) return false
       const safeName = sanitizeFolderSegment(newName)
       if (!safeName) {
         error.value = 'Enter a valid folder name.'
@@ -306,13 +230,16 @@ export function useStorage() {
       }
       const trimmed = folderPath.replace(/\/+$/, '')
       const lastSlash = trimmed.lastIndexOf('/')
-      const parent = lastSlash >= 0 ? trimmed.slice(0, lastSlash + 1) : ''
-      const fromFullPrefix = fullPath(`${trimmed}/`)
-      const toFullPrefix = fullPath(`${parent}${safeName}/`)
-      if (fromFullPrefix === toFullPrefix) return true
-      return await moveFolderContents(fromFullPrefix, toFullPrefix)
+      const parent = lastSlash >= 0 ? trimmed.slice(0, lastSlash) : ''
+      const newPath = parent ? `${parent}/${safeName}` : safeName
+      if (trimmed === newPath) return true
+      await $fetch(`${base}/move`, {
+        method: 'POST',
+        body: { from: trimmed, to: newPath, kind: 'folder' },
+      })
+      return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to rename folder'
+      error.value = errorMessage(err, 'Failed to rename folder')
       return false
     } finally {
       isLoading.value = false
@@ -322,9 +249,9 @@ export function useStorage() {
   async function createFolder(pathSegments: string[], name: string): Promise<boolean> {
     isLoading.value = true
     folderOpMessage.value = null
-
     try {
-      if (!authUserId() || !getWorkspaceId()) {
+      const base = baseUrl()
+      if (!authUserId() || !base) {
         folderOpMessage.value = 'Sign in to create folders.'
         return false
       }
@@ -333,25 +260,13 @@ export function useStorage() {
         folderOpMessage.value = 'Enter a valid folder name.'
         return false
       }
-      const keepPath = fullPath(`${parentPathString(pathSegments)}${safeName}/.keep`)
-      // Zero-byte uploads often return 400 from the storage API; use a minimal body.
-      const keepBody = new Blob(['\n'], { type: 'text/plain' })
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(keepPath, keepBody, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: 'text/plain',
-        })
-
-      if (uploadError) {
-        folderOpMessage.value = uploadError.message
-        return false
-      }
-
+      await $fetch(`${base}/folder`, {
+        method: 'POST',
+        body: { parent: joinSegments(pathSegments), name: safeName },
+      })
       return true
     } catch (err) {
-      folderOpMessage.value = err instanceof Error ? err.message : 'Failed to create folder'
+      folderOpMessage.value = errorMessage(err, 'Failed to create folder')
       return false
     } finally {
       isLoading.value = false
@@ -360,12 +275,13 @@ export function useStorage() {
 
   async function getSignedUrl(filePath: string, expiresIn = 3600): Promise<string | null> {
     try {
-      const fullPathVal = fullPath(filePath)
-      const { data, error: signError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(fullPathVal, expiresIn)
-      if (signError || !data) return null
-      return data.signedUrl
+      const base = baseUrl()
+      if (!base) return null
+      const data = await $fetch<DownloadUrlResponse>(`${base}/download-url`, {
+        method: 'POST',
+        body: { path: filePath, expires_in: expiresIn },
+      })
+      return data.url
     } catch {
       return null
     }
@@ -374,92 +290,46 @@ export function useStorage() {
   async function copyStorageFile(fromRelativePath: string, toRelativePath: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
-
     try {
-      const fullFrom = fullPath(fromRelativePath)
-      const fullTo = fullPath(toRelativePath)
-      const { error: copyError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .copy(fullFrom, fullTo)
-
-      if (copyError) {
-        error.value = copyError.message
-        return false
-      }
-
+      const base = baseUrl()
+      if (!base) return false
+      await $fetch(`${base}/copy`, {
+        method: 'POST',
+        body: { from: fromRelativePath, to: toRelativePath, kind: 'file' },
+      })
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to copy file'
+      error.value = errorMessage(err, 'Failed to copy file')
       return false
     } finally {
       isLoading.value = false
     }
   }
 
-  async function copyFolderContents(sourceSegments: string[], destSegments: string[]): Promise<void> {
-    const sourcePrefix = fullPath(pathSegmentsToString(sourceSegments))
-    const { data } = await supabase.storage.from(BUCKET_NAME).list(sourcePrefix, {
-      limit: 1000,
-      sortBy: { column: 'name', order: 'asc' },
-    })
-
-    if (!data) return
-
-    for (const item of data) {
-      if (item.id === null) {
-        if (item.name === '.keep') continue
-        const subDestSegments = [...destSegments, item.name]
-        const keepPath = fullPath(`${pathSegmentsToString(subDestSegments)}/.keep`)
-        const keepBody = new Blob(['\n'], { type: 'text/plain' })
-        await supabase.storage.from(BUCKET_NAME).upload(keepPath, keepBody, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: 'text/plain',
-        })
-        await copyFolderContents([...sourceSegments, item.name], subDestSegments)
-      } else {
-        const fullFrom = `${sourcePrefix}${item.name}`
-        const fullTo = `${fullPath(pathSegmentsToString(destSegments))}${item.name}`
-        await supabase.storage.from(BUCKET_NAME).copy(fullFrom, fullTo)
-      }
-    }
-  }
-
   async function copyStorageFolder(sourceSegments: string[], destName: string): Promise<boolean> {
     isLoading.value = true
     folderOpMessage.value = null
-
     try {
-      if (!authUserId() || !getWorkspaceId()) {
+      const base = baseUrl()
+      if (!authUserId() || !base) {
         folderOpMessage.value = 'Sign in to copy folders.'
         return false
       }
-
       const safeName = sanitizeFolderSegment(destName)
       if (!safeName) {
         folderOpMessage.value = 'Enter a valid folder name.'
         return false
       }
-
-      const destSegments = [...sourceSegments.slice(0, -1), safeName]
-      const keepPath = fullPath(`${pathSegmentsToString(destSegments)}/.keep`)
-      const keepBody = new Blob(['\n'], { type: 'text/plain' })
-      const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(keepPath, keepBody, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: 'text/plain',
+      const from = joinSegments(sourceSegments)
+      const parentSegments = sourceSegments.slice(0, -1)
+      const to = joinPath(joinSegments(parentSegments), safeName)
+      await $fetch(`${base}/copy`, {
+        method: 'POST',
+        body: { from, to, kind: 'folder' },
       })
-
-      if (uploadError) {
-        folderOpMessage.value = uploadError.message
-        return false
-      }
-
-      await copyFolderContents(sourceSegments, destSegments)
-
       return true
     } catch (err) {
-      folderOpMessage.value = err instanceof Error ? err.message : 'Failed to copy folder'
+      folderOpMessage.value = errorMessage(err, 'Failed to copy folder')
       return false
     } finally {
       isLoading.value = false
@@ -469,76 +339,64 @@ export function useStorage() {
   async function downloadFile(filePath: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
-
     try {
-      const fullPathVal = fullPath(filePath)
-      const { data, error: downloadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .download(fullPathVal)
-
-      if (downloadError) {
-        error.value = downloadError.message
+      const url = await getSignedUrl(filePath, 60)
+      if (!url) {
+        error.value = 'Failed to mint download URL.'
         return false
       }
-
-      if (data) {
-        const url = URL.createObjectURL(data)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = filePath.split('/').pop() ?? 'download'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
+      const response = await fetch(url)
+      if (!response.ok) {
+        error.value = `Download failed (${response.status})`
+        return false
       }
-
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filePath.split('/').pop() ?? 'download'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(objectUrl)
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to download file'
+      error.value = errorMessage(err, 'Failed to download file')
       return false
     } finally {
       isLoading.value = false
     }
   }
 
-  // File sharing operations
   async function shareDirectory(targetWorkspaceId: string, filePath: string, permission: 'viewer' | 'editor'): Promise<FileShare | null> {
     try {
       const response = await $fetch(`/api/workspaces/${getWorkspaceId()}/shares`, {
         method: 'POST',
-        body: {
-          targetWorkspaceId,
-          filePath,
-          permissionLevel: permission,
-        },
+        body: { targetWorkspaceId, filePath, permissionLevel: permission },
       })
       return response as FileShare
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to share directory'
+      error.value = errorMessage(err, 'Failed to share directory')
       return null
     }
   }
 
   async function unshareDirectory(shareId: string): Promise<boolean> {
     try {
-      await $fetch(`/api/workspaces/${getWorkspaceId()}/shares/${shareId}`, {
-        method: 'DELETE',
-      })
+      await $fetch(`/api/workspaces/${getWorkspaceId()}/shares/${shareId}`, { method: 'DELETE' })
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to unshare directory'
+      error.value = errorMessage(err, 'Failed to unshare directory')
       return false
     }
   }
 
   async function listSharedWithMe(): Promise<SharedFileReference[]> {
     try {
-      const shares = await $fetch(`/api/workspaces/${getWorkspaceId()}/shared-with-me`, {
-        method: 'GET',
-      })
+      const shares = await $fetch(`/api/workspaces/${getWorkspaceId()}/shared-with-me`)
       return shares as SharedFileReference[]
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to list shared files'
+      error.value = errorMessage(err, 'Failed to list shared files')
       return []
     }
   }
@@ -549,19 +407,20 @@ export function useStorage() {
         method: 'POST',
         body: { filePath },
       })
-      return result as any
-    } catch (err) {
-      // Default to allowing the share if validation fails
+      return result as { canShare: boolean; message?: string; parentSharePath?: string; parentPermission?: string }
+    } catch {
       return { canShare: true }
     }
   }
 
+  // Historically callers stripped the `${workspaceId}/main/` storage prefix
+  // from returned paths. The new API returns logical paths already, so this
+  // is an identity function unless a legacy prefix sneaks in.
   function stripUserPrefix(path: string): string {
-    const prefix = workspacePrefix()
-    if (prefix && path.startsWith(prefix)) {
-      return path.slice(prefix.length)
-    }
-    return path
+    const workspaceId = getWorkspaceId()
+    if (!workspaceId) return path
+    const legacy = `${workspaceId}/main/`
+    return path.startsWith(legacy) ? path.slice(legacy.length) : path
   }
 
   return {
@@ -581,13 +440,9 @@ export function useStorage() {
     downloadFile,
     getSignedUrl,
     stripUserPrefix,
-    // File sharing
     shareDirectory,
     unshareDirectory,
     listSharedWithMe,
     validateSubdirectoryShare,
-    // Multi-source backend
-    registerStorageBackend,
-    backends,
   }
 }

@@ -19,5 +19,6 @@
     </UPage>
 
     <ToastContainer />
+    <NotificationsToast />
   </div>
 </template>

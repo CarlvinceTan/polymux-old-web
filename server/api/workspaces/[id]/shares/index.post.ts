@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .single()
 
   if (memberError || !membership || !['owner', 'admin'].includes(membership.role)) {
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', targetWorkspaceId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.sub)
     .single()
 
   if (!targetMembership) {
@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
       shared_with_workspace_id: targetWorkspaceId,
       file_path: filePath,
       permission_level: permissionLevel,
-      created_by: user.id,
+      created_by: user.sub,
     })
     .select()
     .single()

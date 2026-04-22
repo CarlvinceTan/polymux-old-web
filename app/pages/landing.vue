@@ -54,15 +54,13 @@ interface PlanFeatureRow {
 }
 
 const planFeatures: PlanFeatureRow[] = [
-  { name: 'AI Agents', free: '3', pro: '10', max: 'Unlimited', enterprise: 'Custom' },
-  { name: 'Monthly Tasks', free: '100', pro: '1,000', max: 'Unlimited', enterprise: 'Unlimited' },
-  { name: 'Browser Sessions', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
-  { name: 'Vault Storage', free: '100 MB', pro: '5 GB', max: '50 GB', enterprise: 'Unlimited' },
+  { name: 'AI Agents per workspace', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
+  { name: 'Monthly Tasks per workspace', free: '100', pro: '1,000', max: '10,000', enterprise: 'Unlimited' },
+  { name: 'Browser Sessions per workspace', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
+  { name: 'Workspace Storage', free: '100 MB', pro: '5 GB', max: '50 GB', enterprise: 'Unlimited' },
+  { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
   { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
-  { name: 'API Access', free: false, pro: false, max: true, enterprise: true },
   { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
-  { name: 'SSO / SAML', free: false, pro: false, max: false, enterprise: true },
-  { name: 'Dedicated Account Manager', free: false, pro: false, max: false, enterprise: true },
 ]
 
 type BillingPeriod = 'annual' | 'monthly'
@@ -185,7 +183,7 @@ const featureDemoSources: string[] = ['']
             </p>
             <div class="flex items-center gap-3 pt-2">
               <NuxtLink
-                to="/chat/"
+                to="/workflow/new"
                 class="rounded-md bg-neutral-950 px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
                >
                  {{ $t('landing.useNow') }}
@@ -266,12 +264,19 @@ const featureDemoSources: string[] = ['']
       "
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div class="mb-4 text-center">
+        <div class="mb-4 flex flex-col items-center text-center">
+          <span class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-700">
+            <svg class="size-3.5 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <path d="M3 9h18M9 21V9" />
+            </svg>
+            Priced per workspace
+          </span>
           <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
             Simple, transparent pricing
           </h2>
-          <p class="mt-3 text-lg text-neutral-500 sm:mt-4">
-            Start free. Scale as you grow. No hidden fees.
+          <p class="mt-3 max-w-2xl text-lg text-neutral-500 sm:mt-4">
+            Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
           </p>
         </div>
         <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">
@@ -358,7 +363,7 @@ const featureDemoSources: string[] = ['']
             Join the Community
           </NuxtLink>
           <NuxtLink
-            to="/chat/"
+            to="/workflow/new"
              class="rounded-lg bg-white px-8 py-3.5 text-center text-base font-medium text-neutral-950 transition-opacity hover:opacity-90"
            >
              {{ $t('landing.useNow') }}

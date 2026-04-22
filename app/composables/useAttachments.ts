@@ -176,6 +176,16 @@ export function useAttachments() {
     attachments.value = []
   }
 
+  function seed(existing: { id: string; name: string }[]) {
+    attachments.value = existing.map(a => ({
+      id: a.id,
+      name: a.name,
+      size: 0,
+      progress: 100,
+      status: 'done' as const,
+    }))
+  }
+
   function updateEntry(id: string, patch: Partial<FileAttachmentState>) {
     attachments.value = attachments.value.map(a => a.id === id ? { ...a, ...patch } : a)
   }
@@ -185,5 +195,6 @@ export function useAttachments() {
     addFiles,
     removeFile,
     clearAll,
+    seed,
   }
 }

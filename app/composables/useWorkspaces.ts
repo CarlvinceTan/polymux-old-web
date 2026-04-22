@@ -22,6 +22,21 @@ export interface WorkspaceMember {
 
 const STORAGE_KEY = 'polymux_current_workspace_id'
 
+export const WORKSPACE_NAME_MAX_LENGTH = 20
+const WORKSPACE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
+
+export function validateWorkspaceName(name: string): { ok: true } | { ok: false; error: string } {
+  const trimmed = name.trim()
+  if (!trimmed) return { ok: false, error: 'Workspace name is required.' }
+  if (trimmed.length > WORKSPACE_NAME_MAX_LENGTH) {
+    return { ok: false, error: `Workspace name must be ${WORKSPACE_NAME_MAX_LENGTH} characters or fewer.` }
+  }
+  if (!WORKSPACE_NAME_PATTERN.test(trimmed)) {
+    return { ok: false, error: 'Only letters, numbers, and spaces are allowed.' }
+  }
+  return { ok: true }
+}
+
 export function useWorkspaces() {
   const workspaces = useState<Workspace[]>('workspaces', () => [])
   const currentWorkspaceId = useState<string | null>('current-workspace-id', () => {
@@ -77,14 +92,17 @@ export function useWorkspaces() {
     persistWorkspaceId(id)
   }
 
-  async function updateWorkspace(workspaceID: string, name: string): Promise<Workspace | null> {
+  async function updateWorkspace(workspaceID: string, patch: { name?: string, avatar_url?: string | null }): Promise<Workspace | null> {
+    const body: Record<string, unknown> = {}
+    if (patch.name !== undefined) body.name = patch.name
+    if (patch.avatar_url !== undefined) body.avatar_url = patch.avatar_url ?? ''
     try {
       const ws = await authFetch<Workspace>(`/workspaces/${workspaceID}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
       })
       const idx = workspaces.value.findIndex(w => w.id === workspaceID)
-      if (idx !== -1) workspaces.value[idx] = ws
+      if (idx !== -1) workspaces.value[idx] = { ...ws, role: workspaces.value[idx]!.role }
       return ws
     }
     catch (err) {
@@ -153,6 +171,29 @@ export function useWorkspaces() {
     }
   }
 
+  async function transferOwnership(workspaceID: string, newOwnerID: string, currentOwnerID: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const promoted = await authFetch<WorkspaceMember>(`/workspaces/${workspaceID}/members/${newOwnerID}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: 'owner' }),
+      })
+      const demoted = await authFetch<WorkspaceMember>(`/workspaces/${workspaceID}/members/${currentOwnerID}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: 'admin' }),
+      })
+      const newIdx = members.value.findIndex(m => m.user_id === newOwnerID)
+      if (newIdx !== -1) members.value[newIdx] = promoted
+      const curIdx = members.value.findIndex(m => m.user_id === currentOwnerID)
+      if (curIdx !== -1) members.value[curIdx] = demoted
+      await fetchWorkspaces()
+      return { ok: true }
+    }
+    catch (err) {
+      console.error('[useWorkspaces] transferOwnership failed', err)
+      return { ok: false, error: 'transfer_failed' }
+    }
+  }
+
   async function removeMember(workspaceID: string, userID: string) {
     try {
       await authFetch(`/workspaces/${workspaceID}/members/${userID}`, { method: 'DELETE' })
@@ -160,6 +201,23 @@ export function useWorkspaces() {
     }
     catch (err) {
       console.error('[useWorkspaces] removeMember failed', err)
+    }
+  }
+
+  async function leaveWorkspace(workspaceID: string, userID: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      await authFetch(`/workspaces/${workspaceID}/members/${userID}`, { method: 'DELETE' })
+      workspaces.value = workspaces.value.filter(w => w.id !== workspaceID)
+      members.value = members.value.filter(m => m.user_id !== userID)
+      if (currentWorkspaceId.value === workspaceID && workspaces.value.length > 0) {
+        persistWorkspaceId(workspaces.value[0]!.id)
+      }
+      await fetchWorkspaces()
+      return { ok: true }
+    }
+    catch (err) {
+      console.error('[useWorkspaces] leaveWorkspace failed', err)
+      return { ok: false, error: 'leave_failed' }
     }
   }
 
@@ -176,6 +234,8 @@ export function useWorkspaces() {
     fetchMembers,
     addMember,
     updateMemberRole,
+    transferOwnership,
     removeMember,
+    leaveWorkspace,
   }
 }

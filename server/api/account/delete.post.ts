@@ -20,14 +20,14 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  const { error } = await admin.auth.admin.deleteUser(user.id)
+  const { error } = await admin.auth.admin.deleteUser(user.sub)
 
   if (error) {
-    console.error('[account/delete] supabase error', { userId: user.id, reason, detail, error })
+    console.error('[account/delete] supabase error', { userId: user.sub, reason, detail, error })
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete account. Please try again.' })
   }
 
-  console.info('[account/delete] user deleted', { userId: user.id, reason, detail })
+  console.info('[account/delete] user deleted', { userId: user.sub, reason, detail })
 
   return { ok: true as const }
 })

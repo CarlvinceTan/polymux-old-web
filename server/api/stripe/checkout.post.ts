@@ -1,4 +1,4 @@
-import { serverSupabaseUser } from '#supabase/server'
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -10,12 +10,17 @@ export default defineEventHandler(async (event) => {
     planKey?: unknown
     billingPeriod?: unknown
     currency?: unknown
+    workspaceId?: unknown
   }>(event)
 
   const planKey = body.planKey as string | undefined
   const billingPeriod = body.billingPeriod as string | undefined
   const currencyRaw = ((body.currency as string) || 'usd').toLowerCase().trim()
+  const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
 
+  if (!workspaceId) {
+    throw createError({ statusCode: 400, statusMessage: 'workspaceId is required.' })
+  }
   if (!isValidPlan(planKey)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid plan.' })
   }
@@ -29,29 +34,49 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Price not configured for this plan.' })
   }
 
+  const admin = serverSupabaseServiceRole(event)
+
+  const { data: workspace, error: wsError } = await admin
+    .from('workspaces')
+    .select('id, plan')
+    .eq('id', workspaceId)
+    .single()
+  if (wsError || !workspace) {
+    throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' })
+  }
+
+  const { data: membership } = await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', user.sub)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    throw createError({ statusCode: 403, statusMessage: 'Only workspace owners or admins can change the plan.' })
+  }
+
   const stripe = useStripe()
   const origin = getRequestURL(event).origin
-
-  const currentPlan = (user.app_metadata?.plan as string | undefined)
-    || (user.user_metadata?.plan as string | undefined)
-    || 'free'
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer_email: user.email,
     line_items: [{ price: priceId, quantity: 1 }],
     metadata: {
-      userId: user.id,
+      userId: user.sub,
+      workspaceId,
       planKey,
     },
     subscription_data: {
       metadata: {
-        userId: user.id,
+        userId: user.sub,
+        workspaceId,
         planKey,
       },
     },
-    success_url: `${origin}/settings?checkout=success`,
-    cancel_url: `${origin}/pricing?current=${currentPlan}`,
+    success_url: `${origin}/settings?checkout=success&workspaceId=${workspaceId}`,
+    cancel_url: `${origin}/pricing?workspaceId=${workspaceId}&current=${workspace.plan ?? 'free'}`,
   })
 
   if (!session.url) {

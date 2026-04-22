@@ -42,9 +42,9 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * Shorthand references:
 
-  * `chat/orchestrator` → `app/pages/chat/[id]/orchestrator.vue`
-  * `chat/browser` → `app/pages/chat/[id]/browser.vue`
-  * `chat/artifacts` → `app/pages/chat/[id]/artifacts.vue`
+  * `workflow/orchestrator` → `app/pages/workflow/[id]/orchestrator.vue`
+  * `workflow/browser` → `app/pages/workflow/[id]/browser.vue`
+  * `workflow/artifacts` → `app/pages/workflow/[id]/artifacts.vue`
   * `dashboard/home` → `app/pages/dashboard/home.vue`
   * `dashboard/integrations` → `app/pages/dashboard/integrations.vue`
   * `dashboard/marketplace` → `app/pages/dashboard/marketplace.vue`
@@ -66,7 +66,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `SidePanel` — persistent left sidebar
   * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition
   * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
-  * `CompactDropdown` / `CompactDropdownRow` — lightweight dropdown menus
+  * `Menu` / `MenuItem` — anchored menu surface (opens up or down) with row items
   * `DashboardStatCard` / `DashboardSpending` / `DashboardWelcome` / `DashboardRecentSessions` — dashboard widgets
   * `SearchModal` — global search overlay
   * `ToastContainer` — toast notifications

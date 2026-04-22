@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   const { error } = await supabase
     .from('mailing_list')
     .update({
-      user_id: user.id,
+      user_id: user.sub,
     })
     .eq('id', subscriber.id)
 
