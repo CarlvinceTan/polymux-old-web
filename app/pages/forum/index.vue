@@ -79,11 +79,7 @@ const hasActiveFilters = computed(
   <div class="flex w-full justify-center px-4 pb-20 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-20">
     <div class="w-full max-w-5xl">
       <header class="text-center">
-        <div class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600">
-          <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          Community forum
-        </div>
-        <h1 class="mt-6 font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
+        <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
           Polymux Forum
         </h1>
         <p class="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
@@ -112,11 +108,11 @@ const hasActiveFilters = computed(
               v-model="search"
               type="text"
               placeholder="Search discussions..."
-              class="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 pl-11 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
+              class="w-full rounded-lg border border-neutral-200 bg-white py-3 pl-[3.75rem] pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
             >
             <UIcon
               name="i-heroicons-magnifying-glass-20-solid"
-              class="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-neutral-400"
+              class="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-neutral-400"
             />
           </div>
         </div>

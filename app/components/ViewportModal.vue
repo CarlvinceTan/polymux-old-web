@@ -3,17 +3,28 @@ import type { ViewportState } from '~/composables/types'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+defineProps<{
   viewport: ViewportState
   frameUrl?: string
-  onTrafficRed?: () => void
-  onTrafficYellow?: () => void
-  onTrafficGreen?: () => void
 }>()
 
 const emit = defineEmits<{
   close: []
 }>()
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    emit('close')
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <template>
@@ -25,25 +36,44 @@ const emit = defineEmits<{
       leave-to-class="opacity-0"
     >
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/55 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/65 backdrop-blur-[2px]"
         role="presentation"
         @click.self="emit('close')"
       >
         <div
-          class="relative max-h-[min(92vh,920px)] w-full max-w-[min(96vw,72rem)] overflow-auto rounded-xl bg-white p-3 shadow-2xl ring-1 ring-neutral-950/10"
           role="dialog"
           aria-modal="true"
           :aria-label="t('chat.expandedBrowserPreview')"
+          class="relative flex items-center justify-center"
           @click.stop
         >
-          <Viewport
-            class="w-full min-w-0"
-            v-bind="viewport"
-            :frame-url="frameUrl"
-            :on-traffic-red="onTrafficRed"
-            :on-traffic-yellow="onTrafficYellow"
-            :on-traffic-green="onTrafficGreen"
-          />
+          <button
+            type="button"
+            class="absolute -top-9 right-0 z-10 flex size-6 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-white/70 ring-0 transition-colors hover:text-white"
+            :aria-label="t('viewport.closeExpanded')"
+            @click="emit('close')"
+          >
+            <UIcon name="i-heroicons-x-mark" class="size-4" />
+          </button>
+          <img
+            v-if="frameUrl"
+            :src="frameUrl"
+            alt=""
+            class="block max-h-[85vh] max-w-[90vw] rounded-lg"
+          >
+          <svg
+            v-else
+            class="size-10 animate-spin text-white/70"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            role="status"
+            :aria-label="t('viewport.reconnecting')"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
         </div>
       </div>
     </Transition>

@@ -62,7 +62,7 @@ async function shareWithSelected() {
   successMessage.value = null
   try {
     for (const workspaceId of selectedWorkspaceIds.value) {
-      const success = await shareDirectory(props.item.path, workspaceId, permissionLevel.value)
+      const success = await shareDirectory(workspaceId, props.item.path, permissionLevel.value)
       if (!success) throw new Error(t('storage.share.failedToShareWorkspace'))
     }
     const n = selectedWorkspaceIds.value.size

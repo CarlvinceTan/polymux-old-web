@@ -52,11 +52,11 @@ const tiles: CommunityTile[] = [
               v-model="searchQuery"
               type="text"
               placeholder="Search community..."
-              class="w-full rounded-lg border border-neutral-200 py-3 pl-10 pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
+              class="w-full rounded-lg border border-neutral-200 py-3 pl-[3.75rem] pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
             >
             <UIcon
               name="i-heroicons-magnifying-glass-20-solid"
-              class="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-neutral-400"
+              class="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-neutral-400"
             />
           </div>
         </div>

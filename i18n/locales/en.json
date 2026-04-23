@@ -51,7 +51,9 @@
     "justNow": "just now",
     "minutesAgo": "{n}m ago",
     "hoursAgo": "{n}h ago",
-    "daysAgo": "{n}d ago"
+    "daysAgo": "{n}d ago",
+    "fileMigratedToLocalTitle": "A file moved to a teammate's device",
+    "fileMigratedToLocalBody": "\"{path}\" is no longer available in this workspace."
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -301,7 +303,9 @@
   "viewport": {
     "closeBrowser": "Close browser",
     "moveToThumbnail": "Minimise viewport",
-    "expandPreview": "Expand preview"
+    "expandPreview": "Expand preview",
+    "closeExpanded": "Close expanded view",
+    "reconnecting": "Reconnecting"
   },
   "browser": {
     "addAgent": "Add browser agent",
@@ -356,7 +360,16 @@
     "driveMigrateProgress": "{migrated} migrated · {remaining} remaining",
     "driveMigrateDone": "Your workspace files are now in Google Drive.",
     "driveMigrateFailed": "Migration didn't finish.",
-    "driveMigrateSomeFailed": "{count} files need attention. Open the browser console for details."
+    "driveMigrateSomeFailed": "{count} files need attention. Open the browser console for details.",
+    "driveImporting": "Moving files from Google Drive to Cloud…",
+    "driveImportDone": "Your workspace files are now in Cloud.",
+    "driveImportFailed": "Migration didn't finish.",
+    "localMigrating": "Moving files to this device…",
+    "localMigrateDone": "Your workspace files are now on this device.",
+    "localMigrateFailed": "Migration didn't finish.",
+    "localExporting": "Moving files off this device…",
+    "localExportDone": "Your workspace files are no longer only on this device.",
+    "localExportFailed": "Migration didn't finish."
   },
   "workspace": {
     "team": "Team",
@@ -376,9 +389,19 @@
     "moveHere": "Move here",
     "noSubfolders": "No subfolders",
     "orderSaveFailed": "Couldn't save your order. Please try again.",
+    "deleteFailed": "Couldn't delete. Please try again.",
+    "renameFailed": "Couldn't rename. Please try again.",
     "retry": "Retry",
     "emptyFolder": "This folder is empty.",
     "noSearchResults": "No files match your search.",
+    "uploadProgress": "{done}/{total} {files} uploading",
+    "uploadDoneOne": "Uploaded {total} file",
+    "uploadDoneMany": "Uploaded {total} files",
+    "uploadFailedAllOne": "Failed to upload {total} file",
+    "uploadFailedAllMany": "Failed to upload {total} files",
+    "uploadFailedSome": "Uploaded {ok}/{total}, {failed} failed",
+    "fileSingular": "file",
+    "filePlural": "files",
     "share": {
       "title": "Share",
       "addPeoplePlaceholder": "Enter an email address",
@@ -432,18 +455,31 @@
       "localUnsupportedHint": "Your browser doesn't support this",
       "migrationTitle": "Migrate files",
       "migrationDesc": "Move existing workspace files between storage providers.",
-      "migrationCloudToDriveTitle": "Cloud → Google Drive",
-      "migrationCloudToDriveDesc": "Move all workspace files from Cloud to Google Drive. Files larger than 100 MB are skipped.",
+      "migrationSourceLabel": "From",
+      "migrationDestinationLabel": "To",
+      "migrationSameProvider": "Source and destination must be different providers.",
+      "migrationPairUnsupported": "This migration path isn't supported yet.",
+      "migrationSourceRequiresDrive": "Connect Google Drive to migrate from it.",
+      "migrationSourceLocalUnsupported": "Local storage can't be used as a source.",
+      "migrationDestinationLocalUnsupported": "Local storage can't be used as a destination.",
+      "migrationSourceUnavailable": "{provider} isn't available as a source.",
+      "migrationDestinationUnavailable": "{provider} isn't available as a destination.",
       "startMigration": "Start migration",
       "migrationRunning": "Migration in progress…",
       "migrationRequiresDrive": "Connect Google Drive to enable this migration.",
       "migrationRequiresAdmin": "Owner or admin permission is required.",
-      "migrationConfirmTitle": "Migrate files to Google Drive?",
-      "migrationConfirmDesc": "Workspace files in Cloud will be copied to Google Drive, then removed from Cloud.",
+      "migrationConfirmTitle": "Migrate files from {source} to {destination}?",
+      "migrationConfirmDesc": "Workspace files in {source} will be copied to {destination}, then removed from {source}.",
       "migrationConfirmBullet1": "Files keep their paths and metadata.",
       "migrationConfirmBullet2": "Migration runs in batches and resumes if interrupted.",
       "migrationConfirmBullet3": "Files larger than 100 MB are skipped and listed afterwards.",
-      "migrationConfirmAction": "Move files"
+      "migrationConfirmAction": "Move files",
+      "migrationConfirmLocal": "Move to this device",
+      "migrationAccessLossTitle": "People who will lose access",
+      "migrationAccessLossDesc": "After this, the file will live only on this device. These people will no longer be able to open it.",
+      "migrationAccessLossLoading": "Loading affected members…",
+      "migrationAccessLossNone": "No one else currently has access.",
+      "migrationToastView": "View progress"
     },
     "listColumns": {
       "name": "Name",

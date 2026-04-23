@@ -26,6 +26,7 @@ interface Body {
   path?: unknown
   size?: unknown
   content_type?: unknown
+  preferred_backend?: unknown
 }
 
 export default defineEventHandler(async (event) => {
@@ -94,10 +95,19 @@ export default defineEventHandler(async (event) => {
   const admin = serverSupabaseServiceRole(event)
 
   // Backend selection:
-  //  - If a row already exists for this path, mint an upload URL on the same
-  //    backend (overwrites in place; preserves existing Drive file id, etc.).
-  //  - For new files, prefer Drive if a connection exists (matches PLAN saveOrder
-  //    "top-available provider"); otherwise Supabase.
+  //  - If the caller passed `preferred_backend` (used by local→remote
+  //    migrations), honour it over any existing row — migration's whole point
+  //    is to change the backend.
+  //  - Else if a row already exists for this path, mint an upload URL on the
+  //    same backend (overwrites in place; preserves Drive file id, etc.).
+  //  - Else for new files, prefer Drive if a connection exists (matches the
+  //    saveOrder "top-available provider"); otherwise Supabase.
+  const preferred = body.preferred_backend === 'google-drive'
+    ? 'google-drive'
+    : body.preferred_backend === 'supabase'
+      ? 'supabase'
+      : null
+
   const { data: existing } = await admin
     .from('files')
     .select('backend, backend_ref')
@@ -106,7 +116,10 @@ export default defineEventHandler(async (event) => {
     .maybeSingle()
 
   let backend: 'supabase' | 'google-drive' = 'supabase'
-  if (existing?.backend === 'google-drive' || existing?.backend === 'supabase') {
+  if (preferred) {
+    backend = preferred
+  }
+  else if (existing?.backend === 'google-drive' || existing?.backend === 'supabase') {
     backend = existing.backend
   } else {
     const { data: driveRow } = await admin

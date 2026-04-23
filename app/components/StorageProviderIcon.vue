@@ -16,7 +16,7 @@ const wellClass = computed(() => (props.well === 'muted' ? 'bg-neutral-100' : 'b
 
 const driveBadgeClass = computed(() => {
   if (props.tile) return 'size-5 shrink-0'
-  if (props.inline) return 'shrink-0 size-3'
+  if (props.inline) return 'shrink-0 size-[11px]'
   return 'pointer-events-none absolute top-0 right-0 z-10 h-5 w-5 translate-x-1/2 -translate-y-1/2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.22)]'
 })
 

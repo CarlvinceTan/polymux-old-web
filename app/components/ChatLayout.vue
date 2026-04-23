@@ -25,6 +25,7 @@ const props = defineProps<{
   hideViewSwitch?: boolean
   hideTitle?: boolean
   showHeaderDivider?: boolean
+  reconnecting?: boolean
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -192,6 +193,7 @@ function onSend(value: string) {
           :frame-urls="frameUrls"
           :browser-agent-cap="props.browserAgentCap"
           :active-agent-id="props.activeAgentId"
+          :reconnecting="props.reconnecting"
           class="flex-1 min-w-0"
           @promote-viewport="emit('promoteViewport', $event)"
           @demote-active="emit('demoteActive')"

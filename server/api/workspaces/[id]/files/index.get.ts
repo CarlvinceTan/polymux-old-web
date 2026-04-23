@@ -188,17 +188,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Apply user-defined ordering if present. Unlisted items keep their current
-  // folders-first-alphabetical positions; mixing is handled on the client.
+  // Manual positioning only: ranked items (the user's drag order) go first in
+  // rank order; unranked items keep their bucket arrival order. No alphabetical
+  // fallback — the client mirrors this exact policy.
   const orderedNames: string[] = orderResult.data?.ordered_names ?? []
   if (orderedNames.length) {
     const rank = new Map<string, number>()
     orderedNames.forEach((n, i) => rank.set(n, i))
     const byRank = <T extends { name: string }>(a: T, b: T) => {
-      const ra = rank.get(a.name) ?? Number.POSITIVE_INFINITY
-      const rb = rank.get(b.name) ?? Number.POSITIVE_INFINITY
-      if (ra !== rb) return ra - rb
-      return a.name.localeCompare(b.name)
+      const ra = rank.get(a.name)
+      const rb = rank.get(b.name)
+      if (ra === undefined && rb === undefined) return 0
+      if (ra === undefined) return 1
+      if (rb === undefined) return -1
+      return ra - rb
     }
     folders.sort(byRank)
     files.sort(byRank)

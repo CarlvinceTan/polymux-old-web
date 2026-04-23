@@ -51,7 +51,9 @@
     "justNow": "방금 전",
     "minutesAgo": "{n}분 전",
     "hoursAgo": "{n}시간 전",
-    "daysAgo": "{n}일 전"
+    "daysAgo": "{n}일 전",
+    "fileMigratedToLocalTitle": "파일이 팀원의 기기로 이동되었습니다",
+    "fileMigratedToLocalBody": "'{path}'은(는) 이 워크스페이스에서 더 이상 사용할 수 없습니다."
   },
   "auth": {
     "welcomeBack": "다시 오신 것을 환영합니다",
@@ -301,7 +303,9 @@
   "viewport": {
     "closeBrowser": "브라우저 닫기",
     "moveToThumbnail": "뷰포트 최소화",
-    "expandPreview": "미리보기 확장"
+    "expandPreview": "미리보기 확장",
+    "closeExpanded": "확대 보기 닫기",
+    "reconnecting": "재연결 중"
   },
   "browser": {
     "addAgent": "브라우저 에이전트 추가",
@@ -357,7 +361,16 @@
     "driveMigrateProgress": "{migrated}개 이전됨 · {remaining}개 남음",
     "driveMigrateDone": "워크스페이스 파일이 모두 Google Drive로 이전되었습니다.",
     "driveMigrateFailed": "이전이 완료되지 않았습니다.",
-    "driveMigrateSomeFailed": "{count}개 파일에 문제가 있습니다. 자세한 내용은 브라우저 콘솔을 확인하세요."
+    "driveMigrateSomeFailed": "{count}개 파일에 문제가 있습니다. 자세한 내용은 브라우저 콘솔을 확인하세요.",
+    "driveImporting": "Google Drive에서 Cloud로 파일을 옮기는 중…",
+    "driveImportDone": "워크스페이스 파일이 모두 Cloud로 이전되었습니다.",
+    "driveImportFailed": "이전이 완료되지 않았습니다.",
+    "localMigrating": "이 기기로 파일을 옮기는 중…",
+    "localMigrateDone": "워크스페이스 파일이 이 기기로 이전되었습니다.",
+    "localMigrateFailed": "이전이 완료되지 않았습니다.",
+    "localExporting": "이 기기에서 파일을 옮기는 중…",
+    "localExportDone": "워크스페이스 파일이 더 이상 이 기기에만 있지 않습니다.",
+    "localExportFailed": "이전이 완료되지 않았습니다."
   },
   "workspace": {
     "team": "팀",
@@ -377,9 +390,19 @@
     "moveHere": "여기로 이동",
     "noSubfolders": "하위 폴더 없음",
     "orderSaveFailed": "정렬 순서를 저장하지 못했습니다. 다시 시도해 주세요.",
+    "deleteFailed": "삭제하지 못했습니다. 다시 시도해 주세요.",
+    "renameFailed": "이름을 변경하지 못했습니다. 다시 시도해 주세요.",
     "retry": "다시 시도",
     "emptyFolder": "이 폴더는 비어 있습니다.",
     "noSearchResults": "검색과 일치하는 파일이 없습니다.",
+    "uploadProgress": "{done}/{total}개 {files} 업로드 중",
+    "uploadDoneOne": "{total}개 파일 업로드 완료",
+    "uploadDoneMany": "{total}개 파일 업로드 완료",
+    "uploadFailedAllOne": "{total}개 파일 업로드 실패",
+    "uploadFailedAllMany": "{total}개 파일 업로드 실패",
+    "uploadFailedSome": "{ok}/{total}개 업로드됨, {failed}개 실패",
+    "fileSingular": "파일",
+    "filePlural": "파일",
     "share": {
       "title": "공유",
       "addPeoplePlaceholder": "이메일 주소 입력",
@@ -433,18 +456,31 @@
       "localUnsupportedHint": "이 브라우저에서는 지원되지 않습니다",
       "migrationTitle": "파일 마이그레이션",
       "migrationDesc": "기존 작업공간 파일을 저장소 공급자 간에 이동합니다.",
-      "migrationCloudToDriveTitle": "Cloud → Google Drive",
-      "migrationCloudToDriveDesc": "모든 작업공간 파일을 Cloud에서 Google Drive로 이동합니다. 100MB보다 큰 파일은 건너뜁니다.",
+      "migrationSourceLabel": "출발지",
+      "migrationDestinationLabel": "도착지",
+      "migrationSameProvider": "출발지와 도착지는 서로 다른 공급자여야 합니다.",
+      "migrationPairUnsupported": "이 마이그레이션 경로는 아직 지원되지 않습니다.",
+      "migrationSourceRequiresDrive": "출발지로 사용하려면 Google Drive를 연결하세요.",
+      "migrationSourceLocalUnsupported": "로컬 저장소는 출발지로 사용할 수 없습니다.",
+      "migrationDestinationLocalUnsupported": "로컬 저장소는 도착지로 사용할 수 없습니다.",
+      "migrationSourceUnavailable": "{provider}은(는) 출발지로 사용할 수 없습니다.",
+      "migrationDestinationUnavailable": "{provider}은(는) 도착지로 사용할 수 없습니다.",
       "startMigration": "마이그레이션 시작",
       "migrationRunning": "마이그레이션 진행 중…",
       "migrationRequiresDrive": "이 마이그레이션을 활성화하려면 Google Drive를 연결하세요.",
       "migrationRequiresAdmin": "소유자 또는 관리자 권한이 필요합니다.",
-      "migrationConfirmTitle": "파일을 Google Drive로 마이그레이션하시겠습니까?",
-      "migrationConfirmDesc": "Cloud의 작업공간 파일이 Google Drive로 복사된 후 Cloud에서 제거됩니다.",
+      "migrationConfirmTitle": "{source}에서 {destination}(으)로 파일을 마이그레이션하시겠습니까?",
+      "migrationConfirmDesc": "{source}의 작업공간 파일이 {destination}(으)로 복사된 후 {source}에서 제거됩니다.",
       "migrationConfirmBullet1": "파일의 경로와 메타데이터는 유지됩니다.",
       "migrationConfirmBullet2": "마이그레이션은 배치로 실행되며 중단되면 재개됩니다.",
       "migrationConfirmBullet3": "100MB보다 큰 파일은 건너뛰고 나중에 표시됩니다.",
-      "migrationConfirmAction": "파일 이동"
+      "migrationConfirmAction": "파일 이동",
+      "migrationConfirmLocal": "이 기기로 이동",
+      "migrationAccessLossTitle": "접근 권한을 잃게 되는 사람",
+      "migrationAccessLossDesc": "이 작업 이후 파일은 이 기기에만 저장됩니다. 다음 사용자들은 더 이상 파일을 열 수 없습니다.",
+      "migrationAccessLossLoading": "영향받는 멤버를 불러오는 중…",
+      "migrationAccessLossNone": "현재 다른 사용자는 접근 권한이 없습니다.",
+      "migrationToastView": "진행 상황 보기"
     },
     "listColumns": {
       "name": "이름",

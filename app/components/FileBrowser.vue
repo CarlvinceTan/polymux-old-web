@@ -298,9 +298,18 @@ async function refreshFiles() {
   }
 }
 
-watch(currentPath, () => {
-  refreshFiles()
-}, { immediate: true })
+// Also watch the active workspace id: `listFiles` silently returns an empty
+// directory when the workspace isn't loaded yet, and workspaces arrive
+// asynchronously from the sidebar's fetch. Without this dependency, a cold
+// load can race and leave the browser permanently empty until remount.
+watch(
+  [currentPath, () => currentWorkspace.value?.id],
+  ([, wsId]) => {
+    if (!wsId) return
+    refreshFiles()
+  },
+  { immediate: true },
+)
 
 // Refresh when a Drive migration finishes so provider icons reflect the
 // new backend without requiring a manual reload.
@@ -473,23 +482,20 @@ const filteredFiles = computed(() => {
     ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt })),
   ]
 
+  // Manual positioning only: ranked items (those the user has dragged) keep
+  // their rank; unranked items stay in arrival order from the listing. No
+  // alphabetical or folders-first fallback — the user's drag order is the
+  // only source of truth.
   if (currentOrder.value.length) {
     const rank = new Map<string, number>()
     currentOrder.value.forEach((n, i) => rank.set(n, i))
     allItems.sort((a, b) => {
-      const ra = rank.get(a.name) ?? Number.POSITIVE_INFINITY
-      const rb = rank.get(b.name) ?? Number.POSITIVE_INFINITY
-      if (ra !== rb) return ra - rb
-      // Unranked items: folders first, then alphabetical.
-      if (a.kind === 'folder' && b.kind !== 'folder') return -1
-      if (a.kind !== 'folder' && b.kind === 'folder') return 1
-      return a.name.localeCompare(b.name)
-    })
-  } else {
-    allItems.sort((a, b) => {
-      if (a.kind === 'folder' && b.kind !== 'folder') return -1
-      if (a.kind !== 'folder' && b.kind === 'folder') return 1
-      return a.name.localeCompare(b.name)
+      const ra = rank.get(a.name)
+      const rb = rank.get(b.name)
+      if (ra === undefined && rb === undefined) return 0
+      if (ra === undefined) return 1
+      if (rb === undefined) return -1
+      return ra - rb
     })
   }
 
@@ -617,13 +623,73 @@ async function handleFileUpload(event: Event) {
   isUploading.value = true
   deselectItem()
 
-  for (const file of input.files) {
-    await uploadFile(currentPath.value, file)
+  const filesToUpload = Array.from(input.files)
+  const total = filesToUpload.length
+  // Snapshot the upload target so navigating away mid-batch doesn't misplace
+  // optimistic inserts or trigger a refresh of the wrong folder.
+  const targetPath = [...currentPath.value]
+  const targetDir = targetPath.join('/')
+  const stillOnTarget = () =>
+    currentPath.value.length === targetPath.length
+    && currentPath.value.every((v, i) => v === targetPath[i])
+
+  const filesLabel = t(total === 1 ? 'storage.fileSingular' : 'storage.filePlural')
+  // Spinner toast stays up for the whole batch; counter ticks after each file
+  // resolves so users see 1/4 → 2/4 → 3/4 → 4/4 rather than a frozen 0/N.
+  const toastId = toast.show(t('storage.uploadProgress', { done: 0, total, files: filesLabel }), 'loading', 0)
+  let failed = 0
+
+  for (let i = 0; i < total; i++) {
+    const file = filesToUpload[i]!
+    const ok = await uploadFile(targetPath, file)
+    if (!ok) {
+      failed++
+    } else if (stillOnTarget()) {
+      // Optimistic insert so finished files appear immediately instead of
+      // waiting for the whole batch + one final list refresh. The final
+      // refreshFiles() below swaps these placeholders for the real rows.
+      const filePath = targetDir ? `${targetDir}/${file.name}` : file.name
+      const record: StorageFile = {
+        id: `optimistic-${Date.now()}-${i}`,
+        name: file.name,
+        path: filePath,
+        size: file.size,
+        createdAt: new Date().toISOString(),
+        provider: storageProvider.value,
+      }
+      const existingIdx = files.value.findIndex(f => f.name === file.name)
+      if (existingIdx >= 0) {
+        const next = [...files.value]
+        next[existingIdx] = record
+        files.value = next
+      } else {
+        files.value = [...files.value, record]
+      }
+    }
+    toast.update(toastId, {
+      message: t('storage.uploadProgress', { done: i + 1, total, files: filesLabel }),
+    })
+  }
+
+  if (failed === 0) {
+    const key = total === 1 ? 'storage.uploadDoneOne' : 'storage.uploadDoneMany'
+    toast.update(toastId, { message: t(key, { total }), type: 'info' })
+    setTimeout(() => toast.dismiss(toastId), 3000)
+  } else if (failed === total) {
+    const key = total === 1 ? 'storage.uploadFailedAllOne' : 'storage.uploadFailedAllMany'
+    toast.update(toastId, { message: t(key, { total }), type: 'error' })
+    setTimeout(() => toast.dismiss(toastId), 6000)
+  } else {
+    toast.update(toastId, {
+      message: t('storage.uploadFailedSome', { ok: total - failed, total, failed }),
+      type: 'error',
+    })
+    setTimeout(() => toast.dismiss(toastId), 6000)
   }
 
   isUploading.value = false
   input.value = ''
-  await refreshFiles()
+  if (stillOnTarget()) await refreshFiles()
 }
 
 function startNewFolder() {
@@ -639,11 +705,32 @@ async function commitPendingNewFolder() {
   const state = pendingNewFolder.value
   if (!state) return
   const finalName = resolveNewFolderFinalName(state.draftName)
-  const ok = await createFolder(currentPath.value, finalName)
-  if (ok) {
-    pendingNewFolder.value = null
-    await refreshFiles()
+
+  // Optimistic UI: render the new folder immediately so pressing Enter feels
+  // instant. The real create fires in the background; refreshFiles() reconciles
+  // against the canonical listing (or removes the placeholder on failure, where
+  // folderOpMessage surfaces the reason via the existing banner).
+  const parentJoined = currentPath.value.filter(Boolean).join('/')
+  const optimisticPath = parentJoined ? `${parentJoined}/${finalName}` : finalName
+  const optimisticFolder: StorageFolder = {
+    name: finalName,
+    path: optimisticPath,
+    provider: storageProvider.value,
   }
+  const alreadyExists = folders.value.some(f => f.name === finalName)
+  if (!alreadyExists) folders.value = [...folders.value, optimisticFolder]
+  pendingNewFolder.value = null
+
+  void (async () => {
+    const ok = await createFolder(currentPath.value, finalName)
+    if (!ok) {
+      if (!alreadyExists) {
+        folders.value = folders.value.filter(f => f.path !== optimisticPath)
+      }
+      return
+    }
+    await refreshFiles()
+  })()
 }
 
 function cancelPendingNewFolder() {
@@ -769,15 +856,53 @@ async function confirmRename() {
     isRenaming.value = false
     return
   }
-  const relativePath = stripUserPrefix(selectedItem.value.path)
-  if (selectedItem.value.kind === 'folder') {
-    await renameFolder(relativePath, newName)
+  const item = selectedItem.value
+  const relativePath = stripUserPrefix(item.path)
+
+  // Optimistic UI: update the row in place so Enter/blur feels instant. Swap
+  // only the final path segment to keep the directory prefix intact.
+  const lastSlash = item.path.lastIndexOf('/')
+  const pathPrefix = lastSlash >= 0 ? item.path.slice(0, lastSlash + 1) : ''
+  const newPath = `${pathPrefix}${newName}`
+  if (item.kind === 'folder') {
+    folders.value = folders.value.map(f =>
+      f.path === item.path ? { ...f, name: newName, path: newPath } : f,
+    )
   } else {
-    await renameFile(relativePath, newName)
+    files.value = files.value.map(f =>
+      f.path === item.path ? { ...f, name: newName, path: newPath } : f,
+    )
+  }
+  // Keep the manual-position rank tied to the renamed item — otherwise the old
+  // name lingers in currentOrder, the new name is unranked, and the item drops
+  // to the tail on next refresh.
+  const oldRankIdx = currentOrder.value.indexOf(item.name)
+  let renamedOrder: string[] | null = null
+  if (oldRankIdx >= 0) {
+    renamedOrder = [...currentOrder.value]
+    renamedOrder[oldRankIdx] = newName
+    currentOrder.value = renamedOrder
   }
   isRenaming.value = false
   deselectItem()
-  await refreshFiles()
+
+  void (async () => {
+    const ok = item.kind === 'folder'
+      ? await renameFolder(relativePath, newName)
+      : await renameFile(relativePath, newName)
+    if (!ok) {
+      toast.show(t('storage.renameFailed'), 'error')
+      await refreshFiles()
+      return
+    }
+    if (renamedOrder) {
+      // Fire-and-forget: persist the updated rank so a fresh page load keeps
+      // the user's manual position for the renamed item.
+      const parentPath = currentPath.value.join('/')
+      void reorderFiles(parentPath, renamedOrder)
+    }
+    await refreshFiles()
+  })()
 }
 
 function cancelRename() {
@@ -787,14 +912,30 @@ function cancelRename() {
 
 async function handleDelete() {
   if (!selectedItem.value) return
-  const relativePath = stripUserPrefix(selectedItem.value.path)
-  if (selectedItem.value.kind === 'folder') {
-    await deleteFiles([`${relativePath}/.keep`])
+  const item = selectedItem.value
+  const relativePath = stripUserPrefix(item.path)
+
+  // Optimistic UI: drop the item from view immediately rather than waiting on
+  // the backend. refreshFiles() reconciles (and restores the row) on failure.
+  if (item.kind === 'folder') {
+    folders.value = folders.value.filter(f => f.path !== item.path)
   } else {
-    await deleteFiles([relativePath])
+    files.value = files.value.filter(f => f.path !== item.path)
+    if (isSharedMode.value) {
+      sharedFileGroups.value = sharedFileGroups.value
+        .map(g => ({ ...g, files: g.files.filter(f => f.path !== item.path) }))
+        .filter(g => g.files.length > 0)
+    }
   }
   deselectItem()
-  await refreshFiles()
+
+  void (async () => {
+    const ok = await deleteFiles([relativePath], item.kind)
+    if (!ok) {
+      toast.show(t('storage.deleteFailed'), 'error')
+      await refreshFiles()
+    }
+  })()
 }
 
 async function openMoveModal() {
@@ -902,21 +1043,28 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
   // Never drop a folder into its own descendant.
   if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
 
-  // Drop-into-folder zone: middle ~30% of a folder row. A narrower band leaves
-  // more of the row available for reorder, so siblings visibly shift as the
-  // cursor crosses row boundaries instead of being swallowed by the drop-into
-  // highlight.
+  // Drop-into-folder zone. In LIST view the middle ~30% of a row's height is
+  // the trigger; top/bottom edges pass through to a reorder swap. In ICON
+  // (grid) view we need BOTH axes: otherwise dragging horizontally across a
+  // row puts the cursor at the vertical midline of every cell it passes, so
+  // every folder along the way returned `false` from onMove and blocked the
+  // reorder swap — which looked like "siblings never shift".
   if (target.kind === 'folder' && related) {
     const rect: DOMRect = (evt.relatedRect as DOMRect | undefined) ?? related.getBoundingClientRect()
+    let x = 0
     let y = 0
     if (originalEvent) {
-      if ('clientY' in originalEvent && typeof (originalEvent as MouseEvent).clientY === 'number') {
+      if ('clientX' in originalEvent && typeof (originalEvent as MouseEvent).clientX === 'number') {
+        x = (originalEvent as MouseEvent).clientX
         y = (originalEvent as MouseEvent).clientY
       } else if ('touches' in originalEvent && (originalEvent as TouchEvent).touches[0]) {
+        x = (originalEvent as TouchEvent).touches[0]!.clientX
         y = (originalEvent as TouchEvent).touches[0]!.clientY
       }
     }
-    const inMid = y >= rect.top + rect.height * 0.35 && y <= rect.bottom - rect.height * 0.35
+    const inMidY = y >= rect.top + rect.height * 0.35 && y <= rect.bottom - rect.height * 0.35
+    const inMidX = x >= rect.left + rect.width * 0.35 && x <= rect.right - rect.width * 0.35
+    const inMid = viewMode.value === 'icon' ? (inMidX && inMidY) : inMidY
     if (inMid) {
       related.classList.add('fb-drop-into')
       pendingDropInto = { name: target.name, path: target.path, element: related }
@@ -935,10 +1083,14 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
 function onDragPointerMove(ev: PointerEvent) {
   if (!pendingDropInto) return
   const rect = pendingDropInto.element.getBoundingClientRect()
-  const inside =
-    ev.clientX >= rect.left && ev.clientX <= rect.right &&
-    ev.clientY >= rect.top + rect.height * 0.35 &&
-    ev.clientY <= rect.bottom - rect.height * 0.35
+  const inMidY = ev.clientY >= rect.top + rect.height * 0.35 &&
+                 ev.clientY <= rect.bottom - rect.height * 0.35
+  const inMidX = ev.clientX >= rect.left + rect.width * 0.35 &&
+                 ev.clientX <= rect.right - rect.width * 0.35
+  // Mirror onSortableMove's zone: 2D in grid view, Y-only in list view.
+  const inside = viewMode.value === 'icon'
+    ? (inMidX && inMidY)
+    : (inMidY && ev.clientX >= rect.left && ev.clientX <= rect.right)
   if (!inside) {
     pendingDropInto.element.classList.remove('fb-drop-into')
     pendingDropInto = null
@@ -993,6 +1145,11 @@ async function onSortableEnd(evt: any) {
   const orderedNames = displayItems.value
     .filter(item => !isPendingRow(item) && !('workspaceName' in item))
     .map(item => item.name)
+  // Skip the watcher's rebuild pass that would otherwise run when we mutate
+  // currentOrder below — SortableJS has already positioned the DOM, and a
+  // fresh displayItems assignment would tear it down and re-render, which
+  // looks like the drop "snaps back" to a different slot.
+  suppressRebuild = true
   currentOrder.value = orderedNames
   const ok = await reorderFiles(parentPath, orderedNames)
   if (!ok) {
@@ -1002,8 +1159,12 @@ async function onSortableEnd(evt: any) {
 }
 
 const sortableCommon = {
-  animation: 180,
-  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  animation: 500,
+  easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+  // Keep SortableJS's default swapThreshold (1): the entire neighbour is the
+  // trigger zone, so siblings shift the moment the dragged clone enters any
+  // neighbour — not only once it reaches the neighbour's centre.
+  emptyInsertThreshold: 8,
   forceFallback: true,
   fallbackOnBody: true,
   fallbackTolerance: 3,
@@ -1408,8 +1569,8 @@ function formatFileSize(bytes: number): string {
             <div
               v-if="!isSharedMode"
               v-draggable="[displayItems, sortableCommon]"
-              class="grid gap-4"
-              style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))"
+              class="grid"
+              style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))"
             >
               <div
                 v-for="file in displayItems"
@@ -1417,11 +1578,15 @@ function formatFileSize(bytes: number): string {
                 data-file-item
                 :data-kind="file.kind"
                 :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path })"
-                class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer w-[88px]"
-                :class="[selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : '', isPendingRow(file) ? 'fb-pending-row' : '']"
+                class="flex justify-center items-start py-2"
+                :class="isPendingRow(file) ? 'fb-pending-row' : ''"
                 @click="handleRowClick(file)"
                 @dblclick="handleRowDblClick(file)"
               >
+                <div
+                  class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-colors text-left group cursor-pointer"
+                  :class="selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : ''"
+                >
                 <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 
@@ -1531,10 +1696,11 @@ function formatFileSize(bytes: number): string {
                 <span v-if="'permissionLevel' in file" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
                   {{ file.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
                 </span>
+                </div>
               </div>
             </div>
             <!-- Shared mode: non-draggable grid grouped by source workspace -->
-            <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(88px, 1fr))">
+            <div v-else class="grid" style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))">
               <template v-for="item in listItemsForView" :key="item.id">
                 <div v-if="'workspaceName' in item" class="col-span-full py-2 px-2 mb-2">
                   <p class="text-sm font-semibold text-neutral-600">{{ item.workspaceName }}</p>
@@ -1542,11 +1708,14 @@ function formatFileSize(bytes: number): string {
                 <div
                   v-else
                   data-file-item
-                  class="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-all text-left group cursor-pointer w-[88px]"
-                  :class="selectedItemId === item.id ? 'bg-neutral-50 shadow-sm' : ''"
+                  class="flex justify-center items-start py-2"
                   @click="handleRowClick(item)"
                   @dblclick="handleRowDblClick(item)"
                 >
+                  <div
+                    class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-colors text-left group cursor-pointer"
+                    :class="selectedItemId === item.id ? 'bg-neutral-50 shadow-sm' : ''"
+                  >
                   <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="item.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                     <path v-if="item.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -1571,6 +1740,7 @@ function formatFileSize(bytes: number): string {
                   <span v-if="'permissionLevel' in item" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
                     {{ item.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
                   </span>
+                  </div>
                 </div>
               </template>
             </div>
@@ -1867,20 +2037,28 @@ function formatFileSize(bytes: number): string {
 
 <style scoped>
 /* Drag-and-drop visual states, mirrored from SidePanel's workflow reorder. */
+[data-file-item] {
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .fb-chosen {
   cursor: grabbing;
 }
 .fb-ghost {
-  opacity: 0.35;
-  transition: opacity 0.18s ease;
-  background-color: var(--color-neutral-100);
+  opacity: 0;
 }
+/* Floating clone that follows the cursor. The drag class lands on the grid
+   cell (104–250px wide) — wider than the 88px icon it contains — so any
+   box-shadow on it drew a halo around the cell's bounds and read as a
+   framed "box" around the icon. Keep the clone unadorned, mirroring
+   SidePanel's wf-drag. */
 .fb-drag {
   opacity: 0.95;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.15s ease;
+  box-shadow: none;
+  background: transparent;
 }
-.fb-drop-into {
+.fb-drop-into > * {
   outline: 2px solid var(--color-neutral-950);
   outline-offset: -2px;
   background-color: var(--color-neutral-100) !important;

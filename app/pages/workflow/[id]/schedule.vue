@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { CalendarDate, today, getLocalTimeZone } from '@internationalized/date'
 import { onClickOutside } from '@vueuse/core'
+import { parseCron, computeNextRuns, computePastRuns } from '~/utils/cron'
+import type { ScheduleFrequency } from '~/composables/useScheduledWorkflows'
 
 const { t } = useI18n()
 const toast = useAppToast()
 
-type Frequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
+const route = useRoute()
+const workflowId = computed(() => route.params.id as string)
+const { currentWorkspaceId } = useWorkspaces()
+const { get: getScheduledConfig, upsert: upsertSchedule, loaded: scheduleLoaded } = useScheduledWorkflows()
+
+type Frequency = ScheduleFrequency
 
 const frequency = ref<Frequency>('daily')
 const minute = ref(0)
@@ -217,140 +224,6 @@ const cronExpression = computed(() => {
 const cronValid = computed(() => parseCron(cronExpression.value) != null)
 const hasSchedule = computed(() => cronValid.value || oneOffDates.value.length > 0)
 
-interface CronSets {
-  minutes: Set<number>
-  hours: Set<number>
-  doms: Set<number>
-  months: Set<number>
-  dows: Set<number>
-}
-
-function parseField(field: string, min: number, max: number): Set<number> | null {
-  const out = new Set<number>()
-  const parts = field.split(',')
-  for (const raw of parts) {
-    const p = raw.trim()
-    if (!p) return null
-    let range = p
-    let step = 1
-    if (p.includes('/')) {
-      const [r, s] = p.split('/')
-      if (!r || !s) return null
-      range = r
-      step = parseInt(s, 10)
-      if (!Number.isFinite(step) || step <= 0) return null
-    }
-    let a = min, b = max
-    if (range === '*') {
-      // full
-    } else if (range.includes('-')) {
-      const [x, y] = range.split('-').map(n => parseInt(n, 10))
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-      a = x!; b = y!
-    } else {
-      const v = parseInt(range, 10)
-      if (!Number.isFinite(v)) return null
-      a = v; b = v
-    }
-    if (a < min || b > max || a > b) return null
-    for (let i = a; i <= b; i += step) out.add(i)
-  }
-  return out.size ? out : null
-}
-
-function parseCron(expr: string): CronSets | null {
-  const parts = expr.trim().split(/\s+/)
-  if (parts.length !== 5) return null
-  const minutes = parseField(parts[0]!, 0, 59)
-  const hours = parseField(parts[1]!, 0, 23)
-  const doms = parseField(parts[2]!, 1, 31)
-  const months = parseField(parts[3]!, 1, 12)
-  const dows = parseField(parts[4]!, 0, 6)
-  if (!minutes || !hours || !doms || !months || !dows) return null
-  return { minutes, hours, doms, months, dows }
-}
-
-const WEEKDAY_MAP: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
-
-function walkRuns(
-  sets: CronSets,
-  tz: string,
-  startMs: number,
-  direction: 1 | -1,
-  horizonMs: number,
-  count: number,
-): Date[] {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-    weekday: 'short', hour12: false,
-  })
-  const sortedMinutesAsc = [...sets.minutes].sort((a, b) => a - b)
-  const sortedMinutesDesc = [...sortedMinutesAsc].reverse()
-  const results: Date[] = []
-  let t = startMs
-  let safety = 20000
-  while (safety-- > 0) {
-    if (direction > 0 ? t >= horizonMs : t <= horizonMs) break
-    const fields: Record<string, string> = {}
-    for (const p of fmt.formatToParts(new Date(t))) fields[p.type] = p.value
-    const mm = parseInt(fields.minute!, 10)
-    const hh = parseInt(fields.hour!, 10)
-    const day = parseInt(fields.day!, 10)
-    const mon = parseInt(fields.month!, 10)
-    const dow = WEEKDAY_MAP[fields.weekday!] ?? -1
-
-    const minuteOk = sets.minutes.has(mm)
-    const hourOk = sets.hours.has(hh)
-    const rest = sets.doms.has(day) && sets.months.has(mon) && sets.dows.has(dow)
-
-    if (minuteOk && hourOk && rest) {
-      results.push(new Date(t))
-      if (results.length >= count) break
-      t += direction * 60000
-      continue
-    }
-
-    if (!minuteOk) {
-      if (direction > 0) {
-        const next = sortedMinutesAsc.find(m => m > mm)
-        t += (next !== undefined ? (next - mm) : (60 - mm)) * 60000
-      } else {
-        const prev = sortedMinutesDesc.find(m => m < mm)
-        t -= (prev !== undefined ? (mm - prev) : (mm + 1)) * 60000
-      }
-      continue
-    }
-
-    // minute matches but hour/dom/month/dow doesn't — skip remainder of this hour.
-    if (direction > 0) {
-      t += (60 - mm) * 60000
-    } else {
-      t -= (mm + 1) * 60000
-    }
-  }
-  return results
-}
-
-function computeNextRuns(expr: string, tz: string, count = 12): Date[] {
-  const sets = parseCron(expr)
-  if (!sets) return []
-  const now = Date.now()
-  const start = Math.ceil(now / 60000) * 60000
-  const horizon = start + 400 * 24 * 60 * 60 * 1000
-  return walkRuns(sets, tz, start, 1, horizon, count)
-}
-
-function computePastRuns(expr: string, tz: string, count = 12): Date[] {
-  const sets = parseCron(expr)
-  if (!sets) return []
-  const now = Date.now()
-  const end = Math.floor(now / 60000) * 60000 - 60000
-  const horizon = end - 400 * 24 * 60 * 60 * 1000
-  return walkRuns(sets, tz, end, -1, horizon, count)
-}
-
 function mergeRuns(cron: Date[], oneOffs: Date[], direction: 'asc' | 'desc', limit: number): Date[] {
   const cmp = (x: Date, y: Date) => direction === 'asc' ? x.getTime() - y.getTime() : y.getTime() - x.getTime()
   const seen = new Set<number>()
@@ -543,13 +416,55 @@ function formatRelative(d: Date) {
   return t(past ? 'schedule.relative.daysAgo' : 'schedule.relative.inDays', { n: days })
 }
 
-function onSave() {
+async function onSave() {
   if (!hasSchedule.value) {
     toast.show(t('schedule.invalidCron'), 'error', 3000)
     return
   }
-  toast.show(t('schedule.saved'), 'info', 3000)
+  if (!currentWorkspaceId.value) {
+    toast.show(t('schedule.invalidCron'), 'error', 3000)
+    return
+  }
+  const saved = await upsertSchedule(workflowId.value, {
+    active: active.value,
+    frequency: frequency.value,
+    cron_expression: cronExpression.value,
+    weekdays: [...weekdays.value].sort((a, b) => a - b),
+    timezone: timezone.value,
+    one_off_ms: oneOffDates.value.map(d => d.getTime()),
+  })
+  if (saved) toast.show(t('schedule.saved'), 'info', 3000)
+  else toast.show(t('schedule.invalidCron'), 'error', 3000)
 }
+
+// Hydrate the editor from the persisted config (if any) so reopening the
+// Schedule tab shows the last-saved state instead of defaults. Runs when
+// route/workspace change AND when the composable finishes its initial
+// fetch — the schedule row may not exist yet at first render.
+function hydrateFromStore() {
+  const cfg = getScheduledConfig(workflowId.value)
+  if (!cfg) return
+  frequency.value = cfg.frequency
+  active.value = cfg.active
+  timezone.value = cfg.timezone || localTz
+  weekdays.value = new Set(cfg.weekdays)
+  oneOffDates.value = cfg.one_off_ms.map(ms => new Date(ms))
+  if (cfg.frequency === 'custom') customExpr.value = cfg.cron_expression || customExpr.value
+  const parts = cfg.cron_expression?.split(/\s+/) ?? []
+  const mm = Number(parts[0])
+  const hh = Number(parts[1])
+  const dom = Number(parts[2])
+  if (Number.isFinite(mm)) minute.value = Math.max(0, Math.min(59, mm))
+  if (Number.isFinite(hh)) hour.value = Math.max(0, Math.min(23, hh))
+  if (cfg.frequency === 'monthly' && Number.isFinite(dom)) {
+    dayOfMonth.value = Math.max(1, Math.min(31, dom))
+  }
+}
+
+watch([workflowId, currentWorkspaceId, scheduleLoaded], ([wfId, wsId, loaded]) => {
+  if (!wfId || !wsId || !loaded) return
+  hydrateFromStore()
+}, { immediate: true })
 
 const tzTriggerLabel = computed(() => {
   if (timezone.value === localTz) return t('schedule.tzLocal', { tz: tzCity(localTz) })

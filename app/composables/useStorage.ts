@@ -43,15 +43,26 @@ interface UploadUrlResponse {
   url: string
   token: string
   path: string
-  backend: 'supabase'
+  backend: 'supabase' | 'google-drive'
+  method?: 'PUT' | 'POST'
   expires_at: string
 }
 
-interface DownloadUrlResponse {
+interface RemoteDownloadUrlResponse {
   url: string
-  backend: 'supabase'
+  backend: 'supabase' | 'google-drive'
   expires_at: string
 }
+
+interface LocalDownloadUrlResponse {
+  url: ''
+  backend: 'local'
+  device_id: string
+  file_id: string
+  expires_at: string
+}
+
+type DownloadUrlResponse = RemoteDownloadUrlResponse | LocalDownloadUrlResponse
 
 function joinSegments(segments: string[]): string {
   return segments.filter(Boolean).join('/')
@@ -145,23 +156,54 @@ export function useStorage() {
         body: { path, size: file.size, content_type: file.type },
       })
 
-      const formData = new FormData()
-      formData.append('cacheControl', '3600')
-      formData.append('', file)
+      let backendRef: string | undefined
 
-      const putResponse = await fetch(signed.url, {
-        method: 'PUT',
-        headers: { 'x-upsert': 'true' },
-        body: formData,
-      })
-      if (!putResponse.ok) {
-        error.value = `Upload failed (${putResponse.status})`
-        return false
+      if (signed.backend === 'google-drive') {
+        // Google Drive's resumable-upload session URL doesn't send CORS headers
+        // for browser origins, so we stream the bytes through the same-origin
+        // Nuxt proxy instead of PUTting Drive directly.
+        const proxyUrl = `${base}/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
+        const driveRes = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        })
+        if (!driveRes.ok) {
+          error.value = `Upload failed (${driveRes.status})`
+          return false
+        }
+        const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
+        if (!driveJson?.id) {
+          error.value = 'Upload succeeded but Drive file id was missing.'
+          return false
+        }
+        backendRef = driveJson.id
+      } else {
+        // supabase-js uploadToSignedUrl() shape: PUT with FormData wrapping the
+        // file under an empty key plus `cacheControl`, and `x-upsert` header.
+        const formData = new FormData()
+        formData.append('cacheControl', '3600')
+        formData.append('', file)
+        const putResponse = await fetch(signed.url, {
+          method: 'PUT',
+          headers: { 'x-upsert': 'true' },
+          body: formData,
+        })
+        if (!putResponse.ok) {
+          error.value = `Upload failed (${putResponse.status})`
+          return false
+        }
       }
 
       await $fetch(`${base}/finalize-upload`, {
         method: 'POST',
-        body: { path, size: file.size, content_type: file.type },
+        body: {
+          path,
+          size: file.size,
+          content_type: file.type,
+          backend: signed.backend,
+          ...(backendRef ? { backend_ref: backendRef } : {}),
+        },
       })
 
       return true
@@ -173,7 +215,7 @@ export function useStorage() {
     }
   }
 
-  async function deleteFiles(paths: string[]): Promise<boolean> {
+  async function deleteFiles(paths: string[], kind: 'file' | 'folder' = 'file'): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
@@ -181,7 +223,7 @@ export function useStorage() {
       if (!base) return false
       await $fetch(`${base}/delete`, {
         method: 'POST',
-        body: { paths, kind: 'file' },
+        body: { paths, kind },
       })
       return true
     } catch (err) {
@@ -297,7 +339,21 @@ export function useStorage() {
         method: 'POST',
         body: { path: filePath, expires_in: expiresIn },
       })
+      if (data.backend === 'local') return null
       return data.url
+    } catch {
+      return null
+    }
+  }
+
+  async function resolveDownload(filePath: string, expiresIn = 3600): Promise<DownloadUrlResponse | null> {
+    try {
+      const base = baseUrl()
+      if (!base) return null
+      return await $fetch<DownloadUrlResponse>(`${base}/download-url`, {
+        method: 'POST',
+        body: { path: filePath, expires_in: expiresIn },
+      })
     } catch {
       return null
     }
@@ -356,17 +412,36 @@ export function useStorage() {
     isLoading.value = true
     error.value = null
     try {
-      const url = await getSignedUrl(filePath, 60)
-      if (!url) {
+      const resolved = await resolveDownload(filePath, 60)
+      if (!resolved) {
         error.value = 'Failed to mint download URL.'
         return false
       }
-      const response = await fetch(url)
-      if (!response.ok) {
-        error.value = `Download failed (${response.status})`
-        return false
+
+      let blob: Blob
+      if (resolved.backend === 'local') {
+        const myDeviceId = useDeviceId()
+        if (!resolved.device_id || resolved.device_id !== myDeviceId) {
+          error.value = 'This file is only available on the device that created it.'
+          return false
+        }
+        const workspaceId = getWorkspaceId()
+        const entry = await useWorkspaceLocalFiles().read(workspaceId, resolved.file_id)
+        if (!entry) {
+          error.value = 'Local copy not found on this device.'
+          return false
+        }
+        blob = entry.blob
       }
-      const blob = await response.blob()
+      else {
+        const response = await fetch(resolved.url)
+        if (!response.ok) {
+          error.value = `Download failed (${response.status})`
+          return false
+        }
+        blob = await response.blob()
+      }
+
       const objectUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = objectUrl

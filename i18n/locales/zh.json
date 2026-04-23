@@ -51,7 +51,9 @@
     "justNow": "刚刚",
     "minutesAgo": "{n} 分钟前",
     "hoursAgo": "{n} 小时前",
-    "daysAgo": "{n} 天前"
+    "daysAgo": "{n} 天前",
+    "fileMigratedToLocalTitle": "一个文件已移动到队友的设备",
+    "fileMigratedToLocalBody": "「{path}」在此工作区中不再可用。"
   },
   "auth": {
     "welcomeBack": "欢迎回来",
@@ -301,7 +303,9 @@
   "viewport": {
     "closeBrowser": "关闭浏览器",
     "moveToThumbnail": "最小化视窗",
-    "expandPreview": "展开预览"
+    "expandPreview": "展开预览",
+    "closeExpanded": "关闭展开视图",
+    "reconnecting": "正在重新连接"
   },
   "browser": {
     "addAgent": "添加浏览器代理",
@@ -357,7 +361,16 @@
     "driveMigrateProgress": "已迁移 {migrated} 个 · 剩余 {remaining} 个",
     "driveMigrateDone": "工作区文件已全部转移至 Google 云端硬盘。",
     "driveMigrateFailed": "迁移未完成。",
-    "driveMigrateSomeFailed": "{count} 个文件需要处理，请查看浏览器控制台了解详情。"
+    "driveMigrateSomeFailed": "{count} 个文件需要处理，请查看浏览器控制台了解详情。",
+    "driveImporting": "正在将文件从 Google 云端硬盘迁移到 Cloud…",
+    "driveImportDone": "工作区文件已全部转移至 Cloud。",
+    "driveImportFailed": "迁移未完成。",
+    "localMigrating": "正在将文件迁移到这台设备…",
+    "localMigrateDone": "工作区文件现已在这台设备上。",
+    "localMigrateFailed": "迁移未完成。",
+    "localExporting": "正在从这台设备迁移文件…",
+    "localExportDone": "工作区文件不再仅存在于这台设备。",
+    "localExportFailed": "迁移未完成。"
   },
   "workspace": {
     "team": "团队",
@@ -377,9 +390,19 @@
     "moveHere": "移动到此处",
     "noSubfolders": "无子文件夹",
     "orderSaveFailed": "无法保存排序，请重试。",
+    "deleteFailed": "无法删除，请重试。",
+    "renameFailed": "无法重命名，请重试。",
     "retry": "重试",
     "emptyFolder": "此文件夹为空。",
     "noSearchResults": "没有文件匹配您的搜索。",
+    "uploadProgress": "正在上传 {done}/{total} {files}",
+    "uploadDoneOne": "已上传 {total} 个文件",
+    "uploadDoneMany": "已上传 {total} 个文件",
+    "uploadFailedAllOne": "上传 {total} 个文件失败",
+    "uploadFailedAllMany": "上传 {total} 个文件失败",
+    "uploadFailedSome": "已上传 {ok}/{total},{failed} 个失败",
+    "fileSingular": "文件",
+    "filePlural": "文件",
     "share": {
       "title": "共享",
       "addPeoplePlaceholder": "输入电子邮件地址",
@@ -433,18 +456,31 @@
       "localUnsupportedHint": "您的浏览器不支持此功能",
       "migrationTitle": "迁移文件",
       "migrationDesc": "在存储提供商之间移动现有的工作区文件。",
-      "migrationCloudToDriveTitle": "Cloud → Google Drive",
-      "migrationCloudToDriveDesc": "将所有工作区文件从 Cloud 移动到 Google Drive。大于 100 MB 的文件会被跳过。",
+      "migrationSourceLabel": "来源",
+      "migrationDestinationLabel": "目标",
+      "migrationSameProvider": "来源和目标必须是不同的提供商。",
+      "migrationPairUnsupported": "此迁移路径尚不受支持。",
+      "migrationSourceRequiresDrive": "连接 Google Drive 以从中迁移。",
+      "migrationSourceLocalUnsupported": "本地存储不能用作来源。",
+      "migrationDestinationLocalUnsupported": "本地存储不能用作目标。",
+      "migrationSourceUnavailable": "{provider} 不可用作来源。",
+      "migrationDestinationUnavailable": "{provider} 不可用作目标。",
       "startMigration": "开始迁移",
       "migrationRunning": "迁移进行中…",
       "migrationRequiresDrive": "请先连接 Google Drive 以启用此迁移。",
       "migrationRequiresAdmin": "需要所有者或管理员权限。",
-      "migrationConfirmTitle": "将文件迁移到 Google Drive？",
-      "migrationConfirmDesc": "Cloud 中的工作区文件将被复制到 Google Drive，然后从 Cloud 中删除。",
+      "migrationConfirmTitle": "将文件从 {source} 迁移到 {destination}？",
+      "migrationConfirmDesc": "{source} 中的工作区文件将被复制到 {destination}，然后从 {source} 中删除。",
       "migrationConfirmBullet1": "文件保留原路径和元数据。",
       "migrationConfirmBullet2": "迁移分批运行，中断后会自动恢复。",
       "migrationConfirmBullet3": "大于 100 MB 的文件会被跳过，并在完成后列出。",
-      "migrationConfirmAction": "移动文件"
+      "migrationConfirmAction": "移动文件",
+      "migrationConfirmLocal": "移动到这台设备",
+      "migrationAccessLossTitle": "将失去访问权限的人",
+      "migrationAccessLossDesc": "此操作之后，文件将只存在于这台设备上。以下用户将无法再打开它。",
+      "migrationAccessLossLoading": "正在加载受影响的成员…",
+      "migrationAccessLossNone": "目前没有其他人可以访问。",
+      "migrationToastView": "查看进度"
     },
     "listColumns": {
       "name": "名称",

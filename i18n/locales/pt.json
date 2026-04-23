@@ -51,7 +51,9 @@
     "justNow": "agora mesmo",
     "minutesAgo": "há {n} min",
     "hoursAgo": "há {n} h",
-    "daysAgo": "há {n} d"
+    "daysAgo": "há {n} d",
+    "fileMigratedToLocalTitle": "Um arquivo foi movido para o dispositivo de um colega",
+    "fileMigratedToLocalBody": "\"{path}\" não está mais disponível neste espaço de trabalho."
   },
   "auth": {
     "welcomeBack": "Bem-vindo de volta",
@@ -301,7 +303,9 @@
   "viewport": {
     "closeBrowser": "Fechar navegador",
     "moveToThumbnail": "Minimizar vista",
-    "expandPreview": "Expandir visualização"
+    "expandPreview": "Expandir visualização",
+    "closeExpanded": "Fechar visualização expandida",
+    "reconnecting": "Reconectando"
   },
   "browser": {
     "addAgent": "Adicionar agente do navegador",
@@ -357,7 +361,16 @@
     "driveMigrateProgress": "{migrated} migrados · {remaining} restantes",
     "driveMigrateDone": "Os arquivos do espaço de trabalho agora estão no Google Drive.",
     "driveMigrateFailed": "A migração não foi concluída.",
-    "driveMigrateSomeFailed": "{count} arquivos precisam de atenção. Confira o console do navegador para detalhes."
+    "driveMigrateSomeFailed": "{count} arquivos precisam de atenção. Confira o console do navegador para detalhes.",
+    "driveImporting": "Movendo arquivos do Google Drive para Cloud…",
+    "driveImportDone": "Os arquivos do espaço de trabalho agora estão no Cloud.",
+    "driveImportFailed": "A migração não foi concluída.",
+    "localMigrating": "Movendo arquivos para este dispositivo…",
+    "localMigrateDone": "Os arquivos do espaço de trabalho agora estão neste dispositivo.",
+    "localMigrateFailed": "A migração não foi concluída.",
+    "localExporting": "Movendo arquivos para fora deste dispositivo…",
+    "localExportDone": "Os arquivos do espaço de trabalho não estão mais apenas neste dispositivo.",
+    "localExportFailed": "A migração não foi concluída."
   },
   "workspace": {
     "team": "Equipe",
@@ -377,9 +390,19 @@
     "moveHere": "Mover para aqui",
     "noSubfolders": "Sem subpastas",
     "orderSaveFailed": "Não foi possível salvar sua ordem. Tente novamente.",
+    "deleteFailed": "Não foi possível eliminar. Tente novamente.",
+    "renameFailed": "Não foi possível renomear. Tente novamente.",
     "retry": "Tentar novamente",
     "emptyFolder": "Esta pasta está vazia.",
     "noSearchResults": "Nenhum ficheiro corresponde à sua pesquisa.",
+    "uploadProgress": "A enviar {done}/{total} {files}",
+    "uploadDoneOne": "{total} ficheiro enviado",
+    "uploadDoneMany": "{total} ficheiros enviados",
+    "uploadFailedAllOne": "Falha ao enviar {total} ficheiro",
+    "uploadFailedAllMany": "Falha ao enviar {total} ficheiros",
+    "uploadFailedSome": "{ok}/{total} enviados, {failed} com falha",
+    "fileSingular": "ficheiro",
+    "filePlural": "ficheiros",
     "share": {
       "title": "Compartilhar",
       "addPeoplePlaceholder": "Inserir um endereço de e-mail",
@@ -433,18 +456,31 @@
       "localUnsupportedHint": "Seu navegador não suporta isso",
       "migrationTitle": "Migrar arquivos",
       "migrationDesc": "Mova arquivos existentes do espaço de trabalho entre provedores de armazenamento.",
-      "migrationCloudToDriveTitle": "Cloud → Google Drive",
-      "migrationCloudToDriveDesc": "Move todos os arquivos do espaço de trabalho do Cloud para o Google Drive. Arquivos maiores que 100 MB são ignorados.",
+      "migrationSourceLabel": "De",
+      "migrationDestinationLabel": "Para",
+      "migrationSameProvider": "A origem e o destino devem ser provedores diferentes.",
+      "migrationPairUnsupported": "Este caminho de migração ainda não é suportado.",
+      "migrationSourceRequiresDrive": "Conecte o Google Drive para migrar a partir dele.",
+      "migrationSourceLocalUnsupported": "O armazenamento local não pode ser usado como origem.",
+      "migrationDestinationLocalUnsupported": "O armazenamento local não pode ser usado como destino.",
+      "migrationSourceUnavailable": "{provider} não está disponível como origem.",
+      "migrationDestinationUnavailable": "{provider} não está disponível como destino.",
       "startMigration": "Iniciar migração",
       "migrationRunning": "Migração em andamento…",
       "migrationRequiresDrive": "Conecte o Google Drive para habilitar esta migração.",
       "migrationRequiresAdmin": "É necessária permissão de proprietário ou administrador.",
-      "migrationConfirmTitle": "Migrar arquivos para o Google Drive?",
-      "migrationConfirmDesc": "Os arquivos do espaço de trabalho no Cloud serão copiados para o Google Drive e depois removidos do Cloud.",
+      "migrationConfirmTitle": "Migrar arquivos de {source} para {destination}?",
+      "migrationConfirmDesc": "Os arquivos do espaço de trabalho em {source} serão copiados para {destination} e depois removidos de {source}.",
       "migrationConfirmBullet1": "Os arquivos mantêm seus caminhos e metadados.",
       "migrationConfirmBullet2": "A migração executa em lotes e retoma se interrompida.",
       "migrationConfirmBullet3": "Arquivos maiores que 100 MB são ignorados e listados ao final.",
-      "migrationConfirmAction": "Mover arquivos"
+      "migrationConfirmAction": "Mover arquivos",
+      "migrationConfirmLocal": "Mover para este dispositivo",
+      "migrationAccessLossTitle": "Pessoas que perderão o acesso",
+      "migrationAccessLossDesc": "Depois disso, o arquivo viverá apenas neste dispositivo. Essas pessoas não poderão mais abri-lo.",
+      "migrationAccessLossLoading": "Carregando membros afetados…",
+      "migrationAccessLossNone": "Atualmente, mais ninguém tem acesso.",
+      "migrationToastView": "Ver progresso"
     },
     "listColumns": {
       "name": "Nome",

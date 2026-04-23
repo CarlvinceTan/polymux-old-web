@@ -1,5 +1,7 @@
 import { useAppToast } from '~/composables/useAppToast'
 
+export type MigrationDirection = 'supabase-to-drive' | 'drive-to-supabase'
+
 interface MigrateResponse {
   ok: true
   migrated: number
@@ -11,6 +13,7 @@ interface MigrateResponse {
 
 interface MigrationState {
   status: 'idle' | 'running' | 'done' | 'failed'
+  direction: MigrationDirection
   totalMigrated: number
   totalSkipped: number
   remaining: number | null
@@ -22,19 +25,21 @@ interface MigrationState {
 // completion without having to coordinate via events or props.
 const state = reactive<MigrationState>({
   status: 'idle',
+  direction: 'supabase-to-drive',
   totalMigrated: 0,
   totalSkipped: 0,
   remaining: null,
   errors: [],
 })
 
-// Drives the Supabase → Drive migration loop. The endpoint is paginated
-// (default 50 files per call) and returns `done` when nothing supabase-backed
-// is left, so we just call it in a loop until done or the network errors out.
+// Drives a Supabase ↔ Drive migration loop. Each endpoint is paginated (default
+// 50 files per call) and returns `done` when nothing in the source backend is
+// left, so we just call it in a loop until done or the network errors out.
 //
 // Use:
 //   const { state, run } = useDriveMigration()
-//   await run()    // resolves once the whole migration finishes
+//   await run()                          // Supabase → Drive (default)
+//   await run('drive-to-supabase')       // Drive → Supabase
 //
 // Safe to call once per page load; the inner loop bails on the first non-OK
 // response so a torn connection doesn't get re-hammered.
@@ -42,22 +47,24 @@ export function useDriveMigration() {
   const { currentWorkspace } = useWorkspaces()
   const toast = useAppToast()
 
-  async function run() {
+  async function run(direction: MigrationDirection = 'supabase-to-drive') {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
     if (state.status === 'running') return
 
     state.status = 'running'
+    state.direction = direction
     state.totalMigrated = 0
     state.totalSkipped = 0
     state.errors = []
 
+    const endpoint = direction === 'supabase-to-drive'
+      ? `/api/workspaces/${workspaceId}/integrations/google-drive/migrate`
+      : `/api/workspaces/${workspaceId}/integrations/google-drive/import`
+
     try {
       while (true) {
-        const res = await $fetch<MigrateResponse>(
-          `/api/workspaces/${workspaceId}/integrations/google-drive/migrate`,
-          { method: 'POST', body: {} },
-        )
+        const res = await $fetch<MigrateResponse>(endpoint, { method: 'POST', body: {} })
         state.totalMigrated += res.migrated
         state.totalSkipped += res.skipped
         state.remaining = res.remaining
@@ -69,7 +76,8 @@ export function useDriveMigration() {
       }
       state.status = 'done'
       if (state.totalMigrated > 0) {
-        toast.show(`Migrated ${state.totalMigrated} files to Google Drive.`, 'success')
+        const destination = direction === 'supabase-to-drive' ? 'Google Drive' : 'Cloud'
+        toast.show(`Migrated ${state.totalMigrated} files to ${destination}.`, 'success')
       }
     }
     catch (err) {

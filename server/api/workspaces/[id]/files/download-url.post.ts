@@ -53,12 +53,25 @@ export default defineEventHandler(async (event) => {
 
   const { data: row } = await admin
     .from('files')
-    .select('backend, backend_ref, content_type')
+    .select('id, backend, backend_ref, content_type')
     .eq('workspace_id', workspaceId)
     .eq('path', logicalPath)
     .maybeSingle()
 
   const backend = row?.backend ?? 'supabase'
+
+  if (backend === 'local') {
+    // Bytes are in OPFS on the device recorded in `backend_ref`. Server has
+    // nothing to hand back — the client reads from its own storage if it's
+    // the right device, otherwise it shows "not available here".
+    return {
+      url: '',
+      backend: 'local' as const,
+      device_id: row?.backend_ref ?? '',
+      file_id: row?.id ?? '',
+      expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    }
+  }
 
   if (backend === 'google-drive') {
     if (!row?.backend_ref) {

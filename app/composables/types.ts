@@ -92,7 +92,11 @@ export interface WorkflowRunEventPayload {
   occurred_at?: string
 }
 
-export interface SpawnBrowserAgentPayload {}
+export interface SpawnBrowserAgentPayload {
+  /** Optional: seed the new agent with a "Navigate to <url>" task so the page is already
+   * loaded when the viewport becomes visible. Used for restoring previous session URLs. */
+  url?: string
+}
 
 export interface CloseBrowserAgentPayload {
   agent_id: string

@@ -22,6 +22,8 @@ const props = withDefaults(defineProps<{
   onTrafficGreen?: () => void
   /** Object URL for the latest JPEG screencast frame */
   frameUrl?: string
+  /** When true, no-frame state shows a centered spinner (WS reconnecting) instead of the skeleton. */
+  reconnecting?: boolean
 }>(), {
   isLoading: true,
   url: 'localhost:3001/instance_alpha/preview/session/very-long-url-to-demonstrate-truncation',
@@ -32,6 +34,7 @@ const props = withDefaults(defineProps<{
   showBar: true,
   showActionText: true,
   thumbnail: false,
+  reconnecting: false,
 })
 
 function redClick(e: Event) {
@@ -150,7 +153,25 @@ function greenClick(e: Event) {
         <!-- Preview: fixed 3:2 to match the browser screencast ratio. -->
         <div class="relative w-full overflow-hidden bg-white" style="aspect-ratio: 3 / 2">
           <div
-            v-if="!frameUrl"
+            v-if="!frameUrl && reconnecting"
+            class="absolute inset-0 flex items-center justify-center"
+            role="status"
+            :aria-label="t('viewport.reconnecting')"
+          >
+            <svg
+              class="animate-spin text-neutral-400"
+              :class="thumbnail ? 'size-4' : 'size-8'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          </div>
+          <div
+            v-else-if="!frameUrl"
             class="absolute inset-0 flex w-full flex-col"
             :class="thumbnail ? 'gap-2 p-2' : 'gap-6 p-8'"
           >

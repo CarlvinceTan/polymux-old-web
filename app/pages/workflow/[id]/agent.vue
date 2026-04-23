@@ -22,6 +22,10 @@ const onCloseViewport = inject<(agentId: string) => void>('chat-on-close-viewpor
 const onSpawnBrowserAgent = inject<() => void>('chat-on-spawn-browser-agent')!
 const session = inject<SessionHandle>('chat-session')!
 
+const reconnecting = computed(
+  () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
+)
+
 const { consumePendingPrompt } = useChatSessions()
 
 // All chat goes to the orchestrator. Individual browser-agent chat is
@@ -97,6 +101,7 @@ onMounted(() => {
     :session-id="sessionId"
     :browser-agent-cap="vp.browserAgentCap.value"
     :active-agent-id="vp.activeAgentId.value"
+    :reconnecting="reconnecting"
     @welcome-suggestion="onSend(presetPrompt)"
     @send="onSend"
     @rename="onRename"

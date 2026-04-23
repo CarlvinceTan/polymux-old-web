@@ -20,5 +20,6 @@
 
     <ToastContainer />
     <NotificationsToast />
+    <MigrationProgressToast />
   </div>
 </template>

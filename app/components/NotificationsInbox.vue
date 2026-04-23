@@ -33,6 +33,23 @@ function formatRelativeTime(iso: string) {
   return t('notifications.daysAgo', { n: days })
 }
 
+// Some notification types benefit from client-side i18n using metadata the
+// trigger captured (e.g. file paths). Fall back to the server-written
+// title/description for anything we don't render specially.
+function titleFor(n: typeof notifications.value[number]): string {
+  if (n.type === 'file_migrated_to_local') {
+    return t('notifications.fileMigratedToLocalTitle')
+  }
+  return n.title
+}
+function descriptionFor(n: typeof notifications.value[number]): string | null {
+  if (n.type === 'file_migrated_to_local') {
+    const path = typeof n.metadata?.file_path === 'string' ? n.metadata.file_path : ''
+    return t('notifications.fileMigratedToLocalBody', { path })
+  }
+  return n.description
+}
+
 watch(user, (u) => {
   if (u) {
     fetchAll()
@@ -92,8 +109,8 @@ watch(user, (u) => {
           :key="n.id"
           class="px-3 py-2 transition-colors hover:bg-neutral-50"
         >
-          <p class="truncate text-sm font-medium text-neutral-950">{{ n.title }}</p>
-          <p v-if="n.description" class="mt-0.5 line-clamp-2 text-xs text-neutral-500">{{ n.description }}</p>
+          <p class="truncate text-sm font-medium text-neutral-950">{{ titleFor(n) }}</p>
+          <p v-if="descriptionFor(n)" class="mt-0.5 line-clamp-2 text-xs text-neutral-500">{{ descriptionFor(n) }}</p>
           <p class="mt-1 text-[10px] text-neutral-400">{{ formatRelativeTime(n.created_at) }}</p>
         </li>
       </ul>

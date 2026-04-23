@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPayload, ErrorPayload } from '~/composables/types'
+import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPayload, ErrorPayload, SpawnBrowserAgentPayload } from '~/composables/types'
+import { DRAFT_SESSION_ID } from '~/composables/useChatSessions'
 
 const route = useRoute()
 const workflowId = computed(() => route.params.id as string)
@@ -15,7 +16,7 @@ const headerTabs = computed(() => {
 
 const sessionId = computed(() => route.params.id as string)
 
-const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty } = useChatSessions()
+const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useChatSessions()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 const workflowTitle = computed(() => {
@@ -149,6 +150,12 @@ function cleanupIfUnused() {
 onBeforeRouteLeave((to) => {
   // Still navigating inside the same workflow's nested tabs (orchestrator/browser/…) — keep it.
   if (to.params.id === sessionId.value) return
+  // Leaving the workflow (to another workflow or outside) — snapshot viewport
+  // URLs for restoration. Fires before the route commits, so sessionId.value
+  // still points at the workflow we're leaving. Flush pending debounce first
+  // so we don't lose a more-recent URL update scheduled but not yet sent.
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+  void saveViewportUrlsForId(sessionId.value)
   cleanupIfUnused()
 })
 
@@ -190,13 +197,157 @@ watch(() => vp.viewports.value, async (viewports) => {
 
 onUnmounted(() => screencast.cleanup())
 
+// ── Viewport URL persistence ────────────────────────────────────────────────
+// Saves the URLs of active browser sub-agents per workflow to the DB so that
+// when the user closes the tab / logs out / returns on another device, the
+// viewports visually restore — the server respawns fresh agents, each seeded
+// with "Navigate to <url>" via the `url` field on `spawn_browser_agent`. If
+// the server still has the session alive (within idle-timeout), `session_state`
+// returns the existing agents and no restoration is triggered.
+const runtimeConfig = useRuntimeConfig()
+const supabase = useSupabaseClient()
+
+function currentViewportUrls(): string[] {
+  return vp.viewports.value.map(v => v.url).filter(Boolean)
+}
+
+// Debounced async save. During normal use, coalesce rapid URL changes into a
+// single PATCH. The `flushPendingSave` promise lets unload handlers wait on an
+// in-flight save before the tab closes (best-effort; see `sendBeaconSave`).
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedKey = ''
+let pendingSave: Promise<void> | null = null
+
+function serializeUrls(urls: string[]) {
+  return JSON.stringify(urls)
+}
+
+async function saveViewportUrlsForId(id: string) {
+  if (id === DRAFT_SESSION_ID) return
+  const urls = currentViewportUrls()
+  const key = `${id}:${serializeUrls(urls)}`
+  if (key === lastSavedKey) return  // no-op if nothing changed since last save
+  lastSavedKey = key
+  pendingSave = updateSessionViewportUrls(id, urls).catch(err => {
+    console.warn('[workflow] failed to persist viewport urls', err)
+  }).finally(() => { pendingSave = null })
+  await pendingSave
+}
+
+function scheduleSave(id: string) {
+  if (!import.meta.client) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    void saveViewportUrlsForId(id)
+  }, 1500)
+}
+
+// On tab close / reload / logout, send the final state via sendBeacon so the
+// request survives the teardown. Regular fetch would be cancelled by the
+// browser during unload.
+async function sendBeaconSave(id: string) {
+  if (!import.meta.client) return
+  if (id === DRAFT_SESSION_ID) return
+  const urls = currentViewportUrls()
+  const key = `${id}:${serializeUrls(urls)}`
+  if (key === lastSavedKey) return
+  lastSavedKey = key
+  let token = ''
+  try {
+    const { data } = await supabase.auth.getSession()
+    token = data.session?.access_token ?? ''
+  } catch {}
+  if (!token) return
+  const baseURL = runtimeConfig.public.serverUrl as string
+  const url = `${baseURL}/sessions/${id}/viewport-urls`
+  const body = JSON.stringify({ urls })
+  // sendBeacon uses POST; Blob type lets us set the content type. Since our
+  // endpoint is PATCH-only, fall back to fetch with keepalive which honours
+  // the method and completes during unload in most browsers.
+  try {
+    await fetch(url, {
+      method: 'PATCH',
+      keepalive: true,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body,
+    })
+  } catch {}
+}
+
+// Restore once, on the first session_state for this workflow. If the server
+// already has browser agents (session still alive), skip — the live state wins.
+const hasAttemptedRestore = ref(false)
+watch(
+  () => session.sessionState.value,
+  (state) => {
+    if (hasAttemptedRestore.value || !state) return
+    hasAttemptedRestore.value = true
+    if ((state.browser_agents?.length ?? 0) > 0) return
+    const saved = sessions.value.find(s => s.id === sessionId.value)?.last_viewport_urls ?? []
+    const savedUrls = saved.filter(u => typeof u === 'string' && u)
+    if (savedUrls.length === 0) return
+    // Seed lastSavedKey so the debounce doesn't immediately re-PATCH the same
+    // URLs after spawn_browser_agent events populate viewports.
+    lastSavedKey = `${sessionId.value}:${serializeUrls(savedUrls)}`
+    for (const url of savedUrls) {
+      session.send<SpawnBrowserAgentPayload>('spawn_browser_agent', { url })
+    }
+  },
+)
+
+// Reset restoration state when switching workflows (if the component is
+// reused rather than remounted).
+watch(sessionId, () => {
+  hasAttemptedRestore.value = false
+  lastSavedKey = ''
+})
+
+// Auto-save URL list whenever viewports change (debounced). Skips the very
+// first fire so we don't overwrite saved state with an empty list before the
+// session_state handler has had a chance to restore.
+watch(
+  () => vp.viewports.value.map(v => v.url).join(' '),
+  () => {
+    if (!hasAttemptedRestore.value) return
+    scheduleSave(sessionId.value)
+  },
+)
+
+// Persist current viewport URLs on tab close / reload / logout. In-app
+// workflow switches are handled by the `onBeforeRouteLeave` above (which
+// runs before the route commits, so `sessionId.value` still points at the
+// outgoing workflow).
+if (import.meta.client) {
+  const onHide = () => {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+    void sendBeaconSave(sessionId.value)
+  }
+  window.addEventListener('pagehide', onHide)
+  window.addEventListener('beforeunload', onHide)
+  onUnmounted(() => {
+    window.removeEventListener('pagehide', onHide)
+    window.removeEventListener('beforeunload', onHide)
+  })
+}
+
 const titleRequested = ref(false)
 
 watch(chats.summarisedTitle, (title) => {
   if (title) onRename(title)
 })
 
-const welcome = computed(() => chats.orchestrator.messages.value.length === 0)
+// Only show the welcome/new-workflow UI for genuinely new workflows (drafts or
+// freshly-promoted sessions still titled "New Workflow"). For existing
+// workflows, the messages array is briefly empty between mount and the async
+// `fetchMessages` resolving — without this gate, switching workflows flashes
+// the welcome UI during that window.
+const welcome = computed(() =>
+  chats.orchestrator.messages.value.length === 0 && isNewWorkflow.value,
+)
 
 const viewportList = computed({
   get: () => vp.viewports.value as ViewportState[],

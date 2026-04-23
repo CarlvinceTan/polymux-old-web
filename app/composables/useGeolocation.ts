@@ -71,10 +71,12 @@ function requestLocation(): Promise<GeolocationCoords | null> {
         resolve(c)
       },
       (err) => {
-        error.value = err.message
+        if (err.code !== err.POSITION_UNAVAILABLE) {
+          error.value = err.message
+        }
         resolve(null)
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
     )
   })
 }
@@ -91,9 +93,10 @@ function startWatching() {
       error.value = null
     },
     (err) => {
+      if (err.code === err.POSITION_UNAVAILABLE) return
       error.value = err.message
     },
-    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+    { enableHighAccuracy: false, timeout: 15_000, maximumAge: 5 * 60_000 },
   )
 }
 

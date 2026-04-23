@@ -51,7 +51,9 @@
     "justNow": "たった今",
     "minutesAgo": "{n}分前",
     "hoursAgo": "{n}時間前",
-    "daysAgo": "{n}日前"
+    "daysAgo": "{n}日前",
+    "fileMigratedToLocalTitle": "ファイルが他のメンバーのデバイスへ移動されました",
+    "fileMigratedToLocalBody": "「{path}」はこのワークスペースでは利用できなくなりました。"
   },
   "auth": {
     "welcomeBack": "おかえりなさい",
@@ -301,7 +303,9 @@
   "viewport": {
     "closeBrowser": "ブラウザを閉じる",
     "moveToThumbnail": "ビューポートを最小化",
-    "expandPreview": "プレビューを拡大"
+    "expandPreview": "プレビューを拡大",
+    "closeExpanded": "拡大表示を閉じる",
+    "reconnecting": "再接続中"
   },
   "browser": {
     "addAgent": "ブラウザエージェントを追加",
@@ -357,7 +361,16 @@
     "driveMigrateProgress": "{migrated} 件移行済み · 残り {remaining} 件",
     "driveMigrateDone": "ワークスペースのファイルは Google ドライブに移行されました。",
     "driveMigrateFailed": "移行が完了しませんでした。",
-    "driveMigrateSomeFailed": "{count} 件のファイルに対応が必要です。詳細はブラウザのコンソールを確認してください。"
+    "driveMigrateSomeFailed": "{count} 件のファイルに対応が必要です。詳細はブラウザのコンソールを確認してください。",
+    "driveImporting": "Google ドライブから Cloud へファイルを移動しています…",
+    "driveImportDone": "ワークスペースのファイルは Cloud に移行されました。",
+    "driveImportFailed": "移行が完了しませんでした。",
+    "localMigrating": "このデバイスへファイルを移動しています…",
+    "localMigrateDone": "ワークスペースのファイルはこのデバイスに移動しました。",
+    "localMigrateFailed": "移行が完了しませんでした。",
+    "localExporting": "このデバイスからファイルを移動しています…",
+    "localExportDone": "ワークスペースのファイルはこのデバイスのみではなくなりました。",
+    "localExportFailed": "移行が完了しませんでした。"
   },
   "workspace": {
     "team": "チーム",
@@ -377,9 +390,19 @@
     "moveHere": "ここへ移動",
     "noSubfolders": "サブフォルダがありません",
     "orderSaveFailed": "並び順を保存できませんでした。もう一度お試しください。",
+    "deleteFailed": "削除できませんでした。もう一度お試しください。",
+    "renameFailed": "名前を変更できませんでした。もう一度お試しください。",
     "retry": "再試行",
     "emptyFolder": "このフォルダは空です。",
     "noSearchResults": "検索に一致するファイルがありません。",
+    "uploadProgress": "{done}/{total} {files} アップロード中",
+    "uploadDoneOne": "{total} 件のファイルをアップロードしました",
+    "uploadDoneMany": "{total} 件のファイルをアップロードしました",
+    "uploadFailedAllOne": "{total} 件のファイルのアップロードに失敗しました",
+    "uploadFailedAllMany": "{total} 件のファイルのアップロードに失敗しました",
+    "uploadFailedSome": "{ok}/{total} をアップロード、{failed} 件失敗",
+    "fileSingular": "ファイル",
+    "filePlural": "ファイル",
     "share": {
       "title": "共有",
       "addPeoplePlaceholder": "メールアドレスを入力",
@@ -433,18 +456,31 @@
       "localUnsupportedHint": "このブラウザはサポートしていません",
       "migrationTitle": "ファイルの移行",
       "migrationDesc": "既存のワークスペースファイルをストレージプロバイダー間で移動します。",
-      "migrationCloudToDriveTitle": "Cloud → Google Drive",
-      "migrationCloudToDriveDesc": "すべてのワークスペースファイルを Cloud から Google Drive に移動します。100 MB を超えるファイルはスキップされます。",
+      "migrationSourceLabel": "移行元",
+      "migrationDestinationLabel": "移行先",
+      "migrationSameProvider": "移行元と移行先には異なるプロバイダーを選択してください。",
+      "migrationPairUnsupported": "この移行パスはまだサポートされていません。",
+      "migrationSourceRequiresDrive": "移行元として使用するには Google Drive を接続してください。",
+      "migrationSourceLocalUnsupported": "ローカルストレージは移行元として使用できません。",
+      "migrationDestinationLocalUnsupported": "ローカルストレージは移行先として使用できません。",
+      "migrationSourceUnavailable": "{provider} は移行元として利用できません。",
+      "migrationDestinationUnavailable": "{provider} は移行先として利用できません。",
       "startMigration": "移行を開始",
       "migrationRunning": "移行実行中…",
       "migrationRequiresDrive": "この移行を有効にするには Google Drive を接続してください。",
       "migrationRequiresAdmin": "オーナーまたは管理者の権限が必要です。",
-      "migrationConfirmTitle": "ファイルを Google Drive に移行しますか？",
-      "migrationConfirmDesc": "Cloud 内のワークスペースファイルが Google Drive にコピーされ、その後 Cloud から削除されます。",
+      "migrationConfirmTitle": "{source} から {destination} へファイルを移行しますか？",
+      "migrationConfirmDesc": "{source} 内のワークスペースファイルが {destination} にコピーされ、その後 {source} から削除されます。",
       "migrationConfirmBullet1": "ファイルのパスとメタデータは保持されます。",
       "migrationConfirmBullet2": "移行はバッチで実行され、中断時は自動的に再開します。",
       "migrationConfirmBullet3": "100 MB を超えるファイルはスキップされ、後で一覧表示されます。",
-      "migrationConfirmAction": "ファイルを移動"
+      "migrationConfirmAction": "ファイルを移動",
+      "migrationConfirmLocal": "このデバイスに移動",
+      "migrationAccessLossTitle": "アクセスできなくなる人",
+      "migrationAccessLossDesc": "この操作の後、ファイルはこのデバイスのみに保存されます。以下のユーザーは開けなくなります。",
+      "migrationAccessLossLoading": "対象メンバーを読み込み中…",
+      "migrationAccessLossNone": "現在、他にアクセス権を持つユーザーはいません。",
+      "migrationToastView": "進捗を表示"
     },
     "listColumns": {
       "name": "名前",

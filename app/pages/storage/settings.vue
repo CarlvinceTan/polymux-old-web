@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import type { MigrationDirection } from '~/composables/useDriveMigration'
+import type { LocalMigrationDirection } from '~/composables/useLocalMigration'
 import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
+
+type AnyDirection = MigrationDirection | LocalMigrationDirection
 
 const headerTabs = {
   MAIN: '/storage/main',
@@ -16,9 +20,11 @@ const {
   moveDown,
   reset,
 } = useStoragePreferences()
-const { state: migrationState, run: runMigration } = useDriveMigration()
-const { isInstalled } = useMarketplace()
+const { state: driveMigrationState, run: runDriveMigration } = useDriveMigration()
+const { state: localMigrationState, run: runLocalMigration } = useLocalMigration()
 const { currentWorkspace } = useWorkspaces()
+
+const ALL_PROVIDERS: StorageProvider[] = ['supabase', 'google-drive', 'local']
 
 const providerLabel = computed<Record<StorageProvider, string>>(() => ({
   'supabase': t('storage.settings.providerCloud'),
@@ -65,63 +71,184 @@ const unavailableAction = (provider: StorageProvider): { label: string; to: stri
 }
 
 // ---- Migration ----
-const driveConnected = computed(() => isInstalled('google-drive'))
 const myRole = computed(() => currentWorkspace.value?.role)
 const canManage = computed(() => myRole.value === 'owner' || myRole.value === 'admin')
 
-interface MigrationOption {
-  id: string
-  source: StorageProvider
-  destination: StorageProvider
-  titleKey: string
-  descKey: string
-  ready: boolean
-  blockers: { messageKey: string; action?: { labelKey: string; to: string } }[]
-  run: () => Promise<void>
+const sourceProvider = ref<StorageProvider>('supabase')
+const destinationProvider = ref<StorageProvider>('google-drive')
+
+const sourceOpen = ref(false)
+const destinationOpen = ref(false)
+const sourceSelectorRef = ref<HTMLElement | null>(null)
+const destinationSelectorRef = ref<HTMLElement | null>(null)
+
+function selectSource(provider: StorageProvider) {
+  sourceProvider.value = provider
+  sourceOpen.value = false
 }
 
-const migrationOptions = computed<MigrationOption[]>(() => {
-  const blockers: { messageKey: string; action?: { labelKey: string; to: string } }[] = []
-  if (!driveConnected.value) {
-    blockers.push({
-      messageKey: 'storage.settings.migrationRequiresDrive',
-      action: { labelKey: 'integrations.connect', to: '/integrations/marketplace' },
-    })
-  }
+function selectDestination(provider: StorageProvider) {
+  destinationProvider.value = provider
+  destinationOpen.value = false
+}
+
+interface Blocker {
+  messageKey: string
+  messageParams?: Record<string, string>
+  action?: { labelKey: string; to: string }
+}
+
+const pairBlockers = computed<Blocker[]>(() => {
+  const blockers: Blocker[] = []
   if (!canManage.value) {
     blockers.push({ messageKey: 'storage.settings.migrationRequiresAdmin' })
   }
-  return [
-    {
-      id: 'supabase-to-drive',
-      source: 'supabase',
-      destination: 'google-drive',
-      titleKey: 'storage.settings.migrationCloudToDriveTitle',
-      descKey: 'storage.settings.migrationCloudToDriveDesc',
-      ready: blockers.length === 0,
-      blockers,
-      run: runMigration,
-    },
-  ]
+  if (sourceProvider.value === destinationProvider.value) {
+    blockers.push({ messageKey: 'storage.settings.migrationSameProvider' })
+    return blockers
+  }
+  if (providerStatus.value[sourceProvider.value] !== 'available') {
+    if (sourceProvider.value === 'google-drive') {
+      blockers.push({
+        messageKey: 'storage.settings.migrationSourceRequiresDrive',
+        action: { labelKey: 'integrations.connect', to: '/integrations/marketplace' },
+      })
+    }
+    else if (sourceProvider.value === 'local') {
+      blockers.push({ messageKey: 'storage.settings.migrationSourceLocalUnsupported' })
+    }
+    else {
+      blockers.push({
+        messageKey: 'storage.settings.migrationSourceUnavailable',
+        messageParams: { provider: providerLabel.value[sourceProvider.value] },
+      })
+    }
+  }
+  if (providerStatus.value[destinationProvider.value] !== 'available') {
+    if (destinationProvider.value === 'google-drive') {
+      blockers.push({
+        messageKey: 'storage.settings.migrationRequiresDrive',
+        action: { labelKey: 'integrations.connect', to: '/integrations/marketplace' },
+      })
+    }
+    else if (destinationProvider.value === 'local') {
+      blockers.push({ messageKey: 'storage.settings.migrationDestinationLocalUnsupported' })
+    }
+    else {
+      blockers.push({
+        messageKey: 'storage.settings.migrationDestinationUnavailable',
+        messageParams: { provider: providerLabel.value[destinationProvider.value] },
+      })
+    }
+  }
+  if (currentDirection.value === null) {
+    blockers.push({ messageKey: 'storage.settings.migrationPairUnsupported' })
+  }
+  return blockers
+})
+
+const currentDirection = computed<AnyDirection | null>(() => {
+  const s = sourceProvider.value
+  const d = destinationProvider.value
+  if (s === 'supabase' && d === 'google-drive') return 'supabase-to-drive'
+  if (s === 'google-drive' && d === 'supabase') return 'drive-to-supabase'
+  if (s === 'supabase' && d === 'local') return 'supabase-to-local'
+  if (s === 'google-drive' && d === 'local') return 'drive-to-local'
+  if (s === 'local' && d === 'supabase') return 'local-to-supabase'
+  if (s === 'local' && d === 'google-drive') return 'local-to-drive'
+  return null
+})
+
+function isLocalDirection(dir: AnyDirection): dir is LocalMigrationDirection {
+  return dir === 'supabase-to-local'
+    || dir === 'drive-to-local'
+    || dir === 'local-to-supabase'
+    || dir === 'local-to-drive'
+}
+
+const activeMigrationState = computed(() => {
+  const dir = currentDirection.value
+  if (!dir) return null
+  return isLocalDirection(dir) ? localMigrationState : driveMigrationState
+})
+
+const isMigrationReady = computed(() => pairBlockers.value.length === 0)
+const isMigrationRunning = computed(() =>
+  driveMigrationState.status === 'running' || localMigrationState.status === 'running',
+)
+const showMigrationProgress = computed(() => {
+  const state = activeMigrationState.value
+  if (!state) return false
+  return state.direction === currentDirection.value && state.status !== 'idle'
 })
 
 const isConfirmOpen = ref(false)
-const pendingMigration = ref<MigrationOption | null>(null)
+const loadingAccessLoss = ref(false)
 
-function openMigrationConfirm(option: MigrationOption) {
-  if (!option.ready) return
-  pendingMigration.value = option
+interface AccessLossPreview {
+  affectedUsers: Array<{ user_id: string; display_name: string; email: string }>
+  affectedFilesCount: number
+}
+
+const accessLossPreview = ref<AccessLossPreview | null>(null)
+
+async function openMigrationConfirm() {
+  if (!isMigrationReady.value || isMigrationRunning.value) return
+  accessLossPreview.value = null
+  const workspaceId = currentWorkspace.value?.id
+  if (destinationProvider.value === 'local' && workspaceId) {
+    loadingAccessLoss.value = true
+    try {
+      const source = sourceProvider.value === 'google-drive' ? 'google-drive' : 'supabase'
+      const res = await $fetch<AccessLossPreview & { ok: true }>(
+        `/api/workspaces/${workspaceId}/files/preview-access-loss`,
+        { method: 'POST', body: { source } },
+      )
+      accessLossPreview.value = {
+        affectedUsers: res.affectedUsers ?? [],
+        affectedFilesCount: res.affectedFilesCount ?? 0,
+      }
+    }
+    catch (err) {
+      console.warn('[storage/settings] access-loss preview failed', err)
+      accessLossPreview.value = { affectedUsers: [], affectedFilesCount: 0 }
+    }
+    finally {
+      loadingAccessLoss.value = false
+    }
+  }
   isConfirmOpen.value = true
 }
 
 async function confirmMigration() {
-  const option = pendingMigration.value
-  if (!option) return
+  const dir = currentDirection.value
+  if (!dir || !isMigrationReady.value) return
   isConfirmOpen.value = false
-  await option.run()
+  if (isLocalDirection(dir)) {
+    await runLocalMigration(dir)
+  }
+  else {
+    await runDriveMigration(dir)
+  }
 }
 
-const isMigrationRunning = computed(() => migrationState.status === 'running')
+function handleMigrationClickOutside(event: MouseEvent) {
+  const target = event.target as Node
+  if (sourceOpen.value && sourceSelectorRef.value && !sourceSelectorRef.value.contains(target)) {
+    sourceOpen.value = false
+  }
+  if (destinationOpen.value && destinationSelectorRef.value && !destinationSelectorRef.value.contains(target)) {
+    destinationOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleMigrationClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleMigrationClickOutside)
+})
 </script>
 
 <template>
@@ -343,91 +470,163 @@ const isMigrationRunning = computed(() => migrationState.status === 'running')
                 </div>
               </header>
 
-              <ul class="mt-4 flex flex-col gap-3">
-                <li
-                  v-for="option in migrationOptions"
-                  :key="option.id"
-                  class="overflow-hidden rounded-xl border border-neutral-200 bg-white"
-                >
-                  <!-- Card body -->
-                  <div class="flex flex-col gap-4 p-4 sm:p-5">
-                    <!-- Source → Destination header -->
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800">
-                        <span class="flex size-5 items-center justify-center rounded-md bg-white">
-                          <StorageProviderIcon :provider="option.source" tile />
-                        </span>
-                        {{ providerLabel[option.source] }}
+              <div class="mt-5 rounded-xl border border-neutral-200 bg-white">
+                <div class="flex flex-col gap-4 p-4 sm:p-5">
+                  <!-- Source / Destination pickers -->
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <!-- Source picker -->
+                    <div ref="sourceSelectorRef" class="relative flex-1 min-w-0">
+                      <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                        {{ t('storage.settings.migrationSourceLabel') }}
                       </span>
-                      <UIcon name="i-heroicons-arrow-long-right-20-solid" class="size-4 shrink-0 text-neutral-400" aria-hidden="true" />
-                      <span class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800">
-                        <span class="flex size-5 items-center justify-center rounded-md bg-white">
-                          <StorageProviderIcon :provider="option.destination" tile />
-                        </span>
-                        {{ providerLabel[option.destination] }}
-                      </span>
-                    </div>
-
-                    <!-- Title + description -->
-                    <div>
-                      <h3 class="text-sm font-semibold text-neutral-950">
-                        {{ t(option.titleKey) }}
-                      </h3>
-                      <p class="mt-1 text-xs leading-relaxed text-neutral-500">
-                        {{ t(option.descKey) }}
-                      </p>
-                    </div>
-
-                    <!-- Live progress -->
-                    <DriveMigrationStatus
-                      v-if="option.id === 'supabase-to-drive' && migrationState.status !== 'idle'"
-                      :state="migrationState"
-                    />
-
-                    <!-- Blockers -->
-                    <div v-if="!option.ready" class="flex flex-col gap-2">
-                      <div
-                        v-for="(blocker, i) in option.blockers"
-                        :key="i"
-                        class="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900"
-                      >
-                        <UIcon name="i-heroicons-exclamation-triangle-20-solid" class="size-3.5 shrink-0 text-amber-600" />
-                        <span class="min-w-0 flex-1">{{ t(blocker.messageKey) }}</span>
-                        <NuxtLink
-                          v-if="blocker.action"
-                          :to="blocker.action.to"
-                          class="inline-flex shrink-0 items-center gap-1 rounded-md bg-neutral-950 px-2 py-0.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-                        >
-                          {{ t(blocker.action.labelKey) }}
-                          <UIcon name="i-heroicons-arrow-right-20-solid" class="size-3" />
-                        </NuxtLink>
-                      </div>
-                    </div>
-
-                    <!-- Action -->
-                    <div class="flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-3.5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                        :disabled="!option.ready || isMigrationRunning"
-                        @click="openMigrationConfirm(option)"
+                        class="mt-1.5 flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-100"
+                        :aria-haspopup="true"
+                        :aria-expanded="sourceOpen"
+                        @click.stop="sourceOpen = !sourceOpen; destinationOpen = false"
                       >
+                        <span class="flex min-w-0 items-center gap-2">
+                          <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-white">
+                            <StorageProviderIcon :provider="sourceProvider" tile />
+                          </span>
+                          <span class="truncate">{{ providerLabel[sourceProvider] }}</span>
+                        </span>
                         <UIcon
-                          v-if="isMigrationRunning"
-                          name="i-heroicons-arrow-path-20-solid"
-                          class="size-3.5 animate-spin"
+                          name="i-heroicons-chevron-down-20-solid"
+                          class="size-4 shrink-0 text-neutral-400 transition-transform"
+                          :class="sourceOpen ? 'rotate-180' : ''"
                         />
-                        <UIcon
-                          v-else
-                          name="i-heroicons-arrow-up-tray-20-solid"
-                          class="size-3.5"
-                        />
-                        {{ isMigrationRunning ? t('storage.settings.migrationRunning') : t('storage.settings.startMigration') }}
                       </button>
+                      <Menu :open="sourceOpen" align="left" width="w-full">
+                        <button
+                          v-for="p in ALL_PROVIDERS"
+                          :key="p"
+                          type="button"
+                          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
+                          :class="p === sourceProvider ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                          @click.stop="selectSource(p)"
+                        >
+                          <span class="flex min-w-0 items-center gap-2">
+                            <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-50">
+                              <StorageProviderIcon :provider="p" tile />
+                            </span>
+                            <span class="truncate">{{ providerLabel[p] }}</span>
+                          </span>
+                          <UIcon
+                            v-if="p === sourceProvider"
+                            name="i-heroicons-check-20-solid"
+                            class="size-4 shrink-0 text-neutral-950"
+                          />
+                        </button>
+                      </Menu>
+                    </div>
+
+                    <!-- Direction indicator -->
+                    <UIcon
+                      name="i-heroicons-arrow-long-right-20-solid"
+                      class="hidden shrink-0 size-5 text-neutral-400 sm:block sm:mb-2.5"
+                      aria-hidden="true"
+                    />
+
+                    <!-- Destination picker -->
+                    <div ref="destinationSelectorRef" class="relative flex-1 min-w-0">
+                      <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                        {{ t('storage.settings.migrationDestinationLabel') }}
+                      </span>
+                      <button
+                        type="button"
+                        class="mt-1.5 flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-100"
+                        :aria-haspopup="true"
+                        :aria-expanded="destinationOpen"
+                        @click.stop="destinationOpen = !destinationOpen; sourceOpen = false"
+                      >
+                        <span class="flex min-w-0 items-center gap-2">
+                          <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-white">
+                            <StorageProviderIcon :provider="destinationProvider" tile />
+                          </span>
+                          <span class="truncate">{{ providerLabel[destinationProvider] }}</span>
+                        </span>
+                        <UIcon
+                          name="i-heroicons-chevron-down-20-solid"
+                          class="size-4 shrink-0 text-neutral-400 transition-transform"
+                          :class="destinationOpen ? 'rotate-180' : ''"
+                        />
+                      </button>
+                      <Menu :open="destinationOpen" align="left" width="w-full">
+                        <button
+                          v-for="p in ALL_PROVIDERS"
+                          :key="p"
+                          type="button"
+                          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
+                          :class="p === destinationProvider ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                          @click.stop="selectDestination(p)"
+                        >
+                          <span class="flex min-w-0 items-center gap-2">
+                            <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-50">
+                              <StorageProviderIcon :provider="p" tile />
+                            </span>
+                            <span class="truncate">{{ providerLabel[p] }}</span>
+                          </span>
+                          <UIcon
+                            v-if="p === destinationProvider"
+                            name="i-heroicons-check-20-solid"
+                            class="size-4 shrink-0 text-neutral-950"
+                          />
+                        </button>
+                      </Menu>
                     </div>
                   </div>
-                </li>
-              </ul>
+
+                  <!-- Live progress for whichever composable is handling this pair -->
+                  <DriveMigrationStatus
+                    v-if="showMigrationProgress && activeMigrationState"
+                    :state="activeMigrationState"
+                  />
+
+                  <!-- Blockers -->
+                  <div v-if="pairBlockers.length" class="flex flex-col gap-2">
+                    <div
+                      v-for="(blocker, i) in pairBlockers"
+                      :key="i"
+                      class="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900"
+                    >
+                      <UIcon name="i-heroicons-exclamation-triangle-20-solid" class="size-3.5 shrink-0 text-amber-600" />
+                      <span class="min-w-0 flex-1">{{ t(blocker.messageKey, blocker.messageParams ?? {}) }}</span>
+                      <NuxtLink
+                        v-if="blocker.action"
+                        :to="blocker.action.to"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-md bg-neutral-950 px-2 py-0.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                      >
+                        {{ t(blocker.action.labelKey) }}
+                        <UIcon name="i-heroicons-arrow-right-20-solid" class="size-3" />
+                      </NuxtLink>
+                    </div>
+                  </div>
+
+                  <!-- Action -->
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-3.5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                      :disabled="!isMigrationReady || isMigrationRunning"
+                      @click="openMigrationConfirm"
+                    >
+                      <UIcon
+                        v-if="isMigrationRunning"
+                        name="i-heroicons-arrow-path-20-solid"
+                        class="size-3.5 animate-spin"
+                      />
+                      <UIcon
+                        v-else
+                        name="i-heroicons-arrow-up-tray-20-solid"
+                        class="size-3.5"
+                      />
+                      {{ isMigrationRunning ? t('storage.settings.migrationRunning') : t('storage.settings.startMigration') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <div class="h-4 w-full shrink-0 sm:h-5" aria-hidden="true" />
@@ -439,25 +638,31 @@ const isMigrationRunning = computed(() => migrationState.status === 'running')
 
   <UModal
     v-model:open="isConfirmOpen"
-    :title="t('storage.settings.migrationConfirmTitle')"
-    :description="t('storage.settings.migrationConfirmDesc')"
+    :title="t('storage.settings.migrationConfirmTitle', {
+      source: providerLabel[sourceProvider],
+      destination: providerLabel[destinationProvider],
+    })"
+    :description="t('storage.settings.migrationConfirmDesc', {
+      source: providerLabel[sourceProvider],
+      destination: providerLabel[destinationProvider],
+    })"
     :dismissible="!isMigrationRunning"
   >
     <template #body>
-      <div v-if="pendingMigration" class="space-y-4">
+      <div class="space-y-4">
         <div class="flex items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
           <span class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 ring-1 ring-neutral-200">
             <span class="flex size-5 items-center justify-center rounded-md bg-neutral-50">
-              <StorageProviderIcon :provider="pendingMigration.source" tile />
+              <StorageProviderIcon :provider="sourceProvider" tile />
             </span>
-            {{ providerLabel[pendingMigration.source] }}
+            {{ providerLabel[sourceProvider] }}
           </span>
           <UIcon name="i-heroicons-arrow-long-right-20-solid" class="size-5 shrink-0 text-neutral-400" aria-hidden="true" />
           <span class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 ring-1 ring-neutral-200">
             <span class="flex size-5 items-center justify-center rounded-md bg-neutral-50">
-              <StorageProviderIcon :provider="pendingMigration.destination" tile />
+              <StorageProviderIcon :provider="destinationProvider" tile />
             </span>
-            {{ providerLabel[pendingMigration.destination] }}
+            {{ providerLabel[destinationProvider] }}
           </span>
         </div>
 
@@ -475,6 +680,53 @@ const isMigrationRunning = computed(() => migrationState.status === 'running')
             <span>{{ t('storage.settings.migrationConfirmBullet3') }}</span>
           </li>
         </ul>
+
+        <!-- Access-loss warning: only when the destination is "local" -->
+        <div
+          v-if="destinationProvider === 'local'"
+          class="rounded-xl border border-amber-200 bg-amber-50/70 p-3"
+        >
+          <div class="flex items-start gap-2">
+            <UIcon name="i-heroicons-exclamation-triangle-20-solid" class="mt-0.5 size-4 shrink-0 text-amber-600" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-amber-900">
+                {{ t('storage.settings.migrationAccessLossTitle') }}
+              </p>
+              <p class="mt-1 text-xs text-amber-900/80">
+                {{ t('storage.settings.migrationAccessLossDesc') }}
+              </p>
+
+              <p v-if="loadingAccessLoss" class="mt-2 text-xs text-amber-900/60">
+                {{ t('storage.settings.migrationAccessLossLoading') }}
+              </p>
+              <p
+                v-else-if="!accessLossPreview?.affectedUsers.length"
+                class="mt-2 text-xs text-amber-900/80"
+              >
+                {{ t('storage.settings.migrationAccessLossNone') }}
+              </p>
+              <ul
+                v-else
+                class="mt-2 flex flex-col gap-1"
+              >
+                <li
+                  v-for="u in accessLossPreview.affectedUsers"
+                  :key="u.user_id"
+                  class="flex items-center gap-2 rounded-md bg-white/60 px-2 py-1 text-xs text-neutral-800 ring-1 ring-amber-200/60"
+                >
+                  <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-semibold uppercase text-amber-800">
+                    {{ (u.display_name || u.email || '?').slice(0, 1) }}
+                  </span>
+                  <span class="truncate font-medium">{{ u.display_name || u.email }}</span>
+                  <span
+                    v-if="u.display_name && u.email && u.display_name !== u.email"
+                    class="truncate text-[10px] text-neutral-500"
+                  >{{ u.email }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
     <template #footer>
@@ -492,7 +744,9 @@ const isMigrationRunning = computed(() => migrationState.status === 'running')
           @click="confirmMigration"
         >
           <UIcon name="i-heroicons-arrow-up-tray-20-solid" class="size-4" />
-          {{ t('storage.settings.migrationConfirmAction') }}
+          {{ destinationProvider === 'local'
+            ? t('storage.settings.migrationConfirmLocal')
+            : t('storage.settings.migrationConfirmAction') }}
         </button>
       </div>
     </template>

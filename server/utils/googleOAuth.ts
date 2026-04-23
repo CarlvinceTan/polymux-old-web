@@ -10,6 +10,7 @@ const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo'
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 const DRIVE_FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files'
+const DRIVE_ABOUT_ENDPOINT = 'https://www.googleapis.com/drive/v3/about'
 
 export const GOOGLE_DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
@@ -383,4 +384,47 @@ export async function deleteDriveFile(
       statusMessage: `Drive file delete failed: ${res.status} ${text}`.trim(),
     })
   }
+}
+
+// Google reports these as decimal strings because the numbers can overflow a
+// 32-bit int (2GB+). `limit` is absent when the account has no quota cap
+// (e.g. some Workspace tiers with pooled/unlimited storage).
+export interface DriveStorageQuota {
+  usage: number
+  limit: number | null
+  usageInDrive: number | null
+}
+
+export async function fetchDriveStorageQuota(
+  accessToken: string,
+  workspaceId?: string,
+): Promise<DriveStorageQuota> {
+  const res = await fetch(`${DRIVE_ABOUT_ENDPOINT}?fields=storageQuota`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      ...quotaUserHeader(workspaceId),
+    },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Drive about.get failed: ${res.status} ${text}`.trim(),
+    })
+  }
+  const data = (await res.json()) as {
+    storageQuota?: { usage?: string, limit?: string, usageInDrive?: string }
+  }
+  const q = data.storageQuota ?? {}
+  return {
+    usage: toNumber(q.usage) ?? 0,
+    limit: toNumber(q.limit),
+    usageInDrive: toNumber(q.usageInDrive),
+  }
+}
+
+function toNumber(value: string | undefined): number | null {
+  if (value == null) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
 }

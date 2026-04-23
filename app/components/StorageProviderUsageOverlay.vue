@@ -97,16 +97,10 @@ function tooltipText(card: ProviderUsageCard): string {
 
           <!-- Per-chip tooltip: shows percent (or status) above the chip on hover -->
           <div
-            class="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 rounded-md bg-neutral-950 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white opacity-0 shadow-sm transition-opacity duration-150 group-hover/chip:opacity-100"
+            class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/chip:opacity-100"
             role="tooltip"
           >
-            <span class="block whitespace-nowrap leading-none">
-              {{ card.label }} · <span class="font-mono">{{ tooltipText(card) }}</span>
-            </span>
-            <span
-              class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-neutral-950"
-              aria-hidden="true"
-            />
+            {{ card.label }} · <span class="font-mono tabular-nums text-neutral-950">{{ tooltipText(card) }}</span>
           </div>
         </div>
       </div>

@@ -75,6 +75,29 @@ export function useViewports(session: SessionHandle) {
     session.send<StreamPriorityUpdatePayload>('stream_priority_update', { priorities })
   }
 
+  function sortByLabel(list: ViewportState[]): ViewportState[] {
+    return [...list].sort((a, b) =>
+      a.agentName.localeCompare(b.agentName, undefined, { numeric: true, sensitivity: 'base' }),
+    )
+  }
+
+  // On session_state (re)sync the client has no per-agent status, so freshly
+  // restored viewports all look `isWorking` — the preference still gives us a
+  // deterministic lowest-label default when everything is in the same bucket.
+  function pickDefaultActiveAgent(list: ViewportState[]): string | null {
+    if (list.length === 0) return null
+    const working = list.find(v => v.isWorking && !v.isDone)
+    return (working ?? list[0]!).agentId
+  }
+
+  function warnIfOverCap(context: string) {
+    if (browserAgentCap.value > 0 && viewports.value.length > browserAgentCap.value) {
+      console.warn(
+        `[useViewports] ${context}: ${viewports.value.length} viewports exceeds cap of ${browserAgentCap.value}`,
+      )
+    }
+  }
+
   watch(
     () => session.sessionState.value,
     (state) => {
@@ -84,11 +107,16 @@ export function useViewports(session: SessionHandle) {
         activeAgentId.value = null
         return
       }
-      viewports.value = (state.browser_agents ?? []).map(payloadToViewport)
+      viewports.value = sortByLabel((state.browser_agents ?? []).map(payloadToViewport))
       browserAgentCap.value = state.browser_agent_cap ?? 0
       if (activeAgentId.value && !viewports.value.some(v => v.agentId === activeAgentId.value)) {
         activeAgentId.value = null
       }
+      if (!activeAgentId.value && viewports.value.length > 0) {
+        activeAgentId.value = pickDefaultActiveAgent(viewports.value)
+        sendPriorityUpdate()
+      }
+      warnIfOverCap('session_state sync')
     },
     { immediate: true },
   )
@@ -104,6 +132,7 @@ export function useViewports(session: SessionHandle) {
     }
     activeAgentId.value = p.agent_id
     sendPriorityUpdate()
+    warnIfOverCap('browser_spawned')
   }
 
   function handleBrowserClosed(p: BrowserClosedPayload) {

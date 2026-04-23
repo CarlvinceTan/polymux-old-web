@@ -10,6 +10,8 @@ const { sessions, fetchSessions } = useChatSessions()
 const { wallet, transactions, fetchWallet, fetchTransactions, formatCents } = useWallet()
 const { isInstalled } = useMarketplace()
 const { probe: probeLocal } = useLocalFileStorage()
+const { cards: storageUsageCards, refreshDrive } = useStorageUsage()
+const { active: activeSchedules, runsPerMonth } = useScheduledWorkflows()
 
 type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
 
@@ -100,6 +102,9 @@ async function refreshLocalProbe() {
 
 // ---- Google Drive ----
 const driveConnected = computed(() => isInstalled('google-drive'))
+const driveUsageCard = computed(() =>
+  storageUsageCards.value.find(c => c.provider === 'google-drive') ?? null,
+)
 
 watch(currentWorkspaceId, (wsId) => {
   if (!wsId) return
@@ -108,6 +113,7 @@ watch(currentWorkspaceId, (wsId) => {
   fetchWallet()
   fetchTransactions()
   refreshUsage(wsId)
+  refreshDrive().catch(() => {})
 }, { immediate: true })
 
 onMounted(() => { refreshLocalProbe() })
@@ -348,7 +354,17 @@ const providerCards = computed<ProviderCard[]>(() => {
     ? 'unsupported'
     : local.quota > 0 ? 'tracked' : 'connected-untracked'
 
-  const driveState: ProviderState = driveConnected.value ? 'connected-untracked' : 'disconnected'
+  const drive = driveUsageCard.value
+  const driveState: ProviderState = driveConnected.value
+    ? (drive?.state ?? 'connected-untracked')
+    : 'disconnected'
+  const driveSublabel = !driveConnected.value
+    ? 'Not connected'
+    : drive?.state === 'tracked'
+      ? 'Google account storage'
+      : drive?.state === 'unlimited'
+        ? 'Unlimited storage'
+        : 'Managed by Google'
 
   return [
     {
@@ -365,11 +381,11 @@ const providerCards = computed<ProviderCard[]>(() => {
     {
       provider: 'google-drive',
       label: 'Google Drive',
-      sublabel: driveConnected.value ? 'Managed by Google' : 'Not connected',
-      used: null,
-      total: null,
+      sublabel: driveSublabel,
+      used: drive?.used ?? null,
+      total: drive?.total ?? null,
       state: driveState,
-      loading: false,
+      loading: drive?.loading ?? false,
       ringClass: 'text-google-drive',
       trackClass: 'text-google-drive-tint',
     },
@@ -474,21 +490,14 @@ const projectedStatus = computed<'safe' | 'tight' | 'over'>(() => {
   return 'safe'
 })
 
-// ---- Cost forecast: extrapolate end-of-month spend ----
+// ---- Monthly spend helpers ----
 const monthDaysElapsed = computed(() => {
   const startMs = new Date(startOfMonthISO.value).getTime()
   const ms = now.value.getTime() - startMs
   return Math.max(1, ms / (1000 * 60 * 60 * 24))
 })
-const monthDaysTotal = computed(() => {
-  const d = now.value
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-})
 const dailyAvgSpendCents = computed(() =>
   Math.round(spendThisMonthCents.value / monthDaysElapsed.value),
-)
-const projectedMonthSpendCents = computed(() =>
-  Math.round(dailyAvgSpendCents.value * monthDaysTotal.value),
 )
 const monthTopUpsCents = computed(() =>
   transactions.value
@@ -500,13 +509,59 @@ const monthRefundsCents = computed(() =>
     .filter(tx => tx.type === 'refund' && tx.created_at >= startOfMonthISO.value)
     .reduce((sum, tx) => sum + Math.abs(tx.amount_cents), 0),
 )
-const monthDaysRemaining = computed(() =>
-  Math.max(0, monthDaysTotal.value - Math.floor(monthDaysElapsed.value)),
-)
 const monthSpendPercentOfTopUp = computed(() => {
   if (monthTopUpsCents.value <= 0) return 0
   return Math.min(100, Math.round((spendThisMonthCents.value / monthTopUpsCents.value) * 100))
 })
+
+// ---- Recurring cost: active scheduled workflows ----
+// No per-workflow cost model exists yet, so we estimate cost-per-run as the
+// workspace's month-to-date average session cost. Until a workflow has run
+// once or a user has spent anything, this falls back to 0 and the card shows
+// each scheduled workflow with a run count but no dollar estimate.
+const sessionsThisMonth = computed(() =>
+  sessions.value.filter(s => s.created_at >= startOfMonthISO.value).length,
+)
+const avgCostPerRunCents = computed(() => {
+  if (sessionsThisMonth.value <= 0 || spendThisMonthCents.value <= 0) return 0
+  return Math.round(spendThisMonthCents.value / sessionsThisMonth.value)
+})
+interface RecurringRow {
+  sessionId: string
+  workflowName: string
+  frequencyLabel: string
+  runsPerMonth: number
+  monthlyCostCents: number
+}
+function frequencyLabelFor(freq: string): string {
+  switch (freq) {
+    case 'hourly': return 'Every hour'
+    case 'daily': return 'Daily'
+    case 'weekly': return 'Weekly'
+    case 'monthly': return 'Monthly'
+    case 'custom': return 'Custom'
+    case 'none': return 'No schedule'
+    default: return freq
+  }
+}
+const recurringRows = computed<RecurringRow[]>(() =>
+  activeSchedules.value.map((cfg) => {
+    const runs = Math.round(runsPerMonth(cfg))
+    return {
+      sessionId: cfg.session_id,
+      workflowName: cfg.workflow_name,
+      frequencyLabel: frequencyLabelFor(cfg.frequency),
+      runsPerMonth: runs,
+      monthlyCostCents: runs * avgCostPerRunCents.value,
+    }
+  }),
+)
+const recurringMonthlyCostCents = computed(() =>
+  recurringRows.value.reduce((sum, r) => sum + r.monthlyCostCents, 0),
+)
+const recurringRunsPerMonth = computed(() =>
+  recurringRows.value.reduce((sum, r) => sum + r.runsPerMonth, 0),
+)
 
 // ---- Sparkline path helper (smooth area chart) ----
 function sparkPath(values: number[], width: number, height: number, max: number): string {
@@ -734,24 +789,12 @@ const sparkValues = computed(() => dailyBuckets.value.map(b => b.sessions))
             <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
               <!-- Weekly rate limit -->
               <section
-                class="relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6 lg:col-span-2"
+                class="flex flex-col rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6 lg:col-span-2"
               >
-                <!-- subtle corner accent based on status -->
-                <div
-                  class="pointer-events-none absolute inset-x-0 top-0 h-[3px] transition-colors"
-                  :class="weeklyStatus === 'danger'
-                    ? 'bg-red-500'
-                    : weeklyStatus === 'warn'
-                      ? 'bg-amber-500'
-                      : 'bg-neutral-900/90'"
-                />
-
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                      This week's sessions
-                    </span>
-                    <p class="mt-0.5 text-[11px] text-neutral-500">
+                    <h3 class="text-sm font-semibold text-neutral-950">This week's sessions</h3>
+                    <p class="mt-0.5 text-xs text-neutral-500">
                       Week of {{ weekStart.toLocaleDateString([], { month: 'short', day: 'numeric' }) }}
                     </p>
                   </div>
@@ -1121,84 +1164,96 @@ const sparkValues = computed(() => dailyBuckets.value.map(b => b.sessions))
               v-if="wallet"
               class="grid grid-cols-1 gap-4 lg:grid-cols-3"
             >
-              <!-- Forecast (large card) -->
+              <!-- Recurring cost: active scheduled workflows -->
               <div class="relative overflow-hidden rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6 lg:col-span-2">
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <h3 class="text-sm font-semibold text-neutral-950">Spend forecast</h3>
+                    <h3 class="text-sm font-semibold text-neutral-950">Recurring cost</h3>
                     <p class="mt-0.5 text-xs text-neutral-500">
-                      Projected end-of-month spend at current pace
+                      Projected monthly spend from active scheduled workflows
                     </p>
                   </div>
                   <span class="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
                     <span class="size-1.5 rounded-full bg-neutral-900" />
-                    {{ monthDaysRemaining }}d left
+                    {{ recurringRows.length }} active
                   </span>
                 </div>
 
                 <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                      So far
+                      Per month
                     </span>
                     <div class="mt-1 font-mono text-2xl font-bold leading-none tracking-tight text-neutral-950">
-                      {{ formatCents(spendThisMonthCents, walletCurrency) }}
+                      {{ formatCents(recurringMonthlyCostCents, walletCurrency) }}
                     </div>
                     <p class="mt-1 text-[11px] text-neutral-500">
-                      across {{ Math.floor(monthDaysElapsed) }}d
+                      across {{ recurringRunsPerMonth }} run{{ recurringRunsPerMonth === 1 ? '' : 's' }}
                     </p>
                   </div>
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                      Daily avg
+                      Cost / run
                     </span>
                     <div class="mt-1 font-mono text-2xl font-bold leading-none tracking-tight text-neutral-950">
-                      {{ formatCents(dailyAvgSpendCents, walletCurrency) }}
+                      {{ formatCents(avgCostPerRunCents, walletCurrency) }}
                     </div>
                     <p class="mt-1 text-[11px] text-neutral-500">
-                      since {{ new Date(startOfMonthISO).toLocaleDateString([], { month: 'short', day: 'numeric' }) }}
+                      workspace avg this month
                     </p>
                   </div>
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                      Projected
+                      Per day
                     </span>
                     <div class="mt-1 font-mono text-2xl font-bold leading-none tracking-tight text-neutral-950">
-                      {{ formatCents(projectedMonthSpendCents, walletCurrency) }}
+                      {{ formatCents(Math.round(recurringMonthlyCostCents / 30), walletCurrency) }}
                     </div>
                     <p class="mt-1 text-[11px] text-neutral-500">
-                      by month-end
+                      averaged over 30d
                     </p>
                   </div>
                 </div>
 
-                <!-- Visual spend timeline bar -->
-                <div class="mt-6">
-                  <div class="relative h-2 overflow-hidden rounded-full bg-neutral-100">
-                    <!-- Spent portion -->
-                    <div
-                      class="absolute inset-y-0 left-0 bg-gradient-to-r from-neutral-900 to-neutral-700"
-                      :style="{ width: Math.min(100, (spendThisMonthCents / Math.max(1, projectedMonthSpendCents)) * 100) + '%' }"
-                    />
-                    <!-- Projected portion (lighter) -->
-                    <div
-                      class="absolute inset-y-0 bg-neutral-300/70"
-                      :style="{
-                        left: Math.min(100, (spendThisMonthCents / Math.max(1, projectedMonthSpendCents)) * 100) + '%',
-                        right: '0%',
-                      }"
-                    />
-                  </div>
-                  <div class="mt-1.5 flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                    <span class="flex items-center gap-1">
-                      <span class="size-1.5 rounded-full bg-neutral-900" />
-                      Actual
+                <!-- Per-workflow breakdown -->
+                <ul v-if="recurringRows.length" class="mt-6 divide-y divide-neutral-100 border-t border-neutral-100">
+                  <li
+                    v-for="row in recurringRows"
+                    :key="row.sessionId"
+                    class="flex items-center justify-between gap-3 py-2.5"
+                  >
+                    <div class="flex min-w-0 items-center gap-2">
+                      <span class="flex size-6 items-center justify-center rounded-md bg-neutral-100 text-neutral-700">
+                        <UIcon name="i-heroicons-clock" class="size-3.5" />
+                      </span>
+                      <div class="min-w-0">
+                        <NuxtLink
+                          :to="`/workflow/${row.sessionId}/schedule`"
+                          class="block truncate text-[13px] font-medium text-neutral-950 hover:underline"
+                        >
+                          {{ row.workflowName }}
+                        </NuxtLink>
+                        <p class="text-[10px] text-neutral-400">
+                          {{ row.frequencyLabel }} · {{ row.runsPerMonth }}/mo
+                        </p>
+                      </div>
+                    </div>
+                    <span class="shrink-0 font-mono text-sm font-semibold text-neutral-950 tabular-nums">
+                      {{ formatCents(row.monthlyCostCents, walletCurrency) }}
                     </span>
-                    <span class="flex items-center gap-1">
-                      Projected
-                      <span class="size-1.5 rounded-full bg-neutral-300" />
-                    </span>
-                  </div>
+                  </li>
+                </ul>
+                <div
+                  v-else
+                  class="mt-6 flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 px-4 py-6 text-center"
+                >
+                  <UIcon name="i-heroicons-calendar-days" class="size-5 text-neutral-400" />
+                  <p class="text-[12px] font-medium text-neutral-700">
+                    No active scheduled workflows
+                  </p>
+                  <p class="text-[11px] text-neutral-500">
+                    Open a workflow and configure its Schedule tab to start tracking recurring cost.
+                  </p>
                 </div>
               </div>
 

@@ -6,19 +6,70 @@ interface MigrationError {
   reason: string
 }
 
+type MigrationDirection =
+  | 'supabase-to-drive'
+  | 'drive-to-supabase'
+  | 'supabase-to-local'
+  | 'drive-to-local'
+  | 'local-to-supabase'
+  | 'local-to-drive'
+
 interface MigrationState {
   status: 'idle' | 'running' | 'done' | 'failed'
+  direction?: MigrationDirection
   totalMigrated: number
   totalSkipped: number
   remaining: number | null
   errors: MigrationError[]
 }
 
-defineProps<{
+const props = defineProps<{
   state: MigrationState
 }>()
 
 const { t } = useI18n()
+
+const copyKeys: Record<MigrationDirection, { running: string; done: string; failed: string }> = {
+  'supabase-to-drive': {
+    running: 'integrations.driveMigrating',
+    done: 'integrations.driveMigrateDone',
+    failed: 'integrations.driveMigrateFailed',
+  },
+  'drive-to-supabase': {
+    running: 'integrations.driveImporting',
+    done: 'integrations.driveImportDone',
+    failed: 'integrations.driveImportFailed',
+  },
+  'supabase-to-local': {
+    running: 'integrations.localMigrating',
+    done: 'integrations.localMigrateDone',
+    failed: 'integrations.localMigrateFailed',
+  },
+  'drive-to-local': {
+    running: 'integrations.localMigrating',
+    done: 'integrations.localMigrateDone',
+    failed: 'integrations.localMigrateFailed',
+  },
+  'local-to-supabase': {
+    running: 'integrations.localExporting',
+    done: 'integrations.localExportDone',
+    failed: 'integrations.localExportFailed',
+  },
+  'local-to-drive': {
+    running: 'integrations.localExporting',
+    done: 'integrations.localExportDone',
+    failed: 'integrations.localExportFailed',
+  },
+}
+
+function keyFor(kind: 'running' | 'done' | 'failed'): string {
+  const dir = props.state.direction ?? 'supabase-to-drive'
+  return copyKeys[dir][kind]
+}
+
+const runningKey = computed(() => keyFor('running'))
+const doneKey = computed(() => keyFor('done'))
+const failedKey = computed(() => keyFor('failed'))
 </script>
 
 <template>
@@ -76,10 +127,10 @@ const { t } = useI18n()
       <p class="text-body-md font-medium text-neutral-950">
         {{
           state.status === 'running'
-            ? t('integrations.driveMigrating')
+            ? t(runningKey)
             : state.status === 'done'
-              ? t('integrations.driveMigrateDone')
-              : t('integrations.driveMigrateFailed')
+              ? t(doneKey)
+              : t(failedKey)
         }}
       </p>
       <p v-if="state.status === 'running'" class="mt-1 text-label-md text-neutral-500">

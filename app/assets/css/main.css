@@ -194,3 +194,13 @@ body {
     transform: scaleX(1);
   }
 }
+
+/* MigrationProgressToast.vue — indeterminate bar slides while total is unknown */
+@keyframes migration-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

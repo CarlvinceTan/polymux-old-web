@@ -10,6 +10,7 @@ const props = defineProps<{
   frameUrls?: Map<string, string>
   browserAgentCap?: number
   activeAgentId: string | null
+  reconnecting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -87,16 +88,7 @@ function activeViewportBinds(vp: ViewportState) {
     ...vp,
     ...activeTrafficHandlers(),
     frameUrl: props.frameUrls?.get(vp.agentId),
-  }
-}
-
-function expandedTrafficHandlers() {
-  if (!expandedAgentId.value) return {}
-  const id = expandedAgentId.value
-  return {
-    onTrafficRed: () => onClose(id),
-    onTrafficYellow: onDemoteActive,
-    onTrafficGreen: () => { expandedAgentId.value = null },
+    reconnecting: props.reconnecting,
   }
 }
 </script>
@@ -149,6 +141,7 @@ function expandedTrafficHandlers() {
               thumbnail
               :show-action-text="false"
               :show-bar="false"
+              :reconnecting="reconnecting"
               class="max-w-full min-w-0 w-full select-none"
             />
           </div>
@@ -199,7 +192,6 @@ function expandedTrafficHandlers() {
     v-if="expandedViewport"
     :viewport="expandedViewport"
     :frame-url="expandedFrameUrl"
-    v-bind="expandedTrafficHandlers()"
     @close="expandedAgentId = null"
   />
 </template>

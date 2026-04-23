@@ -10,6 +10,9 @@ export interface ChatSession {
   created_at: string
   updated_at: string
   is_draft?: boolean
+  /** URLs of browser sub-agents active when the user last left this workflow.
+   * Used to respawn fresh agents on those URLs when the user returns. */
+  last_viewport_urls?: string[]
 }
 
 interface StoredMessage {
@@ -196,6 +199,24 @@ export function useChatSessions() {
     }
   }
 
+  // Persists the list of viewport URLs for `sessionId` so the UI can restore
+  // browser sub-agents to those URLs on next visit. Updates the in-memory
+  // session row optimistically so consecutive reads see the latest value.
+  async function updateSessionViewportUrls(sessionID: string, urls: string[]): Promise<void> {
+    if (sessionID === DRAFT_SESSION_ID) return
+    try {
+      await authFetch(`/sessions/${sessionID}/viewport-urls`, {
+        method: 'PATCH',
+        body: JSON.stringify({ urls }),
+      })
+    } catch (err) {
+      console.error('[useChatSessions] updateSessionViewportUrls failed', err)
+      return
+    }
+    const s = realSessions.value.find(s => s.id === sessionID)
+    if (s) s.last_viewport_urls = urls
+  }
+
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[]> {
     if (sessionId === DRAFT_SESSION_ID) return []
     try {
@@ -250,5 +271,6 @@ export function useChatSessions() {
     fetchMessages,
     setPendingPrompt,
     consumePendingPrompt,
+    updateSessionViewportUrls,
   }
 }
