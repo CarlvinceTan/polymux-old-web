@@ -1,5 +1,7 @@
 <script setup lang="ts">
-await navigateTo('/vault/passwords', { replace: true })
+definePageMeta({
+  redirect: '/vault/passwords',
+})
 </script>
 
 <template>

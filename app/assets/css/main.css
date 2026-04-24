@@ -143,6 +143,11 @@ body {
   --color-error-800: #85200c;
   --color-error-900: #5a1408;
   --color-error-950: #ba1a1a;
+
+  /* Provider-brand accents — used by IntegrationCard to surface the provider
+     visually. Stay subtle since the surrounding UI is monochrome. */
+  --color-google-drive: #1d6f42;
+  --color-google-drive-tint: #e8f4ee;
 }
 
 /* Utility to hide scrollbars */
@@ -187,5 +192,15 @@ body {
   }
   50% {
     transform: scaleX(1);
+  }
+}
+
+/* MigrationProgressToast.vue — indeterminate bar slides while total is unknown */
+@keyframes migration-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
   }
 }

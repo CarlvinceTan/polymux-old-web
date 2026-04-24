@@ -1,5 +1,7 @@
 <script setup lang="ts">
-await navigateTo('/dashboard/home', { replace: true })
+definePageMeta({
+  redirect: '/dashboard/home',
+})
 </script>
 
 <template>

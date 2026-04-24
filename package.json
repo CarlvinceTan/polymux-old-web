@@ -1,5 +1,5 @@
 {
-  "name": "midas",
+  "name": "polymux",
   "type": "module",
   "private": true,
   "scripts": {
@@ -10,10 +10,22 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@iconify-json/heroicons": "^1.2.3",
+    "@iconify-json/ph": "^1.2.2",
     "@nuxt/ui": "^4.6.0",
+    "@nuxtjs/i18n": "^10.2.4",
+    "@nuxtjs/supabase": "^2.0.4",
+    "@types/node": "^25.5.2",
+    "marked": "^17.0.6",
     "nuxt": "^4.4.2",
+    "resend": "^6.11.0",
+    "stripe": "^22.0.1",
     "tailwindcss": "^4.2.2",
     "vue": "^3.5.31",
+    "vue-draggable-plus": "^0.6.1",
     "vue-router": "^5.0.4"
+  },
+  "devDependencies": {
+    "@iconify-json/simple-icons": "^1.2.79"
   }
 }

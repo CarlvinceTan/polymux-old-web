@@ -1,23 +1,36 @@
+<script setup lang="ts">
+const user = useSupabaseUser()
+const router = useRouter()
+const route = useRoute()
+
+// After OAuth, the user becomes non-null when the app regains focus.
+// Consume any stored redirect target set before the OAuth flow started.
+watch(user, (newUser, oldUser) => {
+  if (newUser && !oldUser && import.meta.client) {
+    const redirect = sessionStorage.getItem('auth_redirect')
+    if (redirect) {
+      sessionStorage.removeItem('auth_redirect')
+      router.push(redirect)
+    }
+  }
+})
+
+const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/settings', '/storage', '/vault', '/integrations', '/session']
+
+const isAppRoute = computed(() =>
+  APP_ROUTE_PREFIXES.some(p => route.path === p || route.path.startsWith(p + '/')),
+)
+
+const { available: serverAvailable } = useServerHealth()
+
+const showServerError = computed(() => !serverAvailable.value && isAppRoute.value)
+</script>
+
 <template>
   <UApp>
-    <div class="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
-      <UPage
-        class="min-h-0 flex-1 overflow-hidden"
-        :ui="{
-          root:
-            'flex h-full min-h-0 flex-1 flex-col gap-0 overflow-hidden lg:!grid lg:!h-full lg:!min-h-0 lg:!grid-cols-[16rem_minmax(0,1fr)] lg:!grid-rows-1 lg:!gap-0',
-          left:
-            'w-full shrink-0 overflow-hidden lg:!col-auto lg:h-full lg:min-h-0 lg:w-64',
-          center:
-            'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#F9F9F9] lg:!col-auto lg:h-full',
-        }"
-      >
-        <template #left>
-          <SidePanel />
-        </template>
-
-        <NuxtPage class="min-h-0 flex-1" />
-      </UPage>
-    </div>
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+    <ServerUnavailable v-if="showServerError" />
   </UApp>
 </template>

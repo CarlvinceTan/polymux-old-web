@@ -1,47 +1,77 @@
 <script setup lang="ts">
-const headerTabs = {
-  Home: '/dashboard/home',
-  Connections: '/dashboard/connections',
-  Marketplace: '/dashboard/marketplace',
-} as const satisfies Record<string, string>
+import type { SupportedCurrency } from '~/composables/useCurrency'
+
+const { realSessions: sessions, fetchSessions } = useChatSessions()
+const {
+  wallet,
+  budgets,
+  fetchWallet,
+  fetchTransactions,
+  fetchBudgets,
+} = useWallet()
+
+const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
+
+const currency = computed(() => (wallet.value?.currency ?? 'usd') as SupportedCurrency)
+const hasWallet = computed(() => !!wallet.value)
+
+onMounted(async () => {
+  await Promise.all([
+    fetchSessions(),
+    fetchWallet(),
+    fetchTransactions(),
+    fetchBudgets(),
+  ])
+})
 </script>
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
+      <PageHeader
+        :tabs="headerTabs"
+        :separator-before-path="dashboardNavSeparatorBeforePath"
+        raw-tab-labels
+      />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">
-        <div class="space-y-6 p-4 sm:p-5">
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Total chats</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">12</p>
-            </div>
+        <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto">
+          <div class="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-6">
+            <!-- Welcome hero -->
+            <DashboardWelcome />
 
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Active Workspaces</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">4</p>
-            </div>
-
-            <div class="rounded-lg ghost-panel bg-white p-4">
-              <h3 class="text-body-md font-medium text-neutral-500">Storage Items</h3>
-              <p class="mt-2 text-3xl font-bold text-neutral-950">28</p>
-            </div>
-          </div>
-
-          <div class="rounded-lg ghost-panel bg-white p-4">
-            <h2 class="mb-4 text-lg font-semibold text-neutral-950">Recent Activity</h2>
-            <div class="space-y-3">
-              <div v-for="i in 5" :key="i" class="flex items-center gap-3 py-2">
-                <div class="size-8 rounded-full bg-neutral-100" />
-                <div class="flex-1">
-                  <div class="h-4 w-48 rounded bg-neutral-100" />
-                  <div class="mt-1 h-3 w-24 rounded bg-neutral-50" />
-                </div>
+            <!-- Hero grid: Wallet card + Quick actions -->
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
+              <div class="lg:col-span-2">
+                <DashboardWalletCard
+                  :currency="currency"
+                  :has-wallet="hasWallet"
+                />
+              </div>
+              <div class="lg:col-span-3">
+                <DashboardQuickActions />
               </div>
             </div>
+
+            <!-- Two-column: Recent sessions (wide) + Active budgets (narrow) -->
+            <div class="grid gap-4 lg:grid-cols-3">
+              <div class="lg:col-span-2">
+                <DashboardRecentSessions :sessions="sessions" />
+              </div>
+              <div class="lg:col-span-1">
+                <DashboardSpending
+                  :budgets="budgets"
+                  :currency="currency"
+                  :has-wallet="hasWallet"
+                />
+              </div>
+            </div>
+
+            <!-- Templates -->
+            <DashboardTemplates />
+
+            <div class="h-4 w-full shrink-0 sm:h-5" aria-hidden="true" />
           </div>
         </div>
       </TabPanel>

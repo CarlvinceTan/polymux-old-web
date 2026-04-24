@@ -1,0 +1,391 @@
+<script setup lang="ts">
+import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPayload, ErrorPayload, SpawnBrowserAgentPayload } from '~/composables/types'
+import { DRAFT_SESSION_ID } from '~/composables/useChatSessions'
+
+const route = useRoute()
+const workflowId = computed(() => route.params.id as string)
+
+const headerTabs = computed(() => {
+  const base = `/workflow/${workflowId.value}`
+  return {
+    Agent: `${base}/agent`,
+    Schedule: `${base}/schedule`,
+    Artifacts: `${base}/artifacts`,
+  } satisfies Record<string, string>
+})
+
+const sessionId = computed(() => route.params.id as string)
+
+const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useChatSessions()
+
+const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
+const workflowTitle = computed(() => {
+  const s = sessions.value.find(s => s.id === sessionId.value)
+  return s?.title || `Session ${sessionId.value}`
+})
+
+const isNewWorkflow = computed(() => {
+  const s = sessions.value.find(s => s.id === sessionId.value)
+  return !s || s.title === 'New Workflow'
+})
+
+if (sessions.value.length === 0) {
+  fetchSessions()
+}
+
+async function onRename(title: string) {
+  await renameSession(sessionId.value, title)
+}
+
+const USER_NAME = 'Carlvince'
+const welcomeSuggestion = 'Show me something cool'
+
+const presetPrompt = pickRandomPresetPrompt()
+
+const session = useSession(sessionId)
+const chats = useAgentChats(session, sessionId.value)
+const vp = useViewports(session)
+const screencast = useScreencast(session)
+const geo = useGeolocation()
+const toast = useAppToast()
+
+session.on<ErrorPayload>('error', (p) => {
+  if (p.code === 'AGENT_LIMIT_REACHED') {
+    toast.show(
+      `Browser agent limit reached for your plan. Upgrade for more.`,
+      'warning',
+      8000,
+    )
+  }
+})
+
+const LOCATION_MIN_INTERVAL_MS = 5_000
+const LOCATION_MIN_DISTANCE_M = 10
+
+let lastSentAt = 0
+let lastSentLat: number | null = null
+let lastSentLon: number | null = null
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6_371_000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+function sendLocationUpdate(force = false) {
+  if (!geo.enabled.value || !geo.coords.value) return
+  const { latitude, longitude, accuracy } = geo.coords.value
+  const now = Date.now()
+  if (!force && lastSentLat !== null && lastSentLon !== null) {
+    const elapsed = now - lastSentAt
+    const moved = haversineMeters(lastSentLat, lastSentLon, latitude, longitude)
+    if (elapsed < LOCATION_MIN_INTERVAL_MS && moved < LOCATION_MIN_DISTANCE_M) return
+  }
+  lastSentAt = now
+  lastSentLat = latitude
+  lastSentLon = longitude
+  session.send<UserLocationPayload>('user_location', {
+    latitude,
+    longitude,
+    accuracy,
+  })
+}
+
+watch(session.status, (status) => {
+  if (status === 'connected') {
+    sendLocationUpdate(true)
+  }
+})
+
+watch(geo.coords, () => {
+  if (session.status.value === 'connected') {
+    sendLocationUpdate()
+  }
+})
+
+onMounted(async () => {
+  // Per-tab memory so `/workflow` (no id) restores this workflow on re-entry within the tab.
+  sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, sessionId.value)
+
+  const orchestratorHistory = await fetchMessages(sessionId.value)
+  chats.orchestrator.loadHistory(orchestratorHistory)
+
+  for (const v of vp.viewports.value) {
+    const agentHistory = await fetchMessages(sessionId.value, v.agentId)
+    if (agentHistory.length > 0) {
+      chats.get(v.agentId).loadHistory(agentHistory)
+    }
+  }
+})
+
+watch(sessionId, (id) => {
+  if (id) sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, id)
+})
+
+/**
+ * True when the user never sent anything: a persisted user message would land in
+ * `chats.orchestrator.messages`. Title check guards against deleting a legitimate
+ * workflow whose history hasn't finished loading (real workflows get renamed away
+ * from 'New Workflow' on first response).
+ */
+function isCurrentWorkflowUnused(): boolean {
+  const s = sessions.value.find(s => s.id === sessionId.value)
+  if (!s || s.title !== 'New Workflow') return false
+  const hasUserMessage = chats.orchestrator.messages.value.some(m => m.role === 'user')
+  return !hasUserMessage
+}
+
+function cleanupIfUnused() {
+  if (!isCurrentWorkflowUnused()) return
+  const id = sessionId.value
+  const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
+  if (stored === id) sessionStorage.removeItem(TAB_LAST_WORKFLOW_KEY)
+  void deleteSessionIfEmpty(id)
+}
+
+onBeforeRouteLeave((to) => {
+  // Still navigating inside the same workflow's nested tabs (orchestrator/browser/…) — keep it.
+  if (to.params.id === sessionId.value) return
+  // Leaving the workflow (to another workflow or outside) — snapshot viewport
+  // URLs for restoration. Fires before the route commits, so sessionId.value
+  // still points at the workflow we're leaving. Flush pending debounce first
+  // so we don't lose a more-recent URL update scheduled but not yet sent.
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+  void saveViewportUrlsForId(sessionId.value)
+  cleanupIfUnused()
+})
+
+if (import.meta.client) {
+  const onPageHide = () => cleanupIfUnused()
+  window.addEventListener('pagehide', onPageHide)
+  window.addEventListener('beforeunload', onPageHide)
+  onUnmounted(() => {
+    window.removeEventListener('pagehide', onPageHide)
+    window.removeEventListener('beforeunload', onPageHide)
+  })
+}
+
+const loadedAgentHistories = new Set<string>()
+
+onMounted(async () => {
+  const orchestratorHistory = await fetchMessages(sessionId.value)
+  chats.orchestrator.loadHistory(orchestratorHistory)
+
+  for (const v of vp.viewports.value) {
+    const agentHistory = await fetchMessages(sessionId.value, v.agentId)
+    if (agentHistory.length > 0) {
+      chats.get(v.agentId).loadHistory(agentHistory)
+    }
+    loadedAgentHistories.add(v.agentId)
+  }
+})
+
+watch(() => vp.viewports.value, async (viewports) => {
+  for (const v of viewports) {
+    if (loadedAgentHistories.has(v.agentId)) continue
+    loadedAgentHistories.add(v.agentId)
+    const agentHistory = await fetchMessages(sessionId.value, v.agentId)
+    if (agentHistory.length > 0) {
+      chats.get(v.agentId).loadHistory(agentHistory)
+    }
+  }
+})
+
+onUnmounted(() => screencast.cleanup())
+
+// ── Viewport URL persistence ────────────────────────────────────────────────
+// Saves the URLs of active browser sub-agents per workflow to the DB so that
+// when the user closes the tab / logs out / returns on another device, the
+// viewports visually restore — the server respawns fresh agents, each seeded
+// with "Navigate to <url>" via the `url` field on `spawn_browser_agent`. If
+// the server still has the session alive (within idle-timeout), `session_state`
+// returns the existing agents and no restoration is triggered.
+const runtimeConfig = useRuntimeConfig()
+const supabase = useSupabaseClient()
+
+function currentViewportUrls(): string[] {
+  return vp.viewports.value.map(v => v.url).filter(Boolean)
+}
+
+// Debounced async save. During normal use, coalesce rapid URL changes into a
+// single PATCH. The `flushPendingSave` promise lets unload handlers wait on an
+// in-flight save before the tab closes (best-effort; see `sendBeaconSave`).
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedKey = ''
+let pendingSave: Promise<void> | null = null
+
+function serializeUrls(urls: string[]) {
+  return JSON.stringify(urls)
+}
+
+async function saveViewportUrlsForId(id: string) {
+  if (id === DRAFT_SESSION_ID) return
+  const urls = currentViewportUrls()
+  const key = `${id}:${serializeUrls(urls)}`
+  if (key === lastSavedKey) return  // no-op if nothing changed since last save
+  lastSavedKey = key
+  pendingSave = updateSessionViewportUrls(id, urls).catch(err => {
+    console.warn('[workflow] failed to persist viewport urls', err)
+  }).finally(() => { pendingSave = null })
+  await pendingSave
+}
+
+function scheduleSave(id: string) {
+  if (!import.meta.client) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    void saveViewportUrlsForId(id)
+  }, 1500)
+}
+
+// On tab close / reload / logout, send the final state via sendBeacon so the
+// request survives the teardown. Regular fetch would be cancelled by the
+// browser during unload.
+async function sendBeaconSave(id: string) {
+  if (!import.meta.client) return
+  if (id === DRAFT_SESSION_ID) return
+  const urls = currentViewportUrls()
+  const key = `${id}:${serializeUrls(urls)}`
+  if (key === lastSavedKey) return
+  lastSavedKey = key
+  let token = ''
+  try {
+    const { data } = await supabase.auth.getSession()
+    token = data.session?.access_token ?? ''
+  } catch {}
+  if (!token) return
+  const baseURL = runtimeConfig.public.serverUrl as string
+  const url = `${baseURL}/sessions/${id}/viewport-urls`
+  const body = JSON.stringify({ urls })
+  // sendBeacon uses POST; Blob type lets us set the content type. Since our
+  // endpoint is PATCH-only, fall back to fetch with keepalive which honours
+  // the method and completes during unload in most browsers.
+  try {
+    await fetch(url, {
+      method: 'PATCH',
+      keepalive: true,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body,
+    })
+  } catch {}
+}
+
+// Restore once, on the first session_state for this workflow. If the server
+// already has browser agents (session still alive), skip — the live state wins.
+const hasAttemptedRestore = ref(false)
+watch(
+  () => session.sessionState.value,
+  (state) => {
+    if (hasAttemptedRestore.value || !state) return
+    hasAttemptedRestore.value = true
+    if ((state.browser_agents?.length ?? 0) > 0) return
+    const saved = sessions.value.find(s => s.id === sessionId.value)?.last_viewport_urls ?? []
+    const savedUrls = saved.filter(u => typeof u === 'string' && u)
+    if (savedUrls.length === 0) return
+    // Seed lastSavedKey so the debounce doesn't immediately re-PATCH the same
+    // URLs after spawn_browser_agent events populate viewports.
+    lastSavedKey = `${sessionId.value}:${serializeUrls(savedUrls)}`
+    for (const url of savedUrls) {
+      session.send<SpawnBrowserAgentPayload>('spawn_browser_agent', { url })
+    }
+  },
+)
+
+// Reset restoration state when switching workflows (if the component is
+// reused rather than remounted).
+watch(sessionId, () => {
+  hasAttemptedRestore.value = false
+  lastSavedKey = ''
+})
+
+// Auto-save URL list whenever viewports change (debounced). Skips the very
+// first fire so we don't overwrite saved state with an empty list before the
+// session_state handler has had a chance to restore.
+watch(
+  () => vp.viewports.value.map(v => v.url).join(' '),
+  () => {
+    if (!hasAttemptedRestore.value) return
+    scheduleSave(sessionId.value)
+  },
+)
+
+// Persist current viewport URLs on tab close / reload / logout. In-app
+// workflow switches are handled by the `onBeforeRouteLeave` above (which
+// runs before the route commits, so `sessionId.value` still points at the
+// outgoing workflow).
+if (import.meta.client) {
+  const onHide = () => {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+    void sendBeaconSave(sessionId.value)
+  }
+  window.addEventListener('pagehide', onHide)
+  window.addEventListener('beforeunload', onHide)
+  onUnmounted(() => {
+    window.removeEventListener('pagehide', onHide)
+    window.removeEventListener('beforeunload', onHide)
+  })
+}
+
+const titleRequested = ref(false)
+
+watch(chats.summarisedTitle, (title) => {
+  if (title) onRename(title)
+})
+
+// Only show the welcome/new-workflow UI for genuinely new workflows (drafts or
+// freshly-promoted sessions still titled "New Workflow"). For existing
+// workflows, the messages array is briefly empty between mount and the async
+// `fetchMessages` resolving — without this gate, switching workflows flashes
+// the welcome UI during that window.
+const welcome = computed(() =>
+  chats.orchestrator.messages.value.length === 0 && isNewWorkflow.value,
+)
+
+const viewportList = computed({
+  get: () => vp.viewports.value as ViewportState[],
+  set: () => {},
+})
+const browserMode = computed(() => vp.browserMode.value)
+
+provide('chat-session-id', sessionId)
+provide('chat-chats', chats)
+provide('chat-vp', vp)
+provide('chat-screencast', screencast)
+provide('chat-session', session)
+provide('chat-title', workflowTitle)
+provide('chat-is-new', isNewWorkflow)
+provide('chat-welcome', welcome)
+provide('chat-viewport-list', viewportList)
+provide('chat-browser-mode', browserMode)
+provide('chat-user-name', USER_NAME)
+provide('chat-welcome-suggestion', welcomeSuggestion)
+provide('chat-preset-prompt', presetPrompt)
+provide('chat-title-requested', titleRequested)
+provide('chat-on-rename', onRename)
+provide('chat-on-promote-viewport', (agentId: string) => vp.promoteViewport(agentId))
+provide('chat-on-demote-active', () => vp.demoteActive())
+provide('chat-on-close-viewport', (agentId: string) => { vp.closeViewport(agentId); chats.drop(agentId) })
+provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
+</script>
+
+<template>
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
+    <header class="shrink-0">
+      <PageHeader :tabs="headerTabs" />
+    </header>
+    <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+      <NuxtPage
+        :key="route.fullPath"
+        class="min-h-0 min-w-0 flex-1"
+      />
+    </div>
+  </div>
+</template>

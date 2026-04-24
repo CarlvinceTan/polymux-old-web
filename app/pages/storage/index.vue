@@ -1,5 +1,7 @@
 <script setup lang="ts">
-await navigateTo('/storage/personal', { replace: true })
+definePageMeta({
+  redirect: '/storage/main',
+})
 </script>
 
 <template>
