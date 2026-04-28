@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SandboxArtifact } from '~/composables/useArtifacts'
 
-const sessionId = inject<Ref<string>>('chat-session-id')!
+const sessionId = inject<Ref<string>>('workflow-id')!
 const { artifacts, removeArtifact, downloadArtifact, promote } = useArtifacts(sessionId)
 
 const { t } = useI18n()

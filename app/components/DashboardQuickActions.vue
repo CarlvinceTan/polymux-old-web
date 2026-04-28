@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { t } = useI18n()
-const { draft, createDraft } = useChatSessions()
+const { draft, createDraft } = useWorkflowList()
 
 interface QuickAction {
   key: string
@@ -48,7 +48,7 @@ const actions = computed<QuickAction[]>(() => [
     label: t('dashboard.quickActionStorage'),
     description: t('dashboard.quickActionStorageDesc'),
     accent: 'bg-neutral-100 text-neutral-900',
-    to: '/storage/main',
+    to: '/storage/files',
   },
 ])
 </script>

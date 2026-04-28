@@ -62,17 +62,16 @@ export function useStoragePreferences() {
     }
   }
 
-  function move(from: number, to: number) {
-    if (to < 0 || to >= saveOrder.value.length || from === to) return
+  function swap(a: StorageProvider, b: StorageProvider) {
+    if (a === b) return
     const next = [...saveOrder.value]
-    const [item] = next.splice(from, 1)
-    if (!item) return
-    next.splice(to, 0, item)
+    const ia = next.indexOf(a)
+    const ib = next.indexOf(b)
+    if (ia === -1 || ib === -1) return
+    next[ia] = b
+    next[ib] = a
     persist(next)
   }
-
-  function moveUp(index: number) { move(index, index - 1) }
-  function moveDown(index: number) { move(index, index + 1) }
 
   function reset() { persist([...DEFAULT_ORDER]) }
 
@@ -86,6 +85,20 @@ export function useStoragePreferences() {
   const resolvedOrder = computed<StorageProvider[]>(() =>
     saveOrder.value.filter(p => providerStatus.value[p] === 'available'),
   )
+
+  function moveUp(provider: StorageProvider) {
+    const idx = resolvedOrder.value.indexOf(provider)
+    if (idx <= 0) return
+    const prev = resolvedOrder.value[idx - 1]
+    if (prev) swap(provider, prev)
+  }
+
+  function moveDown(provider: StorageProvider) {
+    const idx = resolvedOrder.value.indexOf(provider)
+    if (idx === -1 || idx >= resolvedOrder.value.length - 1) return
+    const next = resolvedOrder.value[idx + 1]
+    if (next) swap(provider, next)
+  }
 
   return {
     saveOrder: readonly(saveOrder),

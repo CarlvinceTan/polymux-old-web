@@ -43,7 +43,7 @@ const CATEGORY_FALLBACK: Record<ItemCategory, IntegrationIconMeta> = {
     iconName: 'i-heroicons-cube-transparent-20-solid',
     tintClass: NEUTRAL_TINT,
   },
-  connection: {
+  integration: {
     iconName: 'i-heroicons-link-20-solid',
     tintClass: NEUTRAL_TINT,
   },

@@ -19,6 +19,17 @@ export interface AgentMessagePayload {
   agent_id: string
 }
 
+/**
+ * AgentMessageBoundaryPayload signals the UI to seal the current bubble and
+ * start a fresh one for subsequent text. Fired between continuation rounds
+ * within a single turn — without this, per-round narration concatenates into
+ * one bubble and looks like literal text duplication when the model re-states
+ * its plan.
+ */
+export interface AgentMessageBoundaryPayload {
+  agent_id: string
+}
+
 export interface AgentThinkingPayload {
   agent_id: string
   action: string
@@ -27,10 +38,32 @@ export interface AgentThinkingPayload {
   total_steps?: number
 }
 
-export interface AskUserPayload {
+/**
+ * CredentialRequestPayload arrives when the agent calls RequestCredential —
+ * a browser sub-agent needs login details for `site` and the user has to
+ * either pick an existing vault entry or save a fresh one. The frontend
+ * replies with CredentialProvidedPayload referencing the chosen credential.
+ */
+export interface CredentialRequestPayload {
   msg_id: string
-  question: string
-  options?: string[]
+  site: string
+  purpose: string
+  suggested_username?: string
+}
+
+/**
+ * CredentialProvidedPayload is the reply the frontend sends back. password
+ * is included so the orchestrator can hand it straight to the browser
+ * sub-agent for the immediate fill — credential_id keeps a reference for
+ * future runs to fetch silently via FetchCredential. Set cancelled=true to
+ * signal the user dismissed the modal.
+ */
+export interface CredentialProvidedPayload {
+  msg_id: string
+  credential_id: string
+  username: string
+  password: string
+  cancelled?: boolean
 }
 
 export interface BrowserSpawnedPayload {
@@ -39,6 +72,8 @@ export interface BrowserSpawnedPayload {
   session_name: string
   cdp_endpoint?: string
   label?: string
+  /** Last-known lifecycle status; only set on session_state re-sync. */
+  status?: 'running' | 'completed' | 'failed' | 'stopped' | string
 }
 
 export interface AgentLabelEntry {
@@ -64,17 +99,6 @@ export interface SessionStatePayload {
   stream_priorities: AgentPriority[]
   browser_agent_cap: number
   agent_labels?: AgentLabelEntry[]
-  mode?: 'builder' | 'general'
-}
-
-export type SessionMode = 'builder' | 'general'
-
-export interface SetSessionModePayload {
-  mode: SessionMode
-}
-
-export interface SessionModeChangedPayload {
-  mode: SessionMode
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -165,11 +189,6 @@ export interface UserMessagePayload {
   agent_id?: string
 }
 
-export interface UserReplyPayload {
-  reply_to: string
-  content: string
-}
-
 export interface StopAgentPayload {
   agent_id: string
 }
@@ -233,8 +252,14 @@ export interface ThinkingState {
   totalSteps?: number
 }
 
-export interface PendingQuestion {
+/**
+ * PendingCredentialRequest is the live state of an open vault picker for
+ * the orchestrator. Cleared once the user provides creds (or cancels) and
+ * the orchestrator has been notified via credential_provided.
+ */
+export interface PendingCredentialRequest {
   msgId: string
-  question: string
-  options?: string[]
+  site: string
+  purpose: string
+  suggestedUsername?: string
 }

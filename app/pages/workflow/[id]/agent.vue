@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment } from '~/composables/types'
 import type { SessionHandle } from '~/composables/useSession'
+import type { ViewMode } from '~/components/ChatLayout.vue'
 
-const sessionId = inject<Ref<string>>('chat-session-id')!
+const sessionId = inject<Ref<string>>('workflow-id')!
 const chats = inject<any>('chat-chats')!
 const vp = inject<any>('chat-vp')!
 const screencast = inject<any>('chat-screencast')!
@@ -15,6 +16,8 @@ const userName = inject<string>('chat-user-name')!
 const welcomeSuggestion = inject<string>('chat-welcome-suggestion')!
 const presetPrompt = inject<string>('chat-preset-prompt')!
 const titleRequested = inject<Ref<boolean>>('chat-title-requested')!
+const viewMode = inject<Ref<ViewMode>>('chat-view-mode')!
+const armAutoSwitch = inject<() => void>('chat-arm-auto-switch')!
 const onRename = inject<(title: string) => Promise<void>>('chat-on-rename')!
 const onPromoteViewport = inject<(agentId: string) => void>('chat-on-promote-viewport')!
 const onDemoteActive = inject<() => void>('chat-on-demote-active')!
@@ -26,7 +29,7 @@ const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
 )
 
-const { consumePendingPrompt } = useChatSessions()
+const { consumePendingPrompt } = useWorkflowList()
 
 // All chat goes to the orchestrator. Individual browser-agent chat is
 // intentionally unreachable — the orchestrator is the sole manager.
@@ -49,19 +52,18 @@ function onSend(value: string, attachments?: ChatMessageAttachment[]) {
     chats.requestTitle(`User: ${t}`)
   }
 
+  armAutoSwitch()
   currentChat.value.sendMessage(t, attachments)
 }
 
 function onEditMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
+  armAutoSwitch()
   currentChat.value.editMessage(index, text, attachments)
 }
 
 function onRetryMessage(index: number) {
+  armAutoSwitch()
   currentChat.value.retryFromMessage(index)
-}
-
-function onPauseAgent() {
-  currentChat.value.stopAgent()
 }
 
 // Pick up a draft stashed during session promotion and fire it once the
@@ -87,6 +89,7 @@ onMounted(() => {
   <ChatLayout
     v-model:command="command"
     v-model:viewport-list="viewportList"
+    v-model:view-mode="viewMode"
     show-header-divider
     :browser-mode="browserMode"
     :welcome="welcome"
@@ -111,6 +114,5 @@ onMounted(() => {
     @spawn-browser-agent="onSpawnBrowserAgent"
     @edit-message="onEditMessage"
     @retry-message="onRetryMessage"
-    @pause="onPauseAgent"
   />
 </template>

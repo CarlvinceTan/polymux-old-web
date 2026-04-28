@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, computed, watch, onBeforeUnmount } from 'vue'
 import { vDraggable } from 'vue-draggable-plus'
-import { DRAFT_SESSION_ID, type ChatSession } from '~/composables/useChatSessions'
+import { DRAFT_WORKFLOW_ID, type WorkflowSummary } from '~/composables/useWorkflowList'
 
 const { t, locale, locales, setLocale } = useI18n()
 
@@ -42,7 +42,7 @@ const {
   restoreDraft,
   renameSession,
   deleteSession,
-} = useChatSessions()
+} = useWorkflowList()
 
 // Writable list bound to the draggable directive. Derived from `realSessions`
 // (source of truth) + `draft` + a per-workspace saved order. SortableJS
@@ -51,7 +51,34 @@ const {
 // `vue-draggable-plus` captures the array reference at mount time and has no
 // `updated` hook, so reassigning `.value = newArray` leaves the library
 // pointing at a stale reference and drag reorders silently fail.
-const displaySessions = ref<ChatSession[]>([])
+const displaySessions = ref<WorkflowSummary[]>([])
+
+// Stable per-row keys for the workflow `<TransitionGroup>`. Without this, the
+// draft → real-session promotion swaps `session.id` from `'new'` to a UUID,
+// which Vue treats as a key change → leave + enter animations on the same row.
+// The user-visible effect is the row collapsing and re-expanding when only the
+// title should appear to change. We carry the draft's slot key over to the
+// promoted session so the v-for key is stable across the promotion.
+let slotKeyCounter = 0
+const slotKeyForId = new Map<string, string>()
+function getOrCreateSlotKey(id: string): string {
+  let k = slotKeyForId.get(id)
+  if (!k) {
+    k = `slot-${++slotKeyCounter}`
+    slotKeyForId.set(id, k)
+  }
+  return k
+}
+function rowKey(session: WorkflowSummary): string {
+  return getOrCreateSlotKey(session.id)
+}
+
+// Tracks the real session that just took over the draft's row. The URL
+// changes from `/workflow/new` to `/workflow/{id}` only after `navigateTo`
+// resolves — until then `activeWorkflowId` is `'new'` while the row already
+// renders the real id. Without bridging that gap, the row visually loses its
+// active highlight during the swap. Cleared once the URL catches up.
+const justPromotedId = ref<string | null>(null)
 
 const workflowOrderKey = computed(
   () => `polymux_workflow_order:${currentWorkspaceId.value ?? ''}`,
@@ -77,7 +104,7 @@ function saveOrder(ids: string[]) {
 // Sort real sessions by the saved order. Sessions not yet in the saved order
 // (e.g. a freshly-promoted draft) keep their position from `list` and land at
 // the top — so a draft that upgrades to a real workflow stays in place.
-function applySavedOrder(list: ChatSession[]): ChatSession[] {
+function applySavedOrder(list: WorkflowSummary[]): WorkflowSummary[] {
   const saved = loadSavedOrder()
   if (saved.length === 0) return list.slice()
   const savedSet = new Set(saved)
@@ -92,7 +119,34 @@ function applySavedOrder(list: ChatSession[]): ChatSession[] {
 
 watch(
   [realSessions, draft, currentWorkspaceId],
-  () => {
+  (_n, _o) => {
+    const prevReal = (_o?.[0] as WorkflowSummary[] | undefined) ?? []
+    const prevDraft = _o?.[1] as WorkflowSummary | null | undefined
+
+    // Promotion handoff: when a draft is replaced by a freshly-created real
+    // session, transfer the draft's slot key to the new session so the row's
+    // v-for key stays the same across the swap. Also remember that id so the
+    // active-highlight bridges the brief URL-still-/new window.
+    if (prevDraft && !draft.value) {
+      const prevIds = new Set(prevReal.map(s => s.id))
+      const promoted = realSessions.value.find(s => !prevIds.has(s.id))
+      const draftKey = slotKeyForId.get(DRAFT_WORKFLOW_ID)
+      if (promoted && draftKey) {
+        slotKeyForId.set(promoted.id, draftKey)
+        slotKeyForId.delete(DRAFT_WORKFLOW_ID)
+        justPromotedId.value = promoted.id
+      }
+    }
+
+    // Drop slot keys for ids that no longer exist (deletion / workspace swap)
+    // so the map doesn't grow unbounded across a long-lived session.
+    const liveIds = new Set<string>()
+    if (draft.value) liveIds.add(draft.value.id)
+    for (const s of realSessions.value) liveIds.add(s.id)
+    for (const id of Array.from(slotKeyForId.keys())) {
+      if (!liveIds.has(id)) slotKeyForId.delete(id)
+    }
+
     const ordered = applySavedOrder(realSessions.value)
     const next = draft.value ? [draft.value, ...ordered] : ordered
     displaySessions.value.splice(0, displaySessions.value.length, ...next)
@@ -189,7 +243,7 @@ function onDragEnd() {
   isDragging.value = false
   saveOrder(
     displaySessions.value
-      .filter(s => s.id !== DRAFT_SESSION_ID)
+      .filter(s => s.id !== DRAFT_WORKFLOW_ID)
       .map(s => s.id),
   )
 }
@@ -227,14 +281,23 @@ async function ensureAtLeastOneWorkflow() {
   }
 }
 
-// Initial data fetch
-onMounted(async () => {
-  document.addEventListener('click', handleClickOutside)
+async function bootstrapData() {
   await fetchWorkspaces()
   await fetchSessions()
   restoreDraft()
   await ensureAtLeastOneWorkflow()
+}
+
+// Initial data fetch
+onMounted(async () => {
+  document.addEventListener('click', handleClickOutside)
+  await bootstrapData()
 })
+
+// Re-bootstrap when the server comes back online — without this, fetches that
+// failed during downtime never retry, leaving the sidebar stuck in its empty
+// state.
+useOnReconnect(bootstrapData)
 
 // Re-fetch sessions when workspace changes
 watch(currentWorkspaceId, async () => {
@@ -273,7 +336,7 @@ const navItems = computed(() => {
   locale.value // explicit reactive dependency so labels update on locale switch
   return [
     { to: '/integrations/installed', label: t('nav.integrations'), key: 'integrations' },
-    { to: '/storage/main', label: t('nav.storage'), key: 'storage' },
+    { to: '/storage/files', label: t('nav.storage'), key: 'storage' },
     { to: '/vault/passwords', label: t('nav.vault'), key: 'vault' },
   ]
 })
@@ -315,7 +378,7 @@ function isActive(path: string) {
   if (path === '/integrations/installed') {
     return route.path.startsWith('/integrations') || route.path.startsWith('/workspace')
   }
-  if (path === '/storage/main') {
+  if (path === '/storage/files') {
     return route.path.startsWith('/storage')
   }
   if (path === '/vault/passwords') {
@@ -332,7 +395,7 @@ function isMainNavItemActive(path: string): boolean {
 
 async function createWorkflow() {
   if (!draft.value) createDraft()
-  await navigateTo(`/workflow/${DRAFT_SESSION_ID}`)
+  await navigateTo(`/workflow/${DRAFT_WORKFLOW_ID}`)
 }
 
 // `/workflow/new` is a static route so `route.params.id` is undefined there —
@@ -341,7 +404,18 @@ const activeWorkflowId = computed(() => {
   const m = route.path.match(/^\/workflow\/([^/]+)/)
   return m?.[1]
 })
-const isWorkflowListItemActive = (id: string) => activeWorkflowId.value === id
+const isWorkflowListItemActive = (id: string) => {
+  if (activeWorkflowId.value === id) return true
+  // Bridge the promotion window: draft is gone but URL is still `/workflow/new`.
+  return activeWorkflowId.value === DRAFT_WORKFLOW_ID
+    && !draft.value
+    && id === justPromotedId.value
+}
+
+// Clear the bridge once the route catches up to the real id (or anywhere else).
+watch(activeWorkflowId, (id) => {
+  if (id !== DRAFT_WORKFLOW_ID) justPromotedId.value = null
+})
 
 function openWorkflow(id: string) {
   navigateTo(`/workflow/${id}`)
@@ -367,11 +441,48 @@ function canDeleteWorkflow(id: string): boolean {
   if (sessions.value.length > 1) return true
   // Only one entry left: allow deletion only when it's a real workflow, which
   // gets seamlessly replaced with a fresh draft. Deleting the sole draft is a no-op.
-  return id !== DRAFT_SESSION_ID
+  return id !== DRAFT_WORKFLOW_ID
 }
 
-async function deleteWorkflow(id: string) {
+// Delete-confirmation modal state. The destructive workflow-delete path now
+// surfaces a confirmation that explicitly enumerates the side effects (chat
+// history, artifacts, runs, schedule, live session) and, on confirm, hands off
+// to the original deletion routine. Drafts and unused workflows skip the modal
+// — there is no durable state to lose.
+const pendingDeleteId = ref<string | null>(null)
+const pendingDeleteName = ref('')
+const isDeleteModalOpen = ref(false)
+const isDeleting = ref(false)
+
+function requestDeleteWorkflow(id: string) {
   if (!canDeleteWorkflow(id)) return
+  // Drafts have no durable state — nuke immediately, no modal.
+  if (id === DRAFT_WORKFLOW_ID) {
+    void runDeleteWorkflow(id)
+    return
+  }
+  const session = sessions.value.find(s => s.id === id)
+  pendingDeleteId.value = id
+  pendingDeleteName.value = session?.title ?? ''
+  isDeleteModalOpen.value = true
+  activeDropdownIndex.value = null
+}
+
+async function confirmDeleteWorkflow() {
+  const id = pendingDeleteId.value
+  if (!id) return
+  isDeleting.value = true
+  try {
+    await runDeleteWorkflow(id)
+  } finally {
+    isDeleting.value = false
+    isDeleteModalOpen.value = false
+    pendingDeleteId.value = null
+    pendingDeleteName.value = ''
+  }
+}
+
+async function runDeleteWorkflow(id: string) {
   const wasActive = id === activeWorkflowId.value
   const idx = sessions.value.findIndex(s => s.id === id)
   const siblings = sessions.value.filter(s => s.id !== id)
@@ -384,7 +495,7 @@ async function deleteWorkflow(id: string) {
     // Deleted the sole real workflow with no draft — seamlessly seed a draft
     // so the list is never empty.
     createDraft()
-    if (wasActive) await navigateTo(`/workflow/${DRAFT_SESSION_ID}`)
+    if (wasActive) await navigateTo(`/workflow/${DRAFT_WORKFLOW_ID}`)
     return
   }
   if (wasActive && fallback) {
@@ -398,7 +509,7 @@ const editingValue = ref('')
 function canRenameWorkflow(id: string): boolean {
   // Draft ("New Workflow") is not renameable — its title is fixed until it's
   // promoted to a real session by the user's first prompt.
-  return id !== DRAFT_SESSION_ID
+  return id !== DRAFT_WORKFLOW_ID
 }
 
 function startRename(id: string, title: string) {
@@ -414,8 +525,7 @@ function startRename(id: string, title: string) {
     const input = document.querySelector('input[autofocus]') as HTMLInputElement
     if (input) {
       input.focus()
-      const length = input.value.length
-      input.setSelectionRange(length, length)
+      input.select()
     }
   })
 }
@@ -528,6 +638,19 @@ function handleInstallApp() {
   navigateTo('/install-app')
 }
 
+// Extension install — the banner in PageHeader surfaces this for first-time
+// users; after dismissal it lives here in the profile menu. Both paths share
+// the same openInstallExtension action so browser detection stays consistent.
+const {
+  bannerDismissed: extensionBannerDismissed,
+  openInstallExtension,
+} = useExtensionPrefs()
+
+function handleInstallExtension() {
+  closeProfileDropdown()
+  openInstallExtension({ chromeRequiredMessage: t('common.chromeRequired') })
+}
+
 function handleUpgradePlan() {
   closeProfileDropdown()
   navigateTo({ path: '/pricing', query: upgradeQuery.value })
@@ -584,7 +707,7 @@ onUnmounted(() => {
     <!-- Logo & CTA -->
     <div class="shrink-0 space-y-4">
       <div class="relative">
-        <div class="flex items-center gap-3 cursor-pointer workspace-dropdown-trigger w-full"
+        <div class="group flex items-center gap-3 cursor-pointer workspace-dropdown-trigger w-full"
           @click="toggleWorkspaceDropdown">
           <!-- Logo Icon -->
           <div v-if="currentWorkspace?.avatar_url" class="h-6 w-6 shrink-0 overflow-hidden rounded-md">
@@ -595,7 +718,9 @@ onUnmounted(() => {
           <div class="flex flex-col flex-1 min-w-0">
             <div class="flex items-end justify-between">
               <span class="text-base font-bold text-neutral-950 truncate min-w-0 flex-1 mr-2">{{ currentWorkspace?.name || 'Loading...' }}</span>
-              <svg class="size-4.5 text-neutral-500 mb-px" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              <svg class="size-4.5 text-neutral-500 mb-px transition-opacity"
+                :class="isWorkspaceDropdownOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-active:opacity-100'"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m6 9 6 6 6-6" />
               </svg>
@@ -738,13 +863,13 @@ onUnmounted(() => {
           v-draggable="[displaySessions, draggableOptions]"
           tag="ul"
           name="wf"
-          class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative"
+          class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative pb-4"
         >
           <li
             v-for="session in displaySessions"
-            :key="session.id"
+            :key="rowKey(session)"
             class="relative wf-item"
-            :class="session.id === DRAFT_SESSION_ID ? 'wf-draft' : ''"
+            :class="session.id === DRAFT_WORKFLOW_ID ? 'wf-draft' : ''"
           >
             <div v-if="editingId !== session.id" @click="openWorkflow(session.id)"
               @mouseenter="hoveredWorkflowId = session.id"
@@ -773,9 +898,9 @@ onUnmounted(() => {
                 <div v-if="activeDropdownIndex === session.id"
                   class="fixed z-9999 mt-1 w-32 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden workflow-list-dropdown"
                   :style="{ top: getDropdownPosition(session.id).top + 'px', left: getDropdownPosition(session.id).left + 'px' }">
-                  <button @click.stop :disabled="session.id === DRAFT_SESSION_ID"
+                  <button @click.stop :disabled="session.id === DRAFT_WORKFLOW_ID"
                     class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
-                    :class="session.id === DRAFT_SESSION_ID
+                    :class="session.id === DRAFT_WORKFLOW_ID
                       ? 'text-neutral-300 cursor-not-allowed'
                       : 'text-neutral-950 hover:bg-neutral-100 cursor-pointer'">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -786,9 +911,9 @@ onUnmounted(() => {
                     Share
                   </button>
                   <button @click.stop="startRename(session.id, session.title)"
-                    :disabled="session.id === DRAFT_SESSION_ID"
+                    :disabled="session.id === DRAFT_WORKFLOW_ID"
                     class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
-                    :class="session.id === DRAFT_SESSION_ID
+                    :class="session.id === DRAFT_WORKFLOW_ID
                       ? 'text-neutral-300 cursor-not-allowed'
                       : 'text-neutral-950 hover:bg-neutral-100 cursor-pointer'">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -798,8 +923,12 @@ onUnmounted(() => {
                     Rename
                   </button>
                   <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
-                  <button @click.stop="deleteWorkflow(session.id)"
-                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav text-red-600 hover:bg-red-50 cursor-pointer transition-colors">
+                  <button @click.stop="requestDeleteWorkflow(session.id)"
+                    :disabled="!canDeleteWorkflow(session.id)"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
+                    :class="canDeleteWorkflow(session.id)
+                      ? 'text-red-600 hover:bg-red-50 cursor-pointer'
+                      : 'text-neutral-300 cursor-not-allowed'">
                     <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -814,7 +943,7 @@ onUnmounted(() => {
               class="group relative flex w-full items-center justify-between rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950">
               <input v-model="editingValue" @keyup.enter="confirmRename(session.id)" @keyup.esc="cancelRename"
                 @blur="confirmRename(session.id)" type="text"
-                class="flex-1 bg-transparent border-0 border-b border-neutral-400 outline-none min-w-0 py-0.75 m-0 h-auto leading-normal"
+                class="flex-1 bg-transparent border-0 outline-none min-w-0 py-0.75 m-0 h-auto leading-normal"
                 autofocus />
             </div>
           </li>
@@ -939,6 +1068,17 @@ onUnmounted(() => {
             </svg>
           </template>
         </MenuItem>
+        <MenuItem
+          v-if="extensionBannerDismissed"
+          :text="t('common.installExtension')"
+          @click="handleInstallExtension"
+        >
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" class="size-[18px]" aria-hidden="true">
+              <path d="M6 5 L10.5 5 A2 2 0 1 1 13.5 5 L18 5 A1 1 0 0 1 19 6 L19 10.5 A2 2 0 1 0 19 13.5 L19 18 A1 1 0 0 1 18 19 L13.5 19 A2 2 0 1 0 10.5 19 L6 19 A1 1 0 0 1 5 18 L5 13.5 A2 2 0 1 1 5 10.5 L5 6 A1 1 0 0 1 6 5 Z" />
+            </svg>
+          </template>
+        </MenuItem>
         <div ref="helpBtnRef">
           <MenuItem
             :text="t('common.help')"
@@ -972,6 +1112,12 @@ onUnmounted(() => {
     <SettingsModal v-model:open="isSettingsModalOpen" />
     <BugReportModal v-model:open="isBugReportOpen" />
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
+    <DeleteWorkflowModal
+      v-model:open="isDeleteModalOpen"
+      :workflow-name="pendingDeleteName"
+      :submitting="isDeleting"
+      @confirm="confirmDeleteWorkflow"
+    />
   </aside>
 </template>
 

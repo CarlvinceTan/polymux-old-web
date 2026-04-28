@@ -4,24 +4,21 @@ import type {
   ChatMessage,
   ChatMessageAttachment,
   ThinkingState,
-  PendingQuestion,
+  PendingCredentialRequest,
   AgentMessagePayload,
   AgentThinkingPayload,
-  AskUserPayload,
   BrowserSpawnedPayload,
   BrowserAgentReleasedPayload,
+  CredentialRequestPayload,
+  CredentialProvidedPayload,
   UserMessagePayload,
-  UserReplyPayload,
-  StopAgentPayload,
   TitleRequestPayload,
   TitleResponsePayload,
 } from './types'
-import type { SessionHandle } from './useSession'
 
 interface ChatState {
   messages: Ref<ChatMessage[]>
   thinking: Ref<ThinkingState | null>
-  pendingQuestion: Ref<PendingQuestion | null>
   waitingForAgent: Ref<boolean>
   streamingBuffer: { agentId: string; text: string } | null
 }
@@ -29,13 +26,10 @@ interface ChatState {
 export interface ChatHandle {
   readonly messages: Ref<ChatMessage[]>
   readonly thinking: Ref<ThinkingState | null>
-  readonly pendingQuestion: Ref<PendingQuestion | null>
   readonly waitingForAgent: Ref<boolean>
   sendMessage(content: string, attachments?: ChatMessageAttachment[]): void
   editMessage(index: number, text: string, attachments: ChatMessageAttachment[]): void
   retryFromMessage(index: number): void
-  sendReply(replyTo: string, content: string): void
-  stopAgent(): void
   loadHistory(history: ChatMessage[]): void
 }
 
@@ -43,7 +37,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   const orchestratorState: ChatState = {
     messages: useState<ChatMessage[]>(`chat-messages-${sessionId}`, () => []),
     thinking: ref<ThinkingState | null>(null),
-    pendingQuestion: ref<PendingQuestion | null>(null),
     waitingForAgent: ref(false),
     streamingBuffer: null,
   }
@@ -58,7 +51,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
       agentStates.set(chatId, {
         messages: ref<ChatMessage[]>([]),
         thinking: ref<ThinkingState | null>(null),
-        pendingQuestion: ref<PendingQuestion | null>(null),
         waitingForAgent: ref(false),
         streamingBuffer: null,
       })
@@ -82,11 +74,22 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     }
 
     function editMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
-      const updated = [...state.messages.value]
-      const existing = updated[index]
-      if (!existing) return
-      updated[index] = { role: existing.role, text, action: existing.action, detail: existing.detail, attachments: attachments.length > 0 ? attachments : undefined }
-      state.messages.value = updated
+      const existing = state.messages.value[index]
+      if (!existing || existing.role !== 'user') return
+
+      const atts = attachments.length > 0 ? attachments : undefined
+      const edited: ChatMessage = { role: 'user', text }
+      if (atts) edited.attachments = atts
+
+      state.streamingBuffer = null
+      state.thinking.value = null
+      state.waitingForAgent.value = true
+      state.messages.value = [...state.messages.value.slice(0, index), edited]
+
+      const payload: UserMessagePayload = { content: text }
+      if (chatId !== 'orchestrator') payload.agent_id = chatId
+      if (atts) payload.attachments = atts.map(a => ({ id: a.id, name: a.name }))
+      session.send<UserMessagePayload>('user_message', payload)
     }
 
     function retryFromMessage(agentMessageIndex: number) {
@@ -112,19 +115,6 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
       session.send<UserMessagePayload>('user_message', payload)
     }
 
-    function sendReply(replyTo: string, content: string) {
-      state.pendingQuestion.value = null
-      state.waitingForAgent.value = true
-      state.messages.value = [...state.messages.value, { role: 'user', text: content }]
-      session.send<UserReplyPayload>('user_reply', { reply_to: replyTo, content })
-    }
-
-    function stopAgent() {
-      session.send<StopAgentPayload>('stop_agent', { agent_id: chatId })
-      state.thinking.value = null
-      state.waitingForAgent.value = false
-    }
-
     function loadHistory(history: ChatMessage[]) {
       if (history.length > 0 && state.messages.value.length === 0) {
         state.messages.value = history
@@ -134,13 +124,10 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     return {
       messages: state.messages,
       thinking: state.thinking,
-      pendingQuestion: state.pendingQuestion,
       waitingForAgent: state.waitingForAgent,
       sendMessage,
       editMessage,
       retryFromMessage,
-      sendReply,
-      stopAgent,
       loadHistory,
     }
   }
@@ -209,12 +196,18 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     }]
   }
 
-  function handleAskUser(p: AskUserPayload) {
+  // pendingCredentialRequest is orchestrator-only — credential capture is
+  // always initiated by the orchestrator when a sub-agent hits a login wall;
+  // browser sub-agents never invoke RequestCredential directly.
+  const pendingCredentialRequest = ref<PendingCredentialRequest | null>(null)
+
+  function handleCredentialRequest(p: CredentialRequestPayload) {
     orchestratorState.waitingForAgent.value = false
-    orchestratorState.pendingQuestion.value = {
+    pendingCredentialRequest.value = {
       msgId: p.msg_id,
-      question: p.question,
-      options: p.options,
+      site: p.site,
+      purpose: p.purpose,
+      suggestedUsername: p.suggested_username,
     }
   }
 
@@ -236,7 +229,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
 
   session.on<AgentMessagePayload>('agent_message', handleAgentMessage)
   session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
-  session.on<AskUserPayload>('ask_user', handleAskUser)
+  session.on<CredentialRequestPayload>('credential_request', handleCredentialRequest)
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   session.on<TitleResponsePayload>('title_response', handleTitleResponse)
@@ -244,15 +237,47 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   onUnmounted(() => {
     session.off('agent_message', handleAgentMessage)
     session.off('agent_thinking', handleAgentThinking)
-    session.off('ask_user', handleAskUser)
+    session.off('credential_request', handleCredentialRequest)
     session.off('browser_spawned', handleBrowserSpawned)
     session.off('browser_agent_released', handleBrowserAgentReleased)
     session.off('title_response', handleTitleResponse)
   })
 
+  /**
+   * provideCredential ships a vault-picker result back to the orchestrator.
+   * Pass cancelled=true (with the other fields blank) to abandon the
+   * request — the orchestrator will surface the blocker on its next turn
+   * instead of stalling on the awaiting tool call.
+   */
+  function provideCredential(
+    msgId: string,
+    payload: { credentialId: string, username: string, password: string } | { cancelled: true },
+  ) {
+    pendingCredentialRequest.value = null
+    orchestratorState.waitingForAgent.value = true
+    if ('cancelled' in payload) {
+      session.send<CredentialProvidedPayload>('credential_provided', {
+        msg_id: msgId,
+        credential_id: '',
+        username: '',
+        password: '',
+        cancelled: true,
+      })
+      return
+    }
+    session.send<CredentialProvidedPayload>('credential_provided', {
+      msg_id: msgId,
+      credential_id: payload.credentialId,
+      username: payload.username,
+      password: payload.password,
+    })
+  }
+
   return {
     drafts,
     summarisedTitle,
+    pendingCredentialRequest,
+    provideCredential,
     orchestrator: buildHandle('orchestrator'),
     get(agentId: string): ChatHandle { return buildHandle(agentId) },
     drop(agentId: string) {

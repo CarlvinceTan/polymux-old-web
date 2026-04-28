@@ -10,15 +10,21 @@ import {
 } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/folder
-// Body: { parent, name }
+// Body: { parent, name, backend?: 'supabase' | 'google-drive' | 'local' }
 //
-// Creates a folder by uploading a `.keep` marker at `{parent}/{name}/.keep`.
-// Also upserts a `files` metadata row with kind='folder' so permissions and
-// Drive-side sync can reference the folder as an entity.
+// Creates a folder metadata row and — for supabase-backed folders — a
+// `.keep` marker at `{parent}/{name}/.keep` so the Supabase Storage listing
+// returns the folder. Drive/local folders are pure metadata rows: index.get.ts
+// merges metadata-only entries into the listing, and no bucket object is
+// needed for a folder whose children don't live in Supabase Storage either.
+
+type FolderBackend = 'supabase' | 'google-drive' | 'local'
 
 interface Body {
   parent?: unknown
   name?: unknown
+  backend?: unknown
+  backend_ref?: unknown
 }
 
 export default defineEventHandler(async (event) => {
@@ -44,20 +50,33 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  const keepKey = storageKey(workspaceId, `${logicalPath}/.keep`)
-  const keepBody = new Blob(['\n'], { type: 'text/plain' })
-  const { error: uploadError } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .upload(keepKey, keepBody, {
-      contentType: 'text/plain',
-      cacheControl: '3600',
-      upsert: true,
-    })
+  const backend: FolderBackend
+    = body.backend === 'google-drive' ? 'google-drive'
+    : body.backend === 'local' ? 'local'
+    : 'supabase'
 
-  if (uploadError) {
-    console.error('[files] folder create upload error', uploadError)
-    throw createError({ statusCode: 500, statusMessage: uploadError.message })
+  if (backend === 'supabase') {
+    const keepKey = storageKey(workspaceId, `${logicalPath}/.keep`)
+    const keepBody = new Blob(['\n'], { type: 'text/plain' })
+    const { error: uploadError } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .upload(keepKey, keepBody, {
+        contentType: 'text/plain',
+        cacheControl: '3600',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('[files] folder create upload error', uploadError)
+      throw createError({ statusCode: 500, statusMessage: uploadError.message })
+    }
   }
+
+  const backendRefValue = backend === 'supabase'
+    ? storageKey(workspaceId, logicalPath)
+    : backend === 'local'
+      ? (typeof body.backend_ref === 'string' ? body.backend_ref : null)
+      : null
 
   const { error: upsertError } = await admin
     .from('files')
@@ -65,8 +84,8 @@ export default defineEventHandler(async (event) => {
       workspace_id: workspaceId,
       path: logicalPath,
       kind: 'folder',
-      backend: 'supabase',
-      backend_ref: storageKey(workspaceId, logicalPath),
+      backend,
+      backend_ref: backendRefValue,
       created_by: user.sub,
     }, { onConflict: 'workspace_id,path' })
 
@@ -74,5 +93,5 @@ export default defineEventHandler(async (event) => {
     console.error('[files] folder metadata upsert error', upsertError)
   }
 
-  return { ok: true as const, path: logicalPath }
+  return { ok: true as const, path: logicalPath, backend }
 })

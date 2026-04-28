@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPayload, ErrorPayload, SpawnBrowserAgentPayload } from '~/composables/types'
-import { DRAFT_SESSION_ID } from '~/composables/useChatSessions'
+import type { ViewMode } from '~/components/ChatLayout.vue'
+import { DRAFT_WORKFLOW_ID } from '~/composables/useWorkflowList'
 
 const route = useRoute()
 const workflowId = computed(() => route.params.id as string)
@@ -16,13 +17,9 @@ const headerTabs = computed(() => {
 
 const sessionId = computed(() => route.params.id as string)
 
-const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useChatSessions()
+const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
-const workflowTitle = computed(() => {
-  const s = sessions.value.find(s => s.id === sessionId.value)
-  return s?.title || `Session ${sessionId.value}`
-})
 
 const isNewWorkflow = computed(() => {
   const s = sessions.value.find(s => s.id === sessionId.value)
@@ -48,6 +45,39 @@ const vp = useViewports(session)
 const screencast = useScreencast(session)
 const geo = useGeolocation()
 const toast = useAppToast()
+
+// Title resolution order:
+// 1. Backend-generated title from the websocket `title_response` (only set
+//    after the user's first send for a fresh workflow). This is the source
+//    of truth the moment it arrives — the watcher below also persists it
+//    via `renameSession`, but reading it here means we don't have to wait
+//    for the round-trip + reactivity propagation through `realSessions`.
+// 2. The persisted title from the session list (covers manual renames and
+//    workflows that already had a title at page load).
+// 3. "New Workflow" placeholder while we have neither — keeps the heading
+//    stable until the backend title arrives instead of flashing a cryptic
+//    "Session abc-123…" id-based fallback.
+const workflowTitle = computed(() => {
+  const s = sessions.value.find(s => s.id === sessionId.value)
+  if (s?.title && s.title !== 'New Workflow') return s.title
+  if (chats.summarisedTitle.value) return chats.summarisedTitle.value
+  return s?.title || 'New Workflow'
+})
+
+const { currentWorkspace } = useWorkspaces()
+const workspaceId = computed(() => {
+  const s = sessions.value.find(s => s.id === sessionId.value)
+  return s?.workspace_id ?? currentWorkspace.value?.id ?? ''
+})
+
+// Bind workflow save/reject listeners to the page lifetime so the builder's
+// incremental SaveWorkflow events are never dropped while the user is in
+// Chat View (where `WorkflowDock` is unmounted).
+useWorkflowAgentEvents(session, workspaceId)
+
+// Mirror the agent's in-progress workflow tree (pre-save) into shared state
+// for WorkflowDock to render — same lifetime reasoning as above.
+useWorkflowDraft(session, sessionId)
 
 session.on<ErrorPayload>('error', (p) => {
   if (p.code === 'AGENT_LIMIT_REACHED') {
@@ -223,7 +253,7 @@ function serializeUrls(urls: string[]) {
 }
 
 async function saveViewportUrlsForId(id: string) {
-  if (id === DRAFT_SESSION_ID) return
+  if (id === DRAFT_WORKFLOW_ID) return
   const urls = currentViewportUrls()
   const key = `${id}:${serializeUrls(urls)}`
   if (key === lastSavedKey) return  // no-op if nothing changed since last save
@@ -248,7 +278,7 @@ function scheduleSave(id: string) {
 // browser during unload.
 async function sendBeaconSave(id: string) {
   if (!import.meta.client) return
-  if (id === DRAFT_SESSION_ID) return
+  if (id === DRAFT_WORKFLOW_ID) return
   const urls = currentViewportUrls()
   const key = `${id}:${serializeUrls(urls)}`
   if (key === lastSavedKey) return
@@ -310,7 +340,7 @@ watch(sessionId, () => {
 // first fire so we don't overwrite saved state with an empty list before the
 // session_state handler has had a chance to restore.
 watch(
-  () => vp.viewports.value.map(v => v.url).join(' '),
+  () => vp.viewports.value.map(v => v.url).join(' '),
   () => {
     if (!hasAttemptedRestore.value) return
     scheduleSave(sessionId.value)
@@ -355,7 +385,74 @@ const viewportList = computed({
 })
 const browserMode = computed(() => vp.browserMode.value)
 
-provide('chat-session-id', sessionId)
+// ── View-mode state ─────────────────────────────────────────────────────────
+// Owned at the workflow-page level (rather than ChatLayout) so it survives
+// Agent ↔ Schedule ↔ Artifacts tab swaps within a single workflow visit.
+//
+// Persistence: sessionStorage (per browser tab). Re-entering the workflow
+// from another page in the same tab restores the prior view; closing the tab
+// drops the memory and the next visit starts in chat.
+//
+// Auto-switch: whenever the user prompts (send / edit / retry) we arm a
+// one-shot trigger. The first time `vp.viewports` grows after that — i.e.
+// the orchestrator delegated to a browser agent — we flip to the viewport
+// view. Manual view changes (or one auto-switch firing) disarm it, so the
+// user's choice is never overridden once they've expressed one for the
+// current prompt cycle.
+const VIEW_MODE_KEY_PREFIX = 'polymux_workflow_viewmode:'
+
+function loadViewMode(id: string): ViewMode | null {
+  if (!import.meta.client) return null
+  if (!id || id === DRAFT_WORKFLOW_ID) return null
+  try {
+    const raw = sessionStorage.getItem(VIEW_MODE_KEY_PREFIX + id)
+    if (raw === 'chat' || raw === 'viewport' || raw === 'workflow') return raw
+  } catch {}
+  return null
+}
+
+function saveViewMode(id: string, mode: ViewMode) {
+  if (!import.meta.client) return
+  if (!id || id === DRAFT_WORKFLOW_ID) return
+  try {
+    sessionStorage.setItem(VIEW_MODE_KEY_PREFIX + id, mode)
+  } catch {}
+}
+
+const viewMode = ref<ViewMode>('chat')
+const autoSwitchArmed = ref(false)
+
+onMounted(() => {
+  viewMode.value = loadViewMode(sessionId.value) ?? 'chat'
+})
+
+watch(viewMode, (mode) => {
+  saveViewMode(sessionId.value, mode)
+  // Any view-mode commit clears the arm — covers both the auto-switch
+  // itself (one-shot) and any manual click on the view switcher.
+  autoSwitchArmed.value = false
+})
+
+watch(sessionId, (id) => {
+  viewMode.value = loadViewMode(id) ?? 'chat'
+  autoSwitchArmed.value = false
+})
+
+watch(() => vp.viewports.value.length, (len, prev) => {
+  if (!autoSwitchArmed.value) return
+  if (len <= (prev ?? 0)) return
+  if (viewMode.value !== 'viewport') {
+    viewMode.value = 'viewport'
+  } else {
+    autoSwitchArmed.value = false
+  }
+})
+
+function armAutoSwitch() {
+  autoSwitchArmed.value = true
+}
+
+provide('workflow-id', sessionId)
 provide('chat-chats', chats)
 provide('chat-vp', vp)
 provide('chat-screencast', screencast)
@@ -369,6 +466,8 @@ provide('chat-user-name', USER_NAME)
 provide('chat-welcome-suggestion', welcomeSuggestion)
 provide('chat-preset-prompt', presetPrompt)
 provide('chat-title-requested', titleRequested)
+provide('chat-view-mode', viewMode)
+provide('chat-arm-auto-switch', armAutoSwitch)
 provide('chat-on-rename', onRename)
 provide('chat-on-promote-viewport', (agentId: string) => vp.promoteViewport(agentId))
 provide('chat-on-demote-active', () => vp.demoteActive())
@@ -387,5 +486,20 @@ provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
         class="min-h-0 min-w-0 flex-1"
       />
     </div>
+
+    <!-- Credential picker: opens whenever the orchestrator fires
+         RequestCredential. Lives at the workflow page level so the modal
+         survives across the agent / schedule / artifacts sub-tabs and the
+         pending-state outlives any single child component. -->
+    <CredentialRequestModal
+      v-if="chats.pendingCredentialRequest.value"
+      :open="true"
+      :site="chats.pendingCredentialRequest.value.site"
+      :purpose="chats.pendingCredentialRequest.value.purpose"
+      :suggested-username="chats.pendingCredentialRequest.value.suggestedUsername"
+      @submit="(v: { credentialId: string; username: string; password: string }) => chats.provideCredential(chats.pendingCredentialRequest.value!.msgId, v)"
+      @cancel="chats.provideCredential(chats.pendingCredentialRequest.value!.msgId, { cancelled: true })"
+      @update:open="(open: boolean) => { if (!open && chats.pendingCredentialRequest.value) chats.provideCredential(chats.pendingCredentialRequest.value.msgId, { cancelled: true }) }"
+    />
   </div>
 </template>

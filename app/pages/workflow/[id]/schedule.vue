@@ -476,163 +476,155 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
 
 <template>
   <TabPanel class="min-h-0 min-w-0 flex-1">
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-5">
-        <!-- Top strip: next run (left) · active toggle + save (right) -->
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex min-w-0 flex-col">
-            <div
-              class="text-caption font-medium uppercase tracking-wider"
-              :class="active ? 'text-neutral-500' : 'text-neutral-400'"
-            >
-              {{ t('schedule.upcomingRunLabel') }}
-            </div>
-            <div
-              class="mt-0.5 truncate text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl"
-              :class="active ? 'text-neutral-900' : 'text-neutral-400'"
-            >
-              <template v-if="!active">
-                {{ t('schedule.activeOff') }}
-              </template>
-              <template v-else-if="nextRuns.length === 0">
-                {{ t('schedule.noRunsShort') }}
-              </template>
-              <template v-else>
-                {{ formatRunDate(nextRuns[0]!) }}
-                <span class="font-medium text-neutral-500">· {{ formatRelative(nextRuns[0]!) }}</span>
-              </template>
-            </div>
-          </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <!-- Timezone: applies to both interval and specific-date schedules -->
-            <div class="relative">
-              <button
-                ref="tzTriggerRef"
-                type="button"
-                class="inline-flex h-6 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 text-caption text-neutral-700 transition-colors hover:border-neutral-400"
-                :class="tzOpen ? 'border-neutral-950' : ''"
-                :title="t('schedule.timezone')"
-                @click="tzOpen = !tzOpen"
+    <template #title>
+      <div
+        class="truncate text-lg font-semibold tracking-tight tabular-nums sm:text-xl"
+        :class="active ? 'text-neutral-900' : 'text-neutral-400'"
+      >
+        <template v-if="!active">
+          {{ t('schedule.activeOff') }}
+        </template>
+        <template v-else-if="nextRuns.length === 0">
+          {{ t('schedule.noRunsShort') }}
+        </template>
+        <template v-else>
+          {{ formatRunDate(nextRuns[0]!) }}
+          <span class="font-medium text-neutral-500">· {{ formatRelative(nextRuns[0]!) }}</span>
+        </template>
+      </div>
+    </template>
+    <template #actions>
+      <div class="flex shrink-0 items-center gap-2">
+        <!-- Timezone: applies to both interval and specific-date schedules -->
+        <div class="relative">
+          <button
+            ref="tzTriggerRef"
+            type="button"
+            class="inline-flex h-6 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 text-caption text-neutral-700 transition-colors hover:border-neutral-400"
+            :class="tzOpen ? 'border-neutral-950' : ''"
+            :title="t('schedule.timezone')"
+            @click="tzOpen = !tzOpen"
+          >
+            <UIcon name="i-heroicons-globe-alt" class="size-3 shrink-0 text-neutral-500" />
+            <span class="font-medium">{{ tzCity(timezone) }}</span>
+            <span v-if="tzTriggerOffset" class="font-mono text-neutral-500 tabular-nums">
+              {{ tzTriggerOffset }}
+            </span>
+            <UIcon
+              name="i-heroicons-chevron-down-20-solid"
+              class="size-3 text-neutral-400 transition-transform"
+              :class="tzOpen ? 'rotate-180' : ''"
+            />
+          </button>
+          <div
+            v-if="tzOpen"
+            ref="tzPanelRef"
+            class="absolute right-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
+          >
+            <div class="flex items-center gap-2 border-b border-neutral-200/80 px-3 py-2">
+              <UIcon name="i-heroicons-magnifying-glass" class="size-3.5 shrink-0 text-neutral-400" />
+              <input
+                v-model="tzQuery"
+                type="text"
+                :placeholder="t('schedule.tzSearch')"
+                class="min-w-0 flex-1 bg-transparent text-body-md text-neutral-900 outline-none placeholder:text-neutral-400"
               >
-                <UIcon name="i-heroicons-globe-alt" class="size-3 shrink-0 text-neutral-500" />
-                <span class="font-medium">{{ tzCity(timezone) }}</span>
-                <span v-if="tzTriggerOffset" class="font-mono text-neutral-500 tabular-nums">
-                  {{ tzTriggerOffset }}
-                </span>
-                <UIcon
-                  name="i-heroicons-chevron-down-20-solid"
-                  class="size-3 text-neutral-400 transition-transform"
-                  :class="tzOpen ? 'rotate-180' : ''"
-                />
-              </button>
-              <div
-                v-if="tzOpen"
-                ref="tzPanelRef"
-                class="absolute right-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
-              >
-                <div class="flex items-center gap-2 border-b border-neutral-200/80 px-3 py-2">
-                  <UIcon name="i-heroicons-magnifying-glass" class="size-3.5 shrink-0 text-neutral-400" />
-                  <input
-                    v-model="tzQuery"
-                    type="text"
-                    :placeholder="t('schedule.tzSearch')"
-                    class="min-w-0 flex-1 bg-transparent text-body-md text-neutral-900 outline-none placeholder:text-neutral-400"
-                  >
+            </div>
+            <div class="max-h-64 overflow-y-auto overscroll-contain">
+              <div v-if="!tzQuery" class="py-1">
+                <div class="px-3 pb-1 pt-1.5 text-caption font-medium uppercase tracking-wider text-neutral-400">
+                  {{ t('schedule.tzPinned') }}
                 </div>
-                <div class="max-h-64 overflow-y-auto overscroll-contain">
-                  <div v-if="!tzQuery" class="py-1">
-                    <div class="px-3 pb-1 pt-1.5 text-caption font-medium uppercase tracking-wider text-neutral-400">
-                      {{ t('schedule.tzPinned') }}
-                    </div>
-                    <button
-                      v-for="tz in pinnedTimezones"
-                      :key="tz"
-                      type="button"
-                      class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-body-md transition-colors hover:bg-neutral-100"
-                      :class="timezone === tz ? 'font-medium text-neutral-950' : 'text-neutral-700'"
-                      @click="pickTz(tz)"
-                    >
-                      <span class="flex min-w-0 items-center gap-2">
-                        <UIcon
-                          v-if="timezone === tz"
-                          name="i-heroicons-check-20-solid"
-                          class="size-3.5 shrink-0 text-neutral-950"
-                        />
-                        <span v-else class="size-3.5 shrink-0" />
-                        <span class="truncate">
-                          {{ tz === localTz ? t('schedule.tzLocal', { tz: tzCity(tz) }) : tzCity(tz) }}
-                        </span>
-                      </span>
-                      <span class="font-mono text-caption text-neutral-500 tabular-nums">
-                        {{ tzOffset(tz) }}
-                      </span>
-                    </button>
-                    <div class="my-1 h-px bg-neutral-200/80" />
-                  </div>
-                  <div v-if="filteredTimezones.length === 0 && tzQuery" class="px-3 py-6 text-center text-caption text-neutral-500">
-                    {{ t('schedule.noTzResults') }}
-                  </div>
-                  <button
-                    v-for="tz in filteredTimezones"
-                    :key="tz"
-                    type="button"
-                    class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-body-md transition-colors hover:bg-neutral-100"
-                    :class="timezone === tz ? 'font-medium text-neutral-950' : 'text-neutral-700'"
-                    @click="pickTz(tz)"
-                  >
-                    <span class="flex min-w-0 items-center gap-2">
-                      <UIcon
-                        v-if="timezone === tz"
-                        name="i-heroicons-check-20-solid"
-                        class="size-3.5 shrink-0 text-neutral-950"
-                      />
-                      <span v-else class="size-3.5 shrink-0" />
-                      <span class="truncate">{{ tzCity(tz) }}</span>
+                <button
+                  v-for="tz in pinnedTimezones"
+                  :key="tz"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-body-md transition-colors hover:bg-neutral-100"
+                  :class="timezone === tz ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                  @click="pickTz(tz)"
+                >
+                  <span class="flex min-w-0 items-center gap-2">
+                    <UIcon
+                      v-if="timezone === tz"
+                      name="i-heroicons-check-20-solid"
+                      class="size-3.5 shrink-0 text-neutral-950"
+                    />
+                    <span v-else class="size-3.5 shrink-0" />
+                    <span class="truncate">
+                      {{ tz === localTz ? t('schedule.tzLocal', { tz: tzCity(tz) }) : tzCity(tz) }}
                     </span>
-                    <span class="font-mono text-caption text-neutral-500 tabular-nums">
-                      {{ tzOffset(tz) }}
-                    </span>
-                  </button>
-                </div>
+                  </span>
+                  <span class="font-mono text-caption text-neutral-500 tabular-nums">
+                    {{ tzOffset(tz) }}
+                  </span>
+                </button>
+                <div class="my-1 h-px bg-neutral-200/80" />
               </div>
-            </div>
-            <div class="inline-flex h-6 items-center gap-1 rounded-lg bg-neutral-100 p-1">
+              <div v-if="filteredTimezones.length === 0 && tzQuery" class="px-3 py-6 text-center text-caption text-neutral-500">
+                {{ t('schedule.noTzResults') }}
+              </div>
               <button
+                v-for="tz in filteredTimezones"
+                :key="tz"
                 type="button"
-                class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
-                :class="active
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700'"
-                :aria-label="t('schedule.activeOn')"
-                @click="active = true"
+                class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-body-md transition-colors hover:bg-neutral-100"
+                :class="timezone === tz ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                @click="pickTz(tz)"
               >
-                <UIcon name="i-heroicons-play-20-solid" class="size-3" />
-                <span class="hidden sm:inline">{{ t('schedule.activeOn') }}</span>
-              </button>
-              <button
-                type="button"
-                class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
-                :class="!active
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700'"
-                :aria-label="t('schedule.activeOff')"
-                @click="active = false"
-              >
-                <UIcon name="i-heroicons-pause-20-solid" class="size-3" />
-                <span class="hidden sm:inline">{{ t('schedule.activeOff') }}</span>
+                <span class="flex min-w-0 items-center gap-2">
+                  <UIcon
+                    v-if="timezone === tz"
+                    name="i-heroicons-check-20-solid"
+                    class="size-3.5 shrink-0 text-neutral-950"
+                  />
+                  <span v-else class="size-3.5 shrink-0" />
+                  <span class="truncate">{{ tzCity(tz) }}</span>
+                </span>
+                <span class="font-mono text-caption text-neutral-500 tabular-nums">
+                  {{ tzOffset(tz) }}
+                </span>
               </button>
             </div>
-            <button
-              type="button"
-              class="inline-flex h-6 items-center rounded-lg bg-neutral-950 px-3.5 text-body-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!hasSchedule"
-              @click="onSave"
-            >
-              {{ t('schedule.save') }}
-            </button>
           </div>
         </div>
-
+        <div class="inline-flex h-6 items-center gap-1 rounded-lg bg-neutral-100 p-1">
+          <button
+            type="button"
+            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
+            :class="active
+              ? 'bg-white text-neutral-900 shadow-sm'
+              : 'text-neutral-500 hover:text-neutral-700'"
+            :aria-label="t('schedule.activeOn')"
+            @click="active = true"
+          >
+            <UIcon name="i-heroicons-play-20-solid" class="size-3" />
+            <span class="hidden sm:inline">{{ t('schedule.activeOn') }}</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
+            :class="!active
+              ? 'bg-white text-neutral-900 shadow-sm'
+              : 'text-neutral-500 hover:text-neutral-700'"
+            :aria-label="t('schedule.activeOff')"
+            @click="active = false"
+          >
+            <UIcon name="i-heroicons-pause-20-solid" class="size-3" />
+            <span class="hidden sm:inline">{{ t('schedule.activeOff') }}</span>
+          </button>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-6 items-center rounded-lg bg-neutral-950 px-3.5 text-body-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!hasSchedule"
+          @click="onSave"
+        >
+          {{ t('schedule.save') }}
+        </button>
+      </div>
+    </template>
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-5">
         <div class="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-5 lg:grid-rows-1">
           <!-- Left: frequency + detail controls -->
           <div class="min-h-0 min-w-0 space-y-4 lg:col-span-3">

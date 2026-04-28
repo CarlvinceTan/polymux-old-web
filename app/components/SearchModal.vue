@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { t } = useI18n()
-const { sessions, fetchSessions } = useChatSessions()
+const { sessions, fetchSessions } = useWorkflowList()
 
 const isOpen = defineModel<boolean>('open', { default: false })
 

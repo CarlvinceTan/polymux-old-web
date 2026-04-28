@@ -1,107 +1,68 @@
 <script setup lang="ts">
-import { useI18n } from '#imports'
 import type { ItemCategory } from '~/composables/useMarketplace'
 
-const props = withDefaults(
-  defineProps<{
-    id: string
-    name: string
-    description: string
-    category: ItemCategory
-    author: string
-    installed: boolean
-    variant?: 'marketplace' | 'installed'
-  }>(),
-  { variant: 'marketplace' },
-)
-
-const emit = defineEmits<{
-  toggle: []
-  configure: []
+const props = defineProps<{
+  id: string
+  name: string
+  description: string
+  category: ItemCategory
+  author: string
+  tags?: string[]
+  popularity?: number
 }>()
 
-const { t } = useI18n()
-const { isAdmin, connectionFor } = useMarketplace()
+defineEmits<{
+  open: []
+}>()
 
-const categoryLabel = computed<Record<ItemCategory, string>>(() => ({
-  workflow: t('integrations.categoryWorkflow'),
-  plugin: t('integrations.categoryPlugin'),
-  connection: t('integrations.categoryConnection'),
-}))
-
-const icon = computed(() => integrationIconMeta(props.id, props.category))
-
-const connection = computed(() => connectionFor(props.id))
-const connectedByEmail = computed(() => connection.value?.account_email ?? null)
-
-function actionLabel() {
-  if (props.installed) {
-    return props.category === 'connection' ? t('integrations.disconnect') : t('integrations.uninstall')
-  }
-  return props.category === 'connection' ? t('integrations.connect') : t('integrations.install')
-}
+const downloadsLabel = computed(() => {
+  const n = props.popularity ?? 0
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`
+  return `${(n / 1_000_000).toFixed(1)}M`
+})
 </script>
 
 <template>
-  <div class="ghost-panel relative flex flex-col gap-3 rounded-xl bg-white p-4">
-    <button
-      v-if="variant === 'installed'"
-      type="button"
-      class="absolute right-3 top-3 flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-      :aria-label="t('integrations.configure')"
-      :title="t('integrations.configure')"
-      @click="emit('configure')"
-    >
-      <UIcon name="i-heroicons-cog-6-tooth-20-solid" class="size-4" />
-    </button>
-
-    <div class="flex items-start gap-3" :class="{ 'pr-9': variant === 'installed' }">
-      <div
-        class="flex size-8 shrink-0 items-center justify-center rounded-lg"
-        :class="icon.tintClass"
-      >
-        <UIcon :name="icon.iconName" class="size-4" />
-      </div>
+  <button
+    type="button"
+    class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+    @click="$emit('open')"
+  >
+    <div class="flex items-start gap-3">
       <div class="min-w-0 flex-1">
-        <div class="flex items-center justify-between gap-2">
-          <p class="truncate text-sm font-semibold leading-tight text-neutral-950">
-            {{ name }}
-          </p>
-          <span class="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-label-md font-medium text-neutral-600">
-            {{ categoryLabel[category] }}
-          </span>
-        </div>
-        <p class="mt-0.5 text-label-md text-neutral-400">
+        <p class="truncate text-base font-semibold leading-tight text-neutral-950">
+          {{ name }}
+        </p>
+        <p class="mt-0.5 truncate text-label-md text-neutral-500">
           {{ author }}
         </p>
       </div>
+      <div
+        class="flex shrink-0 items-center gap-1 text-label-md font-medium text-neutral-500"
+        :title="`${popularity ?? 0} connected`"
+      >
+        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span class="tabular-nums">{{ downloadsLabel }}</span>
+      </div>
     </div>
 
-    <p class="flex-1 text-body-md leading-relaxed text-neutral-500">
+    <p class="line-clamp-3 min-h-[3.75rem] text-body-md leading-relaxed text-neutral-500">
       {{ description }}
     </p>
 
-    <p
-      v-if="installed && category === 'connection' && connectedByEmail"
-      class="text-label-md text-neutral-500"
-    >
-      {{ t('integrations.connectedBy', { email: connectedByEmail }) }}
-    </p>
-
-    <button
-      type="button"
-      class="w-full rounded-lg py-2 text-sm font-medium transition-colors"
-      :class="[
-        !isAdmin && 'cursor-not-allowed opacity-60',
-        installed
-          ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-          : 'bg-neutral-950 text-white hover:bg-neutral-800',
-      ]"
-      :disabled="!isAdmin"
-      :title="!isAdmin ? t('integrations.adminOnly') : undefined"
-      @click="emit('toggle')"
-    >
-      {{ actionLabel() }}
-    </button>
-  </div>
+    <div v-if="tags?.length" class="flex flex-wrap gap-1.5">
+      <span
+        v-for="tag in tags"
+        :key="tag"
+        class="rounded-md bg-neutral-100 px-2 py-0.5 text-label-md font-medium text-neutral-600"
+      >
+        {{ tag }}
+      </span>
+    </div>
+  </button>
 </template>

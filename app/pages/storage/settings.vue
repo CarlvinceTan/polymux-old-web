@@ -6,14 +6,12 @@ import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
 type AnyDirection = MigrationDirection | LocalMigrationDirection
 
 const headerTabs = {
-  MAIN: '/storage/main',
-  SHARED: '/storage/shared',
+  FILES: '/storage/files',
   SETTINGS: '/storage/settings',
 } as const satisfies Record<string, string>
 
 const { t } = useI18n()
 const {
-  saveOrder,
   providerStatus,
   resolvedOrder,
   moveUp,
@@ -23,6 +21,7 @@ const {
 const { state: driveMigrationState, run: runDriveMigration } = useDriveMigration()
 const { state: localMigrationState, run: runLocalMigration } = useLocalMigration()
 const { currentWorkspace } = useWorkspaces()
+const { isInstalled, install, uninstall } = useMarketplace()
 
 const ALL_PROVIDERS: StorageProvider[] = ['supabase', 'google-drive', 'local']
 
@@ -31,6 +30,16 @@ const providerLabel = computed<Record<StorageProvider, string>>(() => ({
   'google-drive': t('storage.settings.providerGoogleDrive'),
   'local': t('storage.settings.providerLocal'),
 }))
+
+const providerDescription = computed<Record<StorageProvider, string>>(() => ({
+  'supabase': t('storage.settings.providerCloudDesc'),
+  'google-drive': t('storage.settings.providerGoogleDriveDesc'),
+  'local': t('storage.settings.providerLocalDesc'),
+}))
+
+const availableProviders = computed<StorageProvider[]>(() =>
+  ALL_PROVIDERS.filter(p => providerStatus.value[p] === 'available'),
+)
 
 const statusLabel = (provider: StorageProvider) => {
   const status = providerStatus.value[provider]
@@ -53,29 +62,25 @@ const statusTextClass = (provider: StorageProvider) => {
   return 'text-neutral-500'
 }
 
-// Contextual hint for unavailable providers (e.g. how to enable)
-const unavailableHint = (provider: StorageProvider) => {
-  if (providerStatus.value[provider] === 'available') return null
-  if (provider === 'google-drive') return t('storage.settings.notConnectedHint')
-  if (provider === 'local') return t('storage.settings.localUnsupportedHint')
-  return null
-}
-
-// Action route for unavailable providers (e.g. Connect Drive in marketplace)
-const unavailableAction = (provider: StorageProvider): { label: string; to: string } | null => {
-  if (providerStatus.value[provider] === 'available') return null
-  if (provider === 'google-drive') {
-    return { label: t('integrations.connect'), to: '/integrations/marketplace' }
-  }
-  return null
-}
-
 // ---- Migration ----
 const myRole = computed(() => currentWorkspace.value?.role)
 const canManage = computed(() => myRole.value === 'owner' || myRole.value === 'admin')
 
 const sourceProvider = ref<StorageProvider>('supabase')
 const destinationProvider = ref<StorageProvider>('google-drive')
+
+// Keep dropdown selections within the set of currently-available providers.
+// If a chosen provider becomes unavailable (e.g. user disconnects Drive in the
+// connections panel below), fall back to the first remaining option, avoiding
+// the other side so they stay distinct when possible.
+watch(availableProviders, (next) => {
+  if (!next.includes(sourceProvider.value)) {
+    sourceProvider.value = next.find(p => p !== destinationProvider.value) ?? next[0] ?? sourceProvider.value
+  }
+  if (!next.includes(destinationProvider.value)) {
+    destinationProvider.value = next.find(p => p !== sourceProvider.value) ?? next[0] ?? destinationProvider.value
+  }
+}, { immediate: true })
 
 const sourceOpen = ref(false)
 const destinationOpen = ref(false)
@@ -102,6 +107,10 @@ const pairBlockers = computed<Blocker[]>(() => {
   const blockers: Blocker[] = []
   if (!canManage.value) {
     blockers.push({ messageKey: 'storage.settings.migrationRequiresAdmin' })
+  }
+  if (availableProviders.value.length < 2) {
+    blockers.push({ messageKey: 'storage.settings.migrationNeedsTwoProviders' })
+    return blockers
   }
   if (sourceProvider.value === destinationProvider.value) {
     blockers.push({ messageKey: 'storage.settings.migrationSameProvider' })
@@ -230,6 +239,33 @@ async function confirmMigration() {
   else {
     await runDriveMigration(dir)
   }
+}
+
+// ---- Connections panel ----
+// supabase is account-bound (no toggle); google-drive flows through the
+// marketplace OAuth install + the existing disconnect modal; local is a
+// browser capability surfaced for visibility only.
+const isDriveConnected = computed(() => isInstalled('google-drive'))
+
+const disconnectModalOpen = ref(false)
+const pendingDisconnectProvider = ref<StorageProvider | null>(null)
+
+function connectProvider(provider: StorageProvider) {
+  if (provider === 'google-drive') {
+    install('google-drive')
+  }
+}
+
+function openDisconnect(provider: StorageProvider) {
+  pendingDisconnectProvider.value = provider
+  disconnectModalOpen.value = true
+}
+
+async function onConfirmDisconnect() {
+  if (pendingDisconnectProvider.value === 'google-drive') {
+    await uninstall('google-drive')
+  }
+  pendingDisconnectProvider.value = null
 }
 
 function handleMigrationClickOutside(event: MouseEvent) {
@@ -368,20 +404,23 @@ onUnmounted(() => {
                 </button>
               </header>
 
-              <ul role="list" class="mt-4 divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-100">
+              <div
+                v-if="!resolvedOrder.length"
+                class="mt-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/50 px-4 py-6 text-center text-xs text-neutral-500"
+              >
+                {{ t('storage.settings.saveOrderEmpty') }}
+              </div>
+
+              <ul v-else role="list" class="mt-4 divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-100">
                 <li
-                  v-for="(provider, index) in saveOrder"
+                  v-for="(provider, index) in resolvedOrder"
                   :key="provider"
                   class="group flex items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-3.5"
-                  :class="index === 0 && providerStatus[provider] === 'available'
-                    ? 'bg-gradient-to-r from-neutral-50 to-transparent'
-                    : ''"
+                  :class="index === 0 ? 'bg-gradient-to-r from-neutral-50 to-transparent' : ''"
                 >
                   <span
                     class="inline-flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold leading-none tabular-nums"
-                    :class="index === 0 && providerStatus[provider] === 'available'
-                      ? 'bg-neutral-950 text-white'
-                      : 'bg-neutral-100 text-neutral-600'"
+                    :class="index === 0 ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-600'"
                   >
                     {{ index + 1 }}
                   </span>
@@ -394,12 +433,72 @@ onUnmounted(() => {
                         {{ providerLabel[provider] }}
                       </span>
                       <span
-                        v-if="index === 0 && providerStatus[provider] === 'available'"
+                        v-if="index === 0"
                         class="rounded-full bg-neutral-950 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white"
                       >
                         {{ t('storage.settings.primary') }}
                       </span>
                     </div>
+                    <div class="mt-0.5 flex items-center gap-1.5">
+                      <span class="size-1.5 shrink-0 rounded-full bg-green-500" aria-hidden="true" />
+                      <span class="text-label-md font-medium text-green-700">
+                        {{ t('storage.settings.statusAvailable') }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-0.5">
+                    <button
+                      type="button"
+                      class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-950 disabled:cursor-not-allowed disabled:opacity-30"
+                      :disabled="index === 0"
+                      :aria-label="t('storage.settings.moveUp')"
+                      @click="moveUp(provider)"
+                    >
+                      <UIcon name="i-heroicons-chevron-up-20-solid" class="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-950 disabled:cursor-not-allowed disabled:opacity-30"
+                      :disabled="index === resolvedOrder.length - 1"
+                      :aria-label="t('storage.settings.moveDown')"
+                      @click="moveDown(provider)"
+                    >
+                      <UIcon name="i-heroicons-chevron-down-20-solid" class="size-4" />
+                    </button>
+                  </div>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Connections / provider management -->
+            <section class="rounded-2xl border border-neutral-200/70 bg-white p-5 sm:p-6">
+              <header class="flex items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
+                  <UIcon name="i-heroicons-link-20-solid" class="size-4 text-neutral-700" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <h2 class="text-sm font-semibold text-neutral-950">
+                    {{ t('storage.settings.connectionsTitle') }}
+                  </h2>
+                  <p class="mt-0.5 text-xs text-neutral-500">
+                    {{ t('storage.settings.connectionsDesc') }}
+                  </p>
+                </div>
+              </header>
+
+              <ul role="list" class="mt-4 divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-100">
+                <li
+                  v-for="provider in ALL_PROVIDERS"
+                  :key="provider"
+                  class="flex items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-3.5"
+                >
+                  <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-50 ring-1 ring-inset ring-neutral-200/80">
+                    <StorageProviderIcon :provider="provider" tile />
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <span class="block truncate text-body-md font-medium text-neutral-950">
+                      {{ providerLabel[provider] }}
+                    </span>
                     <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span class="flex items-center gap-1.5">
                         <span
@@ -414,41 +513,49 @@ onUnmounted(() => {
                           {{ statusLabel(provider) }}
                         </span>
                       </span>
-                      <span
-                        v-if="unavailableHint(provider)"
-                        class="text-label-md text-neutral-400"
-                      >
-                        · {{ unavailableHint(provider) }}
+                      <span class="text-label-md text-neutral-400">
+                        · {{ providerDescription[provider] }}
                       </span>
                     </div>
                   </div>
-                  <NuxtLink
-                    v-if="unavailableAction(provider)"
-                    :to="unavailableAction(provider)!.to"
-                    class="hidden shrink-0 items-center gap-1 rounded-md bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 sm:inline-flex"
-                  >
-                    {{ unavailableAction(provider)!.label }}
-                    <UIcon name="i-heroicons-arrow-right-20-solid" class="size-3" />
-                  </NuxtLink>
-                  <div class="flex shrink-0 items-center gap-0.5">
-                    <button
-                      type="button"
-                      class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-950 disabled:cursor-not-allowed disabled:opacity-30"
-                      :disabled="index === 0"
-                      :aria-label="t('storage.settings.moveUp')"
-                      @click="moveUp(index)"
+                  <div class="flex shrink-0 items-center">
+                    <!-- supabase: account-bound. No button; the user's account
+                         is what makes it available. -->
+                    <span
+                      v-if="provider === 'supabase'"
+                      class="rounded-md bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-600"
                     >
-                      <UIcon name="i-heroicons-chevron-up-20-solid" class="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-950 disabled:cursor-not-allowed disabled:opacity-30"
-                      :disabled="index === saveOrder.length - 1"
-                      :aria-label="t('storage.settings.moveDown')"
-                      @click="moveDown(index)"
+                      {{ t('storage.settings.connectionAccountBound') }}
+                    </span>
+                    <!-- google-drive: connect via marketplace OAuth, disconnect
+                         via the existing migrate-then-disconnect modal. -->
+                    <template v-else-if="provider === 'google-drive'">
+                      <button
+                        v-if="!isDriveConnected"
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-md bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                        @click="connectProvider('google-drive')"
+                      >
+                        {{ t('integrations.connect') }}
+                      </button>
+                      <button
+                        v-else
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                        @click="openDisconnect('google-drive')"
+                      >
+                        <UIcon name="i-heroicons-link-slash-20-solid" class="size-3" />
+                        {{ t('integrations.disconnect') }}
+                      </button>
+                    </template>
+                    <!-- local: a browser capability, not a connection. Show a
+                         passive label so users see why it's on or off. -->
+                    <span
+                      v-else
+                      class="rounded-md bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-600"
                     >
-                      <UIcon name="i-heroicons-chevron-down-20-solid" class="size-4" />
-                    </button>
+                      {{ t('storage.settings.connectionDeviceCapability') }}
+                    </span>
                   </div>
                 </li>
               </ul>
@@ -500,7 +607,7 @@ onUnmounted(() => {
                       </button>
                       <Menu :open="sourceOpen" align="left" width="w-full">
                         <button
-                          v-for="p in ALL_PROVIDERS"
+                          v-for="p in availableProviders"
                           :key="p"
                           type="button"
                           class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
@@ -555,7 +662,7 @@ onUnmounted(() => {
                       </button>
                       <Menu :open="destinationOpen" align="left" width="w-full">
                         <button
-                          v-for="p in ALL_PROVIDERS"
+                          v-for="p in availableProviders"
                           :key="p"
                           type="button"
                           class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
@@ -751,4 +858,10 @@ onUnmounted(() => {
       </div>
     </template>
   </UModal>
+
+  <DisconnectStorageProviderModal
+    v-model:open="disconnectModalOpen"
+    :provider="pendingDisconnectProvider"
+    @disconnect="onConfirmDisconnect"
+  />
 </template>

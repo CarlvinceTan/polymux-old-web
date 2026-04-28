@@ -6,7 +6,7 @@ const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 
 const supabase = useSupabaseClient()
 const { currentWorkspace, currentWorkspaceId, members, fetchMembers } = useWorkspaces()
-const { sessions, fetchSessions } = useChatSessions()
+const { sessions, fetchSessions } = useWorkflowList()
 const { wallet, transactions, fetchWallet, fetchTransactions, formatCents } = useWallet()
 const { isInstalled } = useMarketplace()
 const { probe: probeLocal } = useLocalFileStorage()
@@ -106,15 +106,24 @@ const driveUsageCard = computed(() =>
   storageUsageCards.value.find(c => c.provider === 'google-drive') ?? null,
 )
 
-watch(currentWorkspaceId, (wsId) => {
-  if (!wsId) return
+function loadWorkspaceData(wsId: string) {
   fetchMembers(wsId)
   fetchSessions()
   fetchWallet()
   fetchTransactions()
   refreshUsage(wsId)
   refreshDrive().catch(() => {})
+}
+
+watch(currentWorkspaceId, (wsId) => {
+  if (!wsId) return
+  loadWorkspaceData(wsId)
 }, { immediate: true })
+
+useOnReconnect(() => {
+  if (currentWorkspaceId.value) loadWorkspaceData(currentWorkspaceId.value)
+  refreshLocalProbe()
+})
 
 onMounted(() => { refreshLocalProbe() })
 
@@ -527,7 +536,7 @@ const avgCostPerRunCents = computed(() => {
   return Math.round(spendThisMonthCents.value / sessionsThisMonth.value)
 })
 interface RecurringRow {
-  sessionId: string
+  workflowId: string
   workflowName: string
   frequencyLabel: string
   runsPerMonth: number
@@ -548,7 +557,7 @@ const recurringRows = computed<RecurringRow[]>(() =>
   activeSchedules.value.map((cfg) => {
     const runs = Math.round(runsPerMonth(cfg))
     return {
-      sessionId: cfg.session_id,
+      workflowId: cfg.workflow_id,
       workflowName: cfg.workflow_name,
       frequencyLabel: frequencyLabelFor(cfg.frequency),
       runsPerMonth: runs,
@@ -1219,7 +1228,7 @@ const sparkValues = computed(() => dailyBuckets.value.map(b => b.sessions))
                 <ul v-if="recurringRows.length" class="mt-6 divide-y divide-neutral-100 border-t border-neutral-100">
                   <li
                     v-for="row in recurringRows"
-                    :key="row.sessionId"
+                    :key="row.workflowId"
                     class="flex items-center justify-between gap-3 py-2.5"
                   >
                     <div class="flex min-w-0 items-center gap-2">
@@ -1228,7 +1237,7 @@ const sparkValues = computed(() => dailyBuckets.value.map(b => b.sessions))
                       </span>
                       <div class="min-w-0">
                         <NuxtLink
-                          :to="`/workflow/${row.sessionId}/schedule`"
+                          :to="`/workflow/${row.workflowId}/schedule`"
                           class="block truncate text-[13px] font-medium text-neutral-950 hover:underline"
                         >
                           {{ row.workflowName }}

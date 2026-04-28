@@ -5,7 +5,7 @@ import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 // page to project recurring cost across active schedules.
 
 interface WorkflowScheduleRow {
-  session_id: string
+  workflow_id: string
   workspace_id: string
   active: boolean
   frequency: string
@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   }
   const { data, error } = await admin
     .from('workflow_schedules')
-    .select('session_id, workspace_id, active, frequency, cron_expression, weekdays, timezone, one_off_ms, updated_by, created_at, updated_at')
+    .select('workflow_id, workspace_id, active, frequency, cron_expression, weekdays, timezone, one_off_ms, updated_by, created_at, updated_at')
     .eq('workspace_id', workspaceId)
     .order('updated_at', { ascending: false })
 

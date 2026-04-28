@@ -2,13 +2,13 @@ import { runsInNextDays } from '~/utils/cron'
 
 // Database-backed schedule store. The Schedule tab under /workflow/[id]
 // upserts rows here; dashboard/usage lists active rows to project recurring
-// cost. Rows are keyed by session_id because /workflow/[id] routes by
-// session id in this app (see app/pages/workflow/[id].vue).
+// cost. Rows are keyed by workflow_id — workflows now own all durable state
+// (see migration 20260427000000_workflow_runtime_collapse).
 
 export type ScheduleFrequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export interface ScheduledWorkflowConfig {
-  session_id: string
+  workflow_id: string
   workspace_id: string
   active: boolean
   frequency: ScheduleFrequency
@@ -32,9 +32,9 @@ export type ScheduleUpsertInput = Pick<
 
 export function useScheduledWorkflows() {
   const { currentWorkspaceId } = useWorkspaces()
-  const { sessions } = useChatSessions()
+  const { sessions } = useWorkflowList()
 
-  // Shared session-level state so consumers on multiple pages de-duplicate.
+  // Shared workflow-level state so consumers on multiple pages de-duplicate.
   const list = useState<ScheduledWorkflowConfig[]>('workflow-schedules', () => [])
   const loaded = useState<boolean>('workflow-schedules-loaded', () => false)
   const loading = useState<boolean>('workflow-schedules-loading', () => false)
@@ -66,29 +66,35 @@ export function useScheduledWorkflows() {
     if (wsId) fetchList().catch(() => {})
   }, { immediate: true })
 
-  const nameFor = (sessionId: string): string => {
-    const s = sessions.value.find(x => x.id === sessionId)
-    return s?.title || `Workflow ${sessionId.slice(0, 8)}`
+  // Refetch when the server comes back online — without this, the initial
+  // fetch that failed during downtime never retries.
+  useOnReconnect(() => {
+    if (currentWorkspaceId.value) fetchList(true).catch(() => {})
+  })
+
+  const nameFor = (workflowId: string): string => {
+    const s = sessions.value.find(x => x.id === workflowId)
+    return s?.title || `Workflow ${workflowId.slice(0, 8)}`
   }
 
   const views = computed<ScheduledWorkflowView[]>(() =>
-    list.value.map(c => ({ ...c, workflow_name: nameFor(c.session_id) })),
+    list.value.map(c => ({ ...c, workflow_name: nameFor(c.workflow_id) })),
   )
   const active = computed<ScheduledWorkflowView[]>(() => views.value.filter(c => c.active))
 
-  function get(sessionId: string): ScheduledWorkflowView | null {
-    return views.value.find(c => c.session_id === sessionId) ?? null
+  function get(workflowId: string): ScheduledWorkflowView | null {
+    return views.value.find(c => c.workflow_id === workflowId) ?? null
   }
 
-  async function upsert(sessionId: string, input: ScheduleUpsertInput): Promise<ScheduledWorkflowConfig | null> {
+  async function upsert(workflowId: string, input: ScheduleUpsertInput): Promise<ScheduledWorkflowConfig | null> {
     const wsId = currentWorkspaceId.value
     if (!wsId) return null
     try {
       const saved = await $fetch<ScheduledWorkflowConfig>(
-        `/api/workspaces/${wsId}/workflow-schedules/${sessionId}`,
+        `/api/workspaces/${wsId}/workflow-schedules/${workflowId}`,
         { method: 'PUT', body: input },
       )
-      const idx = list.value.findIndex(c => c.session_id === sessionId)
+      const idx = list.value.findIndex(c => c.workflow_id === workflowId)
       if (idx === -1) list.value = [saved, ...list.value]
       else {
         const next = [...list.value]
@@ -103,12 +109,12 @@ export function useScheduledWorkflows() {
     }
   }
 
-  async function remove(sessionId: string): Promise<boolean> {
+  async function remove(workflowId: string): Promise<boolean> {
     const wsId = currentWorkspaceId.value
     if (!wsId) return false
     try {
-      await $fetch(`/api/workspaces/${wsId}/workflow-schedules/${sessionId}`, { method: 'DELETE' })
-      list.value = list.value.filter(c => c.session_id !== sessionId)
+      await $fetch(`/api/workspaces/${wsId}/workflow-schedules/${workflowId}`, { method: 'DELETE' })
+      list.value = list.value.filter(c => c.workflow_id !== workflowId)
       return true
     }
     catch (err) {

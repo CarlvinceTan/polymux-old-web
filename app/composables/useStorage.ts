@@ -31,14 +31,6 @@ export interface FileShare {
   created_at: string
 }
 
-export interface SharedFileReference {
-  workspace_id: string
-  file_path: string
-  permission_level: 'viewer' | 'editor'
-  created_by: string
-  created_at: string
-}
-
 interface UploadUrlResponse {
   url: string
   token: string
@@ -46,6 +38,14 @@ interface UploadUrlResponse {
   backend: 'supabase' | 'google-drive'
   method?: 'PUT' | 'POST'
   expires_at: string
+}
+
+interface FinalizeUploadResponse {
+  ok: true
+  path: string
+  size: number
+  backend: 'supabase' | 'google-drive' | 'local'
+  file_id?: string
 }
 
 interface RemoteDownloadUrlResponse {
@@ -85,13 +85,12 @@ function sanitizeFolderSegment(name: string): string {
 
 export function useStorage() {
   const user = useSupabaseUser()
-  const { isInstalled } = useMarketplace()
   const { currentWorkspace } = useWorkspaces()
+  const { resolvedOrder } = useStoragePreferences()
 
-  const provider = computed<StorageProvider>(() => {
-    if (isInstalled('google-drive')) return 'google-drive'
-    return 'supabase'
-  })
+  // Top-available provider from the user's persisted save order. Falls back
+  // to 'supabase' only if nothing is currently writable (e.g. signed out).
+  const provider = computed<StorageProvider>(() => resolvedOrder.value[0] ?? 'supabase')
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -146,14 +145,59 @@ export function useStorage() {
     error.value = null
     try {
       const base = baseUrl()
-      if (!authUserId() || !base) {
+      const workspaceId = getWorkspaceId()
+      if (!authUserId() || !base || !workspaceId) {
         error.value = 'Sign in to upload files.'
         return false
       }
       const path = joinPath(joinSegments(pathSegments), file.name)
+      const preferred = provider.value
+
+      if (preferred === 'local') {
+        const deviceId = useDeviceId()
+        if (!deviceId) {
+          error.value = 'This browser can\'t provide a device id for local storage.'
+          return false
+        }
+        const opfs = useWorkspaceLocalFiles()
+        if (!opfs.supported()) {
+          error.value = 'Local storage is not supported in this browser.'
+          return false
+        }
+        // Finalize first so the server assigns the row id we use as the OPFS
+        // key — that way /download-url's `file_id` lines up with the on-disk
+        // entry. If the OPFS write fails afterwards the row is orphaned, but
+        // the next upload overwrites it (path-unique upsert).
+        const fin = await $fetch<FinalizeUploadResponse>(`${base}/finalize-upload`, {
+          method: 'POST',
+          body: {
+            path,
+            size: file.size,
+            content_type: file.type,
+            backend: 'local',
+            backend_ref: deviceId,
+          },
+        })
+        if (!fin?.file_id) {
+          error.value = 'Local upload failed: missing file id.'
+          return false
+        }
+        await opfs.write(workspaceId, fin.file_id, file, {
+          path,
+          contentType: file.type || null,
+          size: file.size,
+        })
+        return true
+      }
+
       const signed = await $fetch<UploadUrlResponse>(`${base}/upload-url`, {
         method: 'POST',
-        body: { path, size: file.size, content_type: file.type },
+        body: {
+          path,
+          size: file.size,
+          content_type: file.type,
+          preferred_backend: preferred,
+        },
       })
 
       let backendRef: string | undefined
@@ -253,6 +297,36 @@ export function useStorage() {
     }
   }
 
+  // Cross-provider migration: moves items to `targetParent` AND switches their
+  // backend to `targetProvider`. Server-side for supabase ↔ google-drive;
+  // local-involving pairs currently error out (flagged phase-2). Returns a
+  // per-item breakdown so the caller can toast successes + failures without
+  // losing progress on partial completion.
+  interface MigrateItemsInput { path: string; kind: 'file' | 'folder' }
+  interface MigrateItemsResult {
+    migrated: Array<{ fromPath: string; toPath: string }>
+    errors: Array<{ path: string; reason: string }>
+  }
+  async function migrateItems(
+    items: MigrateItemsInput[],
+    targetProvider: StorageProvider,
+    targetParent: string,
+  ): Promise<MigrateItemsResult> {
+    const base = baseUrl()
+    if (!base) return { migrated: [], errors: items.map(i => ({ path: i.path, reason: 'no_workspace' })) }
+    try {
+      const res = await $fetch<MigrateItemsResult>(`${base}/migrate-items`, {
+        method: 'POST',
+        body: { items, targetProvider, targetParent },
+      })
+      return res
+    } catch (err) {
+      const reason = errorMessage(err, 'Migration failed')
+      error.value = reason
+      return { migrated: [], errors: items.map(i => ({ path: i.path, reason })) }
+    }
+  }
+
   async function reorderFiles(parentPath: string, orderedNames: string[]): Promise<boolean> {
     const base = baseUrl()
     if (!base) return false
@@ -318,9 +392,16 @@ export function useStorage() {
         folderOpMessage.value = 'Enter a valid folder name.'
         return false
       }
+      const backend = provider.value
+      const backendRef = backend === 'local' ? useDeviceId() : undefined
       await $fetch(`${base}/folder`, {
         method: 'POST',
-        body: { parent: joinSegments(pathSegments), name: safeName },
+        body: {
+          parent: joinSegments(pathSegments),
+          name: safeName,
+          backend,
+          ...(backendRef ? { backend_ref: backendRef } : {}),
+        },
       })
       return true
     } catch (err) {
@@ -482,16 +563,6 @@ export function useStorage() {
     }
   }
 
-  async function listSharedWithMe(): Promise<SharedFileReference[]> {
-    try {
-      const shares = await $fetch(`/api/workspaces/${getWorkspaceId()}/shared-with-me`)
-      return shares as SharedFileReference[]
-    } catch (err) {
-      error.value = errorMessage(err, 'Failed to list shared files')
-      return []
-    }
-  }
-
   async function validateSubdirectoryShare(filePath: string): Promise<{ canShare: boolean; message?: string; parentSharePath?: string; parentPermission?: string }> {
     try {
       const result = await $fetch(`/api/workspaces/${getWorkspaceId()}/files/validate-subdirectory-share`, {
@@ -523,6 +594,7 @@ export function useStorage() {
     uploadFile,
     deleteFiles,
     moveFile,
+    migrateItems,
     reorderFiles,
     renameFile,
     renameFolder,
@@ -534,7 +606,6 @@ export function useStorage() {
     stripUserPrefix,
     shareDirectory,
     unshareDirectory,
-    listSharedWithMe,
     validateSubdirectoryShare,
   }
 }

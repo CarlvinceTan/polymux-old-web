@@ -181,6 +181,24 @@ export default defineEventHandler(async (event) => {
     console.warn('[drive import] failed to count remaining', countError)
   }
 
+  // When the last drive-backed file leaves, flip any drive-backed folder rows
+  // to supabase too. Folders carry no bytes — they're metadata anchors for
+  // the FileBrowser's per-row provider icon. Leaving them on Drive after the
+  // files are gone strands the icon and (more importantly) lets a follow-up
+  // disconnect of the integration succeed even though the workspace still
+  // claims data lives on Drive.
+  if ((remaining ?? 0) === 0) {
+    const { error: folderError } = await admin
+      .from('files')
+      .update({ backend: 'supabase', backend_ref: null })
+      .eq('workspace_id', workspaceId)
+      .eq('backend', 'google-drive')
+      .eq('kind', 'folder')
+    if (folderError) {
+      console.warn('[drive import] failed to migrate folder rows', folderError)
+    }
+  }
+
   return {
     ok: true as const,
     migrated,

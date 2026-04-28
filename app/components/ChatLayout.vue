@@ -1,10 +1,11 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
-import type { ChatMessage, ChatMessageAttachment, SessionMode, SessionModeChangedPayload, SessionStatePayload, SetSessionModePayload, ViewportState } from '~/composables/types'
-import type { SessionHandle } from '~/composables/useSession'
+import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 
 export type { ChatMessage, ViewportState }
+
+export type ViewMode = 'chat' | 'viewport' | 'workflow'
 
 const { t } = useI18n()
 
@@ -32,6 +33,7 @@ const { attachments, addFiles, removeFile, clearAll } = useAttachments()
 
 const command = defineModel<string>('command', { required: true })
 const viewportList = defineModel<ViewportState[]>('viewportList', { required: true })
+const viewMode = defineModel<ViewMode>('viewMode', { default: 'chat' })
 
 const emit = defineEmits<{
   send: [value: string, attachments: ChatMessageAttachment[]]
@@ -43,52 +45,75 @@ const emit = defineEmits<{
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'retry-message': [index: number]
-  pause: []
 }>()
 
-const workflowMode = ref(false)
+// View-mode state (persistence + auto-switch on browser-agent activation) is
+// owned by the workflow page (`pages/workflow/[id].vue`) so it survives the
+// Agent / Schedule / Artifacts sub-tab toggles. ChatLayout just reads & writes
+// the v-model.
+const inChat = computed(() => props.hideViewSwitch || viewMode.value === 'chat')
+const inViewport = computed(() => !props.hideViewSwitch && viewMode.value === 'viewport')
+const inWorkflow = computed(() => !props.hideViewSwitch && viewMode.value === 'workflow')
 
-const injectedSession = inject<SessionHandle | null>('chat-session', null)
-const sessionMode = ref<SessionMode>('general')
+const showSwitch = computed(() => !props.hideViewSwitch)
 
-if (injectedSession) {
-  watch(injectedSession.sessionState, (s: Readonly<SessionStatePayload> | null) => {
-    if (s?.mode === 'general' || s?.mode === 'builder') sessionMode.value = s.mode
-  })
-  injectedSession.on<SessionModeChangedPayload>('session_mode_changed', (p) => {
-    if (p.mode === 'general' || p.mode === 'builder') sessionMode.value = p.mode
-  })
-}
-
-function setMode(next: SessionMode) {
-  if (next === sessionMode.value) return
-  sessionMode.value = next
-  injectedSession?.send<SetSessionModePayload>('set_session_mode', { mode: next })
-}
-
-function toggleMode() {
-  setMode(sessionMode.value === 'builder' ? 'general' : 'builder')
-}
-
-// True when the user has not sent anything yet AND no viewports exist.
-// Chat view with viewports still wants the dock visible even if the
-// transcript is momentarily empty (reconnects, etc.).
-const showWelcome = computed(() => props.welcome && !props.browserMode && !workflowMode.value)
+// Welcome only makes sense in the chat view; switching to viewport/workflow
+// means the user is opting into a different layout, even on a fresh session.
+const showWelcome = computed(() => props.welcome && inChat.value)
 
 const showSplitLayout = computed(() => !showWelcome.value)
-
-const agentActive = computed(() => !!props.waitingForAgent)
 
 const layoutContainer = ref<HTMLElement | null>(null)
 const chatPanelWidth = ref<number | null>(null)
 const initialChatPanelWidth = ref<number | null>(null)
 const isDragging = ref(false)
 
+let resizeObs: ResizeObserver | null = null
+
+// Keep the chat panel sized against the container's *current* width. The old
+// one-shot watch captured `clientWidth` at first mount and never recomputed,
+// so any later container size change (window resize, sidebar toggle, or the
+// laptop waking on a different display than it slept on) left `chatPanelWidth`
+// stuck at a stale absolute value — the panel would be wider than the new
+// container could afford, which squashed the chat content and pushed the
+// inline PromptInput off-screen until a reload re-derived the width.
+function syncWidthBounds(el: HTMLElement) {
+  const containerWidth = el.clientWidth
+  if (containerWidth === 0) return
+  const minWidth = Math.round(containerWidth * 0.38)
+  const maxWidth = Math.round(containerWidth / 2)
+  initialChatPanelWidth.value = minWidth
+  // Don't fight an in-progress drag; the user is setting the width directly.
+  if (isDragging.value && chatPanelWidth.value !== null) return
+  const current = chatPanelWidth.value
+  if (current === null) {
+    chatPanelWidth.value = minWidth
+    return
+  }
+  // Only re-clamp when the saved width no longer fits — otherwise preserve
+  // whatever width the user dragged to so transient resizes don't reset it.
+  if (current < minWidth || current > maxWidth) {
+    chatPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, current))
+  }
+}
+
 watch(layoutContainer, (el) => {
-  if (el && chatPanelWidth.value === null) {
-    const width = Math.round(el.clientWidth * 0.38)
-    chatPanelWidth.value = width
-    initialChatPanelWidth.value = width
+  if (resizeObs) {
+    resizeObs.disconnect()
+    resizeObs = null
+  }
+  if (!el) return
+  syncWidthBounds(el)
+  resizeObs = new ResizeObserver(() => {
+    if (layoutContainer.value) syncWidthBounds(layoutContainer.value)
+  })
+  resizeObs.observe(el)
+})
+
+onUnmounted(() => {
+  if (resizeObs) {
+    resizeObs.disconnect()
+    resizeObs = null
   }
 })
 
@@ -145,16 +170,16 @@ function onSend(value: string) {
       />
     </template>
 
-    <template v-if="!hideViewSwitch" #actions>
+    <template v-if="showSwitch" #actions>
       <div class="flex items-center rounded-lg bg-neutral-100 p-0.5">
         <button
           type="button"
           class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="!workflowMode
+          :class="inChat
             ? 'bg-white text-neutral-900 shadow-sm'
             : 'text-neutral-500 hover:text-neutral-700'"
           :aria-label="t('chat.chatView')"
-          @click="workflowMode = false"
+          @click="viewMode = 'chat'"
         >
           <UIcon name="i-heroicons-chat-bubble-left-right-20-solid" class="size-3.5" />
           <span class="hidden sm:inline">{{ t('chat.chatView') }}</span>
@@ -162,11 +187,23 @@ function onSend(value: string) {
         <button
           type="button"
           class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="workflowMode
+          :class="inViewport
+            ? 'bg-white text-neutral-900 shadow-sm'
+            : 'text-neutral-500 hover:text-neutral-700'"
+          :aria-label="t('chat.viewportView')"
+          @click="viewMode = 'viewport'"
+        >
+          <UIcon name="i-heroicons-computer-desktop-20-solid" class="size-3.5" />
+          <span class="hidden sm:inline">{{ t('chat.viewportView') }}</span>
+        </button>
+        <button
+          type="button"
+          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+          :class="inWorkflow
             ? 'bg-white text-neutral-900 shadow-sm'
             : 'text-neutral-500 hover:text-neutral-700'"
           :aria-label="t('chat.workflowView')"
-          @click="workflowMode = true"
+          @click="viewMode = 'workflow'"
         >
           <UIcon name="i-heroicons-square-3-stack-3d-20-solid" class="size-3.5" />
           <span class="hidden sm:inline">{{ t('chat.workflowView') }}</span>
@@ -188,7 +225,7 @@ function onSend(value: string) {
         class="flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-out md:flex-row md:gap-0"
       >
         <BrowserDock
-          v-if="browserMode"
+          v-if="inViewport"
           :viewport-list="viewportList"
           :frame-urls="frameUrls"
           :browser-agent-cap="props.browserAgentCap"
@@ -202,7 +239,7 @@ function onSend(value: string) {
         />
 
         <div
-          v-if="browserMode"
+          v-if="inViewport"
           class="relative z-10 hidden shrink-0 cursor-col-resize items-center justify-center md:flex"
           :class="isDragging ? 'bg-neutral-200' : 'hover:bg-neutral-100'"
           @pointerdown="startResize"
@@ -213,11 +250,11 @@ function onSend(value: string) {
 
         <div
           class="flex min-h-0 flex-col"
-          :class="browserMode ? 'shrink-0' : 'min-w-0 flex-1'"
-          :style="browserMode && chatPanelWidth ? { width: chatPanelWidth + 'px' } : {}"
+          :class="inViewport ? 'shrink-0' : 'min-w-0 flex-1'"
+          :style="inViewport && chatPanelWidth ? { width: chatPanelWidth + 'px' } : {}"
         >
           <ChatMessages
-            v-if="!workflowMode"
+            v-if="!inWorkflow"
             :messages="messages"
             :is-thinking="isThinking"
             :waiting-for-agent="waitingForAgent"
@@ -233,7 +270,7 @@ function onSend(value: string) {
           />
 
           <div
-            v-if="browserMode && !workflowMode"
+            v-if="inViewport"
             class="shrink-0 bg-white px-4 pb-3 sm:px-5 sm:pb-4"
             :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'"
           >
@@ -242,33 +279,25 @@ function onSend(value: string) {
               full-width
               :hint="t('chat.messagePlaceholder')"
               :attachments="attachments"
-              :agent-active="agentActive"
-              :session-mode="sessionMode"
               @send="onSend"
-              @pause="emit('pause')"
               @attach-files="onAttachFiles"
               @remove-file="onRemoveFile"
-              @toggle-mode="toggleMode"
             />
           </div>
         </div>
       </div>
     </div>
 
-    <template v-if="!workflowMode && !browserMode" #footer>
+    <template v-if="inChat" #footer>
       <div class="mx-auto w-full max-w-2xl">
         <PromptInput
           v-model="command"
           full-width
           :hint="t('chat.messagePlaceholder')"
           :attachments="attachments"
-          :agent-active="agentActive"
-          :session-mode="sessionMode"
           @send="onSend"
-          @pause="emit('pause')"
           @attach-files="onAttachFiles"
           @remove-file="onRemoveFile"
-          @toggle-mode="toggleMode"
         />
       </div>
     </template>

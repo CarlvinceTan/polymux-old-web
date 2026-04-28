@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { vDraggable } from 'vue-draggable-plus'
-import type { StorageFile, StorageFolder, SharedFileReference } from '~/composables/useStorage'
+import type { StorageFile, StorageFolder } from '~/composables/useStorage'
 import type { SelectedItem } from '~/components/ContextualActionBar.vue'
 import type { FileIconName } from '~/composables/useFileIcons'
 import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
+import type { MigrateConfirmGroup } from '~/components/MigrateConfirmModal.vue'
 
 const props = withDefaults(defineProps<{
   storageName?: string
@@ -11,7 +12,7 @@ const props = withDefaults(defineProps<{
   storageName: 'Workspace',
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, listSharedWithMe, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
 const { getIconForFile, getIconForFolder } = useFileIcons()
 const { t, locale } = useI18n()
 const toast = useAppToast()
@@ -52,13 +53,11 @@ function formatListDate(iso: string | null | undefined): string {
   })
 }
 
-// Check if this is shared files view
-const isSharedMode = computed(() => props.storageName === 'Shared')
-
 type ViewMode = 'icon' | 'list'
 const viewMode = ref<ViewMode>('icon')
 const searchQuery = ref('')
 const searchExpanded = ref(false)
+const searchFocused = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const currentPath = ref<string[]>([])
@@ -69,16 +68,29 @@ const folders = ref<StorageFolder[]>([])
 const files = ref<StorageFile[]>([])
 const currentOrder = ref<string[]>([])
 
-// Shared files grouped by source workspace
-interface SharedFileGroup {
-  workspaceId: string
-  workspaceName: string
-  files: Array<StorageFile & { permissionLevel: 'viewer' | 'editor' }>
+// In-memory per-directory cache keyed by `currentPath.join('/')`. Lets us paint
+// the last-seen listing instantly when navigating back to a visited folder
+// while the fresh fetch runs in the background (stale-while-revalidate).
+interface DirCacheEntry {
+  folders: StorageFolder[]
+  files: StorageFile[]
+  order: string[]
 }
-const sharedFileGroups = ref<SharedFileGroup[]>([])
+const directoryCache = new Map<string, DirCacheEntry>()
+
+function pathKey(segments: readonly string[]): string {
+  return segments.join('/')
+}
 
 const selectedItemId = ref<string | null>(null)
 const selectedItem = ref<SelectedItem | null>(null)
+// Multi-select: `selectedItemIds` is the full set of grey-highlighted items.
+// `selectedItemId`/`selectedItem` continue to track the primary (first
+// selected) item for single-target UI like ShareModal/FilePermissionsModal,
+// which accept one item. `isMultiSelection` gates batch-only toolbar behavior.
+const selectedItemIds = ref<Set<string>>(new Set())
+const selectedItemsMap = ref<Map<string, SelectedItem>>(new Map())
+const isMultiSelection = computed(() => selectedItemIds.value.size > 1)
 const isRenaming = ref(false)
 const renameInput = ref('')
 /** v-for refs become an array in Vue 3; normalize before focus/select */
@@ -131,9 +143,51 @@ const typedPreviewFile = computed<PreviewableFile | null>(() => {
   return f as PreviewableFile
 })
 
+interface MoveTreeNode {
+  name: string
+  path: string[]
+  children: MoveTreeNode[] | null
+  loadingPromise: Promise<void> | null
+  expanded: boolean
+  // `undefined` at the root — the workspace root isn't backed by any one
+  // provider. When the user picks the root as a destination, the effective
+  // provider is the user's currently preferred one (storageProvider.value).
+  provider?: StorageProvider
+}
+
 const isMoveModalOpen = ref(false)
-const movePath = ref<string[]>([])
-const moveFolders = ref<StorageFolder[]>([])
+const moveTreeRoot = ref<MoveTreeNode>({
+  name: '',
+  path: [],
+  children: null,
+  loadingPromise: null,
+  expanded: false,
+})
+const moveSelectedPath = ref<string[]>([])
+
+const visibleMoveNodes = computed<Array<{ node: MoveTreeNode; depth: number }>>(() => {
+  const out: Array<{ node: MoveTreeNode; depth: number }> = []
+  const visit = (node: MoveTreeNode, depth: number) => {
+    out.push({ node, depth })
+    if (node.expanded && node.children) {
+      for (const child of node.children) visit(child, depth + 1)
+    }
+  }
+  visit(moveTreeRoot.value, 0)
+  return out
+})
+
+function moveNodeKey(node: MoveTreeNode): string {
+  return node.path.length === 0 ? '__move_root__' : node.path.join('/')
+}
+
+function isMoveDestinationSelected(node: MoveTreeNode): boolean {
+  if (node.path.length !== moveSelectedPath.value.length) return false
+  for (let i = 0; i < node.path.length; i++) {
+    if (node.path[i] !== moveSelectedPath.value[i]) return false
+  }
+  return true
+}
 
 const pendingNewFolder = ref<{ draftName: string } | null>(null)
 const newFolderInputRef = ref<HTMLInputElement | null>(null)
@@ -255,47 +309,63 @@ function openFolder(folderName: string) {
   navigateToPath([...currentPath.value, folderName])
 }
 
+// Manual-position helpers. The grid's source of truth for ordering is the
+// server-persisted `file_order.ordered_names`; these helpers keep that list in
+// sync across create/rename/duplicate/upload/delete so new items land where
+// the user expects instead of snapping to the tail on the next refresh.
+
+function visibleNamesInCurrentView(): string[] {
+  // Seed from the names currently rendered. Pending placeholders shouldn't
+  // carry a rank.
+  const all = [
+    ...folders.value.filter(f => !f.name.startsWith('.')).map(f => f.name),
+    ...files.value.filter(f => !f.name.startsWith('.')).map(f => f.name),
+  ]
+  if (!currentOrder.value.length) return all
+  const rank = new Map<string, number>()
+  currentOrder.value.forEach((n, i) => rank.set(n, i))
+  return all.sort((a, b) => {
+    const ra = rank.get(a)
+    const rb = rank.get(b)
+    if (ra === undefined && rb === undefined) return 0
+    if (ra === undefined) return 1
+    if (rb === undefined) return -1
+    return ra - rb
+  })
+}
+
+/** Returns a mutable working copy of the ranked order, seeded from the current
+ * view if no explicit rank has been persisted yet. This avoids the "only the
+ * changed item is ranked, everything else falls to the tail" failure mode. */
+function snapshotOrder(): string[] {
+  if (currentOrder.value.length > 0) return [...currentOrder.value]
+  return visibleNamesInCurrentView()
+}
+
+async function persistOrder(orderedNames: string[]) {
+  currentOrder.value = orderedNames
+  const parentPath = currentPath.value.join('/')
+  const cached = directoryCache.get(pathKey(currentPath.value))
+  if (cached) cached.order = orderedNames
+  const ok = await reorderFiles(parentPath, orderedNames)
+  if (!ok) toast.show(t('storage.orderSaveFailed'), 'error')
+}
+
 async function refreshFiles() {
-  if (isSharedMode.value) {
-    // Load shared files grouped by source workspace
-    const sharedRefs = await listSharedWithMe()
-    const grouped = new Map<string, SharedFileGroup>()
-    
-    for (const ref of sharedRefs) {
-      if (!grouped.has(ref.workspace_id)) {
-        // Extract workspace name from file_path (format: workspace_id/main/{source_workspace_name}/{files})
-        const pathParts = ref.file_path.split('/')
-        const sourceWorkspaceName = pathParts[2] || 'Unknown'
-        grouped.set(ref.workspace_id, {
-          workspaceId: ref.workspace_id,
-          workspaceName: sourceWorkspaceName,
-          files: [],
-        })
-      }
-      
-      const group = grouped.get(ref.workspace_id)!
-      group.files.push({
-        id: `${ref.workspace_id}-${ref.file_path}`,
-        name: ref.file_path.split('/').pop() || '',
-        path: ref.file_path,
-        size: 0, // Would need to fetch from storage if needed
-        createdAt: ref.created_at,
-        provider: 'supabase',
-        permissionLevel: ref.permission_level,
-      })
-    }
-    
-    sharedFileGroups.value = Array.from(grouped.values())
-    folders.value = []
-    files.value = []
-  } else {
-    // Load workspace main files
-    const result = await listFiles(currentPath.value)
-    folders.value = result.folders
-    files.value = result.files
-    currentOrder.value = result.order ?? []
-    sharedFileGroups.value = []
-  }
+  // Snapshot the target path so a late-arriving response for the previous
+  // directory can't clobber the current one when the user navigates quickly.
+  const targetPath = [...currentPath.value]
+  const key = pathKey(targetPath)
+  const result = await listFiles(targetPath)
+  if (pathKey(currentPath.value) !== key) return
+  folders.value = result.folders
+  files.value = result.files
+  currentOrder.value = result.order ?? []
+  directoryCache.set(key, {
+    folders: result.folders,
+    files: result.files,
+    order: result.order ?? [],
+  })
 }
 
 // Also watch the active workspace id: `listFiles` silently returns an empty
@@ -304,12 +374,26 @@ async function refreshFiles() {
 // load can race and leave the browser permanently empty until remount.
 watch(
   [currentPath, () => currentWorkspace.value?.id],
-  ([, wsId]) => {
+  ([path, wsId]) => {
     if (!wsId) return
+    // Paint the cached listing instantly so the grid swaps without a fetch
+    // round-trip visible to the user; refreshFiles() then revalidates.
+    const cached = directoryCache.get(pathKey(path))
+    if (cached) {
+      folders.value = cached.folders
+      files.value = cached.files
+      currentOrder.value = cached.order
+    }
     refreshFiles()
   },
   { immediate: true },
 )
+
+// Invalidate the cache when the workspace flips so a stale listing from the
+// previous workspace never shows up in the new one.
+watch(() => currentWorkspace.value?.id, () => {
+  directoryCache.clear()
+})
 
 // Refresh when a Drive migration finishes so provider icons reflect the
 // new backend without requiring a manual reload.
@@ -417,40 +501,6 @@ function iconToFilterType(icon: FileIconName): string[] {
 }
 
 const filteredFiles = computed(() => {
-  // In shared mode, return grouped files differently
-  if (isSharedMode.value) {
-    const allItems: any[] = []
-    
-    for (const group of sharedFileGroups.value) {
-      // Add workspace header as a special item
-      allItems.push({
-        kind: 'workspace-header' as const,
-        id: `workspace-header-${group.workspaceId}`,
-        workspaceName: group.workspaceName,
-      })
-      
-      // Add files from this workspace
-      for (const file of group.files) {
-        const icon = getIconForFile(file.name)
-        allItems.push({
-          kind: 'file' as const,
-          name: file.name,
-          path: file.path,
-          provider: file.provider,
-          icon: icon as FileIconName,
-          id: file.id,
-          size: file.size,
-          createdAt: file.createdAt,
-          permissionLevel: file.permissionLevel,
-          sourceWorkspace: group.workspaceName,
-        })
-      }
-    }
-    
-    return allItems
-  }
-  
-  // Normal workspace file mode
   let resultFolders = folders.value.filter(f => !f.name.startsWith('.'))
   let resultFiles = files.value.filter(f => !f.name.startsWith('.'))
 
@@ -561,25 +611,30 @@ function isPendingRow(item: { isPendingNew?: boolean; isPendingDuplicate?: boole
   return item.isPendingNew === true || item.isPendingDuplicate === true
 }
 
-function selectItem(item: typeof filteredFiles.value[number]) {
-  // Skip workspace headers
-  if ('kind' in item && item.kind === 'workspace-header') {
-    return
-  }
-  
-  if (selectedItemId.value === item.id) {
-    deselectItem()
-    return
-  }
-  selectedItemId.value = item.id
-  selectedItem.value = {
+function toSelectedItem(item: typeof filteredFiles.value[number]): SelectedItem {
+  return {
     kind: item.kind,
     name: item.name,
     path: item.path,
     icon: item.icon,
     provider: item.provider as StorageProvider,
-    permissionLevel: 'permissionLevel' in item ? item.permissionLevel : undefined,
   }
+}
+
+function isSelected(id: string): boolean {
+  return selectedItemIds.value.has(id)
+}
+
+function selectItem(item: typeof filteredFiles.value[number]) {
+  if (selectedItemId.value === item.id && selectedItemIds.value.size === 1) {
+    deselectItem()
+    return
+  }
+  const entry = toSelectedItem(item)
+  selectedItemId.value = item.id
+  selectedItem.value = entry
+  selectedItemIds.value = new Set([item.id])
+  selectedItemsMap.value = new Map([[item.id, entry]])
   selectedFileExtra.value = 'size' in item
     ? { size: item.size as number, createdAt: item.createdAt as string }
     : null
@@ -587,15 +642,50 @@ function selectItem(item: typeof filteredFiles.value[number]) {
   searchQuery.value = ''
 }
 
+// Replace the current selection with the given set of items. Used by marquee
+// drag: we keep the first-added id as the primary so single-target UI still
+// has a sensible focus item even when several are highlighted. Accepts the
+// union type from `listItemsForView` (which includes pending rows) and
+// filters those out here so callers don't have to.
+function setSelectionFromItems(items: Array<{ id: string; kind?: string; name?: string; path?: string; icon?: unknown; provider?: unknown; isPendingNew?: boolean; isPendingDuplicate?: boolean; size?: number; createdAt?: string }>) {
+  const filtered = items.filter(i =>
+    !i.isPendingNew &&
+    !i.isPendingDuplicate &&
+    (i.kind === 'file' || i.kind === 'folder'),
+  ) as Array<typeof filteredFiles.value[number]>
+  if (filtered.length === 0) {
+    deselectItem()
+    return
+  }
+  const idSet = new Set<string>()
+  const entryMap = new Map<string, SelectedItem>()
+  for (const item of filtered) {
+    idSet.add(item.id)
+    entryMap.set(item.id, toSelectedItem(item))
+  }
+  selectedItemIds.value = idSet
+  selectedItemsMap.value = entryMap
+  const primary = filtered[0]!
+  selectedItemId.value = primary.id
+  selectedItem.value = toSelectedItem(primary)
+  selectedFileExtra.value = 'size' in primary
+    ? { size: primary.size as number, createdAt: primary.createdAt as string }
+    : null
+  searchExpanded.value = false
+  searchQuery.value = ''
+  isRenaming.value = false
+}
+
 function deselectItem() {
   selectedItemId.value = null
   selectedItem.value = null
+  selectedItemIds.value = new Set()
+  selectedItemsMap.value = new Map()
   selectedFileExtra.value = null
   isRenaming.value = false
 }
 
 function handleItemClick(item: typeof filteredFiles.value[number]) {
-  if ('kind' in item && item.kind === 'workspace-header') return
   if (item.kind === 'folder') {
     openFolder(item.name)
   } else {
@@ -604,7 +694,6 @@ function handleItemClick(item: typeof filteredFiles.value[number]) {
 }
 
 function handleFolderClick(item: typeof filteredFiles.value[number]) {
-  if ('kind' in item && item.kind === 'workspace-header') return
   if (selectedItemId.value === item.id) {
     deselectItem()
   } else {
@@ -638,6 +727,11 @@ async function handleFileUpload(event: Event) {
   // resolves so users see 1/4 → 2/4 → 3/4 → 4/4 rather than a frozen 0/N.
   const toastId = toast.show(t('storage.uploadProgress', { done: 0, total, files: filesLabel }), 'loading', 0)
   let failed = 0
+  // Seeded once at the start of the batch so siblings keep their current ranks
+  // and newly uploaded names append to the end rather than collapsing the
+  // existing order.
+  let workingOrder: string[] = snapshotOrder()
+  let orderChanged = false
 
   for (let i = 0; i < total; i++) {
     const file = filesToUpload[i]!
@@ -665,10 +759,18 @@ async function handleFileUpload(event: Event) {
       } else {
         files.value = [...files.value, record]
       }
+      if (!workingOrder.includes(file.name)) {
+        workingOrder.push(file.name)
+        orderChanged = true
+      }
     }
     toast.update(toastId, {
       message: t('storage.uploadProgress', { done: i + 1, total, files: filesLabel }),
     })
+  }
+
+  if (orderChanged && stillOnTarget()) {
+    await persistOrder(workingOrder)
   }
 
   if (failed === 0) {
@@ -718,7 +820,18 @@ async function commitPendingNewFolder() {
     provider: storageProvider.value,
   }
   const alreadyExists = folders.value.some(f => f.name === finalName)
-  if (!alreadyExists) folders.value = [...folders.value, optimisticFolder]
+  // Prepend + rank first so the new folder takes over the pending row's
+  // top-left slot when the pending clears. Appending instead would force every
+  // sibling to shift left by one cell, and refreshFiles() would later re-sort
+  // to alphabetical (or the persisted drag rank) and shift things again — the
+  // "shift left then back" the user sees. Persisting the rank keeps the
+  // server's subsequent listing aligned with what's already on screen.
+  let persistedOrder: string[] | null = null
+  if (!alreadyExists) {
+    folders.value = [optimisticFolder, ...folders.value]
+    persistedOrder = [finalName, ...currentOrder.value.filter(n => n !== finalName)]
+    currentOrder.value = persistedOrder
+  }
   pendingNewFolder.value = null
 
   void (async () => {
@@ -726,8 +839,12 @@ async function commitPendingNewFolder() {
     if (!ok) {
       if (!alreadyExists) {
         folders.value = folders.value.filter(f => f.path !== optimisticPath)
+        currentOrder.value = currentOrder.value.filter(n => n !== finalName)
       }
       return
+    }
+    if (persistedOrder) {
+      await reorderFiles(parentJoined, persistedOrder)
     }
     await refreshFiles()
   })()
@@ -766,18 +883,76 @@ function nextDuplicateName(sourceName: string, kind: 'file' | 'folder'): string 
 }
 
 function startDuplicate() {
-  if (!selectedItem.value) return
+  if (selectedItemsMap.value.size === 0) return
   if (pendingDuplicate.value) return
   if (pendingNewFolder.value) cancelPendingNewFolder()
   folderOpMessage.value = null
+
+  // Multi-select: skip the inline-rename prompt (one input can only edit one
+  // name) and duplicate each item with an auto-generated " copy" name. Single
+  // select keeps the inline rename so the user can tweak the copy's name
+  // before commit.
+  if (isMultiSelection.value) {
+    const targets = Array.from(selectedItemsMap.value.values())
+    deselectItem()
+    void (async () => {
+      const takenNames = new Set<string>()
+      for (const f of folders.value) takenNames.add(f.name)
+      for (const f of files.value) takenNames.add(f.name)
+      let anyFailed = false
+      for (const item of targets) {
+        const finalName = reserveDuplicateName(item.name, item.kind, takenNames)
+        takenNames.add(finalName)
+        const ok = await performDuplicate(item, finalName)
+        if (!ok) anyFailed = true
+      }
+      if (anyFailed) toast.show(t('storage.orderSaveFailed'), 'error')
+      await refreshFiles()
+    })()
+    return
+  }
+
+  const primary = selectedItem.value
+  if (!primary) return
   pendingDuplicate.value = {
-    draftName: nextDuplicateName(selectedItem.value.name, selectedItem.value.kind),
-    sourceKind: selectedItem.value.kind,
-    sourceName: selectedItem.value.name,
-    sourceIcon: selectedItem.value.icon,
+    draftName: nextDuplicateName(primary.name, primary.kind),
+    sourceKind: primary.kind,
+    sourceName: primary.name,
+    sourceIcon: primary.icon,
   }
   deselectItem()
   focusDuplicateInput()
+}
+
+// Shared name-picker that takes an explicit `taken` set so batch duplication
+// doesn't hand the same " copy" name to two sibling items.
+function reserveDuplicateName(sourceName: string, kind: 'file' | 'folder', taken: Set<string>): string {
+  if (kind === 'file') {
+    const lastDot = sourceName.lastIndexOf('.')
+    const baseName = lastDot > 0 ? sourceName.slice(0, lastDot) : sourceName
+    const ext = lastDot > 0 ? sourceName.slice(lastDot) : ''
+    let candidate = `${baseName} copy${ext}`
+    if (!taken.has(candidate)) return candidate
+    let n = 2
+    while (taken.has(`${baseName} copy ${n}${ext}`)) n++
+    return `${baseName} copy ${n}${ext}`
+  }
+  let candidate = `${sourceName} copy`
+  if (!taken.has(candidate)) return candidate
+  let n = 2
+  while (taken.has(`${sourceName} copy ${n}`)) n++
+  return `${sourceName} copy ${n}`
+}
+
+async function performDuplicate(item: SelectedItem, finalName: string): Promise<boolean> {
+  if (item.kind === 'file') {
+    const rel = stripUserPrefix(item.path)
+    const lastSlash = rel.lastIndexOf('/')
+    const dir = lastSlash >= 0 ? rel.slice(0, lastSlash + 1) : ''
+    return await copyStorageFile(rel, `${dir}${finalName}`)
+  }
+  const sourceSegments = [...currentPath.value, item.name]
+  return await copyStorageFolder(sourceSegments, finalName)
 }
 
 async function commitPendingDuplicate() {
@@ -793,6 +968,14 @@ async function commitPendingDuplicate() {
     return
   }
 
+  // Rank the duplicate immediately after its source so the new entry appears
+  // right where the user expects rather than at the tail after the next
+  // listing refresh.
+  const nextOrder = snapshotOrder().filter(n => n !== finalName)
+  const srcIdx = nextOrder.indexOf(state.sourceName)
+  if (srcIdx >= 0) nextOrder.splice(srcIdx + 1, 0, finalName)
+  else nextOrder.push(finalName)
+
   if (state.sourceKind === 'file') {
     const itemRelativePath = stripUserPrefix(
       files.value.find(f => f.name === state.sourceName)?.path ?? ''
@@ -803,6 +986,7 @@ async function commitPendingDuplicate() {
     const ok = await copyStorageFile(itemRelativePath, destPath)
     if (ok) {
       pendingDuplicate.value = null
+      await persistOrder(nextOrder)
       await refreshFiles()
     }
   } else {
@@ -810,6 +994,7 @@ async function commitPendingDuplicate() {
     const ok = await copyStorageFolder(sourceSegments, finalName)
     if (ok) {
       pendingDuplicate.value = null
+      await persistOrder(nextOrder)
       await refreshFiles()
     }
   }
@@ -875,14 +1060,11 @@ async function confirmRename() {
   }
   // Keep the manual-position rank tied to the renamed item — otherwise the old
   // name lingers in currentOrder, the new name is unranked, and the item drops
-  // to the tail on next refresh.
-  const oldRankIdx = currentOrder.value.indexOf(item.name)
-  let renamedOrder: string[] | null = null
-  if (oldRankIdx >= 0) {
-    renamedOrder = [...currentOrder.value]
-    renamedOrder[oldRankIdx] = newName
-    currentOrder.value = renamedOrder
-  }
+  // to the tail on next refresh. Seed from the current view when no explicit
+  // order has been persisted yet so siblings don't collapse to unranked.
+  const renamedOrder = snapshotOrder().map(n => (n === item.name ? newName : n))
+  if (!renamedOrder.includes(newName)) renamedOrder.push(newName)
+  currentOrder.value = renamedOrder
   isRenaming.value = false
   deselectItem()
 
@@ -895,12 +1077,7 @@ async function confirmRename() {
       await refreshFiles()
       return
     }
-    if (renamedOrder) {
-      // Fire-and-forget: persist the updated rank so a fresh page load keeps
-      // the user's manual position for the renamed item.
-      const parentPath = currentPath.value.join('/')
-      void reorderFiles(parentPath, renamedOrder)
-    }
+    await persistOrder(renamedOrder)
     await refreshFiles()
   })()
 }
@@ -911,79 +1088,324 @@ function cancelRename() {
 }
 
 async function handleDelete() {
-  if (!selectedItem.value) return
-  const item = selectedItem.value
-  const relativePath = stripUserPrefix(item.path)
+  const targets = Array.from(selectedItemsMap.value.values())
+  if (targets.length === 0) return
 
-  // Optimistic UI: drop the item from view immediately rather than waiting on
-  // the backend. refreshFiles() reconciles (and restores the row) on failure.
-  if (item.kind === 'folder') {
-    folders.value = folders.value.filter(f => f.path !== item.path)
-  } else {
-    files.value = files.value.filter(f => f.path !== item.path)
-    if (isSharedMode.value) {
-      sharedFileGroups.value = sharedFileGroups.value
-        .map(g => ({ ...g, files: g.files.filter(f => f.path !== item.path) }))
-        .filter(g => g.files.length > 0)
-    }
+  // Split by kind so each `deleteFiles` call stays homogeneous — the backend
+  // takes a single `kind` per batch.
+  const filePaths = new Set<string>()
+  const folderPaths = new Set<string>()
+  const allItemPaths = new Set<string>()
+  const allItemNames = new Set<string>()
+  for (const item of targets) {
+    allItemPaths.add(item.path)
+    allItemNames.add(item.name)
+    const rel = stripUserPrefix(item.path)
+    if (item.kind === 'folder') folderPaths.add(rel)
+    else filePaths.add(rel)
   }
+
+  // Optimistic removal from the current view. `refreshFiles()` reconciles if
+  // the backend rejects the delete.
+  folders.value = folders.value.filter(f => !allItemPaths.has(f.path))
+  files.value = files.value.filter(f => !allItemPaths.has(f.path))
+  const pruned = currentOrder.value.filter(n => !allItemNames.has(n))
+  const orderChanged = pruned.length !== currentOrder.value.length
+  if (orderChanged) currentOrder.value = pruned
   deselectItem()
 
   void (async () => {
-    const ok = await deleteFiles([relativePath], item.kind)
-    if (!ok) {
+    const ops: Array<Promise<boolean>> = []
+    if (filePaths.size > 0) ops.push(deleteFiles([...filePaths], 'file'))
+    if (folderPaths.size > 0) ops.push(deleteFiles([...folderPaths], 'folder'))
+    const results = await Promise.all(ops)
+    const allOk = results.every(Boolean)
+    if (!allOk) {
       toast.show(t('storage.deleteFailed'), 'error')
       await refreshFiles()
+      return
     }
+    if (orderChanged) await persistOrder(pruned)
   })()
 }
 
 async function openMoveModal() {
-  if (!selectedItem.value) return
-  movePath.value = [...currentPath.value]
-  isMoveModalOpen.value = true
-  await loadMoveFolders()
-}
-
-async function loadMoveFolders() {
-  const result = await listFiles(movePath.value)
-  moveFolders.value = result.folders.filter(f => {
-    const folderName = f.name
-    if (selectedItem.value?.kind === 'folder' && folderName === selectedItem.value.name) return false
-    return true
-  })
-}
-
-function navigateMoveFolder(folderName: string) {
-  movePath.value = [...movePath.value, folderName]
-  loadMoveFolders()
-}
-
-function navigateMoveBreadcrumb(index: number) {
-  if (index === 0) {
-    movePath.value = []
-  } else {
-    movePath.value = movePath.value.slice(0, index)
+  if (selectedItemsMap.value.size === 0) return
+  const initialPath = [...currentPath.value]
+  moveTreeRoot.value = {
+    name: '',
+    path: [],
+    children: null,
+    loadingPromise: null,
+    expanded: false,
   }
-  loadMoveFolders()
+  moveSelectedPath.value = initialPath
+  isMoveModalOpen.value = true
+  await expandMoveNode(moveTreeRoot.value)
+  let cursor: MoveTreeNode = moveTreeRoot.value
+  for (const segment of initialPath) {
+    const child = cursor.children?.find(c => c.name === segment)
+    if (!child) break
+    await expandMoveNode(child)
+    cursor = child
+  }
+}
+
+async function loadMoveNodeChildren(node: MoveTreeNode): Promise<void> {
+  if (node.children !== null) return
+  if (node.loadingPromise) {
+    await node.loadingPromise
+    return
+  }
+  const promise = (async () => {
+    const result = await listFiles(node.path)
+    const excluded = new Set<string>()
+    for (const item of selectedItemsMap.value.values()) {
+      if (item.kind !== 'folder') continue
+      excluded.add(stripUserPrefix(item.path))
+    }
+    node.children = result.folders
+      .filter((f) => {
+        const childPath = [...node.path, f.name].join('/')
+        return !excluded.has(childPath)
+      })
+      .map<MoveTreeNode>(f => ({
+        name: f.name,
+        path: [...node.path, f.name],
+        children: null,
+        loadingPromise: null,
+        expanded: false,
+        provider: f.provider as StorageProvider,
+      }))
+  })()
+  node.loadingPromise = promise
+  try {
+    await promise
+  } finally {
+    node.loadingPromise = null
+  }
+}
+
+// Prefetch one level deeper than what will be rendered so each visible child's
+// chevron reflects whether it has subfolders, without waiting for a user click.
+async function expandMoveNode(node: MoveTreeNode): Promise<void> {
+  await loadMoveNodeChildren(node)
+  const children = node.children ?? []
+  await Promise.all(children.map(c => loadMoveNodeChildren(c)))
+  node.expanded = true
+}
+
+async function toggleMoveNodeExpand(node: MoveTreeNode): Promise<void> {
+  if (node.expanded) {
+    node.expanded = false
+  } else {
+    await expandMoveNode(node)
+  }
+}
+
+function selectMoveDestination(node: MoveTreeNode) {
+  moveSelectedPath.value = [...node.path]
+  if (!node.expanded && node.children !== null && node.children.length > 0) {
+    void expandMoveNode(node)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Move vs cross-provider migration.
+//
+// Any code path that moves items into a folder (drag-drop + Move-To modal)
+// routes through `beginMoveOrMigrate`. If every item already lives on the
+// destination folder's provider, it's a plain move via the existing moveFile
+// endpoint (fast, no data transfer). If any item lives on a different
+// provider, we open the MigrateConfirmModal; the user confirms, and the
+// server-side /files/migrate-items handler copies the bytes + flips the
+// metadata + drops the source. Partial failures leave successes intact and
+// surface an error toast listing the count that failed — per product spec.
+
+interface PlannedMigrationItem {
+  path: string
+  name: string
+  kind: 'file' | 'folder'
+  provider: StorageProvider
+  icon: FileIconName
+}
+
+interface PendingMigration {
+  items: PlannedMigrationItem[]
+  targetProvider: StorageProvider
+  targetParent: string
+  targetParentName: string
+  onComplete: () => void | Promise<void>
+}
+
+const pendingMigration = ref<PendingMigration | null>(null)
+const isMigrationRunning = ref(false)
+
+const migrationGroups = computed<MigrateConfirmGroup[]>(() => {
+  const m = pendingMigration.value
+  if (!m) return []
+  const byProvider = new Map<StorageProvider, MigrateConfirmGroup>()
+  for (const item of m.items) {
+    // Only list cross-provider items in the modal — same-provider items pass
+    // through as a normal move and don't need user consent.
+    if (item.provider === m.targetProvider) continue
+    const existing = byProvider.get(item.provider)
+    if (existing) {
+      existing.items.push({ name: item.name, kind: item.kind, icon: item.icon })
+    } else {
+      byProvider.set(item.provider, {
+        sourceProvider: item.provider,
+        items: [{ name: item.name, kind: item.kind, icon: item.icon }],
+      })
+    }
+  }
+  return Array.from(byProvider.values())
+})
+
+function beginMoveOrMigrate(
+  items: PlannedMigrationItem[],
+  targetProvider: StorageProvider,
+  targetParent: string,
+  targetParentName: string,
+  onDone: () => void | Promise<void>,
+) {
+  if (items.length === 0) return
+  const hasMismatch = items.some(i => i.provider !== targetProvider)
+  if (!hasMismatch) {
+    // Fast path: pure same-provider move via existing endpoint. We stay out
+    // of migrateItems here so same-provider moves keep their original
+    // optimistic-UI behavior (which callers already set up before calling
+    // this helper).
+    void (async () => {
+      let anyFailed = false
+      for (const item of items) {
+        const rel = stripUserPrefix(item.path)
+        const dest = targetParent.length > 0 ? `${targetParent}/${item.name}` : item.name
+        const ok = await moveFile(rel, dest, item.kind)
+        if (!ok) anyFailed = true
+      }
+      if (anyFailed) toast.show(t('storage.orderSaveFailed'), 'error')
+      await onDone()
+    })()
+    return
+  }
+  pendingMigration.value = {
+    items,
+    targetProvider,
+    targetParent,
+    targetParentName,
+    onComplete: onDone,
+  }
+}
+
+async function confirmMigration() {
+  const m = pendingMigration.value
+  if (!m) return
+  isMigrationRunning.value = true
+  const total = m.items.length
+  // Sticky loading toast (duration 0 = no auto-dismiss) stays up for the
+  // whole request. On completion we dismiss it and raise a fresh info/error
+  // toast with a fixed lifetime — useAppToast.update can change message/type
+  // but not duration, so we take the dismiss-and-show route.
+  const loadingToastId = toast.show(
+    `Migrating ${total} item${total === 1 ? '' : 's'}…`,
+    'loading',
+    0,
+  )
+  try {
+    const payload = m.items.map(i => ({ path: stripUserPrefix(i.path), kind: i.kind }))
+    const result = await migrateItems(payload, m.targetProvider, m.targetParent)
+    toast.dismiss(loadingToastId)
+    const migratedCount = result.migrated.length
+    const errorCount = result.errors.length
+    if (errorCount === 0) {
+      toast.show(
+        `Migrated ${migratedCount} item${migratedCount === 1 ? '' : 's'}`,
+        'info',
+        4000,
+      )
+    } else if (migratedCount === 0) {
+      const firstReason = result.errors[0]?.reason ?? 'unknown error'
+      toast.show(`Migration failed: ${firstReason}`, 'error', 6000)
+    } else {
+      toast.show(`Migrated ${migratedCount}, ${errorCount} failed`, 'error', 6000)
+    }
+  }
+  catch (err) {
+    toast.dismiss(loadingToastId)
+    const reason = err instanceof Error ? err.message : String(err)
+    toast.show(`Migration failed: ${reason}`, 'error', 6000)
+  }
+  finally {
+    const onComplete = m.onComplete
+    pendingMigration.value = null
+    isMigrationRunning.value = false
+    // Cross-provider changes touch multiple paths (source + target + any
+    // descendants for folder drags). The path-keyed directoryCache would
+    // paint stale entries if the user navigated back to the source right
+    // after migration. Clearing the whole cache is cheap — entries get
+    // repopulated on next listing — and sidesteps any partial-invalidation
+    // bugs.
+    directoryCache.clear()
+    await onComplete()
+  }
+}
+
+async function cancelMigration() {
+  const m = pendingMigration.value
+  pendingMigration.value = null
+  if (m) await m.onComplete()
 }
 
 async function confirmMove() {
-  if (!selectedItem.value) return
-  const itemRelativePath = stripUserPrefix(selectedItem.value.path)
-  const itemName = selectedItem.value.name
-  const destinationPath = movePath.value.length > 0
-    ? `${movePath.value.join('/')}/${itemName}`
-    : itemName
-  await moveFile(itemRelativePath, destinationPath, selectedItem.value.kind)
+  const targets = Array.from(selectedItemsMap.value.values())
+  if (targets.length === 0) return
+  const destDir = moveSelectedPath.value.join('/')
+  // Resolve destination provider from the picked node. Root falls back to the
+  // user's preferred provider — there's no single "root provider".
+  const destNode = findMoveNode(moveSelectedPath.value)
+  const destProvider: StorageProvider = destNode?.provider ?? storageProvider.value
+  const destName = moveSelectedPath.value.length === 0
+    ? 'Home'
+    : (moveSelectedPath.value[moveSelectedPath.value.length - 1] ?? 'Home')
+
+  const planned: PlannedMigrationItem[] = targets.map(item => ({
+    path: item.path,
+    name: item.name,
+    kind: item.kind,
+    provider: item.provider,
+    icon: item.icon,
+  }))
+
+  // Close move modal before (potentially) opening the migrate modal so we
+  // don't stack two modals on top of each other.
   isMoveModalOpen.value = false
-  deselectItem()
-  await refreshFiles()
+
+  beginMoveOrMigrate(
+    planned,
+    destProvider,
+    destDir,
+    destName,
+    async () => {
+      deselectItem()
+      await refreshFiles()
+    },
+  )
+}
+
+function findMoveNode(path: string[]): MoveTreeNode | null {
+  let cursor: MoveTreeNode = moveTreeRoot.value
+  for (const segment of path) {
+    const next = cursor.children?.find(c => c.name === segment)
+    if (!next) return null
+    cursor = next
+  }
+  return cursor
 }
 
 function cancelMove() {
   isMoveModalOpen.value = false
-  movePath.value = []
+  moveSelectedPath.value = []
 }
 
 async function handleDownload() {
@@ -1003,7 +1425,22 @@ async function handleDownload() {
 type DisplayItem = (typeof listItemsForView.value)[number]
 const displayItems = ref<DisplayItem[]>([])
 let suppressRebuild = false
-let pendingDropInto: { name: string; path: string; element: HTMLElement } | null = null
+let pendingDropInto: { name: string; path: string; element: HTMLElement; provider: StorageProvider } | null = null
+// Reactive drag flag: while an item is being dragged, siblings suppress their
+// hover highlight so the only visible affordance is the drop-into outline from
+// `pendingDropInto`. Without this, CSS `:hover` still matches under the cursor
+// and every row lights up as the drag passes over it.
+const isDragging = ref(false)
+
+// Multi-drag: when the user grabs an item that's part of a multi-selection, we
+// freeze the selection, block SortableJS reorders (drop-into-folder only), and
+// render a custom stacked-icon ghost that follows the cursor. The regular
+// SortableJS clone stays transparent (see `.fb-drag` CSS) so it doesn't
+// conflict visually.
+const multiDragActive = ref(false)
+const multiDragHasMoved = ref(false)
+const multiDragCursor = ref<{ x: number; y: number } | null>(null)
+const multiDragItems = ref<SelectedItem[]>([])
 
 watch(listItemsForView, (next) => {
   if (suppressRebuild) {
@@ -1017,7 +1454,7 @@ function clearDropIntoHighlight() {
   document.querySelectorAll('.fb-drop-into').forEach(el => el.classList.remove('fb-drop-into'))
 }
 
-function parseRowData(el: HTMLElement | null | undefined): { kind: 'file' | 'folder'; name: string; path: string } | null {
+function parseRowData(el: HTMLElement | null | undefined): { kind: 'file' | 'folder'; name: string; path: string; provider?: StorageProvider } | null {
   const raw = el?.dataset?.item
   if (!raw) return null
   try {
@@ -1036,12 +1473,24 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
   const related = evt.related as HTMLElement | null
   const dragged = parseRowData(evt.dragged as HTMLElement | null)
   const target = parseRowData(related)
-  if (!dragged || !target) return true
+  if (!target) return true
 
-  // Never drop onto self.
-  if (target.path === dragged.path) return false
-  // Never drop a folder into its own descendant.
-  if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
+  // Reject targets that are part of the multi-drag selection (can't drop the
+  // group into one of its own members), and folders that are ancestors of any
+  // selected folder. In single-drag we check only the dragged item; in
+  // multi-drag every selected folder is a potential source.
+  if (multiDragActive.value) {
+    for (const item of multiDragItems.value) {
+      if (target.path === item.path) return false
+      if (item.kind === 'folder' && target.path.startsWith(`${item.path}/`)) return false
+    }
+  } else {
+    if (!dragged) return true
+    // Never drop onto self.
+    if (target.path === dragged.path) return false
+    // Never drop a folder into its own descendant.
+    if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
+  }
 
   // Drop-into-folder zone. In LIST view the middle ~30% of a row's height is
   // the trigger; top/bottom edges pass through to a reorder swap. In ICON
@@ -1067,10 +1516,18 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
     const inMid = viewMode.value === 'icon' ? (inMidX && inMidY) : inMidY
     if (inMid) {
       related.classList.add('fb-drop-into')
-      pendingDropInto = { name: target.name, path: target.path, element: related }
+      pendingDropInto = {
+        name: target.name,
+        path: target.path,
+        element: related,
+        provider: (target.provider as StorageProvider) ?? storageProvider.value,
+      }
       return false
     }
   }
+  // In multi-drag, never let SortableJS reorder — the group is represented by
+  // the floating stack, not by a position in the current list.
+  if (multiDragActive.value) return false
   return true
 }
 
@@ -1081,6 +1538,14 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
 // cursor leaves the stored folder's drop-into zone, so the highlight lets go
 // in real time and the drop doesn't fall into the wrong folder.
 function onDragPointerMove(ev: PointerEvent) {
+  // Track cursor for the multi-drag stacked ghost. Once the user has actually
+  // moved after grabbing, flip `multiDragHasMoved` so the stack becomes
+  // visible — per spec, a plain grab with no motion should look like a normal
+  // selection, not a collapsed bundle.
+  if (multiDragActive.value) {
+    multiDragCursor.value = { x: ev.clientX, y: ev.clientY }
+    if (!multiDragHasMoved.value) multiDragHasMoved.value = true
+  }
   if (!pendingDropInto) return
   const rect = pendingDropInto.element.getBoundingClientRect()
   const inMidY = ev.clientY >= rect.top + rect.height * 0.35 &&
@@ -1097,15 +1562,97 @@ function onDragPointerMove(ev: PointerEvent) {
   }
 }
 
-function onSortableStart() {
+function onSortableStart(evt: any) {
+  const item = evt?.item as HTMLElement | undefined
+  const grabbedId = item?.dataset?.id ?? null
+  // Match the grabbed row against the existing selection by id first, with a
+  // path fallback in case the row re-rendered between select and grab and the
+  // id reference drifted. Any match proves "this grab happened within a
+  // selected item's handle", which is the cue to enter multi-drag.
+  const grabbedPath = item ? parseRowData(item)?.path ?? null : null
+  let grabbedIsSelected = false
+  if (grabbedId && selectedItemIds.value.has(grabbedId)) {
+    grabbedIsSelected = true
+  } else if (grabbedPath) {
+    for (const sel of selectedItemsMap.value.values()) {
+      if (sel.path === grabbedPath) { grabbedIsSelected = true; break }
+    }
+  }
+
+  if (grabbedIsSelected && selectedItemIds.value.size > 1) {
+    // Keep the selection so `isSelected()` keeps returning true for every row;
+    // the opacity binding fades them together this same frame so there's no
+    // window where only the grabbed item looks ghosted (which otherwise reads
+    // as single-item drag).
+    multiDragActive.value = true
+    multiDragHasMoved.value = false
+    multiDragCursor.value = null
+    multiDragItems.value = Array.from(selectedItemsMap.value.values())
+  } else {
+    // Single-item path: drop the prior focus border so the one dragged row
+    // doesn't carry a lingering selection highlight.
+    deselectItem()
+  }
+  isDragging.value = true
   document.addEventListener('pointermove', onDragPointerMove, true)
 }
 
 async function onSortableEnd(evt: any) {
+  isDragging.value = false
   document.removeEventListener('pointermove', onDragPointerMove, true)
   const dropTarget = pendingDropInto
   pendingDropInto = null
   clearDropIntoHighlight()
+
+  // Multi-drag branch: either drop the whole group into a target folder, or
+  // cancel (no reorder was allowed anyway since onMove returned false).
+  if (multiDragActive.value) {
+    const items = multiDragItems.value.slice()
+    const droppedInto = dropTarget
+    multiDragActive.value = false
+    multiDragHasMoved.value = false
+    multiDragCursor.value = null
+    multiDragItems.value = []
+
+    if (!droppedInto || items.length === 0) {
+      // Nothing to do — SortableJS didn't move anything because onMove
+      // rejected every swap. Keep the current displayItems; selection stays.
+      return
+    }
+
+    const planned: PlannedMigrationItem[] = items.map(i => ({
+      path: i.path,
+      name: i.name,
+      kind: i.kind,
+      provider: i.provider,
+      icon: i.icon,
+    }))
+    const hasCrossProvider = planned.some(i => i.provider !== droppedInto.provider)
+
+    // Same-provider batch: keep the snappy optimistic removal. Cross-provider
+    // would ask the user first, so we leave items visible until they confirm.
+    if (!hasCrossProvider) {
+      const movedPaths = new Set(items.map(i => i.path))
+      suppressRebuild = true
+      displayItems.value = listItemsForView.value.filter((row) => {
+        const p = (row as { path?: unknown }).path
+        return typeof p !== 'string' || !movedPaths.has(p)
+      })
+      deselectItem()
+    }
+
+    beginMoveOrMigrate(
+      planned,
+      droppedInto.provider,
+      stripUserPrefix(droppedInto.path),
+      droppedInto.name,
+      async () => {
+        if (hasCrossProvider) deselectItem()
+        await refreshFiles()
+      },
+    )
+    return
+  }
 
   if (dropTarget) {
     const dragged = parseRowData(evt.item as HTMLElement)
@@ -1115,35 +1662,50 @@ async function onSortableEnd(evt: any) {
       return
     }
 
-    // Optimistic UI: the item is now (conceptually) inside the target folder,
-    // so drop it from the current view immediately instead of snapping it back
-    // and waiting on the backend. Filter from listItemsForView so the order
-    // reflects source-of-truth rather than SortableJS's mid-drag mutation.
-    suppressRebuild = true
-    displayItems.value = listItemsForView.value.filter((item) => {
-      const p = (item as { path?: unknown }).path
-      return typeof p !== 'string' || p !== dragged.path
-    })
-    deselectItem()
+    const draggedProvider: StorageProvider = (dragged.provider as StorageProvider) ?? storageProvider.value
+    const kind = dragged.kind
+    const icon: FileIconName = kind === 'folder'
+      ? (getIconForFolder() as FileIconName)
+      : (getIconForFile(dragged.name) as FileIconName)
 
-    const relativePath = stripUserPrefix(dragged.path)
-    const destPath = `${dropTarget.path}/${dragged.name}`
+    const planned: PlannedMigrationItem = {
+      path: dragged.path,
+      name: dragged.name,
+      kind,
+      provider: draggedProvider,
+      icon,
+    }
+    const isCrossProvider = draggedProvider !== dropTarget.provider
 
-    // Fire-and-forget backend sync. refreshFiles reconciles with real state
-    // (including reverting the optimistic removal if the move failed).
-    void (async () => {
-      const ok = await moveFile(relativePath, destPath, dragged.kind)
-      if (!ok) toast.show(t('storage.orderSaveFailed'), 'error')
-      await refreshFiles()
-    })()
+    // Same-provider single drag: match the original optimistic-UI flow so the
+    // item disappears immediately while the move resolves. Cross-provider
+    // waits for the modal confirmation before touching the view.
+    if (!isCrossProvider) {
+      suppressRebuild = true
+      displayItems.value = listItemsForView.value.filter((item) => {
+        const p = (item as { path?: unknown }).path
+        return typeof p !== 'string' || p !== dragged.path
+      })
+      deselectItem()
+    }
+
+    beginMoveOrMigrate(
+      [planned],
+      dropTarget.provider,
+      stripUserPrefix(dropTarget.path),
+      dropTarget.name,
+      async () => {
+        if (isCrossProvider) deselectItem()
+        await refreshFiles()
+      },
+    )
     return
   }
 
-  // Pure reorder — persist the new order. Pending rows and shared-mode
-  // workspace headers are excluded from the persisted list.
+  // Pure reorder — persist the new order. Pending rows are excluded.
   const parentPath = currentPath.value.join('/')
   const orderedNames = displayItems.value
-    .filter(item => !isPendingRow(item) && !('workspaceName' in item))
+    .filter(item => !isPendingRow(item))
     .map(item => item.name)
   // Skip the watcher's rebuild pass that would otherwise run when we mutate
   // currentOrder below — SortableJS has already positioned the DOM, and a
@@ -1170,6 +1732,10 @@ const sortableCommon = {
   fallbackTolerance: 3,
   filter: '.fb-pending-row',
   preventOnFilter: false,
+  // Drag only initiates from the inner 88px tile (the grey-hover surface).
+  // The outer grid cell is padding/whitespace — mousedowns there must be
+  // inert so the user can't grab by empty space around the icon.
+  handle: '[data-fb-handle]',
   ghostClass: 'fb-ghost',
   chosenClass: 'fb-chosen',
   dragClass: 'fb-drag',
@@ -1183,6 +1749,219 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+// ---------------------------------------------------------------------------
+// Marquee (rubber-band) multi-select.
+//
+// A pointerdown on empty space inside the scrollable grid container starts a
+// rectangle selection. The rectangle tracks the cursor; every `[data-fb-handle]`
+// whose bounding box intersects the rectangle becomes selected. Dragging from a
+// file's handle is caught by SortableJS first (it owns `data-fb-handle`), so
+// the marquee only fires on whitespace — which is exactly the rule the feature
+// calls for.
+//
+// Coordinates are stored relative to the scroll container so the marquee stays
+// aligned if the container scrolls mid-drag.
+
+const marqueeContainer = ref<HTMLElement | null>(null)
+const marqueeState = ref<{
+  active: boolean
+  startX: number
+  startY: number
+  curX: number
+  curY: number
+} | null>(null)
+
+// Selection snapshot captured at pointerdown time. Hit-tests *replace* the
+// selection each tick, so without a snapshot we'd lose modifier-held state.
+let marqueeInitialIds: Set<string> = new Set()
+let marqueeAdditive = false
+let marqueePointerId = -1
+// Guard the ensuing `click` event: after a marquee drag, the browser still
+// fires `click` on the pointerdown target, which would deselect everything.
+let suppressNextClick = false
+
+const marqueeBoxStyle = computed(() => {
+  const m = marqueeState.value
+  if (!m || !m.active) return null
+  const left = Math.min(m.startX, m.curX)
+  const top = Math.min(m.startY, m.curY)
+  const width = Math.abs(m.curX - m.startX)
+  const height = Math.abs(m.curY - m.startY)
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+  }
+})
+
+function containerScrollPoint(container: HTMLElement, clientX: number, clientY: number) {
+  const rect = container.getBoundingClientRect()
+  return {
+    x: clientX - rect.left + container.scrollLeft,
+    y: clientY - rect.top + container.scrollTop,
+  }
+}
+
+function onMarqueePointerDown(ev: PointerEvent) {
+  // Only left button initiates a marquee; right-click/middle-click pass
+  // through untouched.
+  if (ev.button !== 0) return
+  const target = ev.target as HTMLElement | null
+  if (!target) return
+  // If the pointer is on a file/folder handle, SortableJS owns the gesture.
+  // Bail so drag-to-reorder keeps working. Also bail on interactive chrome
+  // (inputs, buttons) — those shouldn't trigger marquee either.
+  if (target.closest('[data-fb-handle]')) return
+  if (target.closest('input, textarea, button, [contenteditable="true"]')) return
+  const container = marqueeContainer.value
+  if (!container) return
+  // Ignore clicks outside the scroll area (e.g., on the scrollbar itself).
+  if (!container.contains(target)) return
+
+  const point = containerScrollPoint(container, ev.clientX, ev.clientY)
+  marqueeState.value = {
+    active: true,
+    startX: point.x,
+    startY: point.y,
+    curX: point.x,
+    curY: point.y,
+  }
+  marqueeAdditive = ev.shiftKey || ev.metaKey || ev.ctrlKey
+  marqueeInitialIds = marqueeAdditive
+    ? new Set(selectedItemIds.value)
+    : new Set()
+  marqueePointerId = ev.pointerId
+  try { container.setPointerCapture(ev.pointerId) } catch {}
+  // Keyboard focus in a text input would otherwise keep blinking inside the
+  // marquee; this makes the drag feel like a clean reset.
+  if (document.activeElement instanceof HTMLElement && document.activeElement !== container) {
+    // Only blur inputs inside the browser — avoid disturbing focus elsewhere.
+    const active = document.activeElement
+    if (active.closest('[data-file-item]')) active.blur()
+  }
+  window.addEventListener('pointermove', onMarqueePointerMove)
+  window.addEventListener('pointerup', onMarqueePointerUp)
+  window.addEventListener('pointercancel', onMarqueePointerUp)
+  ev.preventDefault()
+}
+
+function onMarqueePointerMove(ev: PointerEvent) {
+  const m = marqueeState.value
+  const container = marqueeContainer.value
+  if (!m || !m.active || !container) return
+  const point = containerScrollPoint(container, ev.clientX, ev.clientY)
+  marqueeState.value = { ...m, curX: point.x, curY: point.y }
+  updateMarqueeSelection()
+}
+
+function onMarqueePointerUp(ev: PointerEvent) {
+  const container = marqueeContainer.value
+  const m = marqueeState.value
+  window.removeEventListener('pointermove', onMarqueePointerMove)
+  window.removeEventListener('pointerup', onMarqueePointerUp)
+  window.removeEventListener('pointercancel', onMarqueePointerUp)
+  if (container && marqueePointerId !== -1) {
+    try { container.releasePointerCapture(marqueePointerId) } catch {}
+  }
+  marqueePointerId = -1
+  if (!m) return
+  const dragged = Math.abs(m.curX - m.startX) + Math.abs(m.curY - m.startY) > 3
+  if (dragged) {
+    // Suppress the click event that fires right after this pointerup — the
+    // browser synthesizes a click on the pointerdown target, which would run
+    // whitespace-click deselection and wipe the selection we just built.
+    suppressNextClick = true
+  } else if (!marqueeAdditive) {
+    // A quick click on whitespace (no real drag): clear selection. Matches
+    // Finder/Explorer behavior and gives users an obvious "escape hatch" when
+    // they've selected something and want to go back to the no-selection
+    // toolbar.
+    deselectItem()
+  }
+  marqueeState.value = null
+  marqueeInitialIds = new Set()
+  marqueeAdditive = false
+}
+
+function onMarqueeClick(ev: MouseEvent) {
+  if (suppressNextClick) {
+    suppressNextClick = false
+    ev.stopPropagation()
+    ev.preventDefault()
+  }
+}
+
+function updateMarqueeSelection() {
+  const m = marqueeState.value
+  const container = marqueeContainer.value
+  if (!m || !container) return
+  const rect = {
+    left: Math.min(m.startX, m.curX),
+    right: Math.max(m.startX, m.curX),
+    top: Math.min(m.startY, m.curY),
+    bottom: Math.max(m.startY, m.curY),
+  }
+  const containerRect = container.getBoundingClientRect()
+  const scrollLeft = container.scrollLeft
+  const scrollTop = container.scrollTop
+
+  const handles = container.querySelectorAll<HTMLElement>('[data-fb-handle]')
+  const matchedIds: string[] = []
+  const orderedByDom: string[] = []
+  for (const handle of handles) {
+    const owner = handle.closest<HTMLElement>('[data-file-item]')
+    if (!owner) continue
+    if (owner.classList.contains('fb-pending-row')) continue
+    const id = owner.dataset.id
+    if (!id) continue
+    orderedByDom.push(id)
+    const r = handle.getBoundingClientRect()
+    const hr = {
+      left: r.left - containerRect.left + scrollLeft,
+      right: r.right - containerRect.left + scrollLeft,
+      top: r.top - containerRect.top + scrollTop,
+      bottom: r.bottom - containerRect.top + scrollTop,
+    }
+    const intersects = hr.left <= rect.right
+      && hr.right >= rect.left
+      && hr.top <= rect.bottom
+      && hr.bottom >= rect.top
+    if (intersects) matchedIds.push(id)
+  }
+
+  const finalIds = marqueeAdditive
+    ? new Set([...marqueeInitialIds, ...matchedIds])
+    : new Set(matchedIds)
+
+  // Translate ids → items in DOM order so the primary (first in
+  // selectedItemId) corresponds to the earliest matched row, which feels
+  // natural when single-target actions fall back to the primary.
+  const idOrder = orderedByDom.filter(id => finalIds.has(id))
+  const idToItem = new Map<string, DisplayItem>()
+  for (const item of listItemsForView.value) {
+    idToItem.set(item.id, item)
+  }
+  const items = idOrder.map(id => idToItem.get(id)).filter((v): v is DisplayItem => !!v)
+  setSelectionFromItems(items)
+}
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pointermove', onMarqueePointerMove)
+  window.removeEventListener('pointerup', onMarqueePointerUp)
+  window.removeEventListener('pointercancel', onMarqueePointerUp)
+  if (typeof document !== 'undefined') document.body.classList.remove('fb-multi-dragging')
+})
+
+// Toggle a body-level class during multi-drag so we can hide the SortableJS
+// clone (which lives in <body> due to `fallbackOnBody: true` — outside this
+// component's scoped CSS reach). The hide itself is done by an unscoped style
+// rule at the bottom of this file.
+watch(multiDragActive, (active) => {
+  if (typeof document === 'undefined') return
+  document.body.classList.toggle('fb-multi-dragging', active)
+})
 </script>
 
 <template>
@@ -1379,8 +2158,14 @@ function formatFileSize(bytes: number): string {
                 >
                   <div
                     ref="searchRef"
-                    class="w-full flex items-center h-8 rounded-lg border overflow-hidden"
-                    :class="searchExpanded ? 'bg-neutral-100 border-neutral-300' : 'border-transparent'"
+                    class="w-full flex items-center h-8 rounded-lg border transition"
+                    :class="[
+                      searchExpanded
+                        ? (searchFocused
+                            ? 'border-neutral-400 bg-white ring-2 ring-neutral-950/10'
+                            : 'border-neutral-200 bg-neutral-50/50')
+                        : 'border-transparent',
+                    ]"
                   >
                     <button
                       class="shrink-0 flex items-center justify-center size-8 text-neutral-700 hover:text-neutral-950 transition-colors"
@@ -1402,7 +2187,9 @@ function formatFileSize(bytes: number): string {
                         v-model="searchQuery"
                         type="text"
                         placeholder="Search..."
-                        class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-600 outline-none pr-2"
+                        class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
+                        @focus="searchFocused = true"
+                        @blur="searchFocused = false"
                         @keydown.escape="toggleSearch"
                       >
                     </div>
@@ -1411,8 +2198,14 @@ function formatFileSize(bytes: number): string {
                 </div>
               </template>
               <div v-else ref="selectionActionsRef" class="flex items-center gap-1 shrink-0">
-                <!-- Share -->
-                <div class="group/action relative">
+                <span
+                  v-if="isMultiSelection"
+                  class="mr-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-700"
+                >
+                  {{ selectedItemIds.size }} selected
+                </span>
+                <!-- Share (single-select only; batch share with recursive override requires backend work) -->
+                <div v-if="!isMultiSelection" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isShareModalOpen = true"
@@ -1424,7 +2217,7 @@ function formatFileSize(bytes: number): string {
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Share</span>
                 </div>
                 <!-- Manage access (permissions) -->
-                <div v-if="canManageAccess" class="group/action relative">
+                <div v-if="canManageAccess && !isMultiSelection" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isPermissionsModalOpen = true"
@@ -1435,8 +2228,8 @@ function formatFileSize(bytes: number): string {
                   </button>
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Manage access</span>
                 </div>
-                <!-- Rename -->
-                <div class="group/action relative">
+                <!-- Rename (single-select only) -->
+                <div v-if="!isMultiSelection" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     :disabled="isRenaming"
@@ -1476,8 +2269,8 @@ function formatFileSize(bytes: number): string {
                   </button>
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Duplicate</span>
                 </div>
-                <!-- Download (files only) -->
-                <div v-if="selectedItem?.kind === 'file'" class="group/action relative">
+                <!-- Download (single file only) -->
+                <div v-if="!isMultiSelection && selectedItem?.kind === 'file'" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="handleDownload"
@@ -1490,8 +2283,8 @@ function formatFileSize(bytes: number): string {
                   </button>
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Download</span>
                 </div>
-                <!-- Info -->
-                <div class="group/action relative">
+                <!-- Info (single-select only) -->
+                <div v-if="!isMultiSelection" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isInfoModalOpen = true"
@@ -1565,9 +2358,14 @@ function formatFileSize(bytes: number): string {
             <div v-else-if="listItemsForView.length === 0" class="min-h-0 flex-1" />
 
             <!-- Icon view: padded grid with outer scroll -->
-            <div v-else-if="viewMode === 'icon'" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
             <div
-              v-if="!isSharedMode"
+              v-else-if="viewMode === 'icon'"
+              ref="marqueeContainer"
+              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6"
+              @pointerdown="onMarqueePointerDown"
+              @click.capture="onMarqueeClick"
+            >
+            <div
               v-draggable="[displayItems, sortableCommon]"
               class="grid"
               style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))"
@@ -1576,18 +2374,24 @@ function formatFileSize(bytes: number): string {
                 v-for="file in displayItems"
                 :key="file.id"
                 data-file-item
+                :data-id="file.id"
                 :data-kind="file.kind"
-                :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path })"
+                :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path, provider: file.provider })"
                 class="flex justify-center items-start py-2"
                 :class="isPendingRow(file) ? 'fb-pending-row' : ''"
-                @click="handleRowClick(file)"
-                @dblclick="handleRowDblClick(file)"
               >
                 <div
-                  class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-colors text-left group cursor-pointer"
-                  :class="selectedItemId === file.id ? 'bg-neutral-50 shadow-sm' : ''"
+                  data-fb-handle
+                  class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg transition-colors text-left group cursor-pointer"
+                  :class="[
+                    isSelected(file.id) ? 'bg-neutral-50 shadow-sm' : '',
+                    isDragging ? '' : 'hover:bg-neutral-100',
+                    multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
+                  ]"
+                  @click="handleRowClick(file)"
+                  @dblclick="handleRowDblClick(file)"
                 >
-                <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 
                     <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -1692,58 +2496,14 @@ function formatFileSize(bytes: number): string {
                   <span :title="file.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ file.name }}</span>
                   <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
                 </div>
-                <!-- Permission badge for shared files -->
-                <span v-if="'permissionLevel' in file" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                  {{ file.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
-                </span>
                 </div>
               </div>
             </div>
-            <!-- Shared mode: non-draggable grid grouped by source workspace -->
-            <div v-else class="grid" style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))">
-              <template v-for="item in listItemsForView" :key="item.id">
-                <div v-if="'workspaceName' in item" class="col-span-full py-2 px-2 mb-2">
-                  <p class="text-sm font-semibold text-neutral-600">{{ item.workspaceName }}</p>
-                </div>
-                <div
-                  v-else
-                  data-file-item
-                  class="flex justify-center items-start py-2"
-                  @click="handleRowClick(item)"
-                  @dblclick="handleRowDblClick(item)"
-                >
-                  <div
-                    class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-neutral-100 transition-colors text-left group cursor-pointer"
-                    :class="selectedItemId === item.id ? 'bg-neutral-50 shadow-sm' : ''"
-                  >
-                  <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path v-if="item.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                    <path v-if="item.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                    <rect v-if="item.icon === 'image'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <circle v-if="item.icon === 'image'" cx="9" cy="9" r="2" />
-                    <path v-if="item.icon === 'image'" d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                    <path v-if="item.icon === 'file-code'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                    <polyline v-if="item.icon === 'file-code'" points="14 2 14 8 20 8" />
-                    <path v-if="item.icon === 'file-code'" d="m9 13 2 2 4-4" />
-                    <path v-if="item.icon === 'file-text'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                    <polyline v-if="item.icon === 'file-text'" points="14 2 14 8 20 8" />
-                    <line v-if="item.icon === 'file-text'" x1="16" y1="13" x2="8" y2="13" />
-                    <line v-if="item.icon === 'file-text'" x1="16" y1="17" x2="8" y2="17" />
-                    <line v-if="item.icon === 'file-text'" x1="10" y1="9" x2="8" y2="9" />
-                    <path v-if="item.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                    <polyline v-if="item.icon === 'file'" points="14 2 14 8 20 8" />
-                  </svg>
-                  <div class="flex items-center justify-center gap-1 w-full min-w-0">
-                    <span :title="item.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ item.name }}</span>
-                    <StorageProviderIcon :provider="item.provider as StorageProvider" inline />
-                  </div>
-                  <span v-if="'permissionLevel' in item" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                    {{ item.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
-                  </span>
-                  </div>
-                </div>
-              </template>
-            </div>
+            <div
+              v-if="marqueeBoxStyle"
+              class="pointer-events-none absolute z-10 rounded-sm border border-neutral-950/50 bg-neutral-950/10"
+              :style="marqueeBoxStyle"
+            />
             </div>
 
             <!-- List view: Finder-style table with column headers -->
@@ -1761,34 +2521,35 @@ function formatFileSize(bytes: number): string {
                 </div>
 
                 <!-- Scrollable rows -->
-                <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-                  <!-- Shared file workspace headers (in shared mode only) -->
-                  <template v-if="isSharedMode">
-                    <template v-for="item in displayItems" :key="item.id">
-                      <div v-if="'workspaceName' in item" class="border-b border-neutral-100 bg-neutral-50 px-3 py-1.5">
-                        <p class="text-xs font-semibold text-neutral-600">{{ item.workspaceName }}</p>
-                      </div>
-                    </template>
-                  </template>
-
-                  <!-- Regular file rows (draggable in non-shared mode) -->
-                  <div v-draggable="[displayItems, { ...sortableCommon, disabled: isSharedMode }]" class="flex flex-col">
+                <div
+                  ref="marqueeContainer"
+                  class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+                  @pointerdown="onMarqueePointerDown"
+                  @click.capture="onMarqueeClick"
+                >
+                  <div v-draggable="[displayItems, sortableCommon]" class="flex flex-col">
                   <div
                     v-for="file in displayItems"
-                    v-show="!('workspaceName' in file)"
                     :key="file.id"
                     data-file-item
+                    data-fb-handle
+                    :data-id="file.id"
                     :data-kind="file.kind"
-                    :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path })"
-                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 hover:bg-neutral-100 transition-colors cursor-pointer last:border-b-0"
-                    :class="[selectedItemId === file.id ? 'bg-neutral-50' : '', isPendingRow(file) ? 'fb-pending-row' : '']"
+                    :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path, provider: file.provider })"
+                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer last:border-b-0"
+                    :class="[
+                      isSelected(file.id) ? 'bg-neutral-50' : '',
+                      isPendingRow(file) ? 'fb-pending-row' : '',
+                      isDragging ? '' : 'hover:bg-neutral-100',
+                      multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
+                    ]"
                     style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
                     @click="handleRowClick(file)"
                     @dblclick="handleRowDblClick(file)"
                   >
                     <!-- Name column: icon + name bunched left -->
                     <div class="flex min-w-0 items-center gap-2">
-                      <svg class="size-4 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 
                         <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -1893,9 +2654,6 @@ function formatFileSize(bytes: number): string {
                       <template v-else>
                         <span :title="file.name" class="truncate text-sm text-neutral-950 font-medium min-w-0">{{ file.name }}</span>
                         <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
-                        <span v-if="'permissionLevel' in file" class="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
-                          {{ file.permissionLevel === 'viewer' ? 'View' : 'Edit' }}
-                        </span>
                       </template>
                     </div>
 
@@ -1915,6 +2673,11 @@ function formatFileSize(bytes: number): string {
                     </div>
                   </div>
                   </div>
+                  <div
+                    v-if="marqueeBoxStyle"
+                    class="pointer-events-none absolute z-10 rounded-sm border border-neutral-950/50 bg-neutral-950/10"
+                    :style="marqueeBoxStyle"
+                  />
                 </div>
               </div>
             </div>
@@ -1960,6 +2723,17 @@ function formatFileSize(bytes: number): string {
       @close="isInfoModalOpen = false"
     />
 
+    <!-- Cross-provider migration confirmation -->
+    <MigrateConfirmModal
+      v-if="pendingMigration"
+      :groups="migrationGroups"
+      :target-provider="pendingMigration.targetProvider"
+      :target-parent-name="pendingMigration.targetParentName"
+      :is-migrating="isMigrationRunning"
+      @close="cancelMigration"
+      @confirm="confirmMigration"
+    />
+
     <!-- Move Modal -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
@@ -1970,49 +2744,72 @@ function formatFileSize(bytes: number): string {
       leave-to-class="opacity-0"
     >
       <div v-if="isMoveModalOpen" data-modal class="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" @click.self="cancelMove">
-        <div class="w-full max-w-md mx-4 rounded-xl bg-white border border-neutral-200 shadow-2xl overflow-hidden">
+        <div class="w-full max-w-xl mx-4 rounded-xl bg-white border border-neutral-200 shadow-2xl overflow-hidden">
           <div class="px-4 py-3 border-b border-neutral-200">
             <h3 class="text-headline-md font-semibold text-neutral-950">Move to...</h3>
           </div>
-          <div class="p-4 max-h-64 overflow-y-auto">
-            <!-- Breadcrumbs for move -->
-            <div class="flex items-center gap-1 mb-3 flex-wrap">
-              <button
-                class="text-body-md text-neutral-500 hover:text-neutral-950 transition-colors font-medium"
-                @click="navigateMoveBreadcrumb(0)"
+          <div class="p-2 max-h-96 overflow-y-auto">
+            <div class="flex flex-col">
+              <div
+                v-for="{ node, depth } in visibleMoveNodes"
+                :key="moveNodeKey(node)"
+                class="flex items-center rounded-lg transition-colors"
+                :class="isMoveDestinationSelected(node) ? 'bg-neutral-100' : 'hover:bg-neutral-50'"
               >
-                {{ storageName }}
-              </button>
-              <template v-for="(seg, i) in movePath" :key="i">
-                <svg class="size-3 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                <div :style="{ paddingLeft: `${depth * 16}px` }" class="flex items-center shrink-0">
+                  <button
+                    type="button"
+                    class="size-6 flex items-center justify-center shrink-0 rounded hover:bg-neutral-200 transition-colors"
+                    :class="node.children !== null && node.children.length === 0 ? 'invisible' : ''"
+                    :aria-label="node.expanded ? 'Collapse' : 'Expand'"
+                    @click.stop="toggleMoveNodeExpand(node)"
+                  >
+                    <svg
+                      v-if="node.loadingPromise !== null"
+                      class="size-3 text-neutral-400 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    <svg
+                      v-else
+                      class="size-3 text-neutral-500 transition-transform"
+                      :class="node.expanded ? 'rotate-90' : ''"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </button>
+                </div>
                 <button
-                  class="text-body-md text-neutral-500 hover:text-neutral-950 transition-colors font-medium"
-                  @click="navigateMoveBreadcrumb(i + 1)"
+                  type="button"
+                  class="flex items-center gap-2 px-2 py-1.5 flex-1 min-w-0 text-left"
+                  @click="selectMoveDestination(node)"
                 >
-                  {{ seg }}
+                  <svg class="size-4 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <span class="text-body-md text-neutral-950 font-medium truncate">
+                    {{ depth === 0 ? storageName : node.name }}
+                  </span>
                 </button>
-              </template>
+              </div>
             </div>
-            <div v-if="moveFolders.length === 0" class="py-4 text-center text-body-md text-neutral-500">
+            <div
+              v-if="moveTreeRoot.children !== null && moveTreeRoot.children.length === 0 && moveTreeRoot.loadingPromise === null"
+              class="py-4 text-center text-body-md text-neutral-500"
+            >
               No subfolders
-            </div>
-            <div v-else class="flex flex-col gap-1">
-              <button
-                v-for="folder in moveFolders"
-                :key="folder.name"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors text-left w-full"
-                @click="navigateMoveFolder(folder.name)"
-              >
-                <svg class="size-4 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-                <span class="text-body-md text-neutral-950 font-medium">{{ folder.name }}</span>
-                <svg class="size-3 text-neutral-400 ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </button>
             </div>
           </div>
           <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-end gap-2">
@@ -2032,6 +2829,42 @@ function formatFileSize(bytes: number): string {
         </div>
       </div>
     </Transition>
+
+    <Teleport to="body">
+      <div
+        v-if="multiDragActive && multiDragHasMoved && multiDragCursor"
+        class="pointer-events-none fixed z-[100]"
+        :style="{ left: `${multiDragCursor.x}px`, top: `${multiDragCursor.y}px` }"
+      >
+        <div class="relative -translate-x-1/2 -translate-y-1/2">
+          <!-- Back layers to suggest a stack. Rotated/offset, rendered below the top card. -->
+          <div
+            v-if="multiDragItems.length >= 3"
+            class="absolute left-0 top-0 flex size-14 items-center justify-center rounded-lg border border-neutral-300 bg-white shadow-md"
+            style="transform: translate(6px, 6px) rotate(6deg);"
+          />
+          <div
+            v-if="multiDragItems.length >= 2"
+            class="absolute left-0 top-0 flex size-14 items-center justify-center rounded-lg border border-neutral-300 bg-white shadow-md"
+            style="transform: translate(-4px, 4px) rotate(-5deg);"
+          />
+          <!-- Front card: shows the primary item's icon. -->
+          <div class="relative flex size-14 items-center justify-center rounded-lg border border-neutral-300 bg-white shadow-md">
+            <svg class="size-8 text-neutral-700" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path v-if="multiDragItems[0]?.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <template v-else>
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </template>
+            </svg>
+          </div>
+          <!-- Count badge, top-right of the stack. -->
+          <div class="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-neutral-950 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
+            {{ multiDragItems.length }}
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -2062,5 +2895,17 @@ function formatFileSize(bytes: number): string {
   outline: 2px solid var(--color-neutral-950);
   outline-offset: -2px;
   background-color: var(--color-neutral-100) !important;
+}
+</style>
+
+<style>
+/* SortableJS clones the dragged row into <body> (`fallbackOnBody: true`), so
+   the clone is outside this component's scoped-CSS reach. When multi-drag is
+   active the clone would otherwise float over the stacked ghost showing a
+   single-item drag visual. A watcher on `multiDragActive` toggles
+   `.fb-multi-dragging` on <body>; this unscoped rule hides the clone so only
+   the stacked ghost is visible. */
+body.fb-multi-dragging .fb-drag {
+  opacity: 0 !important;
 }
 </style>

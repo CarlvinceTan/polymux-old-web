@@ -17,6 +17,12 @@ interface Props {
 
 const props = defineProps<Props>()
 const route = useRoute()
+const { t } = useI18n()
+const { bannerDismissed, dismissBanner, openInstallExtension } = useExtensionPrefs()
+
+function handleInstallExtension() {
+  openInstallExtension({ chromeRequiredMessage: t('common.chromeRequired') })
+}
 
 /** Title-case each word so labels look consistent whatever the prop keys look like. */
 function formatTabLabel(raw: string) {
@@ -106,6 +112,36 @@ function displayTabLabel(label: string) {
       </nav>
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      <!-- First-time "Install Polymux Extension" CTA. Rendered inline on the
+           tab bar so it catches attention; dismissing tucks it away into the
+           profile menu under "Install Extension" instead (see SidePanel).
+           Wrapped in ClientOnly because dismissed state lives in localStorage. -->
+      <ClientOnly>
+        <div
+          v-if="!bannerDismissed"
+          class="group flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 pl-3 pr-1 py-1 transition-colors hover:bg-neutral-100"
+        >
+          <button
+            type="button"
+            class="flex items-center gap-1.5 text-xs font-medium text-neutral-800 outline-none"
+            :title="t('common.installExtensionBanner')"
+            @click="handleInstallExtension"
+          >
+            <UIcon name="i-heroicons-puzzle-piece-20-solid" class="size-4 shrink-0 text-neutral-600" />
+            <span class="hidden sm:inline">{{ t('common.installExtensionBanner') }}</span>
+            <span class="sm:hidden">{{ t('common.installExtension') }}</span>
+          </button>
+          <button
+            type="button"
+            class="flex size-6 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-800 outline-none"
+            :aria-label="t('common.dismiss')"
+            :title="t('common.dismiss')"
+            @click.stop="dismissBanner"
+          >
+            <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
+          </button>
+        </div>
+      </ClientOnly>
       <NotificationsInbox />
     </div>
   </div>

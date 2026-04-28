@@ -114,6 +114,10 @@ onMounted(async () => {
   }
 })
 
+useOnReconnect(() => {
+  if (workspaces.value.length === 0) return fetchWorkspaces()
+})
+
 const targetWorkspacePlan = computed<PlanKey>(() => {
   const raw = (currentWorkspace.value?.plan as string | undefined)?.toLowerCase().trim()
   if (raw && planOrder.includes(raw as PlanKey)) return raw as PlanKey

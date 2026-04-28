@@ -10,31 +10,25 @@ const toast = useAppToast()
 const props = withDefaults(
   defineProps<{
     hint?: string
-    agentActive?: boolean
     modelValue?: string
     fullWidth?: boolean
     attachments?: FileAttachmentState[]
     disabled?: boolean
-    sessionMode?: 'builder' | 'general'
   }>(),
   {
     hint: undefined,
-    agentActive: false,
     modelValue: '',
     fullWidth: false,
     attachments: () => [],
     disabled: false,
-    sessionMode: 'general',
   },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   send: [value: string]
-  pause: []
   'attach-files': [files: FileList]
   'remove-file': [id: string]
-  'toggle-mode': []
 }>()
 
 const inputValue = computed({
@@ -99,17 +93,6 @@ async function onVoiceClick() {
   toggleVoice()
 }
 
-const pauseDismissed = ref(false)
-
-watch(
-  () => props.agentActive,
-  (active) => {
-    if (!active) pauseDismissed.value = false
-  },
-)
-
-const showPause = computed(() => props.agentActive && !pauseDismissed.value)
-
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
@@ -156,12 +139,7 @@ onMounted(async () => {
   clampTextareaHeight()
 })
 
-function onPrimaryAction() {
-  if (showPause.value) {
-    pauseDismissed.value = true
-    emit('pause')
-    return
-  }
+function onSendClick() {
   emit('send', inputValue.value)
 }
 
@@ -169,7 +147,7 @@ function onTextareaKeydown(e: KeyboardEvent) {
   if (e.key !== 'Enter' || e.shiftKey) return
   if (e.isComposing) return
   e.preventDefault()
-  onPrimaryAction()
+  onSendClick()
 }
 
 function onAttachClick() {
@@ -238,7 +216,7 @@ function onFileInputChange(e: Event) {
       ]
       ">
       <div class="flex flex-col items-center min-w-0 flex-1" :class="props.fullWidth ? 'pl-1 sm:pl-2 pr-12.25' : ''">
-        <textarea ref="textareaRef" v-model="inputValue" rows="1"
+        <textarea ref="textareaRef" v-model="inputValue" rows="1" name="prompt"
           :disabled="props.disabled"
           class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           :class="props.fullWidth
@@ -254,15 +232,11 @@ function onFileInputChange(e: Event) {
             expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2',
           ]
           : 'btn-gradient size-10 rounded-[0.375rem]'
-          " :disabled="props.disabled" :aria-label="showPause ? t('chat.stop') : t('common.send')" @click="onPrimaryAction">
-        <svg v-if="!showPause" class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none"
+          " :disabled="props.disabled" :aria-label="t('common.send')" @click="onSendClick">
+        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none"
           xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
             stroke-linejoin="round" />
-        </svg>
-        <svg v-else class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"
-          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="5.5" y="5.5" width="13" height="13" rx="2" />
         </svg>
       </button>
     </div>
@@ -298,27 +272,11 @@ function onFileInputChange(e: Event) {
             : (props.fullWidth ? t('common.voice').toUpperCase() : t('common.voice'))
         }}</span>
       </button>
-      <button type="button"
-        role="switch"
-        :aria-checked="props.sessionMode === 'general'"
-        :aria-label="t(props.sessionMode === 'builder' ? 'workflow.switchToGeneral' : 'workflow.switchToBuilder')"
-        class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
-        :class="props.fullWidth ? 'gap-1' : ''"
-        @click="emit('toggle-mode')">
-        <UIcon
-          :name="props.sessionMode === 'builder' ? 'i-heroicons-wrench-screwdriver-20-solid' : 'i-heroicons-chat-bubble-oval-left-20-solid'"
-          class="shrink-0"
+      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
+        :class="props.fullWidth ? 'gap-1' : ''">
+        <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0"
           :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span class="grid">
-          <span
-            class="col-start-1 row-start-1 text-left"
-            :class="{ invisible: props.sessionMode !== 'builder' }"
-          >{{ props.fullWidth ? t('workflow.builder').toUpperCase() : t('workflow.builder') }}</span>
-          <span
-            class="col-start-1 row-start-1 text-left"
-            :class="{ invisible: props.sessionMode !== 'general' }"
-          >{{ props.fullWidth ? t('workflow.general').toUpperCase() : t('workflow.general') }}</span>
-        </span>
+        <span>{{ props.fullWidth ? t('common.settings').toUpperCase() : t('common.settings') }}</span>
       </button>
     </div>
   </div>

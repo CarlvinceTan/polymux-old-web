@@ -90,6 +90,17 @@ export default defineNuxtConfig({
     public: {
       serverUrl: process.env.SERVER_URL || "http://localhost:8080",
       appUrl: process.env.APP_URL || "http://localhost:3000",
+      // Chrome Web Store listing for the Polymux extension. Falls back to a
+      // generic category page until the extension is published and the ID
+      // is known. Override via EXTENSION_STORE_URL in deployments.
+      extensionStoreUrl:
+        process.env.EXTENSION_STORE_URL
+        || "https://chrome.google.com/webstore/category/extensions",
+      // Stable Chrome runtime ID of the Polymux extension. When set, the
+      // auto-pair plugin probes the extension on protected page loads and
+      // pushes a fresh pairing code. Empty disables the bridge (graceful
+      // no-op for users without the extension installed).
+      extensionId: process.env.EXTENSION_ID || "",
     },
   },
   css: ["~/assets/css/main.css"],

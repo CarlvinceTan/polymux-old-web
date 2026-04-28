@@ -365,6 +365,44 @@ export async function updateDriveFile(
   return (await res.json()) as DriveFile
 }
 
+export async function copyDriveFile(
+  accessToken: string,
+  sourceFileId: string,
+  name: string,
+  parentId?: string,
+  workspaceId?: string,
+): Promise<DriveFile> {
+  // Drive-side copy — no bytes re-uploaded, just a new entry pointing at the
+  // same underlying blob. `fields` mirrors createDriveFolder's shape so callers
+  // can read id/size/mime the same way.
+  const params = new URLSearchParams({
+    fields: 'id,name,mimeType,size,md5Checksum,modifiedTime,parents',
+  })
+  const body: Record<string, unknown> = { name }
+  if (parentId) body.parents = [parentId]
+
+  const res = await fetch(
+    `${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(sourceFileId)}/copy?${params.toString()}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        ...quotaUserHeader(workspaceId),
+      },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Drive file copy failed: ${res.status} ${text}`.trim(),
+    })
+  }
+  return (await res.json()) as DriveFile
+}
+
 export async function deleteDriveFile(
   accessToken: string,
   fileId: string,

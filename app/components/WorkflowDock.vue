@@ -14,7 +14,7 @@ if (!injectedSession) {
 }
 const session = injectedSession
 
-const { sessions } = useChatSessions()
+const { sessions } = useWorkflowList()
 const { currentWorkspace } = useWorkspaces()
 
 const workspaceId = computed(() => {
@@ -80,6 +80,7 @@ const versionLabel = computed(() => {
   if (isPreview.value && previewVersion.value) {
     return t('workflow.versionShort', { version: previewVersion.value.version })
   }
+  if (isDraft.value) return t('workflow.draftBadge')
   if (dirty.value) return t('workflow.unsavedCurrent')
   if (latestVersion.value) {
     return t('workflow.versionShort', { version: latestVersion.value.version })
@@ -87,11 +88,23 @@ const versionLabel = computed(() => {
   return ''
 })
 
-const displayedSteps = computed<WorkflowStep[]>(() =>
-  isPreview.value && previewVersion.value ? (previewVersion.value.steps as WorkflowStep[]) : workingSteps.value,
+// Live draft tree the orchestrator publishes via `workflow_draft` (see
+// useWorkflowDraft, bound at the page level). Used as a fallback render when
+// no saved workflow is selected — keyed per-session so other workflows don't
+// bleed in.
+const draftSteps = useState<WorkflowStep[]>(`workflow-draft-steps:${props.sessionId}`, () => [])
+
+const isDraft = computed(() =>
+  !selectedWorkflowId.value && !isPreview.value && draftSteps.value.length > 0,
 )
 
-const effectiveReadonly = computed(() => !!props.readonly || isPreview.value)
+const displayedSteps = computed<WorkflowStep[]>(() => {
+  if (isPreview.value && previewVersion.value) return previewVersion.value.steps as WorkflowStep[]
+  if (isDraft.value) return draftSteps.value
+  return workingSteps.value
+})
+
+const effectiveReadonly = computed(() => !!props.readonly || isPreview.value || isDraft.value)
 
 async function initializeForSession() {
   await fetchWorkflows(workspaceId.value)
@@ -285,23 +298,29 @@ async function onConfirmRevert() {
   }
 }
 
-const onWorkflowSaveRejected = (p: { name: string; reason: string }) => {
-  toast.show(t('workflow.saveRejectedToast', { name: p.name, reason: p.reason }), 'warning', 6000)
-}
+// Save/reject listeners live at the page level (see useWorkflowAgentEvents in
+// pages/workflow/[id].vue), so the tree keeps refreshing even while the user
+// is in Chat View and this component is unmounted. We subscribe to the
+// resulting reactive "save tick" and re-sync local step state on match.
+const lastSavedName = useState<string | null>('workflow-last-saved-name', () => null)
+const lastSavedAt = useState<number>('workflow-last-saved-at', () => 0)
 
-// The agent persists workflows out-of-band via SaveWorkflow; surface those
-// changes in the dock so the user sees the tree grow in real time.
-const onWorkflowSaved = async (p: { name: string }) => {
-  if (!workspaceId.value) return
-  await fetchWorkflows(workspaceId.value)
-  const match = workflows.value.find(w => w.name === p.name)
+watch(lastSavedAt, async (tick) => {
+  if (!tick) return
+  const name = lastSavedName.value
+  if (!name || !workspaceId.value) return
+  const match = workflows.value.find(w => w.name === name)
   if (!match) return
 
   if (!selectedWorkflowId.value) {
     await selectWorkflow(match.id)
     return
   }
-  if (selectedWorkflowId.value !== match.id) return
+
+  if (selectedWorkflowId.value !== match.id) {
+    toast.show(t('workflow.agentSavedOther', { name }), 'info', 6000)
+    return
+  }
 
   // Same workflow the user is viewing — reload its steps unless they have
   // unsaved edits (clobbering would be hostile).
@@ -310,14 +329,6 @@ const onWorkflowSaved = async (p: { name: string }) => {
     return
   }
   await selectWorkflow(match.id)
-}
-
-session.on<{ name: string; reason: string }>('workflow_save_rejected', onWorkflowSaveRejected)
-session.on<{ name: string }>('workflow_saved', onWorkflowSaved)
-
-onUnmounted(() => {
-  session.off('workflow_save_rejected', onWorkflowSaveRejected)
-  session.off('workflow_saved', onWorkflowSaved)
 })
 </script>
 
@@ -384,14 +395,14 @@ onUnmounted(() => {
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div v-if="!selectedWorkflowId" class="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <div v-if="!selectedWorkflowId && !isDraft" class="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
           <UIcon name="i-heroicons-square-3-stack-3d-20-solid" class="size-10 text-neutral-300" />
           <p class="text-xs text-neutral-400">
             {{ t('workflow.noWorkflowsSubtitle') }}
           </p>
         </div>
 
-        <div v-else-if="displayedSteps.length === 0" class="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <div v-else-if="selectedWorkflowId && displayedSteps.length === 0" class="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
           <UIcon name="i-heroicons-square-3-stack-3d-20-solid" class="size-10 text-neutral-300" />
           <p class="text-xs text-neutral-400">
             {{ t('workflow.emptySubtitle') }}
@@ -399,6 +410,13 @@ onUnmounted(() => {
         </div>
 
         <div v-else class="flex flex-col gap-0 px-3 py-3">
+          <p
+            v-if="isDraft"
+            class="mb-2 px-1 text-[11px] text-neutral-400"
+          >
+            <UIcon name="i-heroicons-bolt-20-solid" class="mr-1 inline size-3 align-[-2px] text-neutral-400" />
+            {{ t('workflow.draftHint') }}
+          </p>
           <WorkflowNode
             v-for="node in displayedSteps"
             :key="node.id ?? ''"

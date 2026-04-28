@@ -1,14 +1,30 @@
 import { useAppToast } from '~/composables/useAppToast'
 
-export type ItemCategory = 'workflow' | 'plugin' | 'connection'
+// User-facing taxonomy: integrations are code-based (first-party connectors
+// or third-party manifest+webhook), workflows are JSON definitions, plugins
+// bundle integrations + workflows. The marketplace catalog mixes all three.
+export type ItemCategory = 'integration' | 'workflow' | 'plugin'
 
 export interface MarketplaceItem {
+  /** Stable client-side id; matches `workspace_integrations.provider` and `integrations.slug`. */
   id: string
+  /** Database PK (uuid). Use when an endpoint needs the real `integrations.id` (plugin bundle children). */
+  dbId: string
+  slug: string
   name: string
   description: string
   category: ItemCategory
   author: string
   popularity: number
+  tags: string[]
+  /** Hint to the install flow: route through OAuth redirect instead of POST install. */
+  requiresOauth: boolean
+  isFirstParty: boolean
+  isVerified: boolean
+  homepageUrl?: string | null
+  githubUrl?: string | null
+  iconUrl?: string | null
+  currentVersion?: string | null
 }
 
 export interface WorkspaceIntegration {
@@ -27,30 +43,17 @@ export interface WorkspaceIntegration {
   updated_at: string
 }
 
-const CATALOG: MarketplaceItem[] = [
-  // Integrations
-  { id: 'google-drive', name: 'Google Drive', description: 'Access and manage files in your Google Drive directly from Polymux.', category: 'connection', author: 'Google', popularity: 98 },
-  { id: 'gmail', name: 'Gmail', description: 'Search, read, and send emails from your Gmail account.', category: 'connection', author: 'Google', popularity: 95 },
-  { id: 'github', name: 'GitHub', description: 'Browse repositories, create issues, and review pull requests.', category: 'connection', author: 'GitHub', popularity: 92 },
-  { id: 'slack', name: 'Slack', description: 'Send messages and read channel history from your Slack workspace.', category: 'connection', author: 'Slack', popularity: 88 },
-  { id: 'notion', name: 'Notion', description: 'Read and write Notion pages, databases, and blocks.', category: 'connection', author: 'Notion', popularity: 80 },
-  { id: 'linear', name: 'Linear', description: 'Manage issues, projects, and sprints in Linear.', category: 'connection', author: 'Linear', popularity: 72 },
-  // Workflows
-  { id: 'email-summarizer', name: 'Email Summarizer', description: 'Automatically summarizes your inbox into concise daily digests.', category: 'workflow', author: 'Polymux', popularity: 85 },
-  { id: 'daily-briefing', name: 'Daily Briefing', description: 'Compiles a morning briefing from calendars, emails, and your connected sources.', category: 'workflow', author: 'Polymux', popularity: 78 },
-  { id: 'research-assistant', name: 'Research Assistant', description: 'Automates deep-dive research and produces structured, citable reports.', category: 'workflow', author: 'Polymux', popularity: 70 },
-  { id: 'code-reviewer', name: 'Code Reviewer', description: 'Reviews pull requests and surfaces issues, suggestions, and risks automatically.', category: 'workflow', author: 'Polymux', popularity: 68 },
-  // Plugins (bundles)
-  { id: 'google-workspace', name: 'Google Workspace', description: 'Full suite: Drive, Gmail, Calendar, and Docs all bundled and pre-wired together.', category: 'plugin', author: 'Polymux', popularity: 90 },
-  { id: 'dev-toolkit', name: 'Dev Toolkit', description: 'GitHub, Linear, and Slack bundled and pre-configured for engineering teams.', category: 'plugin', author: 'Polymux', popularity: 75 },
-  { id: 'productivity-pack', name: 'Productivity Pack', description: 'Notion, Gmail, and Calendar combined with smart scheduling workflows.', category: 'plugin', author: 'Polymux', popularity: 65 },
-]
-
 export function useMarketplace() {
   const { currentWorkspace } = useWorkspaces()
   const toast = useAppToast()
 
-  const { data: connections, refresh } = useAsyncData<WorkspaceIntegration[]>(
+  const { data: catalog, refresh: refreshCatalog } = useAsyncData<MarketplaceItem[]>(
+    'marketplace-catalog',
+    async () => await $fetch<MarketplaceItem[]>('/api/marketplace/integrations'),
+    { default: () => [] },
+  )
+
+  const { data: connections, refresh: refreshConnections } = useAsyncData<WorkspaceIntegration[]>(
     'workspace-integrations',
     async () => {
       const id = currentWorkspace.value?.id
@@ -65,6 +68,13 @@ export function useMarketplace() {
     },
   )
 
+  // Refresh both lists when the server comes back online — without this, an
+  // initial fetch that failed during downtime never retries, leaving the
+  // marketplace and `isInstalled` checks blank.
+  useOnReconnect(async () => {
+    await Promise.all([refreshCatalog(), refreshConnections()])
+  })
+
   const isAdmin = computed(() => {
     const role = currentWorkspace.value?.role
     return role === 'owner' || role === 'admin'
@@ -78,8 +88,13 @@ export function useMarketplace() {
     return (connections.value ?? []).find(c => c.provider === id) ?? null
   }
 
+  // Installed = catalog rows whose slug appears in the workspace's connections.
+  // Driven by the catalog, not the connections list, so each card carries the
+  // marketplace metadata (description, author, tags, icon) for the Installed
+  // page. Stale connections without a matching catalog row would only happen
+  // if someone deletes a first-party seed row; not worth a fallback path.
   const installedItems = computed(() =>
-    CATALOG.filter(item => isInstalled(item.id)),
+    (catalog.value ?? []).filter(item => isInstalled(item.id)),
   )
 
   async function install(id: string) {
@@ -89,10 +104,13 @@ export function useMarketplace() {
       toast.show('Only workspace owners and admins can manage integrations.', 'error')
       return
     }
-    const item = CATALOG.find(i => i.id === id)
+    const item = (catalog.value ?? []).find(i => i.id === id)
     if (!item) return
 
-    if (item.category === 'connection') {
+    // First-party OAuth connectors and any catalog item flagged as needing
+    // OAuth go through the redirect flow. Third-party tool/workflow/plugin
+    // installs (Phase 2+) hit the inline POST instead.
+    if (item.requiresOauth) {
       if (import.meta.client) {
         window.location.href = `/api/integrations/${id}/connect?workspace_id=${workspaceId}`
       }
@@ -104,7 +122,7 @@ export function useMarketplace() {
         method: 'POST',
         body: { provider: id },
       })
-      await refresh()
+      await Promise.all([refreshConnections(), refreshCatalog()])
     }
     catch (err) {
       console.error('[useMarketplace] install failed', err)
@@ -125,7 +143,7 @@ export function useMarketplace() {
       await $fetch(`/api/workspaces/${workspaceId}/integrations/${id}`, {
         method: 'DELETE',
       })
-      await refresh()
+      await Promise.all([refreshConnections(), refreshCatalog()])
     }
     catch (err) {
       console.error('[useMarketplace] uninstall failed', err)
@@ -136,7 +154,7 @@ export function useMarketplace() {
   }
 
   return {
-    catalog: CATALOG,
+    catalog,
     connections,
     isAdmin,
     isInstalled,
@@ -144,6 +162,7 @@ export function useMarketplace() {
     install,
     uninstall,
     installedItems,
-    refresh,
+    refresh: refreshConnections,
+    refreshCatalog,
   }
 }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const headerTabs = {
-  MAIN: '/storage/main',
-  SHARED: '/storage/shared',
+  FILES: '/storage/files',
   SETTINGS: '/storage/settings',
 } as const satisfies Record<string, string>
 </script>
@@ -12,8 +11,8 @@ const headerTabs = {
       <PageHeader :tabs="headerTabs" />
     </header>
     <div class="relative flex min-h-0 min-w-0 w-full flex-1 flex-col">
-      <FileBrowser storage-name="Shared" class="min-h-0 min-w-0 flex-1" />
-      <StorageProviderUsageOverlay :hide-providers="['local']" />
+      <FileBrowser storage-name="Files" class="min-h-0 min-w-0 flex-1" />
+      <StorageProviderUsageOverlay />
     </div>
   </div>
 </template>

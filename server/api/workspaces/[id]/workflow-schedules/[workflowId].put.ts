@@ -1,7 +1,7 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 
-// PUT /api/workspaces/[id]/workflow-schedules/[sessionId]
-// Upsert schedule for a session. Body carries the full config; server
+// PUT /api/workspaces/[id]/workflow-schedules/[workflowId]
+// Upsert schedule for a workflow. Body carries the full config; server
 // enforces field shape and lets RLS gate workspace membership.
 
 const FREQUENCIES = ['none', 'hourly', 'daily', 'weekly', 'monthly', 'custom'] as const
@@ -47,9 +47,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = getRouterParam(event, 'id')
-  const sessionId = getRouterParam(event, 'sessionId')
-  if (!workspaceId || !sessionId) {
-    throw createError({ statusCode: 400, statusMessage: 'Workspace id and session id are required.' })
+  const workflowId = getRouterParam(event, 'workflowId')
+  if (!workspaceId || !workflowId) {
+    throw createError({ statusCode: 400, statusMessage: 'Workspace id and workflow id are required.' })
   }
 
   const body = (await readBody<UpsertBody>(event).catch(() => ({}))) as UpsertBody
@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const row = {
-    session_id: sessionId,
+    workflow_id: workflowId,
     workspace_id: workspaceId,
     active: Boolean(body.active),
     frequency: body.frequency,
@@ -94,8 +94,8 @@ export default defineEventHandler(async (event) => {
   }
   const { data, error } = await admin
     .from('workflow_schedules')
-    .upsert(row, { onConflict: 'session_id' })
-    .select('session_id, workspace_id, active, frequency, cron_expression, weekdays, timezone, one_off_ms, updated_by, created_at, updated_at')
+    .upsert(row, { onConflict: 'workflow_id' })
+    .select('workflow_id, workspace_id, active, frequency, cron_expression, weekdays, timezone, one_off_ms, updated_by, created_at, updated_at')
     .single()
 
   if (error) {

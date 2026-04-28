@@ -8,7 +8,6 @@ export interface SelectedItem {
   path: string
   icon: FileIconName
   provider: StorageProvider
-  permissionLevel?: 'viewer' | 'editor'
 }
 
 const props = defineProps<{
@@ -24,9 +23,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-// Check if the selected item is read-only (viewer permission on shared file)
-const isReadOnly = computed(() => props.item?.permissionLevel === 'viewer')
 </script>
 
 <template>
@@ -121,8 +117,8 @@ const isReadOnly = computed(() => props.item?.permissionLevel === 'viewer')
       <div class="flex items-center gap-1">
         <button
           class="flex items-center justify-center size-7 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors disabled:text-neutral-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-          :disabled="props.isRenaming || isReadOnly"
-          :title="isReadOnly ? t('storage.readOnlyFile') || 'Cannot edit read-only file' : t('common.rename')"
+          :disabled="props.isRenaming"
+          :title="t('common.rename')"
           @click="emit('rename')"
         >
           <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -133,8 +129,7 @@ const isReadOnly = computed(() => props.item?.permissionLevel === 'viewer')
 
         <button
           class="flex items-center justify-center size-7 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors disabled:text-neutral-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-          :disabled="isReadOnly"
-          :title="isReadOnly ? t('storage.readOnlyFile') || 'Cannot edit read-only file' : 'Move'"
+          title="Move"
           @click="emit('move')"
         >
           <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -144,8 +139,7 @@ const isReadOnly = computed(() => props.item?.permissionLevel === 'viewer')
 
         <button
           class="flex items-center justify-center size-7 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:text-neutral-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-          :disabled="isReadOnly"
-          :title="isReadOnly ? t('storage.readOnlyFile') || 'Cannot edit read-only file' : t('common.delete')"
+          :title="t('common.delete')"
           @click="emit('delete')"
         >
           <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

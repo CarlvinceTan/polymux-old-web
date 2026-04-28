@@ -2,7 +2,7 @@
 const { t } = useI18n()
 const user = useSupabaseUser()
 const { currentWorkspace } = useWorkspaces()
-const { draft, createDraft } = useChatSessions()
+const { draft, createDraft } = useWorkflowList()
 
 const hour = new Date().getHours()
 const greetingKey = hour < 5

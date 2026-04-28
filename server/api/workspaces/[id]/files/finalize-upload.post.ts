@@ -59,14 +59,15 @@ export default defineEventHandler(async (event) => {
   if (requestedBackend === 'local') {
     // Bytes live in the client's OPFS — we never see them. `backend_ref`
     // carries the device id that holds the file so other devices / teammates
-    // can tell they don't have access locally.
+    // can tell they don't have access locally. We return `file_id` so the
+    // client can key its OPFS entry to match what /download-url hands back.
     const backendRef = typeof body.backend_ref === 'string' ? body.backend_ref : ''
     if (!backendRef) {
       throw createError({ statusCode: 400, statusMessage: 'backend_ref (device id) required for local uploads.' })
     }
     const size = Number(body.size) || 0
 
-    const { error: upsertError } = await admin
+    const { data: upserted, error: upsertError } = await admin
       .from('files')
       .upsert({
         workspace_id: workspaceId,
@@ -80,13 +81,21 @@ export default defineEventHandler(async (event) => {
         backend_mtime: new Date().toISOString(),
         created_by: user.sub,
       }, { onConflict: 'workspace_id,path' })
+      .select('id')
+      .single()
 
-    if (upsertError) {
+    if (upsertError || !upserted) {
       console.error('[files] finalize-upload (local) upsert error', upsertError)
       throw createError({ statusCode: 500, statusMessage: 'Failed to record metadata.' })
     }
 
-    return { ok: true as const, path: logicalPath, size, backend: 'local' as const }
+    return {
+      ok: true as const,
+      path: logicalPath,
+      size,
+      backend: 'local' as const,
+      file_id: upserted.id as string,
+    }
   }
 
   if (requestedBackend === 'google-drive') {
