@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ChatSession } from '~/composables/useChatSessions'
+import type { WorkflowSummary } from '~/composables/useWorkflowList'
 
 const props = defineProps<{
-  sessions: ChatSession[]
+  sessions: WorkflowSummary[]
 }>()
 
 const { t } = useI18n()
@@ -14,19 +14,15 @@ const recentSessions = computed(() =>
     .slice(0, 6),
 )
 
-function sessionTitle(session: ChatSession): string {
+function sessionTitle(session: WorkflowSummary): string {
   return session.title?.trim() || t('dashboard.untitledSession')
 }
 
-function initials(session: ChatSession): string {
+function initials(session: WorkflowSummary): string {
   const title = sessionTitle(session)
   const parts = title.split(/\s+/).filter(Boolean)
   const letters = parts.slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase()
   return letters || '•'
-}
-
-function isRecent(session: ChatSession): boolean {
-  return Date.now() - new Date(session.updated_at).getTime() < 1000 * 60 * 60 * 24
 }
 </script>
 
@@ -54,9 +50,7 @@ function isRecent(session: ChatSession): boolean {
       v-if="recentSessions.length === 0"
       class="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/40 py-10 text-center"
     >
-      <div class="flex size-12 items-center justify-center rounded-full bg-white text-neutral-400 ring-1 ring-neutral-200">
-        <UIcon name="i-heroicons-chat-bubble-oval-left-ellipsis-20-solid" class="size-5" />
-      </div>
+      <UIcon name="i-heroicons-chat-bubble-oval-left-ellipsis-20-solid" class="size-8 text-neutral-400" />
       <div class="px-4">
         <p class="text-sm font-medium text-neutral-950">
           {{ t('dashboard.noSessions') }}
@@ -86,22 +80,10 @@ function isRecent(session: ChatSession): boolean {
             {{ initials(session) }}
           </div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <p class="truncate text-sm font-medium text-neutral-950">
-                {{ sessionTitle(session) }}
-              </p>
-              <span
-                v-if="isRecent(session)"
-                class="shrink-0 rounded-full bg-green-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-green-700 ring-1 ring-green-200/60"
-              >
-                {{ t('dashboard.sessionActive') }}
-              </span>
-            </div>
-            <p class="mt-0.5 flex items-center gap-1.5 text-[11px] text-neutral-400">
-              <span
-                class="size-1.5 rounded-full"
-                :class="isRecent(session) ? 'bg-green-500' : 'bg-neutral-300'"
-              />
+            <p class="truncate text-sm font-medium text-neutral-950">
+              {{ sessionTitle(session) }}
+            </p>
+            <p class="mt-0.5 text-[11px] text-neutral-400">
               {{ relativeTime(session.updated_at) }}
             </p>
           </div>

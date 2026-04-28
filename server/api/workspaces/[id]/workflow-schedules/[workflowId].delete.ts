@@ -1,7 +1,7 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 
-// DELETE /api/workspaces/[id]/workflow-schedules/[sessionId]
-// Removes the persisted schedule for a session. RLS requires workspace
+// DELETE /api/workspaces/[id]/workflow-schedules/[workflowId]
+// Removes the persisted schedule for a workflow. RLS requires workspace
 // membership; additional membership check here for a clean 403 message.
 
 export default defineEventHandler(async (event) => {
@@ -11,9 +11,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = getRouterParam(event, 'id')
-  const sessionId = getRouterParam(event, 'sessionId')
-  if (!workspaceId || !sessionId) {
-    throw createError({ statusCode: 400, statusMessage: 'Workspace id and session id are required.' })
+  const workflowId = getRouterParam(event, 'workflowId')
+  if (!workspaceId || !workflowId) {
+    throw createError({ statusCode: 400, statusMessage: 'Workspace id and workflow id are required.' })
   }
 
   const supabase = await serverSupabaseClient(event)
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   const { error } = await admin
     .from('workflow_schedules')
     .delete()
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
     .eq('workspace_id', workspaceId)
 
   if (error) {

@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const { isCollapsed } = useSidePanel()
+</script>
+
 <template>
   <div class="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
     <UPage
@@ -12,7 +16,14 @@
       }"
     >
       <template #left>
-        <SidePanel />
+        <div
+          class="side-panel-slot h-full overflow-hidden"
+          :class="{ 'is-collapsed': isCollapsed }"
+        >
+          <div class="side-panel-rail h-full lg:w-[272px]">
+            <SidePanel />
+          </div>
+        </div>
       </template>
 
       <slot />

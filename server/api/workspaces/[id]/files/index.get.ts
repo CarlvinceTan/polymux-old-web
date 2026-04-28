@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
   // awaited `effective_file_permission` once per listed entry, which scaled
   // linearly with folder size and dominated latency on large folders. We
   // now load all workspace grants once and evaluate each entry locally.
-  const [listResult, permsResult, orderResult, metadataResult] = await Promise.all([
+  const [listResult, permsResult, orderResult, metadataResult, integrationsResult] = await Promise.all([
     supabase.storage
       .from(STORAGE_BUCKET)
       .list(prefix, { limit: 1000, sortBy: { column: 'name', order: 'asc' } }),
@@ -70,7 +70,29 @@ export default defineEventHandler(async (event) => {
       .eq('parent_path', path)
       .maybeSingle(),
     metadataQuery,
+    admin
+      .from('workspace_integrations')
+      .select('provider')
+      .eq('workspace_id', workspaceId),
   ])
+
+  // Backends that are currently usable for this workspace. supabase is
+  // always available for an authenticated workspace; other backends require
+  // their integration row to exist. Folder rows pointing at a backend that's
+  // no longer connected are orphans (e.g. drive disconnected before its
+  // folder rows were flipped) — we self-heal them below.
+  const installedProviders = new Set<string>(
+    (integrationsResult.data ?? []).map(r => r.provider as string),
+  )
+  function backendIsLive(backend: Backend): boolean {
+    if (backend === 'supabase') return true
+    if (backend === 'google-drive') return installedProviders.has('google-drive')
+    // 'local' folders only resolve on the device that owns them, but a
+    // folder row pointing at local is fine to display either way — the
+    // FileBrowser just shows the local icon.
+    if (backend === 'local') return true
+    return false
+  }
 
   if (listResult.error) {
     console.error('[files] list error', listResult.error)
@@ -93,15 +115,82 @@ export default defineEventHandler(async (event) => {
     mtime: string | null
   }
   const metadataByName = new Map<string, MetaEntry>()
+  const orphanFolderIds: string[] = []
   for (const m of metadataResult.data ?? []) {
     const name = (m.path as string).split('/').pop() ?? (m.path as string)
+    const kind = (m.kind as 'file' | 'folder') ?? 'file'
+    let backend = m.backend as Backend
+    // Self-heal orphan folder rows: a folder marked for a backend whose
+    // integration is gone (e.g. drive folder rows left behind when an old
+    // bulk migration didn't flip folders before the user disconnected drive)
+    // would otherwise display the icon of a disconnected backend forever.
+    // Display it as supabase here and queue an UPDATE to clean the row.
+    if (kind === 'folder' && !backendIsLive(backend)) {
+      orphanFolderIds.push(m.id as string)
+      backend = 'supabase'
+    }
     metadataByName.set(name, {
       id: m.id as string,
-      backend: m.backend as Backend,
-      kind: (m.kind as 'file' | 'folder') ?? 'file',
+      backend,
+      kind,
       size: Number(m.size_bytes ?? 0),
       mtime: (m.backend_mtime as string | null) ?? null,
     })
+  }
+  if (orphanFolderIds.length > 0) {
+    // Best-effort cleanup. Failure just means we'll re-detect and re-attempt
+    // on the next listing — display is already self-healed in-memory.
+    void admin
+      .from('files')
+      .update({ backend: 'supabase', backend_ref: null })
+      .in('id', orphanFolderIds)
+      .then(({ error }) => {
+        if (error) console.warn('[files] orphan folder cleanup failed', error)
+      })
+  }
+
+  // Zombie-bucket guard. A cross-provider migration moves a metadata row to
+  // a new path AND deletes the source bucket object — but if that delete
+  // fails silently, the bucket still returns the item at its *old* location.
+  // That would re-surface the file in the source folder even though the
+  // authoritative metadata row has moved elsewhere. For each bucket entry,
+  // if there's NO metadata row at `{currentPath}/{name}` but there IS a row
+  // whose path ends with that name elsewhere, treat the bucket entry as
+  // stale and skip it in the listing.
+  const bucketNames = (listResult.data ?? [])
+    .map(it => it.name)
+    .filter(n => n !== '.keep')
+  const zombieNames = new Set<string>()
+  if (bucketNames.length > 0) {
+    const expectedPaths = bucketNames.map(n => (path ? `${path}/${n}` : n))
+    const { data: ownedRows, error: ownedError } = await admin
+      .from('files')
+      .select('path')
+      .eq('workspace_id', workspaceId)
+      .in('path', expectedPaths)
+    if (ownedError) {
+      console.warn('[files] zombie guard query failed', ownedError)
+    } else {
+      const ownedHere = new Set((ownedRows ?? []).map(r => r.path as string))
+      // One query per candidate name: is there a row *elsewhere* whose
+      // basename matches? We deliberately scope with `%/{name}` + equality
+      // so 'A' doesn't accidentally match 'BA' or 'BA/x'.
+      for (let i = 0; i < bucketNames.length; i++) {
+        const name = bucketNames[i]!
+        const expected = expectedPaths[i]!
+        if (ownedHere.has(expected)) continue // row lives at this location → legit
+        const meta = metadataByName.get(name)
+        if (meta) continue // caught by the in-scope metadata loop → legit
+        const { data: elsewhere } = await admin
+          .from('files')
+          .select('id')
+          .eq('workspace_id', workspaceId)
+          .or(`path.eq.${name},path.like.%/${name}`)
+          .neq('path', expected)
+          .limit(1)
+        if (elsewhere && elsewhere.length > 0) zombieNames.add(name)
+      }
+    }
   }
 
   // Build a permission lookup keyed by path. At each path we track the
@@ -145,6 +234,7 @@ export default defineEventHandler(async (event) => {
     const isFolder = item.id === null
     const name = item.name
     if (name === '.keep') continue
+    if (zombieNames.has(name)) continue // stale source left behind by a failed delete
 
     const logicalPath = path ? `${path}/${name}` : name
     if (evaluatePermission(logicalPath) === 'none') continue

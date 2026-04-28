@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory } from '~/composables/useMarketplace'
-
-interface SelectedItem {
-  id: string
-  name: string
-  category: ItemCategory
-}
+import type { MarketplaceItem, ItemCategory } from '~/composables/useMarketplace'
+import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
 
 const props = defineProps<{
   open: boolean
-  item: SelectedItem | null
-  isAdmin: boolean
+  item: MarketplaceItem | null
 }>()
 
 const emit = defineEmits<{
@@ -19,26 +13,81 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isAdmin, isInstalled, install, uninstall, connectionFor } = useMarketplace()
 const { state: migrationState, run: runDriveMigration } = useDriveMigration()
+
+// Marketplace ids that map 1:1 to a StorageProvider. Disconnecting these
+// might strand workspace files, so we route them through the disconnect
+// warning modal instead of calling uninstall() directly.
+const STORAGE_INTEGRATION_TO_PROVIDER: Record<string, StorageProvider> = {
+  'google-drive': 'google-drive',
+}
+
+const disconnectModalOpen = ref(false)
+const pendingDisconnectProvider = ref<StorageProvider | null>(null)
 
 const categoryLabel = computed<Record<ItemCategory, string>>(() => ({
   workflow: t('integrations.categoryWorkflow'),
   plugin: t('integrations.categoryPlugin'),
-  connection: t('integrations.categoryConnection'),
+  integration: t('integrations.categoryIntegration'),
 }))
 
 const icon = computed(() =>
   props.item ? integrationIconMeta(props.item.id, props.item.category) : null,
 )
 
+const installed = computed(() => (props.item ? isInstalled(props.item.id) : false))
+const requiresOauth = computed(() => props.item?.requiresOauth === true)
 const isDrive = computed(() => props.item?.id === 'google-drive')
 
-const migrateDisabled = computed(
-  () => !props.isAdmin || migrationState.status === 'running',
+const connection = computed(() =>
+  props.item ? connectionFor(props.item.id) : null,
 )
+const connectedEmail = computed(() => connection.value?.account_email ?? null)
+
+const primaryActionLabel = computed(() => {
+  if (!props.item) return ''
+  if (installed.value) {
+    return requiresOauth.value ? t('integrations.disconnect') : t('integrations.uninstall')
+  }
+  return requiresOauth.value ? t('integrations.connect') : t('integrations.install')
+})
+
+const migrateDisabled = computed(
+  () => !isAdmin.value || migrationState.status === 'running',
+)
+
+const hasConfigSection = computed(() => installed.value && isDrive.value)
 
 function close() {
   emit('update:open', false)
+}
+
+function onPrimaryAction() {
+  if (!props.item || !isAdmin.value) return
+  if (installed.value) {
+    const storageProvider = STORAGE_INTEGRATION_TO_PROVIDER[props.item.id]
+    if (storageProvider) {
+      // Storage-backed integration. Hand off to the disconnect modal so the
+      // user can migrate any files that still live on this backend before the
+      // connection drops.
+      pendingDisconnectProvider.value = storageProvider
+      disconnectModalOpen.value = true
+      return
+    }
+    uninstall(props.item.id)
+    close()
+  }
+  else {
+    install(props.item.id)
+  }
+}
+
+async function onConfirmDisconnect() {
+  if (!props.item) return
+  await uninstall(props.item.id)
+  pendingDisconnectProvider.value = null
+  close()
 }
 
 function onMigrateClick() {
@@ -65,7 +114,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
       >
         <div
           v-if="open && item"
-          class="fixed inset-0 z-[9997] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4"
+          class="fixed inset-0 z-[9997] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
           @click="close"
         >
           <Transition
@@ -76,93 +125,178 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
           >
             <div
               v-if="open && item"
-              class="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
+              class="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
               style="max-height: 90svh"
               role="dialog"
               aria-modal="true"
-              :aria-label="t('integrations.settingsTitle')"
+              :aria-label="item.name"
               @click.stop
             >
               <button
                 type="button"
-                class="absolute top-4 right-4 z-10 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                class="absolute right-4 top-4 z-10 rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
                 :aria-label="t('common.close')"
                 @click="close"
               >
                 <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
               </button>
 
-              <header class="flex items-start gap-3 px-6 pt-6 pb-4">
-                <div
-                  v-if="icon"
-                  class="flex size-10 shrink-0 items-center justify-center rounded-lg"
-                  :class="icon.tintClass"
-                >
-                  <UIcon :name="icon.iconName" class="size-5" />
+              <header class="flex flex-col gap-4 px-6 pb-5 pt-6">
+                <div class="flex items-start gap-4 pr-8">
+                  <div
+                    v-if="icon"
+                    class="flex size-14 shrink-0 items-center justify-center rounded-xl"
+                    :class="icon.tintClass"
+                  >
+                    <UIcon :name="icon.iconName" class="size-7" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <h2 class="truncate text-title-sm font-semibold tracking-tight text-neutral-950">
+                      {{ item.name }}
+                    </h2>
+                    <p class="mt-1 text-body-md text-neutral-500">
+                      {{ t('integrations.byAuthor', { author: item.author }) }}
+                      <span class="text-neutral-300">·</span>
+                      {{ categoryLabel[item.category] }}
+                    </p>
+                  </div>
                 </div>
-                <div class="min-w-0 flex-1 pr-6">
-                  <p class="truncate text-body-md font-semibold leading-tight text-neutral-950">
-                    {{ item.name }}
-                  </p>
-                  <p class="mt-0.5 text-label-md text-neutral-500">
-                    {{ categoryLabel[item.category] }} · {{ t('integrations.settingsTitle') }}
-                  </p>
+
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                    :class="[
+                      !isAdmin && 'cursor-not-allowed opacity-60',
+                      installed
+                        ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                        : 'bg-neutral-950 text-white hover:bg-neutral-800',
+                    ]"
+                    :disabled="!isAdmin"
+                    :title="!isAdmin ? t('integrations.adminOnly') : undefined"
+                    @click="onPrimaryAction"
+                  >
+                    {{ primaryActionLabel }}
+                  </button>
+                  <a
+                    v-if="item.githubUrl"
+                    :href="item.githubUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-label-md font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950"
+                    :aria-label="t('integrations.viewOnGithub')"
+                  >
+                    <UIcon name="i-simple-icons-github" class="size-4" />
+                    <span>{{ t('integrations.github') }}</span>
+                    <UIcon name="i-heroicons-arrow-top-right-on-square-20-solid" class="size-3.5 text-neutral-400" />
+                  </a>
+                </div>
+
+                <div v-if="item.tags?.length" class="flex flex-wrap gap-1.5">
+                  <span
+                    v-for="tag in item.tags"
+                    :key="tag"
+                    class="rounded-md bg-neutral-100 px-2 py-0.5 text-label-md font-medium text-neutral-600"
+                  >
+                    {{ tag }}
+                  </span>
                 </div>
               </header>
 
-              <div class="scrollbar-hide min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-                <template v-if="isDrive">
-                  <div class="space-y-4">
-                    <DriveMigrationStatus :state="migrationState" />
-                    <section>
-                      <h2 class="mb-3 text-body-md font-semibold tracking-tight text-neutral-950">
-                        {{ t('integrations.settingsSectionData') }}
-                      </h2>
-                      <div class="ghost-panel rounded-lg bg-white p-4">
-                        <div class="flex items-start gap-4">
-                          <div class="min-w-0 flex-1">
-                            <p class="text-body-md font-medium text-neutral-950">
-                              {{ t('integrations.settingsMigrateLabel') }}
-                            </p>
-                            <p class="mt-1 text-label-md text-neutral-500">
-                              {{ t('integrations.settingsMigrateDescription') }}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            class="shrink-0 rounded-lg bg-neutral-950 px-3 py-1.5 text-label-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                            :disabled="migrateDisabled"
-                            :title="!isAdmin ? t('integrations.adminOnly') : undefined"
-                            @click="onMigrateClick"
-                          >
-                            {{
-                              migrationState.status === 'running'
-                                ? t('integrations.settingsMigrateBusy')
-                                : t('integrations.settingsMigrateNow')
-                            }}
-                          </button>
-                        </div>
-                      </div>
-                    </section>
-                  </div>
-                </template>
+              <div class="h-px bg-neutral-100" />
 
-                <div v-else class="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-12 text-center">
-                  <div class="mb-3 flex size-10 items-center justify-center rounded-full bg-white ghost-panel">
-                    <UIcon name="i-heroicons-sparkles-20-solid" class="size-4 text-neutral-500" />
+              <div class="scrollbar-hide min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
+                <section>
+                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
+                    {{ t('integrations.aboutHeading') }}
+                  </h3>
+                  <p class="text-body-md leading-relaxed text-neutral-600">
+                    {{ item.description }}
+                  </p>
+                </section>
+
+                <section v-if="installed && requiresOauth && connectedEmail" class="mt-6">
+                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
+                    {{ t('integrations.statusHeading') }}
+                  </h3>
+                  <div class="ghost-panel flex items-center gap-3 rounded-lg bg-white p-3">
+                    <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+                      <UIcon name="i-heroicons-check-circle-20-solid" class="size-4" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-body-md font-medium text-neutral-950">
+                        {{ t('integrations.active') }}
+                      </p>
+                      <p class="truncate text-label-md text-neutral-500">
+                        {{ t('integrations.connectedBy', { email: connectedEmail }) }}
+                      </p>
+                    </div>
                   </div>
-                  <p class="text-body-md font-medium text-neutral-950">
-                    {{ t('integrations.settingsEmpty') }}
-                  </p>
-                  <p class="mt-1 max-w-xs text-label-md text-neutral-500">
-                    {{ t('integrations.settingsEmptySubtitle') }}
-                  </p>
-                </div>
+                </section>
+
+                <section v-if="hasConfigSection" class="mt-6">
+                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
+                    {{ t('integrations.settingsSectionData') }}
+                  </h3>
+                  <DriveMigrationStatus
+                    v-if="migrationState.status !== 'idle'"
+                    :state="migrationState"
+                    class="mb-3"
+                  />
+                  <div class="ghost-panel rounded-lg bg-white p-4">
+                    <div class="flex items-start gap-4">
+                      <div class="min-w-0 flex-1">
+                        <p class="text-body-md font-medium text-neutral-950">
+                          {{ t('integrations.settingsMigrateLabel') }}
+                        </p>
+                        <p class="mt-1 text-label-md text-neutral-500">
+                          {{ t('integrations.settingsMigrateDescription') }}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-lg bg-neutral-950 px-3 py-1.5 text-label-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="migrateDisabled"
+                        :title="!isAdmin ? t('integrations.adminOnly') : undefined"
+                        @click="onMigrateClick"
+                      >
+                        {{
+                          migrationState.status === 'running'
+                            ? t('integrations.settingsMigrateBusy')
+                            : t('integrations.settingsMigrateNow')
+                        }}
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <section v-else-if="installed" class="mt-6">
+                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
+                    {{ t('integrations.settingsHeading') }}
+                  </h3>
+                  <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-10 text-center">
+                    <div class="ghost-panel mb-3 flex size-10 items-center justify-center rounded-full bg-white">
+                      <UIcon name="i-heroicons-sparkles-20-solid" class="size-4 text-neutral-500" />
+                    </div>
+                    <p class="text-body-md font-medium text-neutral-950">
+                      {{ t('integrations.settingsEmpty') }}
+                    </p>
+                    <p class="mt-1 max-w-xs text-label-md text-neutral-500">
+                      {{ t('integrations.settingsEmptySubtitle') }}
+                    </p>
+                  </div>
+                </section>
               </div>
             </div>
           </Transition>
         </div>
       </Transition>
     </Teleport>
+
+    <DisconnectStorageProviderModal
+      v-model:open="disconnectModalOpen"
+      :provider="pendingDisconnectProvider"
+      @disconnect="onConfirmDisconnect"
+    />
   </ClientOnly>
 </template>

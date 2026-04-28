@@ -1,11 +1,6 @@
 import { serverSupabaseUser, serverSupabaseClient } from '#supabase/server'
-import { isKnownProvider, isOAuthProvider } from '~~/server/utils/integrationRegistry'
 import { issueOAuthState, STATE_COOKIE } from '~~/server/utils/oauthState'
-import { buildGoogleAuthUrl, GMAIL_SCOPES } from '~~/server/utils/googleOAuth'
-import { buildGitHubAuthUrl } from '~~/server/utils/githubOAuth'
-import { buildSlackAuthUrl } from '~~/server/utils/slackOAuth'
-import { buildNotionAuthUrl } from '~~/server/utils/notionOAuth'
-import { buildLinearAuthUrl } from '~~/server/utils/linearOAuth'
+import { getConnector } from '~~/server/connectors/registry'
 
 // GET /api/integrations/[provider]/connect?workspace_id=...&migrate=1
 //
@@ -13,6 +8,10 @@ import { buildLinearAuthUrl } from '~~/server/utils/linearOAuth'
 // nonce cookie, and 302s to the provider consent screen. The callback at
 // /api/integrations/[provider]/callback verifies state+nonce, exchanges the
 // code, and persists the connection.
+//
+// Provider dispatch lives in `server/connectors/registry.ts`. To add a new
+// first-party OAuth provider, implement `ConnectorHandler` and register it
+// there — no changes needed in this file.
 
 export default defineEventHandler(async (event) => {
   const provider = getRouterParam(event, 'provider')
@@ -20,11 +19,12 @@ export default defineEventHandler(async (event) => {
   const workspaceId = typeof query.workspace_id === 'string' ? query.workspace_id : ''
   const migrate = query.migrate === '1' || query.migrate === 'true'
 
-  if (!provider || !isKnownProvider(provider)) {
-    throw createError({ statusCode: 400, statusMessage: 'Unknown provider.' })
+  if (!provider) {
+    throw createError({ statusCode: 400, statusMessage: 'Provider is required.' })
   }
-  if (!isOAuthProvider(provider)) {
-    throw createError({ statusCode: 400, statusMessage: 'Provider is not an OAuth connection.' })
+  const connector = getConnector(provider)
+  if (!connector) {
+    throw createError({ statusCode: 400, statusMessage: 'Unknown provider.' })
   }
   if (!workspaceId) {
     throw createError({ statusCode: 400, statusMessage: 'workspace_id is required.' })
@@ -61,32 +61,5 @@ export default defineEventHandler(async (event) => {
     maxAge: 60 * 5,
   })
 
-  let redirectUrl: string
-  switch (provider) {
-    case 'google-drive':
-      redirectUrl = buildGoogleAuthUrl(state)
-      break
-    case 'gmail':
-      redirectUrl = buildGoogleAuthUrl(state, { provider: 'gmail', scopes: GMAIL_SCOPES })
-      break
-    case 'github':
-      redirectUrl = buildGitHubAuthUrl(state)
-      break
-    case 'slack':
-      redirectUrl = buildSlackAuthUrl(state)
-      break
-    case 'notion':
-      redirectUrl = buildNotionAuthUrl(state)
-      break
-    case 'linear':
-      redirectUrl = buildLinearAuthUrl(state)
-      break
-    default:
-      throw createError({
-        statusCode: 501,
-        statusMessage: `OAuth connect for ${provider} is not implemented yet.`,
-      })
-  }
-
-  return await sendRedirect(event, redirectUrl, 302)
+  return await sendRedirect(event, connector.buildAuthUrl(state), 302)
 })

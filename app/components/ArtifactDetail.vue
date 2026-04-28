@@ -13,7 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { formatSize } = useArtifacts(inject<Ref<string>>('chat-session-id')!)
+const { formatSize } = useArtifacts(inject<Ref<string>>('workflow-id')!)
 
 const showLineNumbers = ref(true)
 

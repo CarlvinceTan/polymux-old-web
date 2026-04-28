@@ -55,8 +55,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `workspace/console` → `app/pages/workspace/console.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
   * `vault/passwords` → `app/pages/vault/passwords.vue`
-  * `storage/shared` → `app/pages/storage/shared.vue`
-  * `storage/workspace` → `app/pages/storage/workspace.vue`
+  * `storage/files` → `app/pages/storage/files.vue`
   * `settings` → `app/pages/settings.vue`
 * Key reusable components:
   * `FileBrowser` — self-contained file browser (search, view toggle, filter, icon/list grid); drop it anywhere users need to access files

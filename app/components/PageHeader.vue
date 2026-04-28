@@ -17,6 +17,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const route = useRoute()
+const { t } = useI18n()
+const { toggle: toggleSidePanel } = useSidePanel()
 
 /** Title-case each word so labels look consistent whatever the prop keys look like. */
 function formatTabLabel(raw: string) {
@@ -81,9 +83,14 @@ function displayTabLabel(label: string) {
   <!-- Full width within the main column (same inset as page padding from parent) -->
   <div class="flex h-14 w-full min-w-0 items-center justify-between px-3 sm:px-4">
     <div class="flex min-w-0 items-center gap-10">
-      <NuxtLink to="/" class="shrink-0 -translate-y-px">
+      <button
+        type="button"
+        class="shrink-0 -translate-y-px cursor-pointer border-0 bg-transparent p-0 outline-none"
+        :aria-label="t('nav.toggleSidebar')"
+        @click="toggleSidePanel"
+      >
         <InlineLogo size="xl" />
-      </NuxtLink>
+      </button>
       <nav class="flex items-center gap-4">
         <template v-for="(routePath, label) in tabs" :key="label">
           <div

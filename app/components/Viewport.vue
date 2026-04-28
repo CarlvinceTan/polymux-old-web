@@ -150,8 +150,8 @@ function greenClick(e: Event) {
           </div>
         </div>
 
-        <!-- Preview: fixed 3:2 to match the browser screencast ratio. -->
-        <div class="relative w-full overflow-hidden bg-white" style="aspect-ratio: 3 / 2">
+        <!-- Preview: fixed 16:9 to match the browser screencast ratio. -->
+        <div class="relative w-full overflow-hidden bg-white" style="aspect-ratio: 16 / 9">
           <div
             v-if="!frameUrl && reconnecting"
             class="absolute inset-0 flex items-center justify-center"

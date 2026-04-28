@@ -142,6 +142,7 @@ function onChipBeforeLeave(el: Element) {
         ref="editTextareaRef"
         v-model="editText"
         rows="1"
+        name="message-edit"
         class="w-full resize-none bg-transparent text-sm leading-relaxed text-neutral-800 outline-none"
         @keydown="onEditKeydown"
         @input="autoResize"

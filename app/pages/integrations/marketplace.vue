@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory } from '~/composables/useMarketplace'
+import type { ItemCategory, MarketplaceItem } from '~/composables/useMarketplace'
 
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
@@ -8,10 +8,9 @@ const { headerTabs } = useIntegrationsNavTabs()
 type FilterValue = 'all' | ItemCategory | 'installed'
 type SortValue = 'popularity' | 'nameAZ' | 'nameZA' | 'installedFirst' | 'category'
 
-const { catalog, isInstalled, install, uninstall } = useMarketplace()
+const { catalog, isInstalled } = useMarketplace()
 
 const searchQuery = ref('')
-const searchFocused = ref(false)
 const filterBy = ref<FilterValue>('all')
 const sortBy = ref<SortValue>('popularity')
 
@@ -24,7 +23,7 @@ const filterOptions = computed<{ value: FilterValue, label: string }[]>(() => [
   { value: 'all', label: t('integrations.filterAll') },
   { value: 'workflow', label: t('integrations.filterWorkflows') },
   { value: 'plugin', label: t('integrations.filterPlugins') },
-  { value: 'connection', label: t('integrations.filterIntegrations') },
+  { value: 'integration', label: t('integrations.filterIntegrations') },
   { value: 'installed', label: t('integrations.filterInstalled') },
 ])
 
@@ -37,13 +36,13 @@ const sortOptions = computed<{ value: SortValue, label: string }[]>(() => [
 ])
 
 const categoryOrder: Record<ItemCategory, number> = {
-  connection: 0,
+  integration: 0,
   plugin: 1,
   workflow: 2,
 }
 
-const filteredItems = computed(() => {
-  let list = [...catalog]
+const filteredItems = computed<MarketplaceItem[]>(() => {
+  let list: MarketplaceItem[] = [...(catalog.value ?? [])]
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
@@ -61,19 +60,38 @@ const filteredItems = computed(() => {
     list = list.filter(i => i.category === filterBy.value)
   }
 
+  // Unless the user explicitly chose "Installed first", push installed items
+  // to the bottom — the marketplace exists to surface things to install, not
+  // ones already wired up.
+  const uninstalledFirst = (a: MarketplaceItem, b: MarketplaceItem) => {
+    const ai = isInstalled(a.id) ? 1 : 0
+    const bi = isInstalled(b.id) ? 1 : 0
+    return ai - bi
+  }
+
   switch (sortBy.value) {
     case 'popularity':
       list.sort((a, b) => {
+        const status = uninstalledFirst(a, b)
+        if (status !== 0) return status
         const diff = b.popularity - a.popularity
         if (diff !== 0) return diff
         return a.name.localeCompare(b.name)
       })
       break
     case 'nameAZ':
-      list.sort((a, b) => a.name.localeCompare(b.name))
+      list.sort((a, b) => {
+        const status = uninstalledFirst(a, b)
+        if (status !== 0) return status
+        return a.name.localeCompare(b.name)
+      })
       break
     case 'nameZA':
-      list.sort((a, b) => b.name.localeCompare(a.name))
+      list.sort((a, b) => {
+        const status = uninstalledFirst(a, b)
+        if (status !== 0) return status
+        return b.name.localeCompare(a.name)
+      })
       break
     case 'installedFirst':
       list.sort((a, b) => {
@@ -85,6 +103,8 @@ const filteredItems = computed(() => {
       break
     case 'category':
       list.sort((a, b) => {
+        const status = uninstalledFirst(a, b)
+        if (status !== 0) return status
         const diff = categoryOrder[a.category] - categoryOrder[b.category]
         if (diff !== 0) return diff
         return a.name.localeCompare(b.name)
@@ -95,9 +115,12 @@ const filteredItems = computed(() => {
   return list
 })
 
-function toggleItem(id: string) {
-  if (isInstalled(id)) uninstall(id)
-  else install(id)
+const detailOpen = ref(false)
+const selectedItem = ref<MarketplaceItem | null>(null)
+
+function openDetail(item: MarketplaceItem) {
+  selectedItem.value = item
+  detailOpen.value = true
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -125,30 +148,24 @@ onUnmounted(() => {
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
-      <div class="relative" style="padding: 5rem 6rem 2.5rem">
-        <div class="mb-6 flex items-center gap-2">
-          <div
-            class="min-w-0 flex flex-1 items-center gap-2 rounded-lg border bg-neutral-100 px-3 py-2 transition-all"
-            :class="searchFocused ? 'border-neutral-950 bg-white shadow-sm' : 'border-neutral-300'"
-          >
-            <svg class="size-4 shrink-0 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
+            <div class="flex size-8 shrink-0 items-center justify-center text-neutral-400">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            </div>
             <input
               v-model="searchQuery"
               type="text"
               :placeholder="t('integrations.searchPlaceholder')"
-              class="min-w-0 flex-1 bg-transparent text-body-md text-neutral-950 outline-none placeholder:text-neutral-600"
-              @focus="searchFocused = true"
-              @blur="searchFocused = false"
+              class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"
             >
           </div>
 
           <div ref="filterRef" class="relative">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
+              class="flex h-8 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
               @click="isFilterOpen = !isFilterOpen"
             >
               {{ t('integrations.filterBy') }}
@@ -158,7 +175,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isFilterOpen"
-              class="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in filterOptions"
@@ -179,7 +196,7 @@ onUnmounted(() => {
           <div ref="sortRef" class="relative">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
+              class="flex h-8 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
               @click="isSortOpen = !isSortOpen"
             >
               {{ t('integrations.sortBy') }}
@@ -189,7 +206,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isSortOpen"
-              class="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in sortOptions"
@@ -207,7 +224,9 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+      </template>
 
+      <div class="relative" style="padding: 2.5rem 6rem">
         <div
           v-if="filteredItems.length"
           class="grid gap-4"
@@ -221,12 +240,13 @@ onUnmounted(() => {
             :description="item.description"
             :category="item.category"
             :author="item.author"
-            :installed="isInstalled(item.id)"
-            @toggle="() => toggleItem(item.id)"
+            :tags="item.tags"
+            :popularity="item.popularity"
+            @open="openDetail(item)"
           />
         </div>
 
-        <div v-else class="flex flex-col items-center justify-center py-16 text-center">
+        <div v-else class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <svg class="mb-4 size-10 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
@@ -237,5 +257,10 @@ onUnmounted(() => {
         </div>
       </div>
     </TabPanel>
+
+    <IntegrationSettingsModal
+      v-model:open="detailOpen"
+      :item="selectedItem"
+    />
   </div>
 </template>

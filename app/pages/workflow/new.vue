@@ -2,7 +2,7 @@
 import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 
 const route = useRoute()
-const { draft, createDraft, promoteDraft, setPendingPrompt, restoreDraft } = useChatSessions()
+const { draft, createDraft, promoteDraft, setPendingPrompt, restoreDraft } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 

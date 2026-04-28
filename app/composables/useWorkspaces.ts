@@ -20,6 +20,19 @@ export interface WorkspaceMember {
   email?: string
 }
 
+export interface WorkspaceInvitation {
+  id: string
+  workspace_id: string
+  email: string
+  role: 'admin' | 'member'
+  token: string
+  invited_by: string
+  created_at: string
+  expires_at: string
+  accepted_at: string | null
+  accepted_by: string | null
+}
+
 const STORAGE_KEY = 'polymux_current_workspace_id'
 
 export const WORKSPACE_NAME_MAX_LENGTH = 20
@@ -44,6 +57,7 @@ export function useWorkspaces() {
     return localStorage.getItem(STORAGE_KEY)
   })
   const members = useState<WorkspaceMember[]>('workspace-members', () => [])
+  const invitations = useState<WorkspaceInvitation[]>('workspace-invitations', () => [])
   const { authFetch } = useAuthFetch()
 
   const currentWorkspace = computed(() =>
@@ -221,11 +235,66 @@ export function useWorkspaces() {
     }
   }
 
+  async function fetchInvitations(workspaceID: string) {
+    try {
+      const data = await authFetch<WorkspaceInvitation[]>(`/workspaces/${workspaceID}/invitations`)
+      invitations.value = data ?? []
+    }
+    catch (err) {
+      console.error('[useWorkspaces] fetchInvitations failed', err)
+    }
+  }
+
+  async function inviteMember(workspaceID: string, email: string, role: 'admin' | 'member' = 'member'): Promise<WorkspaceInvitation | null> {
+    try {
+      const invitation = await authFetch<WorkspaceInvitation>(`/workspaces/${workspaceID}/invitations`, {
+        method: 'POST',
+        body: JSON.stringify({ email, role }),
+      })
+      const idx = invitations.value.findIndex(i => i.id === invitation.id)
+      if (idx !== -1) invitations.value[idx] = invitation
+      else invitations.value = [invitation, ...invitations.value]
+      return invitation
+    }
+    catch (err) {
+      console.error('[useWorkspaces] inviteMember failed', err)
+      return null
+    }
+  }
+
+  async function resendInvitation(workspaceID: string, invitationID: string): Promise<WorkspaceInvitation | null> {
+    try {
+      const invitation = await authFetch<WorkspaceInvitation>(`/workspaces/${workspaceID}/invitations/${invitationID}/resend`, {
+        method: 'POST',
+      })
+      const idx = invitations.value.findIndex(i => i.id === invitationID)
+      if (idx !== -1) invitations.value[idx] = invitation
+      return invitation
+    }
+    catch (err) {
+      console.error('[useWorkspaces] resendInvitation failed', err)
+      return null
+    }
+  }
+
+  async function revokeInvitation(workspaceID: string, invitationID: string): Promise<boolean> {
+    try {
+      await authFetch(`/workspaces/${workspaceID}/invitations/${invitationID}`, { method: 'DELETE' })
+      invitations.value = invitations.value.filter(i => i.id !== invitationID)
+      return true
+    }
+    catch (err) {
+      console.error('[useWorkspaces] revokeInvitation failed', err)
+      return false
+    }
+  }
+
   return {
     workspaces,
     currentWorkspace,
     currentWorkspaceId,
     members,
+    invitations,
     fetchWorkspaces,
     createWorkspace,
     switchWorkspace,
@@ -237,5 +306,9 @@ export function useWorkspaces() {
     transferOwnership,
     removeMember,
     leaveWorkspace,
+    fetchInvitations,
+    inviteMember,
+    resendInvitation,
+    revokeInvitation,
   }
 }

@@ -61,9 +61,10 @@ export function useSession(sessionId: Ref<string> | string) {
     const config = useRuntimeConfig()
     const serverUrl = (config.public.serverUrl as string).replace(/^http/, 'ws')
     const token = await getAccessToken()
-    const url = token
-      ? `${serverUrl}/session/${id}/?token=${encodeURIComponent(token)}`
-      : `${serverUrl}/session/${id}/`
+    const params = new URLSearchParams()
+    if (token) params.set('token', token)
+    const qs = params.toString()
+    const url = qs ? `${serverUrl}/session/${id}/?${qs}` : `${serverUrl}/session/${id}/`
 
     status.value = 'connecting'
 

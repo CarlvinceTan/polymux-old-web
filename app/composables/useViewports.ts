@@ -36,14 +36,20 @@ export function useViewports(session: SessionHandle) {
   }
 
   function payloadToViewport(p: BrowserSpawnedPayload): ViewportState {
+    // Session_state re-sync carries `status` so a completed agent restored
+    // after a reconnect or reload stays green instead of flipping back to the
+    // working/yellow state.
+    const done = p.status != null && p.status !== 'running'
     return {
       agentId: p.agent_id,
       url: '',
       agentName: p.label ?? p.session_name,
-      currentAction: `TASK: ${p.task.slice(0, 40)}`,
-      isLoading: true,
-      isWorking: true,
-      isDone: false,
+      currentAction: done
+        ? (p.status === 'completed' ? 'DONE' : (p.status ?? '').toUpperCase())
+        : `TASK: ${p.task.slice(0, 40)}`,
+      isLoading: !done,
+      isWorking: !done,
+      isDone: done,
     }
   }
 
@@ -81,9 +87,8 @@ export function useViewports(session: SessionHandle) {
     )
   }
 
-  // On session_state (re)sync the client has no per-agent status, so freshly
-  // restored viewports all look `isWorking` — the preference still gives us a
-  // deterministic lowest-label default when everything is in the same bucket.
+  // Prefer a still-working viewport as the default active one; fall back to
+  // the lowest-labelled agent when every agent is already done.
   function pickDefaultActiveAgent(list: ViewportState[]): string | null {
     if (list.length === 0) return null
     const working = list.find(v => v.isWorking && !v.isDone)
@@ -153,9 +158,14 @@ export function useViewports(session: SessionHandle) {
     if (p.agent_id === 'orchestrator') return
     if (!viewports.value.some(v => v.agentId === p.agent_id)) return
 
+    // Any activity on a previously-completed agent means the orchestrator has
+    // assigned a new task to the same worker — flip the status line back to
+    // yellow so it reflects the live state.
     const patch: Partial<ViewportState> = {
       currentAction: p.action.toUpperCase(),
       isLoading: false,
+      isWorking: true,
+      isDone: false,
     }
 
     if (p.action.startsWith('tool:') && p.detail) {

@@ -17,7 +17,6 @@ const {
 } = usePasswords()
 
 const searchQuery = ref('')
-const searchFocused = ref(false)
 const filterBy = ref('all')
 const sortBy = ref('nameAZ')
 const isAddModalOpen = ref(false)
@@ -137,6 +136,8 @@ onMounted(() => {
   fetchPasswords()
 })
 
+useOnReconnect(fetchPasswords)
+
 onUnmounted(() => {
   document.removeEventListener('click', handleFilterClickOutside)
 })
@@ -149,29 +150,23 @@ onUnmounted(() => {
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
-      <div class="relative" style="padding: 5rem 6rem 2.5rem">
-        <div class="mb-4 flex items-center gap-2">
-          <div
-            class="min-w-0 flex-1 flex items-center gap-2 rounded-lg border bg-neutral-100 px-3 py-2 transition-all"
-            :class="searchFocused ? 'border-neutral-950 bg-white shadow-sm' : 'border-neutral-300'"
-          >
-            <svg class="size-4 shrink-0 text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
+      <template #header>
+        <div class="flex items-center gap-2">
+          <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
+            <div class="flex size-8 shrink-0 items-center justify-center text-neutral-400">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            </div>
             <input
               v-model="searchQuery"
               type="text"
               :placeholder="t('vault.passwords.searchPlaceholder')"
-              class="min-w-0 flex-1 bg-transparent text-body-md text-neutral-950 outline-none placeholder:text-neutral-600"
-              @focus="searchFocused = true"
-              @blur="searchFocused = false"
+              class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"
             >
           </div>
 
           <button
             type="button"
-            class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-white transition-opacity hover:opacity-90"
+            class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-white transition-opacity hover:opacity-90"
             :aria-label="t('vault.passwords.addPassword')"
             @click="isAddModalOpen = true"
           >
@@ -183,7 +178,7 @@ onUnmounted(() => {
           <div ref="filterRef" class="relative">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
+              class="flex h-8 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
               @click="isFilterOpen = !isFilterOpen"
             >
               {{ t('vault.passwords.filterBy') }}
@@ -193,7 +188,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isFilterOpen"
-              class="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in filterOptions"
@@ -214,7 +209,7 @@ onUnmounted(() => {
           <div ref="sortRef" class="relative">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
+              class="flex h-8 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
               @click="isSortOpen = !isSortOpen"
             >
               {{ t('vault.passwords.sortBy') }}
@@ -224,7 +219,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isSortOpen"
-              class="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in sortOptions"
@@ -242,9 +237,11 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+      </template>
 
-        <div v-if="loading" class="py-12 text-center text-body-md text-neutral-500">
-          {{ t('vault.passwords.loading') }}
+      <div class="relative" style="padding: 2.5rem 6rem">
+        <div v-if="loading" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <p class="text-body-md font-medium text-neutral-500">{{ t('vault.passwords.loading') }}</p>
         </div>
 
         <div

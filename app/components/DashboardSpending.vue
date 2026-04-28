@@ -55,9 +55,7 @@ function usagePercent(b: SessionBudget) {
       v-if="activeBudgets.length === 0"
       class="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-200 bg-neutral-50/40 py-10 text-center"
     >
-      <div class="flex size-10 items-center justify-center rounded-full bg-white text-neutral-400 ring-1 ring-neutral-200">
-        <UIcon name="i-heroicons-chart-pie-20-solid" class="size-4" />
-      </div>
+      <UIcon name="i-heroicons-chart-pie-20-solid" class="size-7 text-neutral-400" />
       <p class="text-xs font-medium text-neutral-950">
         {{ t('dashboard.noBudgets') }}
       </p>

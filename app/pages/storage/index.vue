@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  redirect: '/storage/main',
+  redirect: '/storage/files',
 })
 </script>
 

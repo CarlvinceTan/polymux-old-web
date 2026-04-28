@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /** `/workflow` list landing — keep as `workflow/index.vue` only; do not add a sibling `pages/workflow.vue` or Nuxt can mis-match `/workflow/:id` (see nuxt/nuxt#23088). */
 
-import { DRAFT_SESSION_ID } from '~/composables/useChatSessions'
+import { DRAFT_WORKFLOW_ID } from '~/composables/useWorkflowList'
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
-const { sessions, draft, createDraft, restoreDraft, fetchSessions } = useChatSessions()
+const { sessions, draft, createDraft, restoreDraft, fetchSessions } = useWorkflowList()
 
 onMounted(async () => {
   await fetchSessions()
@@ -14,12 +14,12 @@ onMounted(async () => {
   // Per-tab memory: within the same tab, `/workflow` restores the last-viewed workflow.
   const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
   if (stored && sessions.value.some(s => s.id === stored)) {
-    await navigateTo(stored === DRAFT_SESSION_ID ? `/workflow/${DRAFT_SESSION_ID}` : `/workflow/${stored}/agent`)
+    await navigateTo(stored === DRAFT_WORKFLOW_ID ? `/workflow/${DRAFT_WORKFLOW_ID}` : `/workflow/${stored}/agent`)
     return
   }
 
   if (!draft.value) createDraft()
-  await navigateTo(`/workflow/${DRAFT_SESSION_ID}`)
+  await navigateTo(`/workflow/${DRAFT_WORKFLOW_ID}`)
 })
 </script>
 

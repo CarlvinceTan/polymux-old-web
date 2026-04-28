@@ -33,11 +33,14 @@ watch(wallet, (w) => {
   }
 }, { immediate: true })
 
-onMounted(() => {
+function loadWallet() {
   fetchWallet()
   fetchTransactions()
   fetchBudgets()
-})
+}
+
+onMounted(loadWallet)
+useOnReconnect(loadWallet)
 
 watch(topUpSuccess, (v) => {
   if (v) {
@@ -359,14 +362,13 @@ const currencyLabel = computed(
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
-    <header class="mb-4 shrink-0">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
+    <header class="shrink-0">
       <PageHeader :tabs="headerTabs" />
     </header>
 
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col pb-4">
-      <TabPanel class="flex h-full min-h-0 min-w-0 flex-1">
-        <div class="flex min-w-0 flex-col">
+    <TabPanel class="min-h-0 min-w-0 flex-1">
+      <div class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
             class="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm sm:px-6"
@@ -1045,8 +1047,7 @@ const currencyLabel = computed(
             </div>
           </div>
         </div>
-      </TabPanel>
-    </div>
+    </TabPanel>
 
     <!-- Top-up modal -->
     <Teleport to="body">

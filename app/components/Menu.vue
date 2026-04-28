@@ -4,8 +4,8 @@ const props = withDefaults(
     open: boolean
     /** `below`: under trigger (e.g. workspace). `above`: above trigger (e.g. sidebar footer). */
     placement?: 'below' | 'above'
-    /** `left`: anchored to left edge (default). `right`: anchored to right edge. */
-    align?: 'left' | 'right'
+    /** `left`: anchored to left edge (default). `right`: anchored to right edge. `center`: centred horizontally over the trigger. */
+    align?: 'left' | 'right' | 'center'
     /** Override the default `w-full` with a fixed width class e.g. `"w-40"`. */
     width?: string
   }>(),
@@ -61,7 +61,7 @@ defineExpose({
     ref="dropdownRef"
     :class="[
       'absolute rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden z-50',
-      align === 'right' ? 'right-0' : 'left-0',
+      align === 'center' ? 'left-1/2 -translate-x-1/2' : align === 'right' ? 'right-0' : 'left-0',
       width ?? 'w-full',
       effectivePlacement === 'above' ? 'bottom-full mb-1' : 'top-full mt-1',
     ]"

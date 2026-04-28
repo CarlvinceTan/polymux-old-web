@@ -1,8 +1,8 @@
 import type { ChatMessage, ChatMessageAttachment } from './types'
 
-export const DRAFT_SESSION_ID = 'new'
+export const DRAFT_WORKFLOW_ID = 'new'
 
-export interface ChatSession {
+export interface WorkflowSummary {
   id: string
   title: string
   user_id: string
@@ -37,10 +37,12 @@ function pendingPromptKey(sessionID: string): string {
   return `polymux_pending_prompt:${sessionID}`
 }
 
-export function useChatSessions() {
-  const realSessions = useState<ChatSession[]>('chat-sessions', () => [])
-  const draft = useState<ChatSession | null>('chat-draft-session', () => null)
+export function useWorkflowList() {
+  const realSessions = useState<WorkflowSummary[]>('chat-sessions', () => [])
+  const draft = useState<WorkflowSummary | null>('chat-draft-session', () => null)
   const { authFetch } = useAuthFetch()
+  const toast = useAppToast()
+  const { t } = useI18n()
 
   const { currentWorkspaceId } = useWorkspaces()
   const currentUser = useSupabaseUser()
@@ -48,12 +50,17 @@ export function useChatSessions() {
   // Hide other members' in-progress "New Workflow" rows (briefly present during
   // another user's first-prompt promotion). The caller's own drafts live purely
   // on the client and never appear here.
-  function visibleReal(all: ChatSession[]): ChatSession[] {
+  // If we don't yet know who the caller is (the supabase user ref can be
+  // momentarily null right after auth/HMR), skip the filter — otherwise we'd
+  // mistakenly drop the caller's own "New Workflow" rows and the sidebar entry
+  // would briefly disappear while the backend title is still generating.
+  function visibleReal(all: WorkflowSummary[]): WorkflowSummary[] {
     const me = currentUser.value?.id
+    if (!me) return all
     return all.filter(s => s.title !== 'New Workflow' || s.user_id === me)
   }
 
-  const sessions = computed<ChatSession[]>(() => {
+  const sessions = computed<WorkflowSummary[]>(() => {
     const real = realSessions.value
     return draft.value ? [draft.value, ...real] : real
   })
@@ -62,14 +69,14 @@ export function useChatSessions() {
     try {
       const wsId = currentWorkspaceId.value
       const path = wsId ? `/sessions?workspace_id=${wsId}` : '/sessions'
-      const data = await authFetch<ChatSession[]>(path)
+      const data = await authFetch<WorkflowSummary[]>(path)
       realSessions.value = visibleReal(data ?? [])
     } catch (err) {
-      console.error('[useChatSessions] fetchSessions failed', err)
+      console.error('[useWorkflowList] fetchSessions failed', err)
     }
   }
 
-  function persistDraft(d: ChatSession | null) {
+  function persistDraft(d: WorkflowSummary | null) {
     if (!import.meta.client) return
     const wsId = currentWorkspaceId.value
     if (!wsId) return
@@ -90,19 +97,19 @@ export function useChatSessions() {
     if (draft.value && draft.value.workspace_id === wsId) return
     try {
       const raw = sessionStorage.getItem(draftStorageKey(wsId))
-      draft.value = raw ? (JSON.parse(raw) as ChatSession) : null
+      draft.value = raw ? (JSON.parse(raw) as WorkflowSummary) : null
     } catch {
       draft.value = null
     }
   }
 
-  function createDraft(): ChatSession | null {
+  function createDraft(): WorkflowSummary | null {
     if (draft.value) return draft.value
     const wsId = currentWorkspaceId.value ?? ''
     const me = currentUser.value?.id ?? ''
     const now = new Date().toISOString()
-    const d: ChatSession = {
-      id: DRAFT_SESSION_ID,
+    const d: WorkflowSummary = {
+      id: DRAFT_WORKFLOW_ID,
       title: 'New Workflow',
       user_id: me,
       workspace_id: wsId,
@@ -122,14 +129,14 @@ export function useChatSessions() {
 
   // Create the backing session row for the current draft and drop the draft.
   // Called on the user's first prompt send in the draft UI.
-  async function promoteDraft(): Promise<ChatSession | null> {
+  async function promoteDraft(): Promise<WorkflowSummary | null> {
     const wsId = currentWorkspaceId.value
     if (!wsId) {
-      console.error('[useChatSessions] promoteDraft: no workspace')
+      console.error('[useWorkflowList] promoteDraft: no workspace')
       return null
     }
     try {
-      const s = await authFetch<ChatSession>('/sessions', {
+      const s = await authFetch<WorkflowSummary>('/sessions', {
         method: 'POST',
         body: JSON.stringify({ title: 'New Workflow', workspace_id: wsId }),
       })
@@ -137,13 +144,13 @@ export function useChatSessions() {
       dropDraft()
       return s
     } catch (err) {
-      console.error('[useChatSessions] promoteDraft failed', err)
+      console.error('[useWorkflowList] promoteDraft failed', err)
       return null
     }
   }
 
   async function renameSession(id: string, title: string) {
-    if (id === DRAFT_SESSION_ID) return
+    if (id === DRAFT_WORKFLOW_ID) return
     const trimmed = title.trim()
     if (!trimmed) return
     try {
@@ -151,15 +158,28 @@ export function useChatSessions() {
         method: 'PATCH',
         body: JSON.stringify({ title: trimmed }),
       })
-      const s = realSessions.value.find(s => s.id === id)
-      if (s) s.title = trimmed
+      // Replace the array entry (and reassign the ref) rather than mutating
+      // `s.title` in place. Some downstream computeds — notably the session
+      // page's `workflowTitle` and SidePanel's `displaySessions` watcher —
+      // miss array-element property mutations but pick up reference swaps.
+      const idx = realSessions.value.findIndex(s => s.id === id)
+      if (idx !== -1) {
+        const next = [...realSessions.value]
+        next[idx] = { ...next[idx]!, title: trimmed }
+        realSessions.value = next
+      }
     } catch (err) {
-      console.error('[useChatSessions] renameSession failed', err)
+      const e = err as { status?: number, data?: { error?: string } }
+      if (e?.status === 409 && e?.data?.error === 'workflow_name_taken') {
+        toast.show(t('integrations.editorWorkflowNameTaken'), 'error')
+        return
+      }
+      console.error('[useWorkflowList] renameSession failed', err)
     }
   }
 
   async function deleteSession(id: string) {
-    if (id === DRAFT_SESSION_ID) {
+    if (id === DRAFT_WORKFLOW_ID) {
       dropDraft()
       return
     }
@@ -167,14 +187,14 @@ export function useChatSessions() {
       await authFetch(`/sessions/${id}`, { method: 'DELETE' })
       realSessions.value = realSessions.value.filter(s => s.id !== id)
     } catch (err) {
-      console.error('[useChatSessions] deleteSession failed', err)
+      console.error('[useWorkflowList] deleteSession failed', err)
     }
   }
 
   // Fire-and-forget backend delete for a real session that was never committed
   // to (no messages persisted). Called on route leave from an unused workflow.
   async function deleteSessionIfEmpty(id: string) {
-    if (id === DRAFT_SESSION_ID) {
+    if (id === DRAFT_WORKFLOW_ID) {
       dropDraft()
       return
     }
@@ -195,7 +215,7 @@ export function useChatSessions() {
       realSessions.value = realSessions.value.filter(s => s.id !== id)
     }
     catch (err) {
-      console.error('[useChatSessions] deleteSessionIfEmpty failed', err)
+      console.error('[useWorkflowList] deleteSessionIfEmpty failed', err)
     }
   }
 
@@ -203,14 +223,14 @@ export function useChatSessions() {
   // browser sub-agents to those URLs on next visit. Updates the in-memory
   // session row optimistically so consecutive reads see the latest value.
   async function updateSessionViewportUrls(sessionID: string, urls: string[]): Promise<void> {
-    if (sessionID === DRAFT_SESSION_ID) return
+    if (sessionID === DRAFT_WORKFLOW_ID) return
     try {
       await authFetch(`/sessions/${sessionID}/viewport-urls`, {
         method: 'PATCH',
         body: JSON.stringify({ urls }),
       })
     } catch (err) {
-      console.error('[useChatSessions] updateSessionViewportUrls failed', err)
+      console.error('[useWorkflowList] updateSessionViewportUrls failed', err)
       return
     }
     const s = realSessions.value.find(s => s.id === sessionID)
@@ -218,21 +238,24 @@ export function useChatSessions() {
   }
 
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[]> {
-    if (sessionId === DRAFT_SESSION_ID) return []
+    if (sessionId === DRAFT_WORKFLOW_ID) return []
     try {
       let path = `/sessions/${sessionId}/messages`
       if (agentId) path += `?agent_id=eq.${agentId}`
       const data = await authFetch<StoredMessage[]>(path)
       if (!data || data.length === 0) return []
       return data
-        .filter(m => m.role === 'user' || m.role === 'agent')
+        // 'assistant' is the canonical role for agent-authored messages (matches the
+        // messages.role CHECK constraint); 'agent' is accepted for legacy rows
+        // written before the constraint was tightened.
+        .filter(m => m.role === 'user' || m.role === 'agent' || m.role === 'assistant')
         .map(m => ({
-          role: m.role as ChatMessage['role'],
+          role: (m.role === 'assistant' ? 'agent' : m.role) as ChatMessage['role'],
           text: m.content,
           attachments: (m.metadata as any)?.attachments,
         }))
     } catch (err) {
-      console.error('[useChatSessions] fetchMessages failed', err)
+      console.error('[useWorkflowList] fetchMessages failed', err)
       return []
     }
   }

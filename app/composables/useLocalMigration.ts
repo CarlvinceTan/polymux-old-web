@@ -236,6 +236,16 @@ export function useLocalMigration() {
     }
   }
 
+  function backendsFor(direction: LocalMigrationDirection): {
+    source: 'supabase' | 'google-drive' | 'local'
+    target: 'supabase' | 'google-drive' | 'local'
+  } {
+    if (direction === 'supabase-to-local') return { source: 'supabase', target: 'local' }
+    if (direction === 'drive-to-local') return { source: 'google-drive', target: 'local' }
+    if (direction === 'local-to-supabase') return { source: 'local', target: 'supabase' }
+    return { source: 'local', target: 'google-drive' }
+  }
+
   async function run(direction: LocalMigrationDirection) {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
@@ -255,6 +265,27 @@ export function useLocalMigration() {
       else {
         await runFromLocal(direction, workspaceId)
       }
+
+      // Folders are metadata anchors for the FileBrowser's provider icon.
+      // The drive ↔ supabase bulk endpoints flip folder rows inline once
+      // their file batch drains; the local flow is client-driven, so we
+      // poke the dedicated endpoint here when the file pass cleared the
+      // source. Skipping this leaves orphan folders displaying a
+      // now-disconnected backend's icon.
+      if (state.remaining === 0) {
+        const { source, target } = backendsFor(direction)
+        const deviceId = target === 'local' ? useDeviceId() : undefined
+        try {
+          await $fetch(
+            `/api/workspaces/${workspaceId}/files/migrate-folder-backends`,
+            { method: 'POST', body: { source, target, ...(deviceId ? { device_id: deviceId } : {}) } },
+          )
+        }
+        catch (err) {
+          console.warn('[local-migration] folder-backends flip failed', err)
+        }
+      }
+
       state.status = 'done'
       if (state.totalMigrated > 0) {
         const msg = direction.endsWith('to-local')

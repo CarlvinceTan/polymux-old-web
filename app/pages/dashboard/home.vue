@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SupportedCurrency } from '~/composables/useCurrency'
 
-const { realSessions: sessions, fetchSessions } = useChatSessions()
+const { realSessions: sessions, fetchSessions } = useWorkflowList()
 const {
   wallet,
   budgets,
@@ -15,14 +15,17 @@ const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 const currency = computed(() => (wallet.value?.currency ?? 'usd') as SupportedCurrency)
 const hasWallet = computed(() => !!wallet.value)
 
-onMounted(async () => {
+async function loadAll() {
   await Promise.all([
     fetchSessions(),
     fetchWallet(),
     fetchTransactions(),
     fetchBudgets(),
   ])
-})
+}
+
+onMounted(loadAll)
+useOnReconnect(loadAll)
 </script>
 
 <template>

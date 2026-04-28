@@ -3,18 +3,18 @@ import type {
   ChatMessage,
   ChatMessageAttachment,
   ThinkingState,
-  PendingQuestion,
+  PendingCredentialRequest,
   AgentMessagePayload,
+  AgentMessageBoundaryPayload,
   AgentThinkingPayload,
-  AskUserPayload,
   BrowserSpawnedPayload,
   BrowserClosedPayload,
+  CredentialRequestPayload,
+  CredentialProvidedPayload,
   UserMessagePayload,
-  UserReplyPayload,
   StopAgentPayload,
   TitleRequestPayload,
   TitleResponsePayload,
-  ToolUsePayload,
 } from './types'
 import type { SessionHandle } from './useSession'
 
@@ -24,9 +24,9 @@ const toolDisplayNames: Record<string, string> = {
   StopAgent: 'Stop Agent',
   ListAgents: 'List Agents',
   WebSearch: 'Web Search',
-  Question: 'Question',
   Bash: 'Bash',
   SaveWorkflow: 'Save Workflow',
+  FetchLocation: 'Fetch Location',
 }
 
 function humaniseToolName(name: string): string {
@@ -36,7 +36,7 @@ function humaniseToolName(name: string): string {
 export function useChat(session: SessionHandle, sessionId: string) {
   const messages = useState<ChatMessage[]>(`chat-messages-${sessionId}`, () => [])
   const thinking = ref<ThinkingState | null>(null)
-  const pendingQuestion = ref<PendingQuestion | null>(null)
+  const pendingCredentialRequest = ref<PendingCredentialRequest | null>(null)
   const summarisedTitle = ref<string | null>(null)
   const waitingForAgent = ref(false)
 
@@ -72,6 +72,12 @@ export function useChat(session: SessionHandle, sessionId: string) {
     }
   }
 
+  function handleAgentMessageBoundary(_p: AgentMessageBoundaryPayload) {
+    // Mid-turn boundary: seal the current bubble so the next chunk starts a
+    // fresh one. The turn is still active — leave thinking/waitingForAgent.
+    streamingBuffer = null
+  }
+
   function handleAgentThinking(p: AgentThinkingPayload) {
     if (p.agent_id !== 'orchestrator') return
 
@@ -104,31 +110,13 @@ export function useChat(session: SessionHandle, sessionId: string) {
     }]
   }
 
-  function handleToolUse(p: ToolUsePayload) {
-    if (p.agent_id !== 'orchestrator') return
-
-    // If there was in-progress streaming text before the tool call, discard it
-    // (the model produced intermediate reasoning, not a user-facing answer).
-    if (streamingBuffer) {
-      const updated = [...messages.value]
-      const lastIdx = updated.length - 1
-      if (lastIdx >= 0 && updated[lastIdx]!.role === 'agent') {
-        updated.splice(lastIdx, 1)
-        messages.value = updated
-      }
-      streamingBuffer = null
-    }
-
-    const display = humaniseToolName(p.tool_name)
-    messages.value = [...messages.value, { role: 'tool', text: display, toolName: p.tool_name }]
-  }
-
-  function handleAskUser(p: AskUserPayload) {
+  function handleCredentialRequest(p: CredentialRequestPayload) {
     waitingForAgent.value = false
-    pendingQuestion.value = {
+    pendingCredentialRequest.value = {
       msgId: p.msg_id,
-      question: p.question,
-      options: p.options,
+      site: p.site,
+      purpose: p.purpose,
+      suggestedUsername: p.suggested_username,
     }
   }
 
@@ -154,18 +142,18 @@ export function useChat(session: SessionHandle, sessionId: string) {
   // ---------------------------------------------------------------------------
 
   session.on<AgentMessagePayload>('agent_message', handleAgentMessage)
+  session.on<AgentMessageBoundaryPayload>('agent_message_boundary', handleAgentMessageBoundary)
   session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
-  session.on<ToolUsePayload>('tool_use', handleToolUse)
-  session.on<AskUserPayload>('ask_user', handleAskUser)
+  session.on<CredentialRequestPayload>('credential_request', handleCredentialRequest)
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserClosedPayload>('browser_closed', handleBrowserClosed)
   session.on<TitleResponsePayload>('title_response', handleTitleResponse)
 
   onUnmounted(() => {
     session.off('agent_message', handleAgentMessage)
+    session.off('agent_message_boundary', handleAgentMessageBoundary)
     session.off('agent_thinking', handleAgentThinking)
-    session.off('tool_use', handleToolUse)
-    session.off('ask_user', handleAskUser)
+    session.off('credential_request', handleCredentialRequest)
     session.off('browser_spawned', handleBrowserSpawned)
     session.off('browser_closed', handleBrowserClosed)
     session.off('title_response', handleTitleResponse)
@@ -192,8 +180,10 @@ export function useChat(session: SessionHandle, sessionId: string) {
 
   function editMessage(index: number, content: string, attachments: ChatMessageAttachment[]) {
     const updated = [...messages.value]
+    const existing = updated[index]
+    if (!existing) return
     updated[index] = {
-      ...updated[index],
+      ...existing,
       text: content,
       attachments: attachments.length > 0 ? attachments : undefined,
     }
@@ -227,11 +217,34 @@ export function useChat(session: SessionHandle, sessionId: string) {
     session.send<UserMessagePayload>('user_message', payload)
   }
 
-  function sendReply(replyTo: string, content: string) {
-    pendingQuestion.value = null
+  /**
+   * provideCredential ships a vault-picker result back to the orchestrator.
+   * Pass cancelled=true (with the other fields blank) to abandon the request
+   * — the orchestrator will surface the blocker to the user on its next turn
+   * instead of stalling on the awaiting tool call.
+   */
+  function provideCredential(
+    msgId: string,
+    payload: { credentialId: string, username: string, password: string } | { cancelled: true },
+  ) {
+    pendingCredentialRequest.value = null
     waitingForAgent.value = true
-    messages.value = [...messages.value, { role: 'user', text: content }]
-    session.send<UserReplyPayload>('user_reply', { reply_to: replyTo, content })
+    if ('cancelled' in payload) {
+      session.send<CredentialProvidedPayload>('credential_provided', {
+        msg_id: msgId,
+        credential_id: '',
+        username: '',
+        password: '',
+        cancelled: true,
+      })
+      return
+    }
+    session.send<CredentialProvidedPayload>('credential_provided', {
+      msg_id: msgId,
+      credential_id: payload.credentialId,
+      username: payload.username,
+      password: payload.password,
+    })
   }
 
   function stopAgent(agentId: string) {
@@ -253,13 +266,13 @@ export function useChat(session: SessionHandle, sessionId: string) {
   return {
     messages: readonly(messages),
     thinking: readonly(thinking),
-    pendingQuestion: readonly(pendingQuestion),
+    pendingCredentialRequest: readonly(pendingCredentialRequest),
     summarisedTitle: readonly(summarisedTitle),
     waitingForAgent: readonly(waitingForAgent),
     sendMessage,
     editMessage,
     retryFromMessage,
-    sendReply,
+    provideCredential,
     stopAgent,
     requestTitle,
     loadHistory,

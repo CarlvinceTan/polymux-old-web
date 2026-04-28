@@ -100,16 +100,37 @@ function activeViewportBinds(vp: ViewportState) {
   >
     <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 pb-2 pt-3 @container-[size]">
       <div class="flex min-h-0 min-w-0 flex-1 items-center justify-center">
-        <div class="mx-auto w-[min(100cqw,max(1px,calc((100cqh-5.5rem)*3/2)))] max-w-full min-w-0 shrink-0">
+        <div class="mx-auto w-[min(100cqw,max(1px,calc((100cqh-5.5rem)*16/9)))] max-w-full min-w-0 shrink-0">
           <Viewport
-            v-if="activeViewport"
+            v-if="activeViewport && (activeFrameUrl || reconnecting)"
             class="w-full min-w-0 shrink-0"
             v-bind="activeViewportBinds(activeViewport)"
           />
           <div
+            v-else-if="activeViewport"
+            class="ghost-panel flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-center"
+            style="aspect-ratio: 16 / 9"
+            role="status"
+            :aria-label="t('browser.launchingAgent')"
+          >
+            <svg
+              class="mb-3 size-8 animate-spin text-neutral-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <p class="px-6 text-sm text-neutral-400">
+              {{ t('browser.launchingAgent') }}
+            </p>
+          </div>
+          <div
             v-else
             class="ghost-panel flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-center"
-            style="aspect-ratio: 3 / 2"
+            style="aspect-ratio: 16 / 9"
           >
             <UIcon name="i-heroicons-computer-desktop-20-solid" class="mb-3 size-8 text-neutral-300" />
             <p class="px-6 text-sm text-neutral-400">
@@ -166,7 +187,7 @@ function activeViewportBinds(vp: ViewportState) {
             <div class="flex w-full max-w-full flex-none flex-col gap-1.5 overflow-visible select-none">
               <div class="flex w-full max-w-full flex-col overflow-visible rounded-lg">
                 <div class="flex w-full max-w-full flex-col overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-neutral-50 transition-colors group-hover/add:border-neutral-600">
-                  <div class="relative w-full overflow-hidden bg-neutral-50" style="aspect-ratio: 3 / 2">
+                  <div class="relative w-full overflow-hidden bg-neutral-50" style="aspect-ratio: 16 / 9">
                     <div class="absolute inset-0 flex items-center justify-center">
                       <UIcon name="i-heroicons-plus-20-solid" class="size-6 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
                     </div>
