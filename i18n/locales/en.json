@@ -33,10 +33,7 @@
     "cookiesPolicy": "Cookies policy",
     "reportBug": "Report bug",
     "getHelp": "Get help",
-    "installExtension": "Install Extension",
-    "installExtensionBanner": "Install Polymux Extension",
-    "dismiss": "Dismiss",
-    "chromeRequired": "The Polymux extension requires Chrome. Install Chrome?"
+    "dismiss": "Dismiss"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -46,7 +43,8 @@
     "workflows": "Workflows",
     "newWorkflow": "New workflow",
     "addWorkspace": "Add Workspace",
-    "mainSidebar": "Main sidebar"
+    "mainSidebar": "Main sidebar",
+    "toggleSidebar": "Toggle sidebar"
   },
   "notifications": {
     "title": "Notifications",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "Email is managed by your linked account and cannot be changed here.",
     "saving": "Saving…",
     "profileUpdateError": "Failed to update profile. Please try again.",
-    "checkoutSuccess": "Your plan has been upgraded successfully!",
-    "browserExtension": "Browser Extension",
-    "usePolymuxExtension": "Use Polymux Extension"
+    "checkoutSuccess": "Your plan has been upgraded successfully!"
   },
   "chat": {
     "welcomeGreeting": "How can I help, {name}?",
@@ -176,6 +172,9 @@
     "loop": "Loop",
     "parallel": "Parallel",
     "untitledNode": "Untitled step",
+    "untitledWorkflow": "Untitled workflow",
+    "startNode": "Start",
+    "endNode": "End",
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
@@ -192,22 +191,12 @@
     "revertTitle": "Revert to v{version}?",
     "revertBody": "This will replace the current workflow with version {version}. Your unsaved edits will be discarded.",
     "revertConfirm": "Revert",
-    "deleteTitle": "Delete \"{name}\"?",
-    "deleteBody": "Deleting this workflow is permanent. The following will be lost:",
-    "deleteLossChat": "All chat history with the orchestrator and browser agents",
-    "deleteLossArtifacts": "All artifacts produced in this workflow",
-    "deleteLossRuns": "Run history (status, errors, timings)",
-    "deleteLossSchedule": "Any scheduled triggers for this workflow",
-    "deleteNotice": "Other workspace members will be notified.",
-    "deleteConfirm": "Delete",
-    "deleting": "Deleting…",
     "previewBanner": "Previewing v{version} — read only",
     "exitPreview": "Exit preview",
     "current": "Current",
     "versionShort": "v{version}",
     "unsavedCurrent": "unsaved current",
     "draftBadge": "Live draft",
-    "draftHint": "Steps the agent is queuing for the current task. Ask it to save when this looks right.",
     "rerunFromHere": "Run from here",
     "deleteNode": "Delete step",
     "confirmDelete": "Delete this step?",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} agents",
     "selectToMessage": "Select a browser agent to start sending messages",
     "noActiveViewport": "No active viewport. Click a thumbnail or the + tile.",
+    "launchingAgent": "Launching browser agent…",
     "closeAgent": "Close agent",
     "agentCapReached": "Maximum number of browser agents reached"
   },

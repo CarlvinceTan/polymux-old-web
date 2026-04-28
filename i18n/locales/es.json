@@ -33,10 +33,7 @@
     "cookiesPolicy": "Política de cookies",
     "reportBug": "Reportar error",
     "getHelp": "Obtener ayuda",
-    "installExtension": "Instalar extensión",
-    "installExtensionBanner": "Instalar extensión Polymux",
-    "dismiss": "Cerrar",
-    "chromeRequired": "La extensión Polymux requiere Chrome. ¿Instalar Chrome?"
+    "dismiss": "Cerrar"
   },
   "nav": {
     "dashboard": "Panel",
@@ -46,7 +43,8 @@
     "workflows": "Flujos de trabajo",
     "newWorkflow": "Nuevo flujo de trabajo",
     "addWorkspace": "Añadir espacio de trabajo",
-    "mainSidebar": "Barra lateral principal"
+    "mainSidebar": "Barra lateral principal",
+    "toggleSidebar": "Alternar barra lateral"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "El correo electrónico es gestionado por tu cuenta vinculada y no se puede cambiar aquí.",
     "saving": "Guardando…",
     "profileUpdateError": "Error al actualizar el perfil. Inténtalo de nuevo.",
-    "checkoutSuccess": "¡Tu plan ha sido actualizado con éxito!",
-    "browserExtension": "Extensión del navegador",
-    "usePolymuxExtension": "Usar extensión Polymux"
+    "checkoutSuccess": "¡Tu plan ha sido actualizado con éxito!"
   },
   "chat": {
     "welcomeGreeting": "¿En qué puedo ayudarte, {name}?",
@@ -176,6 +172,9 @@
     "loop": "Bucle",
     "parallel": "Paralelo",
     "untitledNode": "Paso sin título",
+    "untitledWorkflow": "Flujo de trabajo sin título",
+    "startNode": "Inicio",
+    "endNode": "Fin",
     "save": "Guardar",
     "saving": "Guardando…",
     "cancel": "Cancelar",
@@ -192,22 +191,12 @@
     "revertTitle": "¿Revertir a v{version}?",
     "revertBody": "Esto reemplazará el flujo de trabajo actual con la versión {version}. Tus cambios sin guardar se perderán.",
     "revertConfirm": "Revertir",
-    "deleteTitle": "¿Eliminar el flujo de trabajo \"{name}\"?",
-    "deleteBody": "Eliminar este flujo de trabajo es permanente. Se perderá lo siguiente:",
-    "deleteLossChat": "Todo el historial de chat con el orquestador y los agentes de navegador",
-    "deleteLossArtifacts": "Todos los artefactos producidos en este flujo de trabajo",
-    "deleteLossRuns": "Historial de ejecución (estado, errores, tiempos)",
-    "deleteLossSchedule": "Cualquier disparador programado para este flujo de trabajo",
-    "deleteNotice": "Otros miembros del espacio de trabajo recibirán una notificación.",
-    "deleteConfirm": "Eliminar",
-    "deleting": "Eliminando…",
     "previewBanner": "Vista previa de v{version} — solo lectura",
     "exitPreview": "Salir de la vista previa",
     "current": "Actual",
     "versionShort": "v{version}",
     "unsavedCurrent": "actual sin guardar",
     "draftBadge": "Borrador en vivo",
-    "draftHint": "Pasos que el agente está preparando para la tarea actual. Pídele que los guarde cuando se vean bien.",
     "rerunFromHere": "Ejecutar desde aquí",
     "deleteNode": "Eliminar paso",
     "confirmDelete": "¿Eliminar este paso?",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} agentes",
     "selectToMessage": "Selecciona un agente de navegador para empezar a enviar mensajes",
     "noActiveViewport": "Sin vista activa. Haz clic en una miniatura o en la ficha +.",
+    "launchingAgent": "Iniciando agente de navegador…",
     "closeAgent": "Cerrar agente",
     "agentCapReached": "Se ha alcanzado el número máximo de agentes de navegador"
   },

@@ -33,10 +33,7 @@
     "cookiesPolicy": "Cookieポリシー",
     "reportBug": "バグを報告",
     "getHelp": "ヘルプを取得",
-    "installExtension": "拡張機能をインストール",
-    "installExtensionBanner": "Polymux 拡張機能をインストール",
-    "dismiss": "閉じる",
-    "chromeRequired": "Polymux 拡張機能には Chrome が必要です。Chrome をインストールしますか？"
+    "dismiss": "閉じる"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -46,7 +43,8 @@
     "workflows": "ワークフロー",
     "newWorkflow": "新しいワークフロー",
     "addWorkspace": "ワークスペースを追加",
-    "mainSidebar": "メインサイドバー"
+    "mainSidebar": "メインサイドバー",
+    "toggleSidebar": "サイドバーを切り替え"
   },
   "notifications": {
     "title": "通知",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "メールアドレスはリンクされたアカウントで管理されているため、ここでは変更できません。",
     "saving": "保存中…",
     "profileUpdateError": "プロフィールの更新に失敗しました。もう一度お試しください。",
-    "checkoutSuccess": "プランが正常にアップグレードされました！",
-    "browserExtension": "ブラウザ拡張機能",
-    "usePolymuxExtension": "Polymux 拡張機能を使用する"
+    "checkoutSuccess": "プランが正常にアップグレードされました！"
   },
   "chat": {
     "welcomeGreeting": "{name}さん、何かお手伝いできますか？",
@@ -176,6 +172,9 @@
     "loop": "ループ",
     "parallel": "並列",
     "untitledNode": "無題のステップ",
+    "untitledWorkflow": "無題のワークフロー",
+    "startNode": "開始",
+    "endNode": "終了",
     "save": "保存",
     "saving": "保存中…",
     "cancel": "キャンセル",
@@ -192,22 +191,12 @@
     "revertTitle": "v{version} に戻しますか？",
     "revertBody": "現在のワークフローがバージョン {version} に置き換わります。未保存の変更は失われます。",
     "revertConfirm": "戻す",
-    "deleteTitle": "ワークフロー \"{name}\" を削除しますか？",
-    "deleteBody": "このワークフローの削除は元に戻せません。以下が失われます：",
-    "deleteLossChat": "オーケストレーターとブラウザエージェントとのすべてのチャット履歴",
-    "deleteLossArtifacts": "このワークフローで生成されたすべての成果物",
-    "deleteLossRuns": "実行履歴（ステータス、エラー、所要時間）",
-    "deleteLossSchedule": "このワークフローのすべてのスケジュールされたトリガー",
-    "deleteNotice": "ワークスペースの他のメンバーに通知されます。",
-    "deleteConfirm": "削除",
-    "deleting": "削除中…",
     "previewBanner": "v{version} をプレビュー中 — 読み取り専用",
     "exitPreview": "プレビューを終了",
     "current": "現在",
     "versionShort": "v{version}",
     "unsavedCurrent": "未保存の現在",
     "draftBadge": "ライブドラフト",
-    "draftHint": "エージェントが現在のタスク用に準備中のステップです。適切なら保存するよう依頼してください。",
     "rerunFromHere": "ここから実行",
     "deleteNode": "ステップを削除",
     "confirmDelete": "このステップを削除しますか？",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} エージェント",
     "selectToMessage": "メッセージの送信を開始するブラウザエージェントを選択してください",
     "noActiveViewport": "アクティブなビューポートがありません。サムネイルまたは+タイルをクリックしてください。",
+    "launchingAgent": "ブラウザエージェントを起動中…",
     "closeAgent": "エージェントを閉じる",
     "agentCapReached": "ブラウザエージェントの最大数に達しました"
   },

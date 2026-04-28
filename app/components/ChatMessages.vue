@@ -34,12 +34,12 @@ function isActiveThinking(index: number): boolean {
 
 <template>
   <div
-    class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 sm:py-4"
+    class="scrollbar-hide min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-3 sm:px-3 sm:py-4"
     role="log"
     aria-live="polite"
     aria-relevant="additions"
   >
-    <div class="mx-auto w-full max-w-2xl space-y-0">
+    <div class="mx-auto w-full max-w-3xl space-y-0">
       <template v-for="(msg, i) in messages" :key="i">
         <AgentAction
           v-if="msg.role === 'thinking'"

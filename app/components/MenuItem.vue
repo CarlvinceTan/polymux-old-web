@@ -3,6 +3,7 @@ const props = defineProps<{
   text: string
   hasDivider?: boolean
   destructive?: boolean
+  active?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,7 +19,10 @@ function handleClick(event: MouseEvent) {
   <div v-if="hasDivider" class="my-0.5 h-px bg-neutral-200 mx-2"></div>
   <button
     class="grid grid-cols-[minmax(0,_1fr)_auto] w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors outline-none"
-    :class="destructive ? 'text-red-600 hover:bg-red-50' : 'text-neutral-950 hover:bg-neutral-100'"
+    :class="[
+      destructive ? 'text-red-600 hover:bg-red-50' : 'text-neutral-950 hover:bg-neutral-100',
+      active && !destructive ? 'bg-neutral-100' : '',
+    ]"
     @click="handleClick"
   >
     <!-- Content container (icon + text) -->

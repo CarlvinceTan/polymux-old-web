@@ -33,10 +33,7 @@
     "cookiesPolicy": "쿠키 정책",
     "reportBug": "버그 신고",
     "getHelp": "도움말 받기",
-    "installExtension": "확장 프로그램 설치",
-    "installExtensionBanner": "Polymux 확장 프로그램 설치",
-    "dismiss": "닫기",
-    "chromeRequired": "Polymux 확장 프로그램은 Chrome이 필요합니다. Chrome을 설치하시겠습니까?"
+    "dismiss": "닫기"
   },
   "nav": {
     "dashboard": "대시보드",
@@ -46,7 +43,8 @@
     "workflows": "워크플로우",
     "newWorkflow": "새 워크플로우",
     "addWorkspace": "작업공간 추가",
-    "mainSidebar": "메인 사이드바"
+    "mainSidebar": "메인 사이드바",
+    "toggleSidebar": "사이드바 전환"
   },
   "notifications": {
     "title": "알림",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "이메일은 연결된 계정에서 관리되며 여기에서 변경할 수 없습니다.",
     "saving": "저장 중…",
     "profileUpdateError": "프로필 업데이트에 실패했습니다. 다시 시도해 주세요.",
-    "checkoutSuccess": "플랜이 성공적으로 업그레이드되었습니다!",
-    "browserExtension": "브라우저 확장 프로그램",
-    "usePolymuxExtension": "Polymux 확장 프로그램 사용"
+    "checkoutSuccess": "플랜이 성공적으로 업그레이드되었습니다!"
   },
   "chat": {
     "welcomeGreeting": "{name}님, 무엇을 도와드릴까요?",
@@ -176,6 +172,9 @@
     "loop": "반복",
     "parallel": "병렬",
     "untitledNode": "제목 없는 단계",
+    "untitledWorkflow": "제목 없는 워크플로",
+    "startNode": "시작",
+    "endNode": "종료",
     "save": "저장",
     "saving": "저장 중…",
     "cancel": "취소",
@@ -192,22 +191,12 @@
     "revertTitle": "v{version}으로 되돌릴까요?",
     "revertBody": "현재 워크플로가 버전 {version}로 교체됩니다. 저장하지 않은 변경 사항은 사라집니다.",
     "revertConfirm": "되돌리기",
-    "deleteTitle": "\"{name}\" 워크플로를 삭제할까요?",
-    "deleteBody": "이 워크플로 삭제는 되돌릴 수 없습니다. 다음 항목이 사라집니다:",
-    "deleteLossChat": "오케스트레이터 및 브라우저 에이전트와의 모든 대화 기록",
-    "deleteLossArtifacts": "이 워크플로에서 생성된 모든 아티팩트",
-    "deleteLossRuns": "실행 기록 (상태, 오류, 시간)",
-    "deleteLossSchedule": "이 워크플로의 예약 트리거",
-    "deleteNotice": "워크스페이스의 다른 구성원에게 알림이 전송됩니다.",
-    "deleteConfirm": "삭제",
-    "deleting": "삭제 중…",
     "previewBanner": "v{version} 미리보기 — 읽기 전용",
     "exitPreview": "미리보기 종료",
     "current": "현재",
     "versionShort": "v{version}",
     "unsavedCurrent": "저장되지 않은 현재",
     "draftBadge": "실시간 초안",
-    "draftHint": "에이전트가 현재 작업을 위해 준비 중인 단계입니다. 적절해 보이면 저장하도록 요청하세요.",
     "rerunFromHere": "여기서부터 실행",
     "deleteNode": "단계 삭제",
     "confirmDelete": "이 단계를 삭제하시겠습니까?",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} 에이전트",
     "selectToMessage": "메시지를 보낼 브라우저 에이전트를 선택하세요",
     "noActiveViewport": "활성 뷰포트가 없습니다. 썸네일이나 + 타일을 클릭하세요.",
+    "launchingAgent": "브라우저 에이전트 시작 중…",
     "closeAgent": "에이전트 닫기",
     "agentCapReached": "최대 브라우저 에이전트 수에 도달했습니다"
   },

@@ -444,42 +444,10 @@ function canDeleteWorkflow(id: string): boolean {
   return id !== DRAFT_WORKFLOW_ID
 }
 
-// Delete-confirmation modal state. The destructive workflow-delete path now
-// surfaces a confirmation that explicitly enumerates the side effects (chat
-// history, artifacts, runs, schedule, live session) and, on confirm, hands off
-// to the original deletion routine. Drafts and unused workflows skip the modal
-// — there is no durable state to lose.
-const pendingDeleteId = ref<string | null>(null)
-const pendingDeleteName = ref('')
-const isDeleteModalOpen = ref(false)
-const isDeleting = ref(false)
-
 function requestDeleteWorkflow(id: string) {
   if (!canDeleteWorkflow(id)) return
-  // Drafts have no durable state — nuke immediately, no modal.
-  if (id === DRAFT_WORKFLOW_ID) {
-    void runDeleteWorkflow(id)
-    return
-  }
-  const session = sessions.value.find(s => s.id === id)
-  pendingDeleteId.value = id
-  pendingDeleteName.value = session?.title ?? ''
-  isDeleteModalOpen.value = true
   activeDropdownIndex.value = null
-}
-
-async function confirmDeleteWorkflow() {
-  const id = pendingDeleteId.value
-  if (!id) return
-  isDeleting.value = true
-  try {
-    await runDeleteWorkflow(id)
-  } finally {
-    isDeleting.value = false
-    isDeleteModalOpen.value = false
-    pendingDeleteId.value = null
-    pendingDeleteName.value = ''
-  }
+  void runDeleteWorkflow(id)
 }
 
 async function runDeleteWorkflow(id: string) {
@@ -636,19 +604,6 @@ function handleSettings() {
 function handleInstallApp() {
   closeProfileDropdown()
   navigateTo('/install-app')
-}
-
-// Extension install — the banner in PageHeader surfaces this for first-time
-// users; after dismissal it lives here in the profile menu. Both paths share
-// the same openInstallExtension action so browser detection stays consistent.
-const {
-  bannerDismissed: extensionBannerDismissed,
-  openInstallExtension,
-} = useExtensionPrefs()
-
-function handleInstallExtension() {
-  closeProfileDropdown()
-  openInstallExtension({ chromeRequiredMessage: t('common.chromeRequired') })
 }
 
 function handleUpgradePlan() {
@@ -1039,8 +994,8 @@ onUnmounted(() => {
         <div ref="languageBtnRef">
           <MenuItem
             :text="t('common.language')"
+            :active="isLanguageOpen"
             @click.stop="isLanguageOpen ? isLanguageOpen = false : openLanguagePanel()"
-            :class="isLanguageOpen ? 'bg-neutral-100' : ''"
           >
             <template #icon>
               <div class="flex items-center justify-center w-[18px] h-[18px] shrink-0">
@@ -1068,22 +1023,11 @@ onUnmounted(() => {
             </svg>
           </template>
         </MenuItem>
-        <MenuItem
-          v-if="extensionBannerDismissed"
-          :text="t('common.installExtension')"
-          @click="handleInstallExtension"
-        >
-          <template #icon>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" class="size-[18px]" aria-hidden="true">
-              <path d="M6 5 L10.5 5 A2 2 0 1 1 13.5 5 L18 5 A1 1 0 0 1 19 6 L19 10.5 A2 2 0 1 0 19 13.5 L19 18 A1 1 0 0 1 18 19 L13.5 19 A2 2 0 1 0 10.5 19 L6 19 A1 1 0 0 1 5 18 L5 13.5 A2 2 0 1 1 5 10.5 L5 6 A1 1 0 0 1 6 5 Z" />
-            </svg>
-          </template>
-        </MenuItem>
         <div ref="helpBtnRef">
           <MenuItem
             :text="t('common.help')"
+            :active="isHelpOpen"
             @click.stop="isHelpOpen ? isHelpOpen = false : openHelpPanel()"
-            :class="isHelpOpen ? 'bg-neutral-100' : ''"
           >
             <template #icon>
               <div class="flex items-center justify-center w-[18px] h-[18px] shrink-0">
@@ -1112,12 +1056,6 @@ onUnmounted(() => {
     <SettingsModal v-model:open="isSettingsModalOpen" />
     <BugReportModal v-model:open="isBugReportOpen" />
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
-    <DeleteWorkflowModal
-      v-model:open="isDeleteModalOpen"
-      :workflow-name="pendingDeleteName"
-      :submitting="isDeleting"
-      @confirm="confirmDeleteWorkflow"
-    />
   </aside>
 </template>
 

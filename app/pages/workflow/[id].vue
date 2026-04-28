@@ -3,6 +3,17 @@ import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPay
 import type { ViewMode } from '~/components/ChatLayout.vue'
 import { DRAFT_WORKFLOW_ID } from '~/composables/useWorkflowList'
 
+// Re-mount the page when the workflow id changes. `useAgentChats` keys its
+// `useState` by the sessionId captured at construction, so reusing the layout
+// across workflows would bind the new workflow's incoming WS messages to the
+// previous workflow's `chat-messages-{id}` slot — and `fetchMessages` is only
+// called from `onMounted`, so the new workflow's history would never load.
+// A per-id key makes the parent layout (and all the composables it owns)
+// recreate cleanly on each workflow switch.
+definePageMeta({
+  key: route => route.params.id as string,
+})
+
 const route = useRoute()
 const workflowId = computed(() => route.params.id as string)
 
@@ -137,21 +148,6 @@ watch(geo.coords, () => {
   }
 })
 
-onMounted(async () => {
-  // Per-tab memory so `/workflow` (no id) restores this workflow on re-entry within the tab.
-  sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, sessionId.value)
-
-  const orchestratorHistory = await fetchMessages(sessionId.value)
-  chats.orchestrator.loadHistory(orchestratorHistory)
-
-  for (const v of vp.viewports.value) {
-    const agentHistory = await fetchMessages(sessionId.value, v.agentId)
-    if (agentHistory.length > 0) {
-      chats.get(v.agentId).loadHistory(agentHistory)
-    }
-  }
-})
-
 watch(sessionId, (id) => {
   if (id) sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, id)
 })
@@ -202,6 +198,9 @@ if (import.meta.client) {
 const loadedAgentHistories = new Set<string>()
 
 onMounted(async () => {
+  // Per-tab memory so `/workflow` (no id) restores this workflow on re-entry within the tab.
+  sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, sessionId.value)
+
   const orchestratorHistory = await fetchMessages(sessionId.value)
   chats.orchestrator.loadHistory(orchestratorHistory)
 
@@ -308,32 +307,53 @@ async function sendBeaconSave(id: string) {
   } catch {}
 }
 
-// Restore once, on the first session_state for this workflow. If the server
-// already has browser agents (session still alive), skip — the live state wins.
+// Restore viewports for this workflow once per WS connection. If the server
+// already has browser agents (session still alive), skip — the live state
+// wins. Otherwise, look up the last saved viewport URLs and respawn agents
+// on each. Re-attempts on reconnect (server reset) so the user's viewports
+// come back after the server forgets them.
 const hasAttemptedRestore = ref(false)
-watch(
-  () => session.sessionState.value,
-  (state) => {
-    if (hasAttemptedRestore.value || !state) return
+
+function tryRestoreViewports() {
+  if (hasAttemptedRestore.value) return
+  const state = session.sessionState.value
+  if (!state) return
+  if ((state.browser_agents?.length ?? 0) > 0) {
     hasAttemptedRestore.value = true
-    if ((state.browser_agents?.length ?? 0) > 0) return
-    const saved = sessions.value.find(s => s.id === sessionId.value)?.last_viewport_urls ?? []
-    const savedUrls = saved.filter(u => typeof u === 'string' && u)
-    if (savedUrls.length === 0) return
-    // Seed lastSavedKey so the debounce doesn't immediately re-PATCH the same
-    // URLs after spawn_browser_agent events populate viewports.
-    lastSavedKey = `${sessionId.value}:${serializeUrls(savedUrls)}`
-    for (const url of savedUrls) {
-      session.send<SpawnBrowserAgentPayload>('spawn_browser_agent', { url })
-    }
-  },
-)
+    return
+  }
+  // Sessions list still loading — defer; the watch on `sessions` retries
+  // when it populates. Burning the flag now would lose the saved URLs to
+  // a race where session_state lands before fetchSessions resolves.
+  if (sessions.value.length === 0) return
+  hasAttemptedRestore.value = true
+  const saved = sessions.value.find(s => s.id === sessionId.value)?.last_viewport_urls ?? []
+  const savedUrls = saved.filter(u => typeof u === 'string' && u)
+  if (savedUrls.length === 0) return
+  // Seed lastSavedKey so the debounce doesn't immediately re-PATCH the same
+  // URLs after spawn_browser_agent events populate viewports.
+  lastSavedKey = `${sessionId.value}:${serializeUrls(savedUrls)}`
+  for (const url of savedUrls) {
+    session.send<SpawnBrowserAgentPayload>('spawn_browser_agent', { url })
+  }
+}
+
+watch(() => session.sessionState.value, tryRestoreViewports)
+watch(() => sessions.value.length, tryRestoreViewports)
 
 // Reset restoration state when switching workflows (if the component is
-// reused rather than remounted).
+// reused rather than remounted) or when the WS leaves the connected state
+// (server reset / network blip) — the next session_state from the fresh
+// connection should re-restore the user's viewports.
 watch(sessionId, () => {
   hasAttemptedRestore.value = false
   lastSavedKey = ''
+})
+
+watch(session.status, (status, prev) => {
+  if (prev === 'connected' && status !== 'connected') {
+    hasAttemptedRestore.value = false
+  }
 })
 
 // Auto-save URL list whenever viewports change (debounced). Skips the very

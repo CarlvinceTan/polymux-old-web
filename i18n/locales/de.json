@@ -33,10 +33,7 @@
     "cookiesPolicy": "Cookie-Richtlinie",
     "reportBug": "Fehler melden",
     "getHelp": "Hilfe erhalten",
-    "installExtension": "Erweiterung installieren",
-    "installExtensionBanner": "Polymux-Erweiterung installieren",
-    "dismiss": "Schließen",
-    "chromeRequired": "Die Polymux-Erweiterung benötigt Chrome. Chrome installieren?"
+    "dismiss": "Schließen"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -46,7 +43,8 @@
     "workflows": "Workflows",
     "newWorkflow": "Neuer Workflow",
     "addWorkspace": "Arbeitsbereich hinzufügen",
-    "mainSidebar": "Hauptseitenleiste"
+    "mainSidebar": "Hauptseitenleiste",
+    "toggleSidebar": "Seitenleiste umschalten"
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "Die E-Mail-Adresse wird von Ihrem verknüpften Konto verwaltet und kann hier nicht geändert werden.",
     "saving": "Speichern…",
     "profileUpdateError": "Profil konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
-    "checkoutSuccess": "Ihr Plan wurde erfolgreich aktualisiert!",
-    "browserExtension": "Browser-Erweiterung",
-    "usePolymuxExtension": "Polymux-Erweiterung verwenden"
+    "checkoutSuccess": "Ihr Plan wurde erfolgreich aktualisiert!"
   },
   "chat": {
     "welcomeGreeting": "Wie kann ich Ihnen helfen, {name}?",
@@ -176,6 +172,9 @@
     "loop": "Schleife",
     "parallel": "Parallel",
     "untitledNode": "Unbenannter Schritt",
+    "untitledWorkflow": "Unbenannter Workflow",
+    "startNode": "Start",
+    "endNode": "Ende",
     "save": "Speichern",
     "saving": "Speichert…",
     "cancel": "Abbrechen",
@@ -192,22 +191,12 @@
     "revertTitle": "Auf v{version} zurücksetzen?",
     "revertBody": "Dies ersetzt den aktuellen Workflow durch Version {version}. Deine nicht gespeicherten Änderungen gehen verloren.",
     "revertConfirm": "Zurücksetzen",
-    "deleteTitle": "Workflow \"{name}\" löschen?",
-    "deleteBody": "Das Löschen dieses Workflows ist endgültig. Folgendes geht verloren:",
-    "deleteLossChat": "Der gesamte Chatverlauf mit dem Orchestrator und den Browser-Agenten",
-    "deleteLossArtifacts": "Alle in diesem Workflow erstellten Artefakte",
-    "deleteLossRuns": "Ausführungsverlauf (Status, Fehler, Zeiten)",
-    "deleteLossSchedule": "Alle geplanten Trigger für diesen Workflow",
-    "deleteNotice": "Andere Workspace-Mitglieder werden benachrichtigt.",
-    "deleteConfirm": "Löschen",
-    "deleting": "Wird gelöscht…",
     "previewBanner": "Vorschau von v{version} — schreibgeschützt",
     "exitPreview": "Vorschau beenden",
     "current": "Aktuell",
     "versionShort": "v{version}",
     "unsavedCurrent": "ungespeichert aktuell",
     "draftBadge": "Live-Entwurf",
-    "draftHint": "Schritte, die der Agent für die aktuelle Aufgabe vorbereitet. Bitten Sie ihn zu speichern, wenn das passt.",
     "rerunFromHere": "Ab hier ausführen",
     "deleteNode": "Schritt löschen",
     "confirmDelete": "Diesen Schritt löschen?",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} Agenten",
     "selectToMessage": "Wählen Sie einen Browser-Agenten aus, um Nachrichten zu senden",
     "noActiveViewport": "Kein aktiver Viewport. Klicken Sie auf eine Miniaturansicht oder die + Kachel.",
+    "launchingAgent": "Browser-Agent wird gestartet…",
     "closeAgent": "Agenten schließen",
     "agentCapReached": "Maximale Anzahl an Browser-Agenten erreicht"
   },

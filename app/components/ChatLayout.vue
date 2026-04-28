@@ -289,7 +289,7 @@ function onSend(value: string) {
     </div>
 
     <template v-if="inChat" #footer>
-      <div class="mx-auto w-full max-w-2xl">
+      <div class="mx-auto w-full max-w-3xl">
         <PromptInput
           v-model="command"
           full-width

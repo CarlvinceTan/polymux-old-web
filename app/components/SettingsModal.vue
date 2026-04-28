@@ -100,12 +100,6 @@ const pushNotif = ref(false)
 const productUpdates = ref(true)
 const responseCompletions = ref(true)
 
-// Browser extension preference (per-device, localStorage-backed). Flipping
-// this controls whether session WS connections opt into `?mode=extension`
-// and therefore route browser sub-agents through the user's installed
-// Chrome extension instead of the server's Chromium.
-const { extensionEnabled } = useExtensionPrefs()
-
 async function saveBlogSubscription(value: boolean) {
   try {
     await useUserSettings().saveSettings({ blog_newsletter_subscribed: value })
@@ -472,15 +466,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                           @update:model-value="saveBlogSubscription"
                         />
                       </template>
-                    </SettingsSectionRow>
-                  </SettingsSection>
-
-                  <!-- Browser Extension -->
-                  <SettingsSection :title="t('settings.browserExtension')">
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-puzzle-piece-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.usePolymuxExtension') }}</template>
-                      <template #trailing><SettingsToggle v-model="extensionEnabled" /></template>
                     </SettingsSectionRow>
                   </SettingsSection>
 

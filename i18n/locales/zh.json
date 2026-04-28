@@ -33,10 +33,7 @@
     "cookiesPolicy": "Cookie 政策",
     "reportBug": "报告问题",
     "getHelp": "获取帮助",
-    "installExtension": "安装扩展",
-    "installExtensionBanner": "安装 Polymux 扩展",
-    "dismiss": "关闭",
-    "chromeRequired": "Polymux 扩展需要 Chrome。是否安装 Chrome？"
+    "dismiss": "关闭"
   },
   "nav": {
     "dashboard": "控制台",
@@ -46,7 +43,8 @@
     "workflows": "工作流",
     "newWorkflow": "新建工作流",
     "addWorkspace": "添加工作区",
-    "mainSidebar": "主侧边栏"
+    "mainSidebar": "主侧边栏",
+    "toggleSidebar": "切换侧边栏"
   },
   "notifications": {
     "title": "通知",
@@ -147,9 +145,7 @@
     "emailManagedByProvider": "电子邮件由您关联的账户管理，无法在此处更改。",
     "saving": "保存中…",
     "profileUpdateError": "更新个人资料失败，请重试。",
-    "checkoutSuccess": "您的套餐已成功升级！",
-    "browserExtension": "浏览器扩展",
-    "usePolymuxExtension": "使用 Polymux 扩展"
+    "checkoutSuccess": "您的套餐已成功升级！"
   },
   "chat": {
     "welcomeGreeting": "{name}，有什么可以帮您的吗？",
@@ -176,6 +172,9 @@
     "loop": "循环",
     "parallel": "并行",
     "untitledNode": "未命名步骤",
+    "untitledWorkflow": "未命名工作流",
+    "startNode": "开始",
+    "endNode": "结束",
     "save": "保存",
     "saving": "保存中…",
     "cancel": "取消",
@@ -192,22 +191,12 @@
     "revertTitle": "回退到 v{version}？",
     "revertBody": "这将使用版本 {version} 替换当前工作流。你未保存的编辑将会丢失。",
     "revertConfirm": "回退",
-    "deleteTitle": "删除工作流 \"{name}\"？",
-    "deleteBody": "删除此工作流是永久性的。以下内容将丢失：",
-    "deleteLossChat": "与编排器和浏览器代理的所有聊天记录",
-    "deleteLossArtifacts": "此工作流产生的所有产物",
-    "deleteLossRuns": "运行历史（状态、错误、耗时）",
-    "deleteLossSchedule": "此工作流的所有定时触发器",
-    "deleteNotice": "工作区其他成员将收到通知。",
-    "deleteConfirm": "删除",
-    "deleting": "删除中…",
     "previewBanner": "正在预览 v{version} — 只读",
     "exitPreview": "退出预览",
     "current": "当前",
     "versionShort": "v{version}",
     "unsavedCurrent": "未保存 当前",
     "draftBadge": "实时草稿",
-    "draftHint": "代理正在为当前任务排队的步骤。如果合适，请要求它保存。",
     "rerunFromHere": "从这里运行",
     "deleteNode": "删除步骤",
     "confirmDelete": "删除此步骤？",
@@ -325,6 +314,7 @@
     "agentsCount": "{active} / {cap} 个代理",
     "selectToMessage": "选择一个浏览器代理开始发送消息",
     "noActiveViewport": "没有活动视窗。点击缩略图或+图块。",
+    "launchingAgent": "正在启动浏览器代理…",
     "closeAgent": "关闭代理",
     "agentCapReached": "已达到浏览器代理的最大数量"
   },

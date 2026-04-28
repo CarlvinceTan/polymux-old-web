@@ -30,6 +30,7 @@ const {
   versions,
   fetchWorkflows,
   fetchVersions,
+  createWorkflow,
   createVersion,
   startRun,
   getWorkflow,
@@ -109,6 +110,13 @@ const effectiveReadonly = computed(() => !!props.readonly || isPreview.value || 
 async function initializeForSession() {
   await fetchWorkflows(workspaceId.value)
   if (!import.meta.client) return
+  // If the orchestrator is currently building a draft tree, leave nothing
+  // selected so `isDraft` stays true and `displayedSteps` keeps showing the
+  // live draft. Auto-selecting a saved workflow here (from localStorage or
+  // the most-recent fallback) would flip `isDraft` to false and replace the
+  // visible draft with the saved workflow's (often empty) steps — the
+  // "flash then disappear" you see when switching back into Workflow view.
+  if (draftSteps.value.length > 0) return
   const stored = localStorage.getItem(storageKey.value)
   if (stored && workflows.value.some(w => w.id === stored)) {
     await selectWorkflow(stored)
@@ -194,10 +202,51 @@ function onDelete(id: string) {
   workingSteps.value = removeNode(workingSteps.value, id)
 }
 
+// Save is enabled in two modes:
+//  1. A workflow is selected and `workingSteps` differ from `baseSteps`
+//     → write a new version (optimistic-locking on `expected_version`).
+//  2. Nothing is selected but the dock is showing live draft steps
+//     → persist the draft as a brand-new workflow with an auto-generated
+//        name. The agent's `workflow_saved` flow normally handles this for
+//        agent-driven runs; this branch covers the user pressing Save while
+//        the agent is still narrating.
+const canSave = computed(() => {
+  if (props.readonly) return false
+  if (isPreview.value) return false
+  if (saving.value) return false
+  if (!selectedWorkflowId.value) return displayedSteps.value.length > 0
+  return dirty.value
+})
+
+function autoWorkflowName(): string {
+  const base = t('workflow.untitledWorkflow')
+  const taken = new Set(workflows.value.map(w => w.name))
+  if (!taken.has(base)) return base
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${base} ${i}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${base} ${Date.now()}`
+}
+
 async function onSave() {
-  if (!selectedWorkflowId.value) return
+  if (!canSave.value) return
   saving.value = true
   try {
+    if (!selectedWorkflowId.value) {
+      const stepsToSave = displayedSteps.value as WorkflowStep[]
+      const created = await createWorkflow(workspaceId.value, {
+        name: autoWorkflowName(),
+        steps: stepsToSave,
+        source: 'user',
+        impact_level: 'preference',
+      })
+      if (created) {
+        await selectWorkflow(created.id)
+        toast.show(t('workflow.savedToast'), 'info', 3000)
+      }
+      return
+    }
     const created = await createVersion(workspaceId.value, selectedWorkflowId.value, {
       steps: workingSteps.value,
       expected_version: expectedVersion.value,
@@ -213,7 +262,7 @@ async function onSave() {
   catch (err: unknown) {
     if (err instanceof VersionConflictError) {
       toast.show(t('workflow.versionConflictToast'), 'warning', 6000)
-      await selectWorkflow(selectedWorkflowId.value!)
+      if (selectedWorkflowId.value) await selectWorkflow(selectedWorkflowId.value)
     }
     else {
       toast.show(t('workflow.saveFailedToast'), 'error', 4000)
@@ -353,13 +402,12 @@ watch(lastSavedAt, async (tick) => {
         </button>
 
         <button
-          v-if="!readonly && selectedWorkflowId && !isPreview"
           type="button"
           class="rounded px-2 py-1 text-xs font-medium transition-colors"
-          :class="dirty
+          :class="canSave
             ? 'bg-neutral-900 text-white hover:bg-neutral-800'
             : 'cursor-not-allowed bg-neutral-100 text-neutral-400'"
-          :disabled="!dirty || saving"
+          :disabled="!canSave"
           @click="onSave"
         >
           {{ saving ? t('workflow.saving') : t('workflow.save') }}
@@ -409,25 +457,15 @@ watch(lastSavedAt, async (tick) => {
           </p>
         </div>
 
-        <div v-else class="flex flex-col gap-0 px-3 py-3">
-          <p
-            v-if="isDraft"
-            class="mb-2 px-1 text-[11px] text-neutral-400"
-          >
-            <UIcon name="i-heroicons-bolt-20-solid" class="mr-1 inline size-3 align-[-2px] text-neutral-400" />
-            {{ t('workflow.draftHint') }}
-          </p>
-          <WorkflowNode
-            v-for="node in displayedSteps"
-            :key="node.id ?? ''"
-            :step="node"
-            :depth="0"
-            :states="run.nodeStates.value"
+        <div v-else class="flex flex-col gap-0">
+          <WorkflowGraph
+            :steps="displayedSteps"
+            :expanded-ids="expandedIds"
+            :node-states="run.nodeStates.value"
             :current-path="run.currentPath.value"
             :readonly="effectiveReadonly"
             :editing-id="editingId"
-            :expanded-ids="expandedIds"
-            :ancestor-path="[]"
+            :run-status="run.runStatus.value"
             @update="onUpdate"
             @delete="onDelete"
             @rerun-from="(id) => onRun(id)"
@@ -437,7 +475,7 @@ watch(lastSavedAt, async (tick) => {
 
           <p
             v-if="run.runStatus.value && !isPreview"
-            class="mt-4 px-1 text-[11px] text-neutral-400"
+            class="mx-auto mt-4 w-full max-w-2xl px-5 pb-3 text-[11px] text-neutral-400 sm:px-6"
           >
             {{ t('workflow.runLabel') }}:
             <span class="font-medium text-neutral-600">{{ run.runStatus.value }}</span>

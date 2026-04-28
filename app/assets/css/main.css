@@ -150,6 +150,30 @@ body {
   --color-google-drive-tint: #e8f4ee;
 }
 
+/* SidePanel collapse: drive column width and panel translate from the same
+   registered CSS variable so they animate in lockstep. Without a shared source
+   the width (paint thread) and transform (compositor thread) can drift by a
+   frame, exposing a hairline of body bg between the panel and the right column. */
+@property --side-panel-collapse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@media (min-width: 1024px) {
+  .side-panel-slot {
+    --side-panel-collapse: 0;
+    width: calc(272px * (1 - var(--side-panel-collapse)));
+    transition: --side-panel-collapse 300ms ease-out;
+  }
+  .side-panel-slot.is-collapsed {
+    --side-panel-collapse: 1;
+  }
+  .side-panel-slot > .side-panel-rail {
+    transform: translateX(calc(-272px * var(--side-panel-collapse)));
+  }
+}
+
 /* Utility to hide scrollbars */
 .scrollbar-hide {
   -ms-overflow-style: none;
