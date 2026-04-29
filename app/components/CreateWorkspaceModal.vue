@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const isOpen = defineModel<boolean>('open', { default: false })
 
-const { createWorkspace, addMember } = useWorkspaces()
+const { createWorkspace, inviteMember } = useWorkspaces()
 
 const name = ref('')
 const isSubmitting = ref(false)
@@ -50,7 +50,7 @@ async function handleSubmit() {
       return
     }
     const validInvites = invites.value.filter(i => i.email.trim())
-    await Promise.all(validInvites.map(i => addMember(ws.id, i.email.trim(), i.role)))
+    await Promise.all(validInvites.map(i => inviteMember(ws.id, i.email.trim(), i.role)))
     handleClose()
   }
   finally {

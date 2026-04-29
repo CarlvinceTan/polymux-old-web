@@ -11,7 +11,7 @@ const supabase = useSupabaseClient()
 const router = useRouter()
 const route = useRoute()
 
-const redirectTo = computed(() => (route.query.redirect as string) || '/workflow')
+const redirectTo = computed(() => (route.query.redirect as string) || '/')
 
 function onBack() {
   const target = import.meta.client ? sessionStorage.getItem('polymux_auth_back') : null

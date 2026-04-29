@@ -25,7 +25,7 @@ onMounted(async () => {
     router.replace(redirect)
   }
   else {
-    router.replace('/workflow')
+    router.replace('/')
   }
 })
 </script>

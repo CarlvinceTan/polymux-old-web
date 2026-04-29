@@ -14,9 +14,9 @@ const route = useRoute()
 /**
  * Post-signin redirect:
  * - `?redirect=<path>` wins (middleware sets this when it bounces a protected hit).
- * - Bare `/sign-in` lands in `/workflow` since that's the primary app surface.
+ * - Bare `/sign-in` lands on the home page.
  */
-const redirectTo = computed(() => (route.query.redirect as string) || '/workflow')
+const redirectTo = computed(() => (route.query.redirect as string) || '/')
 
 /**
  * Back target = the last non-auth, non-protected route the user visited (tracked by the

@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   const { error } = await resend.emails.send({
     from: "Polymux Contact <onboarding@resend.dev>",
-    to: ["carlvincetan@outlook.com"],
+    to: ["team@polymux.com"],
     replyTo: email,
     subject: `[Contact] ${title}`,
     html: `
