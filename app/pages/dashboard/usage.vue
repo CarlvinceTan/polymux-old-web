@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core'
-import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
+import type { StorageProvider } from '~/types/storage'
 
 const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 
@@ -106,11 +106,11 @@ const driveUsageCard = computed(() =>
   storageUsageCards.value.find(c => c.provider === 'google-drive') ?? null,
 )
 
-function loadWorkspaceData(wsId: string) {
+function loadWorkspaceData(wsId: string, opts?: { force?: boolean }) {
   fetchMembers(wsId)
-  fetchSessions()
-  fetchWallet()
-  fetchTransactions()
+  fetchSessions(opts)
+  fetchWallet(opts)
+  fetchTransactions(opts)
   refreshUsage(wsId)
   refreshDrive().catch(() => {})
 }
@@ -121,7 +121,8 @@ watch(currentWorkspaceId, (wsId) => {
 }, { immediate: true })
 
 useOnReconnect(() => {
-  if (currentWorkspaceId.value) loadWorkspaceData(currentWorkspaceId.value)
+  // Cached data may be stale after a network drop — force the round-trip.
+  if (currentWorkspaceId.value) loadWorkspaceData(currentWorkspaceId.value, { force: true })
   refreshLocalProbe()
 })
 

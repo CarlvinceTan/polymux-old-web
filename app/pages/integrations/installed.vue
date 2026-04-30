@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory, MarketplaceItem } from '~/composables/useMarketplace'
+import type { ItemCategory, MarketplaceItem } from '~/composables/wallet/useMarketplace'
 
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()

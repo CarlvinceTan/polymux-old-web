@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SupportedCurrency } from '~/composables/useCurrency'
+import type { SupportedCurrency } from '~/composables/wallet/useCurrency'
 
 const { realSessions: sessions, fetchSessions } = useWorkflowList()
 const {
@@ -15,17 +15,19 @@ const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 const currency = computed(() => (wallet.value?.currency ?? 'usd') as SupportedCurrency)
 const hasWallet = computed(() => !!wallet.value)
 
-async function loadAll() {
+async function loadAll(opts?: { force?: boolean }) {
   await Promise.all([
-    fetchSessions(),
-    fetchWallet(),
-    fetchTransactions(),
-    fetchBudgets(),
+    fetchSessions(opts),
+    fetchWallet(opts),
+    fetchTransactions(opts),
+    fetchBudgets(undefined, opts),
   ])
 }
 
-onMounted(loadAll)
-useOnReconnect(loadAll)
+onMounted(() => loadAll())
+// On reconnect we want the latest server state, not whatever was cached
+// when the network dropped.
+useOnReconnect(() => loadAll({ force: true }))
 </script>
 
 <template>

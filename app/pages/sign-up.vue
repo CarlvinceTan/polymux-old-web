@@ -60,7 +60,7 @@ async function onSubmit() {
     const { error: authError } = await supabase.auth.signUp({
       email: email.value.trim(),
       password: password.value,
-      options: { emailRedirectTo: `${window.location.origin}/confirm` },
+      options: { emailRedirectTo: `${window.location.origin}/confirm?type=signup` },
     })
     if (authError) {
       error.value = authError.message

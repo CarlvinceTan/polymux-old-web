@@ -97,7 +97,10 @@
     "updatePassword": "Mettre à jour le mot de passe",
     "updatingPassword": "Mise à jour…",
     "passwordUpdated": "Votre mot de passe a été mis à jour. Redirection…",
-    "and": "et"
+    "and": "et",
+    "verificationSuccessful": "Vérification réussie",
+    "verificationSuccessfulDesc": "Votre adresse e-mail a été vérifiée. Veuillez retourner à la page de connexion pour continuer.",
+    "returnToSignIn": "Retour à la connexion"
   },
   "settings": {
     "title": "Paramètres",
@@ -393,6 +396,7 @@
     "sortInstalledFirst": "Installés en premier",
     "sortCategory": "Catégorie",
     "noMatches": "Aucun élément ne correspond à votre recherche.",
+    "loading": "Chargement du Marketplace…",
     "nothingInstalled": "Rien d'installé pour l'instant — parcourez le Marketplace pour ajouter des workflows, plugins et intégrations.",
     "noInstalledTitle": "Aucune intégration pour l'instant",
     "noInstalledSubtitle": "Parcourez le Marketplace pour connecter des outils, installer des plugins et ajouter des workflows.",
@@ -791,5 +795,21 @@
       "pullFolder": "Limite de récupération de dossier",
       "artifacts": "Stockage des artefacts"
     }
+  },
+  "betaAgreement": {
+    "badge": "Bêta",
+    "title": "Bienvenue dans la bêta de Polymux",
+    "lead": "Polymux est en développement actif. Avant de continuer, prenez connaissance de ce que l'accès bêta implique pour vos données et votre vie privée.",
+    "bullet1": "La confidentialité n'est pas garantie pendant la bêta. De nombreuses fonctionnalités sont encore en construction et le comportement peut changer sans préavis.",
+    "bullet2": "Les contenus que vous créez, téléversez ou générez peuvent être consultés par notre équipe et les systèmes utilisés pour déboguer, améliorer et stabiliser le produit.",
+    "bullet3": "Les données que vous fournissez peuvent être partagées avec des prestataires tiers de confiance (par exemple partenaires de modèles, d'infrastructure et d'analyse) afin que le produit fonctionne et s'améliore.",
+    "bullet4": "Des pannes, pertes de données et comportements inattendus sont possibles. Ne comptez pas sur Polymux pour des travaux sensibles, réglementés ou critiques en production.",
+    "footnote": "En continuant, vous reconnaissez également nos",
+    "privacyPolicy": "Politique de confidentialité",
+    "and": "et",
+    "termsOfService": "Conditions d'utilisation",
+    "footnoteEnd": ".",
+    "acknowledgement": "J'ai lu et compris ce qui précède, et je consens à l'exposition et au partage de données décrits pendant la bêta de Polymux.",
+    "acceptButton": "Je comprends et j'accepte"
   }
 }

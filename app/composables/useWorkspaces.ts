@@ -106,6 +106,28 @@ export function useWorkspaces() {
     persistWorkspaceId(id)
   }
 
+  // Resolves with the current workspace id once it becomes available. Used by
+  // pages that mount before SidePanel finishes bootstrapping workspaces (e.g.
+  // /workflow/new directly after an OAuth confirm, when localStorage has no
+  // cached workspace id yet). Resolves null if the wait times out.
+  function waitForWorkspace(timeoutMs = 10000): Promise<string | null> {
+    if (currentWorkspaceId.value) return Promise.resolve(currentWorkspaceId.value)
+    if (!import.meta.client) return Promise.resolve(null)
+    return new Promise((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const stop = watch(currentWorkspaceId, (id) => {
+        if (!id) return
+        stop()
+        if (timer) clearTimeout(timer)
+        resolve(id)
+      })
+      timer = setTimeout(() => {
+        stop()
+        resolve(null)
+      }, timeoutMs)
+    })
+  }
+
   async function updateWorkspace(workspaceID: string, patch: { name?: string, avatar_url?: string | null }): Promise<Workspace | null> {
     const body: Record<string, unknown> = {}
     if (patch.name !== undefined) body.name = patch.name
@@ -298,6 +320,7 @@ export function useWorkspaces() {
     fetchWorkspaces,
     createWorkspace,
     switchWorkspace,
+    waitForWorkspace,
     updateWorkspace,
     deleteWorkspace,
     fetchMembers,

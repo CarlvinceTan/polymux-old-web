@@ -1,5 +1,5 @@
 import { ref, readonly, watch, onUnmounted } from 'vue'
-import type { SessionHandle } from './useSession'
+import type { SessionHandle } from './auth/useSession'
 
 const decoder = new TextDecoder()
 

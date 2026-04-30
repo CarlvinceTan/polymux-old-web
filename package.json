@@ -16,6 +16,8 @@
     "@nuxtjs/i18n": "^10.2.4",
     "@nuxtjs/supabase": "^2.0.4",
     "@types/node": "^25.5.2",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "marked": "^17.0.6",
     "nuxt": "^4.4.2",
     "resend": "^6.11.0",

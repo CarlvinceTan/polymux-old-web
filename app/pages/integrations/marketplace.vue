@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory, MarketplaceItem } from '~/composables/useMarketplace'
+import type { ItemCategory, MarketplaceItem } from '~/composables/wallet/useMarketplace'
 
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
@@ -8,7 +8,7 @@ const { headerTabs } = useIntegrationsNavTabs()
 type FilterValue = 'all' | ItemCategory | 'installed'
 type SortValue = 'popularity' | 'nameAZ' | 'nameZA' | 'installedFirst' | 'category'
 
-const { catalog, isInstalled } = useMarketplace()
+const { catalog, catalogPending, catalogLoaded, isInstalled } = useMarketplace()
 
 const searchQuery = ref('')
 const filterBy = ref<FilterValue>('all')
@@ -226,10 +226,10 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <div class="relative" style="padding: 2.5rem 6rem">
+      <div class="relative" style="padding: 2.5rem 6rem 0">
         <div
           v-if="filteredItems.length"
-          class="grid gap-4"
+          class="grid gap-4 pb-10"
           style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))"
         >
           <IntegrationCard
@@ -244,6 +244,15 @@ onUnmounted(() => {
             :popularity="item.popularity"
             @open="openDetail(item)"
           />
+        </div>
+
+        <div v-else-if="catalogPending || !catalogLoaded" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <svg class="mb-4 size-6 animate-spin text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <p class="text-body-md font-medium text-neutral-500">
+            {{ t('integrations.loading') }}
+          </p>
         </div>
 
         <div v-else class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">

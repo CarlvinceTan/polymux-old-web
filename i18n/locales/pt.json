@@ -97,7 +97,10 @@
     "updatePassword": "Atualizar senha",
     "updatingPassword": "Atualizando…",
     "passwordUpdated": "Sua senha foi atualizada. Redirecionando…",
-    "and": "e"
+    "and": "e",
+    "verificationSuccessful": "Verificação bem-sucedida",
+    "verificationSuccessfulDesc": "Seu e-mail foi verificado. Volte para a página de login para continuar.",
+    "returnToSignIn": "Voltar para o login"
   },
   "settings": {
     "title": "Configurações",
@@ -393,6 +396,7 @@
     "sortInstalledFirst": "Instalados primeiro",
     "sortCategory": "Categoria",
     "noMatches": "Nenhum item corresponde à sua busca.",
+    "loading": "Carregando o Marketplace…",
     "nothingInstalled": "Nada instalado ainda — navegue no Marketplace para adicionar fluxos de trabalho, plugins e integrações.",
     "noInstalledTitle": "Nenhuma integração ainda",
     "noInstalledSubtitle": "Navegue no Marketplace para conectar ferramentas, instalar plugins e adicionar fluxos de trabalho.",
@@ -791,5 +795,21 @@
       "pullFolder": "Limite de pull de pasta",
       "artifacts": "Armazenamento de artefatos"
     }
+  },
+  "betaAgreement": {
+    "badge": "Beta",
+    "title": "Bem-vindo à beta do Polymux",
+    "lead": "O Polymux está em desenvolvimento ativo. Antes de continuar, leia o que o acesso beta significa para os seus dados e privacidade.",
+    "bullet1": "Durante a beta, a privacidade não é garantida. Muitos recursos ainda estão sendo construídos e testados, e o comportamento pode mudar sem aviso prévio.",
+    "bullet2": "O conteúdo que você cria, envia ou gera pode ser revisado pela nossa equipe e pelos sistemas que utilizamos para depurar, melhorar e estabilizar o produto.",
+    "bullet3": "Os dados que você fornece podem ser compartilhados com provedores terceirizados de confiança (como parceiros de modelo, infraestrutura e análise) para que o produto funcione e evolua.",
+    "bullet4": "Podem ocorrer interrupções, perda de dados e comportamentos inesperados. Não dependa do Polymux para trabalho sensível, regulado ou crítico em produção.",
+    "footnote": "Ao continuar, você também reconhece nossa",
+    "privacyPolicy": "Política de Privacidade",
+    "and": "e os",
+    "termsOfService": "Termos de Serviço",
+    "footnoteEnd": ".",
+    "acknowledgement": "Li e compreendi o que está acima e consinto com a exposição e o compartilhamento de dados descritos enquanto o Polymux estiver em beta.",
+    "acceptButton": "Entendi e concordo"
   }
 }

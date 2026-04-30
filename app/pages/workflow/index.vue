@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** `/workflow` list landing — keep as `workflow/index.vue` only; do not add a sibling `pages/workflow.vue` or Nuxt can mis-match `/workflow/:id` (see nuxt/nuxt#23088). */
 
-import { DRAFT_WORKFLOW_ID } from '~/composables/useWorkflowList'
+import { DRAFT_WORKFLOW_ID } from '~/composables/workflows/useWorkflowList'
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
@@ -18,7 +18,7 @@ onMounted(async () => {
     return
   }
 
-  if (!draft.value) createDraft()
+  if (!draft.value) await createDraft()
   await navigateTo(`/workflow/${DRAFT_WORKFLOW_ID}`)
 })
 </script>

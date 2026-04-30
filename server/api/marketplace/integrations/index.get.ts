@@ -1,4 +1,4 @@
-import { serverSupabaseUser, serverSupabaseClient, serverSupabaseServiceRole } from '#supabase/server'
+import { serverSupabaseUser, serverSupabaseClient } from '#supabase/server'
 import { isConnectorId } from '~~/server/connectors/registry'
 
 // GET /api/marketplace/integrations
@@ -12,10 +12,17 @@ import { isConnectorId } from '~~/server/connectors/registry'
 //
 // RLS does the access enforcement; this endpoint just shapes the join.
 //
-// Each row carries the joined `current_version` (manifest, version, status)
-// and a `requires_oauth` hint: true when the slug matches an in-tree
-// ConnectorHandler. The frontend uses this to pick the OAuth-redirect path
-// for first-party connectors vs the third-party install endpoint (Phase 2).
+// Each row carries the joined `current_version` (just `version`, the only
+// field the catalog UI actually consumes) and a `requires_oauth` hint:
+// true when the slug matches an in-tree ConnectorHandler. The frontend
+// uses this to pick the OAuth-redirect path for first-party connectors
+// vs the third-party install endpoint (Phase 2).
+//
+// Popularity comes from `integrations.install_count`, which is maintained
+// by triggers on `workspace_integrations` (see migration
+// `20260430000000_install_count_trigger.sql`). We deliberately do NOT
+// recompute counts per request — full scans of `workspace_integrations`
+// were the dominant cost on this endpoint.
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -42,13 +49,7 @@ export default defineEventHandler(async (event) => {
     current_version_id: string | null
     created_at: string
     updated_at: string
-    current_version?: {
-      id: string
-      version: string
-      manifest: Record<string, unknown>
-      status: string
-      published_at: string | null
-    } | null
+    current_version?: { version: string } | null
   }
 
   const supabase = await serverSupabaseClient(event)
@@ -67,9 +68,7 @@ export default defineEventHandler(async (event) => {
       author_user_id, author_name, homepage_url, source_repo_url,
       is_first_party, is_verified, install_count, tags, icon_url,
       current_version_id, created_at, updated_at,
-      current_version:integration_versions!integrations_current_version_fk (
-        id, version, manifest, status, published_at
-      )
+      current_version:integration_versions!integrations_current_version_fk ( version )
     `)
     .order('install_count', { ascending: false })
 
@@ -78,25 +77,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to load marketplace.' })
   }
 
-  // Live install count: number of workspaces currently connected to each
-  // provider. Computed fresh per request from `workspace_integrations` so
-  // disconnects decrement the displayed number without needing a counter
-  // column or trigger. Service role is used for the aggregate so the count
-  // reflects all workspaces, not just ones the user can read via RLS.
-  const admin = serverSupabaseServiceRole(event)
-  const adminSb = admin as unknown as {
-    from: (t: string) => { select: (cols: string) => Promise<{ data: { provider: string }[] | null, error: { message: string } | null }> }
-  }
-  const { data: connections, error: countError } = await adminSb
-    .from('workspace_integrations')
-    .select('provider')
-  if (countError) {
-    console.error('[marketplace] install count error', countError)
-  }
-  const connectionCounts = new Map<string, number>()
-  for (const row of connections ?? []) {
-    connectionCounts.set(row.provider, (connectionCounts.get(row.provider) ?? 0) + 1)
-  }
+  // The catalog is per-user (RLS scopes which rows are visible) but rarely
+  // changes inside a session. Browser revalidation + a short SWR window keeps
+  // back/forward navigation instant without ever showing seriously stale data.
+  setHeader(event, 'Cache-Control', 'private, max-age=30, stale-while-revalidate=300')
 
   return (data ?? []).map(row => ({
     id: row.slug, // Stable client identifier; matches workspace_integrations.provider for joins.
@@ -114,7 +98,7 @@ export default defineEventHandler(async (event) => {
     githubUrl: row.source_repo_url,
     iconUrl: row.icon_url,
     tags: row.tags ?? [],
-    popularity: connectionCounts.get(row.slug) ?? 0,
+    popularity: row.install_count ?? 0,
     currentVersion: row.current_version?.version ?? null,
     requiresOauth: isConnectorId(row.slug),
   }))

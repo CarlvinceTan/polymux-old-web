@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useWallet, CREDIT_PACKS } from '~/composables/useWallet'
-import { CURRENCY_OPTIONS, type SupportedCurrency } from '~/composables/useCurrency'
+import { useWallet, CREDIT_PACKS } from '~/composables/wallet/useWallet'
+import { CURRENCY_OPTIONS, type SupportedCurrency } from '~/composables/wallet/useCurrency'
 import { onClickOutside, useLocalStorage } from '@vueuse/core'
 
 const headerTabs = {
@@ -26,26 +26,30 @@ const topUpSuccess = computed(() => route.query.top_up === 'success')
 const topUpCancelled = computed(() => route.query.top_up === 'cancelled')
 
 // Top-up currency (drives Stripe checkout) — seeded from wallet, persisted locally.
-const topUpCurrency = useLocalStorage<SupportedCurrency>('wallet:topup_currency', 'usd')
+// `initOnMounted` defers reading localStorage until after hydration, so SSR
+// markup matches the initial client render.
+const topUpCurrency = useLocalStorage<SupportedCurrency>('wallet:topup_currency', 'usd', { initOnMounted: true })
 watch(wallet, (w) => {
   if (w?.currency && (CURRENCY_OPTIONS.some(o => o.value === w.currency))) {
     topUpCurrency.value = w.currency as SupportedCurrency
   }
 }, { immediate: true })
 
-function loadWallet() {
-  fetchWallet()
-  fetchTransactions()
-  fetchBudgets()
+function loadWallet(opts?: { force?: boolean }) {
+  fetchWallet(opts)
+  fetchTransactions(opts)
+  fetchBudgets(undefined, opts)
 }
 
-onMounted(loadWallet)
-useOnReconnect(loadWallet)
+onMounted(() => loadWallet())
+// Reconnect: ignore the in-memory freshness window — the network was just
+// down, so the cache may not reflect server state.
+useOnReconnect(() => loadWallet({ force: true }))
 
 watch(topUpSuccess, (v) => {
   if (v) {
-    fetchWallet()
-    fetchTransactions()
+    fetchWallet({ force: true })
+    fetchTransactions({ force: true })
   }
 })
 
@@ -108,9 +112,9 @@ function formatAmount(val: number) {
 
 // ---- Auto top-up modal ----
 const autoTopUpModalOpen = ref(false)
-const autoTopUpEnabled = useLocalStorage('wallet:auto_topup_enabled', false)
-const autoTopUpThreshold = useLocalStorage('wallet:low_balance_threshold', 5)
-const autoTopUpAmount = useLocalStorage('wallet:auto_topup_amount', 25)
+const autoTopUpEnabled = useLocalStorage('wallet:auto_topup_enabled', false, { initOnMounted: true })
+const autoTopUpThreshold = useLocalStorage('wallet:low_balance_threshold', 5, { initOnMounted: true })
+const autoTopUpAmount = useLocalStorage('wallet:auto_topup_amount', 25, { initOnMounted: true })
 
 // ---- Currency dropdown ----
 const currencyDropdownOpen = ref(false)
@@ -124,7 +128,7 @@ function selectCurrency(c: SupportedCurrency) {
 
 // ---- Activity bar chart ----
 type Range = 7 | 30 | 90
-const chartRange = useLocalStorage<Range>('wallet:chart_range', 30)
+const chartRange = useLocalStorage<Range>('wallet:chart_range', 30, { initOnMounted: true })
 const ranges: { value: Range, label: string }[] = [
   { value: 7, label: '7D' },
   { value: 30, label: '30D' },
@@ -274,22 +278,22 @@ const filteredTransactions = computed(() => {
 })
 
 // ---- Policies (remaining — auto top-up now promoted to a top-level button) ----
-const defaultWorkflowBudget = useLocalStorage('wallet:default_session_budget', 5)
-const defaultOperationMax = useLocalStorage('wallet:default_operation_max', 0.5)
-const defaultLlmCap = useLocalStorage('wallet:max_llm_cost', 1.5)
-const approvalThreshold = useLocalStorage('wallet:approval_threshold', 1)
-const maxStepsPerSession = useLocalStorage('wallet:max_steps', 100)
-const maxScreenshots = useLocalStorage('wallet:max_screenshots', 50)
-const maxDurationMinutes = useLocalStorage('wallet:max_duration_minutes', 30)
-const maxConcurrent = useLocalStorage('wallet:concurrency_limit', 3)
-const dailyWorkspaceCap = useLocalStorage('wallet:daily_cap', 50)
-const pauseOnExhaustion = useLocalStorage('wallet:pause_on_exhaust', true)
-const notifyLowBalance = useLocalStorage('wallet:notify_low_balance', true)
-const notifyOverrun = useLocalStorage('wallet:notify_overrun', true)
-const requireApprovalExternal = useLocalStorage('wallet:require_approval_external', true)
-const blockAfterHours = useLocalStorage('wallet:block_after_hours', false)
-const domainPolicy = useLocalStorage<'any' | 'allowlist' | 'denylist'>('wallet:domain_policy', 'any')
-const domainList = useLocalStorage('wallet:domain_list', '')
+const defaultWorkflowBudget = useLocalStorage('wallet:default_session_budget', 5, { initOnMounted: true })
+const defaultOperationMax = useLocalStorage('wallet:default_operation_max', 0.5, { initOnMounted: true })
+const defaultLlmCap = useLocalStorage('wallet:max_llm_cost', 1.5, { initOnMounted: true })
+const approvalThreshold = useLocalStorage('wallet:approval_threshold', 1, { initOnMounted: true })
+const maxStepsPerSession = useLocalStorage('wallet:max_steps', 100, { initOnMounted: true })
+const maxScreenshots = useLocalStorage('wallet:max_screenshots', 50, { initOnMounted: true })
+const maxDurationMinutes = useLocalStorage('wallet:max_duration_minutes', 30, { initOnMounted: true })
+const maxConcurrent = useLocalStorage('wallet:concurrency_limit', 3, { initOnMounted: true })
+const dailyWorkspaceCap = useLocalStorage('wallet:daily_cap', 50, { initOnMounted: true })
+const pauseOnExhaustion = useLocalStorage('wallet:pause_on_exhaust', true, { initOnMounted: true })
+const notifyLowBalance = useLocalStorage('wallet:notify_low_balance', true, { initOnMounted: true })
+const notifyOverrun = useLocalStorage('wallet:notify_overrun', true, { initOnMounted: true })
+const requireApprovalExternal = useLocalStorage('wallet:require_approval_external', true, { initOnMounted: true })
+const blockAfterHours = useLocalStorage('wallet:block_after_hours', false, { initOnMounted: true })
+const domainPolicy = useLocalStorage<'any' | 'allowlist' | 'denylist'>('wallet:domain_policy', 'any', { initOnMounted: true })
+const domainList = useLocalStorage('wallet:domain_list', '', { initOnMounted: true })
 const domainPolicyOptions = ['any', 'allowlist', 'denylist'] as const
 
 // ---- Workflow drill-down ----

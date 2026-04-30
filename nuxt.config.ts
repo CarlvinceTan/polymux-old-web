@@ -6,6 +6,22 @@ export default defineNuxtConfig({
       );
       if (i >= 0) pages.splice(i, 1);
     },
+    "vite:configResolved"(config) {
+      const logger = config.customLogger;
+      if (!logger) return;
+      const originalWarn = logger.warn.bind(logger);
+      logger.warn = (msg, options) => {
+        if (
+          typeof msg === "string" &&
+          msg.includes("Sourcemap is likely to be incorrect") &&
+          (msg.includes("@tailwindcss/vite:generate:build") ||
+            msg.includes("nuxt:module-preload-polyfill"))
+        ) {
+          return;
+        }
+        originalWarn(msg, options);
+      };
+    },
   },
   routeRules: {
     "/dashboard": { redirect: "/dashboard/home" },
@@ -30,11 +46,31 @@ export default defineNuxtConfig({
   },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: ["@nuxt/ui", "@nuxtjs/supabase", "@nuxtjs/i18n"],
+  modules: [
+    "@nuxt/ui",
+    "@nuxtjs/supabase",
+    "@nuxtjs/i18n",
+    "@vercel/analytics",
+    "@vercel/speed-insights",
+  ],
+  components: [{ path: "~/components", pathPrefix: false }],
+  imports: {
+    dirs: [
+      "composables/auth",
+      "composables/chat",
+      "composables/storage",
+      "composables/wallet",
+      "composables/workflows",
+    ],
+  },
   supabase: {
     redirect: false,
     key: process.env.SUPABASE_PUBLISHABLE_KEY,
     secretKey: process.env.SUPABASE_SECRET_KEY,
+    // In dev, allow the auth cookie over plain HTTP so LAN-IP access works (browsers drop Secure cookies on non-secure origins, which breaks the auth flow when hitting the dev server from another device).
+    cookieOptions: {
+      secure: process.env.NODE_ENV === "production",
+    },
   },
   i18n: {
     defaultLocale: "en",
@@ -68,6 +104,9 @@ export default defineNuxtConfig({
         "marked",
         "vue-draggable-plus",
       ],
+    },
+    build: {
+      chunkSizeWarningLimit: 1500,
     },
   },
   runtimeConfig: {

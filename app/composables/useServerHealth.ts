@@ -1,4 +1,8 @@
-const POLL_INTERVAL = 5_000
+// 5s polling was leftover from early development. With useOnReconnect already
+// wired into every page that fetches data (which retries on the available
+// transition), the foreground check just needs to be frequent enough that the
+// "Server unavailable" overlay doesn't linger after the backend recovers.
+const POLL_INTERVAL = 30_000
 const FETCH_TIMEOUT = 5_000
 
 const _available = ref(true)
@@ -14,6 +18,7 @@ async function _check() {
   if (!_baseURL) return
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+  const wasAvailable = _available.value
   let connected = false
   try {
     const res = await fetch(_healthUrl(), { signal: controller.signal })
@@ -26,7 +31,10 @@ async function _check() {
   finally {
     clearTimeout(timeout)
   }
-  console.info('reloaded —', connected ? 'connected' : 'unavailable')
+  // Only log the edge — steady-state polling shouldn't flood the console.
+  if (wasAvailable !== _available.value) {
+    console.info('[health]', connected ? 'connected' : 'unavailable')
+  }
 }
 
 function _stopPolling() {

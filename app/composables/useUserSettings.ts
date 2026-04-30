@@ -50,13 +50,9 @@ export function useUserSettings() {
         .from('user_settings')
         .select('blog_newsletter_subscribed')
         .eq('user_id', uid)
-        .single()
+        .maybeSingle()
 
-      if (error?.code === 'PGRST116') {
-        // No row yet — treat as defaults.
-        settings.value = { blog_newsletter_subscribed: false }
-      }
-      else if (error) {
+      if (error) {
         console.error('[useUserSettings] fetch error:', error)
       }
       else {

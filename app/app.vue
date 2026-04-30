@@ -24,6 +24,15 @@ const isAppRoute = computed(() =>
 const { available: serverAvailable } = useServerHealth()
 
 const showServerError = computed(() => !serverAvailable.value && isAppRoute.value)
+
+const { accepted: betaAccepted, ready: betaReady, accept: acceptBeta } = useBetaAgreement()
+
+const betaModalOpen = computed({
+  get: () => isAppRoute.value && betaReady.value && !betaAccepted.value,
+  set: () => {
+    // Modal can only be dismissed by accepting; ignore other close attempts.
+  },
+})
 </script>
 
 <template>
@@ -32,5 +41,6 @@ const showServerError = computed(() => !serverAvailable.value && isAppRoute.valu
       <NuxtPage />
     </NuxtLayout>
     <ServerUnavailable v-if="showServerError" />
+    <AgreementModal v-model:open="betaModalOpen" @accept="acceptBeta" />
   </UApp>
 </template>

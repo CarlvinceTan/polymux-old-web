@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, ViewportState, UserLocationPayload, ErrorPayload, SpawnBrowserAgentPayload } from '~/composables/types'
-import type { ViewMode } from '~/components/ChatLayout.vue'
-import { DRAFT_WORKFLOW_ID } from '~/composables/useWorkflowList'
+import type { ViewMode } from '~/components/chat/ChatLayout.vue'
+import { DRAFT_WORKFLOW_ID } from '~/composables/workflows/useWorkflowList'
 
 // Re-mount the page when the workflow id changes. `useAgentChats` keys its
 // `useState` by the sessionId captured at construction, so reusing the layout
@@ -28,7 +28,7 @@ const headerTabs = computed(() => {
 
 const sessionId = computed(() => route.params.id as string)
 
-const { sessions, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useWorkflowList()
+const { sessions, sessionsLoaded, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, updateSessionViewportUrls } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
@@ -40,6 +40,21 @@ const isNewWorkflow = computed(() => {
 if (sessions.value.length === 0) {
   fetchSessions()
 }
+
+// Stale-URL guard: after sign-in (or workspace switch) the URL may point at a
+// session that was deleted, lives in another workspace, or never existed.
+// Once the session list is known for the current workspace, bounce to
+// /workflow/new instead of letting child pages (artifacts, agent, schedule)
+// hammer the API with 404s for an id that's never going to resolve.
+watch(
+  [sessions, sessionsLoaded],
+  ([list, loaded]) => {
+    if (!loaded) return
+    if (list.some(s => s.id === sessionId.value)) return
+    void navigateTo('/workflow/new', { replace: true })
+  },
+  { immediate: true },
+)
 
 async function onRename(title: string) {
   await renameSession(sessionId.value, title)

@@ -2,7 +2,7 @@
 import { CalendarDate, today, getLocalTimeZone } from '@internationalized/date'
 import { onClickOutside } from '@vueuse/core'
 import { parseCron, computeNextRuns, computePastRuns } from '~/utils/cron'
-import type { ScheduleFrequency } from '~/composables/useScheduledWorkflows'
+import type { ScheduleFrequency } from '~/composables/workflows/useScheduledWorkflows'
 
 const { t } = useI18n()
 const toast = useAppToast()

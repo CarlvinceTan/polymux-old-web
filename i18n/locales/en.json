@@ -97,7 +97,10 @@
     "updatePassword": "Update password",
     "updatingPassword": "Updating…",
     "passwordUpdated": "Your password has been updated. Redirecting…",
-    "and": "and"
+    "and": "and",
+    "verificationSuccessful": "Verification successful",
+    "verificationSuccessfulDesc": "Your email has been verified. Please return to the sign in page to continue.",
+    "returnToSignIn": "Return to sign in"
   },
   "settings": {
     "title": "Settings",
@@ -393,6 +396,7 @@
     "sortInstalledFirst": "Installed first",
     "sortCategory": "Category",
     "noMatches": "No items match your search.",
+    "loading": "Loading marketplace…",
     "nothingInstalled": "Nothing installed yet — browse the Marketplace to add workflows, plugins, and integrations.",
     "noInstalledTitle": "No integrations yet",
     "noInstalledSubtitle": "Browse the Marketplace to connect tools, install plugins, and add workflows.",
@@ -791,5 +795,21 @@
       "pullFolder": "Folder pull limit",
       "artifacts": "Artifact storage"
     }
+  },
+  "betaAgreement": {
+    "badge": "Beta",
+    "title": "Welcome to the Polymux beta",
+    "lead": "Polymux is under active development. Before you continue, please review what beta access means for your data and privacy.",
+    "bullet1": "Privacy is not guaranteed during beta. Many features are still being built and tested, and behaviour may change without notice.",
+    "bullet2": "Content you create, upload, or generate may be reviewed by our team and the systems we use to debug, improve, and stabilise the product.",
+    "bullet3": "Data you provide may be shared with trusted third-party providers (such as model, infrastructure, and analytics partners) so the product can function and improve.",
+    "bullet4": "Outages, data loss, and unexpected behaviour are possible. Avoid relying on Polymux for sensitive, regulated, or production-critical work.",
+    "footnote": "By continuing, you also acknowledge our",
+    "privacyPolicy": "Privacy Policy",
+    "and": "and",
+    "termsOfService": "Terms of Service",
+    "footnoteEnd": ".",
+    "acknowledgement": "I have read and understood the above, and I consent to the exposure and data sharing described while Polymux is in beta.",
+    "acceptButton": "I understand and agree"
   }
 }

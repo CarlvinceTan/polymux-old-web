@@ -97,7 +97,10 @@
     "updatePassword": "Actualizar contraseña",
     "updatingPassword": "Actualizando…",
     "passwordUpdated": "Tu contraseña ha sido actualizada. Redirigiendo…",
-    "and": "y"
+    "and": "y",
+    "verificationSuccessful": "Verificación exitosa",
+    "verificationSuccessfulDesc": "Tu correo electrónico ha sido verificado. Vuelve a la página de inicio de sesión para continuar.",
+    "returnToSignIn": "Volver a iniciar sesión"
   },
   "settings": {
     "title": "Configuración",
@@ -393,6 +396,7 @@
     "sortInstalledFirst": "Instalados primero",
     "sortCategory": "Categoría",
     "noMatches": "Ningún elemento coincide con tu búsqueda.",
+    "loading": "Cargando el Marketplace…",
     "nothingInstalled": "Aún no hay nada instalado — explora el Marketplace para añadir flujos de trabajo, complementos e integraciones.",
     "noInstalledTitle": "Aún no hay integraciones",
     "noInstalledSubtitle": "Explora el Marketplace para conectar herramientas, instalar complementos y añadir flujos de trabajo.",
@@ -791,5 +795,21 @@
       "pullFolder": "Límite de descarga de carpeta",
       "artifacts": "Almacenamiento de artefactos"
     }
+  },
+  "betaAgreement": {
+    "badge": "Beta",
+    "title": "Bienvenido a la beta de Polymux",
+    "lead": "Polymux está en desarrollo activo. Antes de continuar, revisa lo que implica el acceso beta para tus datos y privacidad.",
+    "bullet1": "La privacidad no está garantizada durante la beta. Muchas funciones aún están en construcción y prueba, y el comportamiento puede cambiar sin previo aviso.",
+    "bullet2": "El contenido que creas, subes o generas puede ser revisado por nuestro equipo y los sistemas que utilizamos para depurar, mejorar y estabilizar el producto.",
+    "bullet3": "Los datos que proporciones pueden compartirse con proveedores externos de confianza (por ejemplo, socios de modelos, infraestructura y analítica) para que el producto funcione y mejore.",
+    "bullet4": "Pueden producirse interrupciones, pérdida de datos y comportamientos inesperados. No dependas de Polymux para tareas sensibles, reguladas o críticas para producción.",
+    "footnote": "Al continuar, también reconoces nuestra",
+    "privacyPolicy": "Política de privacidad",
+    "and": "y",
+    "termsOfService": "Términos del servicio",
+    "footnoteEnd": ".",
+    "acknowledgement": "He leído y comprendido lo anterior, y consiento la exposición y el intercambio de datos descritos mientras Polymux esté en beta.",
+    "acceptButton": "Entiendo y acepto"
   }
 }

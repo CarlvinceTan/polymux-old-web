@@ -1,4 +1,4 @@
-import type { ItemCategory } from '~/composables/useMarketplace'
+import type { ItemCategory } from '~/composables/wallet/useMarketplace'
 
 export interface IntegrationIconMeta {
   iconName: string

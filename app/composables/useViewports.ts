@@ -13,7 +13,7 @@ import type {
   StreamPriorityUpdatePayload,
   ErrorPayload,
 } from './types'
-import type { SessionHandle } from './useSession'
+import type { SessionHandle } from './auth/useSession'
 
 const URL_RE = /https?:\/\/[^\s"',)}\]]+/
 

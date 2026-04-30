@@ -97,7 +97,10 @@
     "updatePassword": "更新密码",
     "updatingPassword": "更新中…",
     "passwordUpdated": "密码已更新。正在跳转…",
-    "and": "和"
+    "and": "和",
+    "verificationSuccessful": "验证成功",
+    "verificationSuccessfulDesc": "您的邮箱已验证。请返回登录页面以继续。",
+    "returnToSignIn": "返回登录"
   },
   "settings": {
     "title": "设置",
@@ -393,6 +396,7 @@
     "sortInstalledFirst": "已安装优先",
     "sortCategory": "类别",
     "noMatches": "没有匹配的项目。",
+    "loading": "正在加载市场…",
     "nothingInstalled": "尚未安装任何内容 — 浏览市场以添加工作流、插件和集成。",
     "noInstalledTitle": "暂无集成",
     "noInstalledSubtitle": "浏览市场以连接工具、安装插件并添加工作流。",
@@ -791,5 +795,21 @@
       "pullFolder": "文件夹拉取上限",
       "artifacts": "成果物存储空间"
     }
+  },
+  "betaAgreement": {
+    "badge": "测试版",
+    "title": "欢迎来到 Polymux 测试版",
+    "lead": "Polymux 仍在持续开发中。在继续使用之前，请先了解测试版对你的数据和隐私意味着什么。",
+    "bullet1": "测试期间无法保证隐私。许多功能仍在构建和测试中，行为可能在没有通知的情况下发生变化。",
+    "bullet2": "你创建、上传或生成的内容可能会被我们的团队及所使用的系统查看，用于调试、改进和稳定产品。",
+    "bullet3": "你提供的数据可能会与可信的第三方服务方（例如模型、基础设施和分析合作伙伴）共享，以便产品正常运行和改进。",
+    "bullet4": "可能出现服务中断、数据丢失或意外行为。请不要将 Polymux 用于敏感、受监管或生产关键的工作。",
+    "footnote": "继续即表示你同意我们的",
+    "privacyPolicy": "隐私政策",
+    "and": "和",
+    "termsOfService": "服务条款",
+    "footnoteEnd": "。",
+    "acknowledgement": "我已阅读并理解上述内容，并同意在 Polymux 测试期间所述的公开和数据共享。",
+    "acceptButton": "我已了解并同意"
   }
 }

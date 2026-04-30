@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment } from '~/composables/types'
-import type { SessionHandle } from '~/composables/useSession'
-import type { ViewMode } from '~/components/ChatLayout.vue'
+import type { SessionHandle } from '~/composables/auth/useSession'
+import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
 const chats = inject<any>('chat-chats')!

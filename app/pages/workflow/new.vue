@@ -2,13 +2,13 @@
 import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 
 const route = useRoute()
-const { draft, createDraft, promoteDraft, setPendingPrompt, restoreDraft } = useWorkflowList()
+const { draft, createDraft, markDraftCommitted, setPendingPrompt, restoreDraft } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
-onMounted(() => {
+onMounted(async () => {
   restoreDraft()
-  if (!draft.value) createDraft()
+  if (!draft.value) await createDraft()
   sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, 'new')
 })
 
@@ -20,20 +20,33 @@ const command = ref('')
 const viewportList = ref<ViewportState[]>([])
 const emptyMessages: ChatMessage[] = []
 
-const isPromoting = ref(false)
+// Backend allocates the draft uuid and returns it from POST /draft-sessions.
+// File uploads in <ChatLayout> POST to /sessions/{this id}/files; the server
+// accepts those for draft ids via the relaxed validation path. The agent
+// sandbox dir at {tempdir}/polymux/{this id}/uploads/ is reused once the
+// draft commits on the first user_message.
+const sessionId = computed(() => draft.value?.id ?? '')
+
+const isSending = ref(false)
 
 async function onSend(value: string, attachments: ChatMessageAttachment[]) {
   const text = value.trim()
-  if (!text || isPromoting.value) return
-  isPromoting.value = true
+  if (!text || isSending.value) return
+  if (!draft.value) return
+  isSending.value = true
   try {
-    const real = await promoteDraft()
-    if (!real) return
-    setPendingPrompt(real.id, { text, attachments })
+    const id = draft.value.id
+    setPendingPrompt(id, { text, attachments })
+    // Optimistically move the draft into the real-sessions list. The backend
+    // commits the workflows row synchronously inside handleUserMessage on the
+    // agent page's WS, so by the time fetchSessions next fires the row is in
+    // the DB. If the commit fails the agent page surfaces the WS error and
+    // the user can retry.
+    markDraftCommitted()
     command.value = ''
-    await navigateTo(`/workflow/${real.id}/agent`)
+    await navigateTo(`/workflow/${id}/agent`)
   } finally {
-    isPromoting.value = false
+    isSending.value = false
   }
 }
 
@@ -56,7 +69,7 @@ const presetPrompt = pickRandomPresetPrompt()
         :user-name="USER_NAME"
         :welcome-suggestion="welcomeSuggestion"
         :messages="emptyMessages"
-        :session-id="'new'"
+        :session-id="sessionId"
         :active-agent-id="null"
         :browser-mode="false"
         :renameable="false"

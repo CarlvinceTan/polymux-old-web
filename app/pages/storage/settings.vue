@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { MigrationDirection } from '~/composables/useDriveMigration'
-import type { LocalMigrationDirection } from '~/composables/useLocalMigration'
-import type { StorageProvider } from '~/components/StorageProviderIcon.vue'
+import type { MigrationDirection } from '~/composables/storage/useDriveMigration'
+import type { LocalMigrationDirection } from '~/composables/storage/useLocalMigration'
+import type { StorageProvider } from '~/types/storage'
 
 type AnyDirection = MigrationDirection | LocalMigrationDirection
 
