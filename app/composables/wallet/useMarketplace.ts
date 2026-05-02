@@ -54,19 +54,36 @@ export function useMarketplace() {
   // "no matches" placeholder flash instead of the spinner.
   const catalogLoaded = useState<boolean>('marketplace-catalog-loaded', () => false)
 
-  // `lazy: true` so the marketplace page shell renders immediately and the
-  // cards stream in. SSR-blocking on this endpoint added ~hundreds of ms to
-  // first paint with no UX upside — the empty state already covers the
-  // pre-load moment, and the in-memory payload is reused across navigations.
+  // Client-only fetch: the endpoint reads the Supabase cookie via
+  // `serverSupabaseUser`, and routing the request through Nuxt SSR added
+  // hundreds of ms to first paint with no UX upside — the spinner already
+  // covers the pre-load moment, and the in-memory payload is reused across
+  // navigations. `immediate: false` keeps the request from racing the auth
+  // bootstrap; we kick it off explicitly via the watcher below once we're
+  // on the client.
+  //
+  // `finally` flips `catalogLoaded` regardless of success/failure so the
+  // loading placeholder never gets stuck — without it a single failed fetch
+  // (e.g. transient 5xx) would leave the marketplace page frozen on
+  // "Loading marketplace…" until a hard reload.
   const { data: catalog, pending: catalogPending, refresh: refreshCatalog } = useAsyncData<MarketplaceItem[]>(
     'marketplace-catalog',
     async () => {
-      const data = await $fetch<MarketplaceItem[]>('/api/marketplace/integrations')
-      catalogLoaded.value = true
-      return data
+      try {
+        return await $fetch<MarketplaceItem[]>('/api/marketplace/integrations')
+      }
+      finally {
+        catalogLoaded.value = true
+      }
     },
-    { default: () => [], lazy: true },
+    { default: () => [], lazy: true, server: false, immediate: false },
   )
+
+  if (import.meta.client) {
+    onMounted(() => {
+      if (!catalogLoaded.value && !catalogPending.value) refreshCatalog()
+    })
+  }
 
   const { data: connections, refresh: refreshConnections } = useAsyncData<WorkspaceIntegration[]>(
     'workspace-integrations',

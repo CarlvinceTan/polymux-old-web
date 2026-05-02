@@ -13,9 +13,7 @@ create table if not exists public.workspace_passwords (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
-
 alter table public.workspace_passwords enable row level security;
-
 -- Workspace members can read password metadata
 create policy "workspace_members_select_passwords"
   on public.workspace_passwords for select
@@ -27,7 +25,6 @@ create policy "workspace_members_select_passwords"
         and wm.user_id = auth.uid()
     )
   );
-
 -- ── create ────────────────────────────────────────────────────────────────────
 create or replace function public.create_workspace_password(
   p_workspace_id  uuid,
@@ -71,7 +68,6 @@ begin
   return v_result;
 end;
 $$;
-
 -- ── reveal ────────────────────────────────────────────────────────────────────
 create or replace function public.get_workspace_password_secret(
   p_password_id uuid
@@ -118,7 +114,6 @@ begin
   return v_decrypted;
 end;
 $$;
-
 -- ── update ────────────────────────────────────────────────────────────────────
 create or replace function public.update_workspace_password(
   p_password_id uuid,
@@ -176,7 +171,6 @@ begin
   return v_result;
 end;
 $$;
-
 -- ── delete ────────────────────────────────────────────────────────────────────
 create or replace function public.delete_workspace_password(
   p_password_id uuid

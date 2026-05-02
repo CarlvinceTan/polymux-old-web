@@ -46,17 +46,15 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `workflow/browser` → `app/pages/workflow/[id]/browser.vue`
   * `workflow/artifacts` → `app/pages/workflow/[id]/artifacts.vue`
   * `dashboard/home` → `app/pages/dashboard/home.vue`
-  * `dashboard/integrations` → `app/pages/dashboard/integrations.vue`
-  * `dashboard/marketplace` → `app/pages/dashboard/marketplace.vue`
-  * `workspace/settings` → `app/pages/workspace/settings.vue`
-  * `workspace/usage` → `app/pages/workspace/usage.vue`
-  * `workspace/team` → `app/pages/workspace/team.vue`
-  * `workspace/schedule` → `app/pages/workspace/schedule.vue`
-  * `workspace/console` → `app/pages/workspace/console.vue`
+  * `dashboard/team` → `app/pages/dashboard/team.vue`
+  * `dashboard/usage` → `app/pages/dashboard/usage.vue`
+  * `dashboard/settings` → `app/pages/dashboard/settings.vue`
+  * `integrations/installed` → `app/pages/integrations/installed.vue`
+  * `integrations/marketplace` → `app/pages/integrations/marketplace.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
   * `vault/passwords` → `app/pages/vault/passwords.vue`
   * `storage/files` → `app/pages/storage/files.vue`
-  * `settings` → `app/pages/settings.vue`
+  * `storage/settings` → `app/pages/storage/settings.vue`
 * Key reusable components:
   * `FileBrowser` — self-contained file browser (search, view toggle, filter, icon/list grid); drop it anywhere users need to access files
   * `SettingsSection` / `SettingsSectionRow` / `SettingsDropdown` / `SettingsToggle` — composable settings UI primitives

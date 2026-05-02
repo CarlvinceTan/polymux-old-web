@@ -811,5 +811,10 @@
     "footnoteEnd": ".",
     "acknowledgement": "He leído y comprendido lo anterior, y consiento la exposición y el intercambio de datos descritos mientras Polymux esté en beta.",
     "acceptButton": "Entiendo y acepto"
-  }
+  },
+  "featureUnavailableTitle": "Función no disponible",
+  "featureUnavailableBody": "Esta función todavía no está disponible para tu cuenta.",
+  "accountSuspendedTitle": "Cuenta suspendida",
+  "accountSuspendedBody": "El acceso a tu cuenta ha sido suspendido temporalmente. Si crees que es un error, ponte en contacto con soporte.",
+  "accountSuspendedSignOut": "Cerrar sesión"
 }

@@ -811,5 +811,10 @@
     "footnoteEnd": "。",
     "acknowledgement": "我已阅读并理解上述内容，并同意在 Polymux 测试期间所述的公开和数据共享。",
     "acceptButton": "我已了解并同意"
-  }
+  },
+  "featureUnavailableTitle": "功能不可用",
+  "featureUnavailableBody": "您的账户暂时无法使用此功能。",
+  "accountSuspendedTitle": "账户已暂停",
+  "accountSuspendedBody": "您的账户访问已被临时暂停。如认为是误操作，请联系客服。",
+  "accountSuspendedSignOut": "退出登录"
 }

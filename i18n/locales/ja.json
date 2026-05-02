@@ -811,5 +811,10 @@
     "footnoteEnd": "。",
     "acknowledgement": "上記を読み理解した上で、Polymux のベータ期間中における記載のとおりの開示とデータ共有に同意します。",
     "acceptButton": "理解して同意します"
-  }
+  },
+  "featureUnavailableTitle": "機能を利用できません",
+  "featureUnavailableBody": "この機能はまだお使いのアカウントでは利用できません。",
+  "accountSuspendedTitle": "アカウント停止中",
+  "accountSuspendedBody": "アカウントへのアクセスが一時的に停止されています。誤りだと思われる場合はサポートまでご連絡ください。",
+  "accountSuspendedSignOut": "ログアウト"
 }

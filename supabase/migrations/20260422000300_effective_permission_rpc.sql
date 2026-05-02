@@ -82,7 +82,6 @@ begin
   end if;
 end;
 $$;
-
 -- Authenticated users only; service role bypasses RLS by default.
 grant execute on function public.effective_file_permission(uuid, text, uuid)
   to authenticated;

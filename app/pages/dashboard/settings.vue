@@ -547,15 +547,15 @@ async function removeAvatar() {
                 </p>
               </div>
               <div class="flex shrink-0 items-center gap-2">
-                <NuxtLink
+                <button
                   v-if="showUpgrade"
-                  :to="{ path: '/pricing', query: upgradeQuery }"
+                  type="button"
                   class="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                  @click.stop
+                  @click.stop.prevent="navigateTo({ path: '/pricing', query: upgradeQuery })"
                 >
                   <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
                   Upgrade
-                </NuxtLink>
+                </button>
                 <svg class="size-4 text-neutral-300 transition-colors group-hover:text-neutral-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
               </div>
             </NuxtLink>

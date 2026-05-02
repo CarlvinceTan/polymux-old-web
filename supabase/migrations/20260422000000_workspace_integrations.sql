@@ -27,15 +27,11 @@ create table if not exists public.workspace_integrations (
   updated_at           timestamptz not null default now(),
   unique (workspace_id, provider)
 );
-
 create index if not exists idx_workspace_integrations_workspace
   on public.workspace_integrations(workspace_id);
-
 create index if not exists idx_workspace_integrations_provider
   on public.workspace_integrations(provider);
-
 alter table public.workspace_integrations enable row level security;
-
 -- Keep updated_at current on any update.
 create or replace function public.touch_workspace_integrations_updated_at()
 returns trigger
@@ -46,12 +42,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_workspace_integrations_touch_updated_at on public.workspace_integrations;
 create trigger trg_workspace_integrations_touch_updated_at
   before update on public.workspace_integrations
   for each row execute function public.touch_workspace_integrations_updated_at();
-
 -- Members see integrations connected to their workspace. Clients must avoid
 -- projecting the *_enc columns (enforced in Nuxt server routes, which always
 -- go through a explicit column select).
@@ -65,7 +59,6 @@ create policy "workspace_members_read_integrations"
         and wm.user_id = auth.uid()
     )
   );
-
 -- Only owners and admins can connect or disconnect integrations.
 create policy "workspace_admins_insert_integrations"
   on public.workspace_integrations for insert
@@ -78,7 +71,6 @@ create policy "workspace_admins_insert_integrations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_admins_update_integrations"
   on public.workspace_integrations for update
   to authenticated
@@ -98,7 +90,6 @@ create policy "workspace_admins_update_integrations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_admins_delete_integrations"
   on public.workspace_integrations for delete
   to authenticated

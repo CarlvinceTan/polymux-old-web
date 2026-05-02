@@ -23,36 +23,27 @@ create table if not exists public.forum_discussions (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
-
 create index if not exists idx_forum_discussions_category_created
   on public.forum_discussions (category, created_at desc);
-
 create index if not exists idx_forum_discussions_created
   on public.forum_discussions (created_at desc);
-
 alter table public.forum_discussions enable row level security;
-
 create policy "forum_discussions_public_read"
   on public.forum_discussions for select
   using (true);
-
 create policy "forum_discussions_author_insert"
   on public.forum_discussions for insert
   to authenticated
   with check (auth.uid() = author_id);
-
 create policy "forum_discussions_author_update"
   on public.forum_discussions for update
   to authenticated
   using (auth.uid() = author_id)
   with check (auth.uid() = author_id);
-
 create policy "forum_discussions_author_delete"
   on public.forum_discussions for delete
   to authenticated
   using (auth.uid() = author_id);
-
-
 create table if not exists public.forum_replies (
   id               uuid        primary key default gen_random_uuid(),
   discussion_id    uuid        not null references public.forum_discussions(id) on delete cascade,
@@ -62,33 +53,25 @@ create table if not exists public.forum_replies (
   author_initials  text        not null,
   created_at       timestamptz not null default now()
 );
-
 create index if not exists idx_forum_replies_discussion_created
   on public.forum_replies (discussion_id, created_at asc);
-
 alter table public.forum_replies enable row level security;
-
 create policy "forum_replies_public_read"
   on public.forum_replies for select
   using (true);
-
 create policy "forum_replies_author_insert"
   on public.forum_replies for insert
   to authenticated
   with check (auth.uid() = author_id);
-
 create policy "forum_replies_author_update"
   on public.forum_replies for update
   to authenticated
   using (auth.uid() = author_id)
   with check (auth.uid() = author_id);
-
 create policy "forum_replies_author_delete"
   on public.forum_replies for delete
   to authenticated
   using (auth.uid() = author_id);
-
-
 create or replace function public.forum_touch_updated_at()
 returns trigger
 language plpgsql
@@ -98,13 +81,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_forum_discussions_touch_updated on public.forum_discussions;
 create trigger trg_forum_discussions_touch_updated
   before update on public.forum_discussions
   for each row execute function public.forum_touch_updated_at();
-
-
 -- List discussions with denormalised reply_count + last_activity_at in a
 -- single roundtrip. Filter + sort happen server-side so clients paginate
 -- cleanly. Safe for anonymous callers: RLS on forum_discussions enforces
@@ -166,10 +146,7 @@ as $$
   limit greatest(p_limit, 1)
   offset greatest(p_offset, 0);
 $$;
-
 grant execute on function public.list_forum_discussions(text, text, text, int, int) to anon, authenticated;
-
-
 -- Fire-and-forget view-count bump. Security definer so anon readers can
 -- increment without an UPDATE policy covering them. Rate-limiting / dedupe
 -- is a client concern for now (single bump per page load).
@@ -181,5 +158,4 @@ set search_path = public
 as $$
   update public.forum_discussions set views = views + 1 where id = p_id;
 $$;
-
 grant execute on function public.increment_forum_discussion_views(uuid) to anon, authenticated;

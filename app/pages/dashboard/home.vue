@@ -9,6 +9,7 @@ const {
   fetchTransactions,
   fetchBudgets,
 } = useWallet()
+const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
 
 const { headerTabs, dashboardNavSeparatorBeforePath } = useDashboardNavTabs()
 
@@ -16,6 +17,11 @@ const currency = computed(() => (wallet.value?.currency ?? 'usd') as SupportedCu
 const hasWallet = computed(() => !!wallet.value)
 
 async function loadAll(opts?: { force?: boolean }) {
+  // SidePanel may still be bootstrapping the workspace list on the first mount
+  // after sign-in (no localStorage cache yet). Without this wait, fetchWallet/
+  // fetchTransactions/fetchBudgets all bail on `!wsId` and the wallet card
+  // stays frozen on the "Enable wallet" placeholder until a manual refresh.
+  if (!currentWorkspaceId.value) await waitForWorkspace()
   await Promise.all([
     fetchSessions(opts),
     fetchWallet(opts),

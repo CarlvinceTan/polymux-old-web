@@ -811,5 +811,10 @@
     "footnoteEnd": ".",
     "acknowledgement": "Ich habe das Obige gelesen und verstanden und willige in die beschriebene Offenlegung und Datenweitergabe während der Polymux-Beta ein.",
     "acceptButton": "Verstanden und einverstanden"
-  }
+  },
+  "featureUnavailableTitle": "Funktion nicht verfügbar",
+  "featureUnavailableBody": "Diese Funktion ist für dein Konto noch nicht verfügbar.",
+  "accountSuspendedTitle": "Konto gesperrt",
+  "accountSuspendedBody": "Dein Kontozugriff wurde vorübergehend gesperrt. Wenn dies ein Fehler ist, wende dich bitte an den Support.",
+  "accountSuspendedSignOut": "Abmelden"
 }

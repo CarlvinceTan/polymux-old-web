@@ -811,5 +811,10 @@
     "footnoteEnd": ".",
     "acknowledgement": "Li e compreendi o que está acima e consinto com a exposição e o compartilhamento de dados descritos enquanto o Polymux estiver em beta.",
     "acceptButton": "Entendi e concordo"
-  }
+  },
+  "featureUnavailableTitle": "Recurso indisponível",
+  "featureUnavailableBody": "Este recurso ainda não está disponível para a sua conta.",
+  "accountSuspendedTitle": "Conta suspensa",
+  "accountSuspendedBody": "O acesso à sua conta foi suspenso temporariamente. Se você acredita que é um engano, entre em contato com o suporte.",
+  "accountSuspendedSignOut": "Sair"
 }

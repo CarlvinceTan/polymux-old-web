@@ -511,6 +511,7 @@ provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
 </script>
 
 <template>
+  <FeatureGate name="workflows">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
       <PageHeader :tabs="headerTabs" />
@@ -537,4 +538,5 @@ provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
       @update:open="(open: boolean) => { if (!open && chats.pendingCredentialRequest.value) chats.provideCredential(chats.pendingCredentialRequest.value.msgId, { cancelled: true }) }"
     />
   </div>
+  </FeatureGate>
 </template>

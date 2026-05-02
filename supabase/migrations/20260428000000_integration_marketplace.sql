@@ -50,16 +50,12 @@ create table if not exists public.integrations (
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
-
 create index if not exists idx_integrations_visibility
   on public.integrations(visibility) where visibility in ('public', 'unlisted');
-
 create index if not exists idx_integrations_kind
   on public.integrations(kind);
-
 create index if not exists idx_integrations_author
   on public.integrations(author_user_id) where author_user_id is not null;
-
 create or replace function public.touch_integrations_updated_at()
 returns trigger
 language plpgsql
@@ -69,12 +65,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_integrations_touch_updated_at on public.integrations;
 create trigger trg_integrations_touch_updated_at
   before update on public.integrations
   for each row execute function public.touch_integrations_updated_at();
-
 ------------------------------------------------------------------------------
 -- 2. integration_versions: append-only manifest snapshots for kind='integration'
 ------------------------------------------------------------------------------
@@ -96,13 +90,10 @@ create table if not exists public.integration_versions (
   created_at                  timestamptz not null default now(),
   unique (integration_id, version)
 );
-
 create index if not exists idx_integration_versions_integration
   on public.integration_versions(integration_id);
-
 create index if not exists idx_integration_versions_published
   on public.integration_versions(integration_id, published_at desc) where status = 'published';
-
 -- Now wire up the back-pointer FK. Cannot do it inline above because
 -- integrations and integration_versions reference each other; the FK is added
 -- here once both tables exist.
@@ -110,7 +101,6 @@ alter table public.integrations
   add constraint integrations_current_version_fk
   foreign key (current_version_id) references public.integration_versions(id)
   on delete set null;
-
 ------------------------------------------------------------------------------
 -- 3. integration_workflow_refs: kind='workflow' rows point at workflow_versions
 ------------------------------------------------------------------------------
@@ -121,10 +111,8 @@ create table if not exists public.integration_workflow_refs (
   workflow_version_id   uuid        not null references public.workflow_versions(id) on delete restrict,
   created_at            timestamptz not null default now()
 );
-
 create index if not exists idx_integration_workflow_refs_workflow
   on public.integration_workflow_refs(workflow_id);
-
 ------------------------------------------------------------------------------
 -- 4. integration_plugin_items: kind='plugin' rows bundle other catalog rows
 ------------------------------------------------------------------------------
@@ -139,10 +127,8 @@ create table if not exists public.integration_plugin_items (
   -- A plugin can't bundle itself.
   check (plugin_integration_id <> child_integration_id)
 );
-
 create index if not exists idx_integration_plugin_items_child
   on public.integration_plugin_items(child_integration_id);
-
 ------------------------------------------------------------------------------
 -- 5. workspace_integrations extensions
 ------------------------------------------------------------------------------
@@ -156,13 +142,10 @@ alter table public.workspace_integrations
                             check (status in ('active', 'needs_regrant', 'disabled')),
   add column if not exists config                  jsonb       not null default '{}'::jsonb,
   add column if not exists installed_via_plugin_id uuid        references public.integrations(id) on delete set null;
-
 create index if not exists idx_workspace_integrations_integration_version
   on public.workspace_integrations(integration_version_id) where integration_version_id is not null;
-
 create index if not exists idx_workspace_integrations_via_plugin
   on public.workspace_integrations(installed_via_plugin_id) where installed_via_plugin_id is not null;
-
 ------------------------------------------------------------------------------
 -- 6. workspace_integration_grants: explicit scope grants per install
 ------------------------------------------------------------------------------
@@ -174,7 +157,6 @@ create table if not exists public.workspace_integration_grants (
   granted_by                uuid        not null references auth.users(id),
   primary key (workspace_integration_id, scope)
 );
-
 ------------------------------------------------------------------------------
 -- 7. workspace_integration_tokens: tokens the integration itself sees
 ------------------------------------------------------------------------------
@@ -189,13 +171,10 @@ create table if not exists public.workspace_integration_tokens (
   revoked_at                timestamptz,
   created_at                timestamptz not null default now()
 );
-
 create index if not exists idx_workspace_integration_tokens_active
   on public.workspace_integration_tokens(token_hash) where revoked_at is null;
-
 create index if not exists idx_workspace_integration_tokens_install
   on public.workspace_integration_tokens(workspace_integration_id);
-
 ------------------------------------------------------------------------------
 -- 8. integration_install_events: audit log
 ------------------------------------------------------------------------------
@@ -212,13 +191,10 @@ create table if not exists public.integration_install_events (
   metadata        jsonb       not null default '{}'::jsonb,
   created_at      timestamptz not null default now()
 );
-
 create index if not exists idx_integration_install_events_workspace
   on public.integration_install_events(workspace_id, created_at desc);
-
 create index if not exists idx_integration_install_events_integration
   on public.integration_install_events(integration_id, created_at desc);
-
 ------------------------------------------------------------------------------
 -- 9. Row-level security
 ------------------------------------------------------------------------------
@@ -230,7 +206,6 @@ alter table public.integration_plugin_items      enable row level security;
 alter table public.workspace_integration_grants  enable row level security;
 alter table public.workspace_integration_tokens  enable row level security;
 alter table public.integration_install_events    enable row level security;
-
 -- integrations: public visibility readable to everyone authenticated;
 -- author can always read their own; workspace members can read the items
 -- their workspace has installed (covers private/unlisted via install).
@@ -248,7 +223,6 @@ create policy "integrations_public_read"
          and wm.user_id = auth.uid()
     )
   );
-
 -- Authors insert/update their own non-first-party rows. First-party rows are
 -- inserted by service role only (the seed below runs as the migration owner).
 create policy "integrations_author_write"
@@ -258,13 +232,11 @@ create policy "integrations_author_write"
     is_first_party = false
     and author_user_id = auth.uid()
   );
-
 create policy "integrations_author_update"
   on public.integrations for update
   to authenticated
   using (author_user_id = auth.uid() and is_first_party = false)
   with check (author_user_id = auth.uid() and is_first_party = false);
-
 -- integration_versions: readable when the parent integration is readable.
 create policy "integration_versions_read"
   on public.integration_versions for select
@@ -284,7 +256,6 @@ create policy "integration_versions_read"
          )
     )
   );
-
 create policy "integration_versions_author_write"
   on public.integration_versions for insert
   to authenticated
@@ -296,7 +267,6 @@ create policy "integration_versions_author_write"
          and i.is_first_party = false
     )
   );
-
 create policy "integration_versions_author_update"
   on public.integration_versions for update
   to authenticated
@@ -308,7 +278,6 @@ create policy "integration_versions_author_update"
          and i.is_first_party = false
     )
   );
-
 -- integration_workflow_refs: same readability rules as parent integration.
 create policy "integration_workflow_refs_read"
   on public.integration_workflow_refs for select
@@ -323,7 +292,6 @@ create policy "integration_workflow_refs_read"
          )
     )
   );
-
 create policy "integration_workflow_refs_author_write"
   on public.integration_workflow_refs for insert
   to authenticated
@@ -334,7 +302,6 @@ create policy "integration_workflow_refs_author_write"
          and i.author_user_id = auth.uid()
     )
   );
-
 -- integration_plugin_items: same readability rules as parent integration.
 create policy "integration_plugin_items_read"
   on public.integration_plugin_items for select
@@ -349,7 +316,6 @@ create policy "integration_plugin_items_read"
          )
     )
   );
-
 create policy "integration_plugin_items_author_write"
   on public.integration_plugin_items for insert
   to authenticated
@@ -360,7 +326,6 @@ create policy "integration_plugin_items_author_write"
          and i.author_user_id = auth.uid()
     )
   );
-
 -- workspace_integration_grants: workspace members read; admins write.
 create policy "workspace_integration_grants_member_read"
   on public.workspace_integration_grants for select
@@ -373,7 +338,6 @@ create policy "workspace_integration_grants_member_read"
          and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_integration_grants_admin_write"
   on public.workspace_integration_grants for insert
   to authenticated
@@ -386,7 +350,6 @@ create policy "workspace_integration_grants_admin_write"
          and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_integration_grants_admin_delete"
   on public.workspace_integration_grants for delete
   to authenticated
@@ -399,7 +362,6 @@ create policy "workspace_integration_grants_admin_delete"
          and wm.role in ('owner', 'admin')
     )
   );
-
 -- workspace_integration_tokens: workspace members read (token_hash only —
 -- plaintext never lives in the DB). Inserts are service-role only.
 create policy "workspace_integration_tokens_member_read"
@@ -413,7 +375,6 @@ create policy "workspace_integration_tokens_member_read"
          and wm.user_id = auth.uid()
     )
   );
-
 -- integration_install_events: workspace members read their workspace's audit
 -- log. Inserts are service-role only.
 create policy "integration_install_events_member_read"
@@ -426,7 +387,6 @@ create policy "integration_install_events_member_read"
          and wm.user_id = auth.uid()
     )
   );
-
 ------------------------------------------------------------------------------
 -- 10. Seed first-party catalog rows
 ------------------------------------------------------------------------------
@@ -446,7 +406,6 @@ values
   ('notion',        'Notion',        'Read and write Notion pages, databases, and blocks.',                      'integration', 'public', true, true, 'Notion',  'https://notion.so',         array['Notes', 'Wiki']),
   ('linear',        'Linear',        'Manage issues, projects, and sprints in Linear.',                          'integration', 'public', true, true, 'Linear',  'https://linear.app',        array['Issues', 'Project Management'])
 on conflict (slug) do nothing;
-
 -- Seed an initial published version per first-party integration. The manifest
 -- is intentionally minimal — first-party connectors execute in-tree, so they
 -- don't need a webhook URL or signing secret. The manifest is here so the
@@ -475,7 +434,6 @@ where i.is_first_party = true
     select 1 from public.integration_versions v
      where v.integration_id = i.id and v.version = '1.0.0'
   );
-
 -- Point each first-party integration at its 1.0.0 version.
 update public.integrations i
    set current_version_id = v.id
@@ -484,7 +442,6 @@ update public.integrations i
    and v.version = '1.0.0'
    and i.is_first_party = true
    and i.current_version_id is null;
-
 ------------------------------------------------------------------------------
 -- 11. Backfill existing workspace_integrations rows
 ------------------------------------------------------------------------------

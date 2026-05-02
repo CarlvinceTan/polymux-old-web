@@ -4,7 +4,6 @@
 -- Empty array = no agents to restore.
 alter table public.sessions
   add column if not exists last_viewport_urls jsonb not null default '[]'::jsonb;
-
 -- Guard against non-array values slipping in via any path.
 alter table public.sessions
   add constraint sessions_last_viewport_urls_is_array

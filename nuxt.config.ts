@@ -129,6 +129,8 @@ export default defineNuxtConfig({
     public: {
       serverUrl: process.env.SERVER_URL || "http://localhost:8080",
       appUrl: process.env.APP_URL || "http://localhost:3000",
+      posthogPublicKey: process.env.POSTHOG_PUBLIC_KEY || "",
+      posthogHost: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
     },
   },
   css: ["~/assets/css/main.css"],

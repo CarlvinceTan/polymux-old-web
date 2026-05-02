@@ -811,5 +811,10 @@
     "footnoteEnd": ".",
     "acknowledgement": "I have read and understood the above, and I consent to the exposure and data sharing described while Polymux is in beta.",
     "acceptButton": "I understand and agree"
-  }
+  },
+  "featureUnavailableTitle": "Feature unavailable",
+  "featureUnavailableBody": "This feature isn't available for your account yet.",
+  "accountSuspendedTitle": "Account suspended",
+  "accountSuspendedBody": "Your account access has been temporarily suspended. If you believe this is a mistake, please contact support.",
+  "accountSuspendedSignOut": "Sign out"
 }

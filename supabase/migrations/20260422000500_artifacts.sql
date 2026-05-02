@@ -21,15 +21,11 @@ create table if not exists public.artifacts (
   created_by_agent_id text,
   created_at          timestamptz not null default now()
 );
-
 create index if not exists idx_artifacts_session
   on public.artifacts(session_id, created_at desc);
-
 create index if not exists idx_artifacts_workspace
   on public.artifacts(workspace_id);
-
 alter table public.artifacts enable row level security;
-
 -- Any workspace member can read artifacts for sessions in their workspace.
 create policy "workspace_members_read_artifacts"
   on public.artifacts for select
@@ -41,19 +37,16 @@ create policy "workspace_members_read_artifacts"
         and wm.user_id = auth.uid()
     )
   );
-
 -- No direct client writes.
 create policy "no_client_writes_artifacts_insert"
   on public.artifacts for insert
   to authenticated
   with check (false);
-
 create policy "no_client_writes_artifacts_update"
   on public.artifacts for update
   to authenticated
   using (false)
   with check (false);
-
 create policy "no_client_writes_artifacts_delete"
   on public.artifacts for delete
   to authenticated

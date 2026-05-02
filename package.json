@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
@@ -20,6 +20,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "marked": "^17.0.6",
     "nuxt": "^4.4.2",
+    "posthog-js": "^1.372.5",
     "resend": "^6.11.0",
     "stripe": "^22.0.1",
     "tailwindcss": "^4.2.2",

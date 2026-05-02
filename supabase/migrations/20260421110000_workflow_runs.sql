@@ -17,20 +17,15 @@ create table if not exists public.workflow_runs (
   started_at          timestamptz not null default now(),
   finished_at         timestamptz
 );
-
 create index if not exists idx_workflow_runs_workflow
   on public.workflow_runs(workflow_id, started_at desc);
-
 create index if not exists idx_workflow_runs_session
   on public.workflow_runs(session_id)
   where session_id is not null;
-
 create index if not exists idx_workflow_runs_status
   on public.workflow_runs(status)
   where status in ('pending','running');
-
 alter table public.workflow_runs enable row level security;
-
 -- Any workspace member can read runs for workflows in their workspace.
 create policy "workspace_members_read_runs"
   on public.workflow_runs for select
@@ -45,7 +40,6 @@ create policy "workspace_members_read_runs"
          and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_members_insert_runs"
   on public.workflow_runs for insert
   to authenticated
@@ -59,7 +53,6 @@ create policy "workspace_members_insert_runs"
          and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_members_update_runs"
   on public.workflow_runs for update
   to authenticated

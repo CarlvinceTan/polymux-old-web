@@ -15,7 +15,7 @@ watch(user, (newUser, oldUser) => {
   }
 })
 
-const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/settings', '/storage', '/vault', '/integrations', '/session']
+const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/storage', '/vault', '/integrations', '/session']
 
 const isAppRoute = computed(() =>
   APP_ROUTE_PREFIXES.some(p => route.path === p || route.path.startsWith(p + '/')),

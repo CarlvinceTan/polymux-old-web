@@ -366,6 +366,7 @@ const currencyLabel = computed(
 </script>
 
 <template>
+  <FeatureGate name="vault">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
       <PageHeader :tabs="headerTabs" />
@@ -1201,4 +1202,5 @@ const currencyLabel = computed(
       </div>
     </Teleport>
   </div>
+  </FeatureGate>
 </template>

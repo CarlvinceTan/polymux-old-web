@@ -17,12 +17,9 @@ create table if not exists public.file_order (
   updated_at     timestamptz not null default now(),
   primary key (workspace_id, parent_path)
 );
-
 create index if not exists idx_file_order_workspace
   on public.file_order(workspace_id);
-
 alter table public.file_order enable row level security;
-
 create or replace function public.touch_file_order_updated_at()
 returns trigger
 language plpgsql
@@ -32,12 +29,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_file_order_touch_updated_at on public.file_order;
 create trigger trg_file_order_touch_updated_at
   before update on public.file_order
   for each row execute function public.touch_file_order_updated_at();
-
 -- Workspace members can read their own workspace's orderings.
 create policy "workspace_members_read_file_order"
   on public.file_order for select
@@ -49,7 +44,6 @@ create policy "workspace_members_read_file_order"
         and wm.user_id = auth.uid()
     )
   );
-
 -- No direct client writes. All writes go through Nuxt server routes with the
 -- service role, which enforce per-path write permission via
 -- effective_file_permission.
@@ -57,13 +51,11 @@ create policy "no_client_writes_file_order_insert"
   on public.file_order for insert
   to authenticated
   with check (false);
-
 create policy "no_client_writes_file_order_update"
   on public.file_order for update
   to authenticated
   using (false)
   with check (false);
-
 create policy "no_client_writes_file_order_delete"
   on public.file_order for delete
   to authenticated

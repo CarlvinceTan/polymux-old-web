@@ -306,19 +306,34 @@ export function useWorkflowList() {
     if (target?.is_draft) return []
     try {
       let path = `/sessions/${sessionId}/messages`
-      if (agentId) path += `?agent_id=eq.${agentId}`
+      if (agentId) path += `?agent_id=${encodeURIComponent(agentId)}`
       const data = await authFetch<StoredMessage[]>(path)
       if (!data || data.length === 0) return []
-      return data
+      const out: ChatMessage[] = []
+      for (const m of data) {
         // 'assistant' is the canonical role for agent-authored messages (matches the
         // messages.role CHECK constraint); 'agent' is accepted for legacy rows
         // written before the constraint was tightened.
-        .filter(m => m.role === 'user' || m.role === 'agent' || m.role === 'assistant')
-        .map(m => ({
+        if (m.role !== 'user' && m.role !== 'agent' && m.role !== 'assistant') continue
+        const meta = m.metadata as { attachments?: ChatMessageAttachment[]; thinking?: { action?: string; detail?: string }[] } | undefined
+        if (m.role !== 'user') {
+          // Mirror the live merge in handleAgentThinking: collapse the bubble's
+          // thinking entries into one collapsible AgentAction (latest action,
+          // concatenated detail) placed before the agent reply.
+          const thinking = meta?.thinking
+          if (thinking && thinking.length > 0) {
+            const action = thinking[thinking.length - 1]?.action ?? ''
+            const detail = thinking.map(t => t.detail ?? '').join('')
+            out.push({ role: 'thinking', text: action, action, detail })
+          }
+        }
+        out.push({
           role: (m.role === 'assistant' ? 'agent' : m.role) as ChatMessage['role'],
           text: m.content,
-          attachments: (m.metadata as any)?.attachments,
-        }))
+          attachments: meta?.attachments,
+        })
+      }
+      return out
     } catch (err) {
       console.error('[useWorkflowList] fetchMessages failed', err)
       return []

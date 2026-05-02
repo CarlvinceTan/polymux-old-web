@@ -30,5 +30,4 @@ AS $$
     AND public.is_workspace_member(ws_id)
   ORDER BY wm.joined_at ASC;
 $$;
-
 GRANT EXECUTE ON FUNCTION public.list_workspace_members_with_profiles(uuid) TO authenticated;

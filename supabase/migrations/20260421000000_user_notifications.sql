@@ -14,27 +14,20 @@ create table if not exists public.user_notifications (
   dismissed_at  timestamptz,
   created_at    timestamptz not null default now()
 );
-
 create index if not exists idx_user_notifications_active
   on public.user_notifications (user_id, created_at desc)
   where dismissed_at is null;
-
 alter table public.user_notifications enable row level security;
-
 create policy "user_notifications_select_own"
   on public.user_notifications for select
   using (user_id = auth.uid());
-
 create policy "user_notifications_update_own"
   on public.user_notifications for update
   using (user_id = auth.uid());
-
 create policy "user_notifications_delete_own"
   on public.user_notifications for delete
   using (user_id = auth.uid());
-
 alter publication supabase_realtime add table public.user_notifications;
-
 -- Fan out a session rename to every other workspace member.
 create or replace function public.notify_session_edit() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -61,7 +54,6 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_notify_session_edit on public.sessions;
 create trigger trg_notify_session_edit
   after update on public.sessions

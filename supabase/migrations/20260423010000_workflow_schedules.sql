@@ -19,11 +19,9 @@ create table if not exists public.workflow_schedules (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
-
 create index if not exists idx_workflow_schedules_workspace_active
   on public.workflow_schedules(workspace_id)
   where active = true;
-
 -- Bump updated_at on any mutation.
 create or replace function public.touch_workflow_schedule_updated_at()
 returns trigger
@@ -34,14 +32,11 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists workflow_schedules_touch_updated_at on public.workflow_schedules;
 create trigger workflow_schedules_touch_updated_at
   before update on public.workflow_schedules
   for each row execute function public.touch_workflow_schedule_updated_at();
-
 alter table public.workflow_schedules enable row level security;
-
 -- RLS: any workspace member can read/write schedules for their workspace.
 create policy "workspace_members_read_schedules"
   on public.workflow_schedules for select
@@ -53,7 +48,6 @@ create policy "workspace_members_read_schedules"
         and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_members_insert_schedules"
   on public.workflow_schedules for insert
   to authenticated
@@ -64,7 +58,6 @@ create policy "workspace_members_insert_schedules"
         and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_members_update_schedules"
   on public.workflow_schedules for update
   to authenticated
@@ -82,7 +75,6 @@ create policy "workspace_members_update_schedules"
         and wm.user_id = auth.uid()
     )
   );
-
 create policy "workspace_members_delete_schedules"
   on public.workflow_schedules for delete
   to authenticated

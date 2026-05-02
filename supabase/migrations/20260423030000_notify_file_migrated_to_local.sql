@@ -42,7 +42,6 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_notify_file_migrated_to_local on public.files;
 create trigger trg_notify_file_migrated_to_local
   after update of backend on public.files

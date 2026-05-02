@@ -21,18 +21,13 @@ create table if not exists public.workspace_invitations (
   accepted_by  uuid        references auth.users(id),
   unique (workspace_id, email)
 );
-
 create index if not exists idx_workspace_invitations_workspace
   on public.workspace_invitations(workspace_id);
-
 create index if not exists idx_workspace_invitations_email
   on public.workspace_invitations(email);
-
 create index if not exists idx_workspace_invitations_token
   on public.workspace_invitations(token);
-
 alter table public.workspace_invitations enable row level security;
-
 -- Owners and admins of the workspace can see pending invitations.
 create policy "workspace_admins_read_invitations"
   on public.workspace_invitations for select
@@ -45,7 +40,6 @@ create policy "workspace_admins_read_invitations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_admins_insert_invitations"
   on public.workspace_invitations for insert
   to authenticated
@@ -57,7 +51,6 @@ create policy "workspace_admins_insert_invitations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_admins_update_invitations"
   on public.workspace_invitations for update
   to authenticated
@@ -77,7 +70,6 @@ create policy "workspace_admins_update_invitations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 create policy "workspace_admins_delete_invitations"
   on public.workspace_invitations for delete
   to authenticated
@@ -89,7 +81,6 @@ create policy "workspace_admins_delete_invitations"
         and wm.role in ('owner', 'admin')
     )
   );
-
 -- Accept flow runs as SECURITY DEFINER because the invitee isn't a workspace
 -- member yet, so they can't see their own row through the RLS policies above.
 -- The function validates that the caller's email matches the invited email
@@ -150,10 +141,8 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.accept_workspace_invitation(text) from public;
 grant execute on function public.accept_workspace_invitation(text) to authenticated;
-
 -- Expose the bare-minimum invitation preview (no token, no internal IDs) to
 -- a signed-in user trying to view what they're about to accept. RLS on the
 -- table itself blocks this — invitees aren't members of the workspace yet —
@@ -186,7 +175,6 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.peek_workspace_invitation(text) from public;
 grant execute on function public.peek_workspace_invitation(text) to authenticated;
 grant execute on function public.peek_workspace_invitation(text) to anon;

@@ -811,5 +811,10 @@
     "footnoteEnd": ".",
     "acknowledgement": "위 내용을 읽고 이해했으며, Polymux 베타 기간 동안 설명된 노출과 데이터 공유에 동의합니다.",
     "acceptButton": "이해했으며 동의합니다"
-  }
+  },
+  "featureUnavailableTitle": "사용할 수 없는 기능",
+  "featureUnavailableBody": "이 기능은 아직 회원님의 계정에서 사용할 수 없습니다.",
+  "accountSuspendedTitle": "계정 정지됨",
+  "accountSuspendedBody": "계정 접근이 일시적으로 정지되었습니다. 오류라고 생각되시면 고객지원에 문의해 주세요.",
+  "accountSuspendedSignOut": "로그아웃"
 }

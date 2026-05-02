@@ -142,6 +142,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <FeatureGate name="integrations">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
       <PageHeader :tabs="headerTabs" raw-tab-labels />
@@ -272,4 +273,5 @@ onUnmounted(() => {
       :item="selectedItem"
     />
   </div>
+  </FeatureGate>
 </template>

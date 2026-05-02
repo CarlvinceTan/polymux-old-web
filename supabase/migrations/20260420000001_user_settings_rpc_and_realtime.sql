@@ -26,5 +26,4 @@ begin
   return v_settings;
 end;
 $$;
-
 alter publication supabase_realtime add table public.user_settings;

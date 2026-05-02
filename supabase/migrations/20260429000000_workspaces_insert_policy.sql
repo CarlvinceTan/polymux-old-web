@@ -7,12 +7,10 @@
 -- correct policy is "the row's created_by must equal auth.uid()".
 
 alter table public.workspaces enable row level security;
-
 drop policy if exists "workspaces_insert_self" on public.workspaces;
 drop policy if exists "Authenticated users can create workspaces" on public.workspaces;
 drop policy if exists "Users can create workspaces" on public.workspaces;
 drop policy if exists "workspaces_insert" on public.workspaces;
-
 create policy "workspaces_insert_self"
   on public.workspaces for insert
   to authenticated

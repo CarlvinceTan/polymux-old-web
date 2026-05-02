@@ -87,6 +87,7 @@ function goBack() {
 </script>
 
 <template>
+  <FeatureGate name="forum">
   <div class="flex w-full justify-center px-4 pb-20 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-20">
     <div class="w-full max-w-[720px]">
       <button
@@ -269,4 +270,5 @@ function goBack() {
       </template>
     </div>
   </div>
+  </FeatureGate>
 </template>

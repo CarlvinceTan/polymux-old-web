@@ -14,7 +14,6 @@ as $$
     where workspace_id = ws_id and user_id = auth.uid()
   );
 $$;
-
 create or replace function public.get_workspace_role(ws_id uuid)
 returns workspace_role
 language sql
@@ -26,7 +25,6 @@ as $$
   where workspace_id = ws_id and user_id = auth.uid()
   limit 1;
 $$;
-
 -- Replace old user-based storage policies with workspace-based ones.
 -- Previous version used a non-existent `bucket_path` column; correct version
 -- uses storage.foldername(name) which splits the object path into segments.
@@ -39,7 +37,6 @@ drop policy if exists "workspace_members_select_files" on storage.objects;
 drop policy if exists "workspace_members_insert_files" on storage.objects;
 drop policy if exists "workspace_members_update_files" on storage.objects;
 drop policy if exists "workspace_members_delete_files" on storage.objects;
-
 create policy "workspace_members_select_files"
   on storage.objects for select
   to authenticated
@@ -65,7 +62,6 @@ create policy "workspace_members_select_files"
       )
     )
   );
-
 create policy "workspace_members_insert_files"
   on storage.objects for insert
   to authenticated
@@ -78,7 +74,6 @@ create policy "workspace_members_insert_files"
         and wm.workspace_id::text = (storage.foldername(name))[1]
     )
   );
-
 create policy "workspace_members_update_files"
   on storage.objects for update
   to authenticated
@@ -108,7 +103,6 @@ create policy "workspace_members_update_files"
       )
     )
   );
-
 create policy "workspace_members_delete_files"
   on storage.objects for delete
   to authenticated
