@@ -3,7 +3,7 @@ import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
 import type { WorkspaceMember } from '~/composables/useWorkspaces'
 
 const props = defineProps<{
-  item: SelectedItem
+  items: SelectedItem[]
   workspaceId: string
 }>()
 
@@ -22,8 +22,6 @@ interface GrantRow {
   grant_level: GrantLevel
 }
 
-const DEFAULT_LEVELS: { value: GrantLevel | 'inherit' | 'default-none' | 'default-read' | 'default-write'; label: string }[] = []
-
 const grants = ref<GrantRow[]>([])
 // keyed by user_id (or '' for all-members) → current ui-level selection.
 // `'inherit'` means "no row" (remove if present).
@@ -36,13 +34,16 @@ const errorMessage = ref<string | null>(null)
 
 const allMembersKey = ''
 
+const isMulti = computed(() => props.items.length > 1)
+const primaryItem = computed(() => props.items[0] ?? null)
+const paths = computed(() => props.items.map(i => i.path))
+
 function grantKey(row: GrantRow) {
   return row.user_id ?? allMembersKey
 }
 
 const allMembersDraft = computed<GrantLevel | 'inherit'>(() => draft.value.get(allMembersKey) ?? 'inherit')
 
-const path = computed(() => props.item.path)
 const otherMembers = computed<WorkspaceMember[]>(() =>
   members.value.filter(m => m.user_id !== user.value?.id),
 )
@@ -59,24 +60,33 @@ async function loadState() {
   errorMessage.value = null
   try {
     await fetchMembers(props.workspaceId)
-    const rows = await $fetch<GrantRow[]>(`/api/workspaces/${props.workspaceId}/files/permissions`, {
-      query: { path: path.value },
-    })
-    grants.value = rows
-    draft.value = new Map()
-    for (const row of rows) {
-      draft.value.set(grantKey(row), row.grant_level)
+    if (isMulti.value) {
+      // Multi-target apply: don't preload existing grants because they may
+      // differ per path. The draft starts empty (everything 'inherit') and
+      // the user explicitly picks the levels to enforce across all paths.
+      grants.value = []
+      draft.value = new Map()
+      effectiveByUser.value = new Map()
     }
-
-    // Resolve effective permission per member (for the "inherited" display).
-    const updates = await Promise.all(otherMembers.value.map(async (m) => {
-      const { effective } = await $fetch<{ effective: GrantLevel }>(
-        `/api/workspaces/${props.workspaceId}/files/permissions/preview`,
-        { method: 'POST', body: { path: path.value, user_id: m.user_id } },
-      )
-      return [m.user_id, effective] as const
-    }))
-    effectiveByUser.value = new Map(updates)
+    else {
+      const path = primaryItem.value?.path ?? ''
+      const rows = await $fetch<GrantRow[]>(`/api/workspaces/${props.workspaceId}/files/permissions`, {
+        query: { path },
+      })
+      grants.value = rows
+      draft.value = new Map()
+      for (const row of rows) {
+        draft.value.set(grantKey(row), row.grant_level)
+      }
+      const updates = await Promise.all(otherMembers.value.map(async (m) => {
+        const { effective } = await $fetch<{ effective: GrantLevel }>(
+          `/api/workspaces/${props.workspaceId}/files/permissions/preview`,
+          { method: 'POST', body: { path, user_id: m.user_id } },
+        )
+        return [m.user_id, effective] as const
+      }))
+      effectiveByUser.value = new Map(updates)
+    }
   }
   catch (err) {
     errorMessage.value = err instanceof Error ? err.message : t('permissions.loadError')
@@ -110,6 +120,7 @@ function computedEffective(userId: string): GrantLevel {
 }
 
 const dirty = computed(() => {
+  if (isMulti.value) return draft.value.size > 0
   if (draft.value.size !== grants.value.length) return true
   for (const row of grants.value) {
     if (draft.value.get(grantKey(row)) !== row.grant_level) return true
@@ -125,25 +136,27 @@ async function save() {
     const existingKeys = new Set(grants.value.map(grantKey))
     const targetKeys = new Set(draft.value.keys())
 
-    // Removals (was explicit, now 'inherit').
+    const remove: (string | null)[] = []
     for (const key of existingKeys) {
       if (!targetKeys.has(key)) {
-        await $fetch(`/api/workspaces/${props.workspaceId}/files/permissions`, {
-          method: 'DELETE',
-          body: { path: path.value, user_id: key === allMembersKey ? null : key },
-        })
+        remove.push(key === allMembersKey ? null : key)
       }
     }
 
-    // Upserts (new or changed).
+    const grantsBody: { user_id: string | null; grant_level: GrantLevel }[] = []
     for (const [key, level] of draft.value.entries()) {
+      // setDraft removes the key when level === 'inherit', so anything left
+      // in draft is a concrete grant level.
+      if (level === 'inherit') continue
       const existing = grants.value.find(r => grantKey(r) === key)
       if (existing && existing.grant_level === level) continue
-      await $fetch(`/api/workspaces/${props.workspaceId}/files/permissions`, {
-        method: 'POST',
-        body: { path: path.value, user_id: key === allMembersKey ? null : key, grant_level: level },
-      })
+      grantsBody.push({ user_id: key === allMembersKey ? null : key, grant_level: level })
     }
+
+    await $fetch(`/api/workspaces/${props.workspaceId}/files/permissions/apply`, {
+      method: 'POST',
+      body: { paths: paths.value, grants: grantsBody, remove, cascade: true },
+    })
 
     emit('close')
   }
@@ -154,6 +167,16 @@ async function save() {
     isSaving.value = false
   }
 }
+
+const titleSuffix = computed(() => {
+  if (isMulti.value) return t('permissions.multiTitleSuffix', { n: props.items.length })
+  return `"${primaryItem.value?.name ?? ''}"`
+})
+
+const subtitle = computed(() => {
+  if (isMulti.value) return t('permissions.multiSubtitle', { n: props.items.length })
+  return primaryItem.value?.path || t('permissions.rootPath')
+})
 
 onMounted(loadState)
 </script>
@@ -193,14 +216,21 @@ onMounted(loadState)
               </svg>
             </button>
             <h3 class="text-sm font-semibold text-neutral-900 pr-8 truncate">
-              {{ t('permissions.title') }} "{{ item.name }}"
+              {{ t('permissions.title') }} {{ titleSuffix }}
             </h3>
-            <p class="mt-0.5 text-xs text-neutral-500 truncate">{{ path || t('permissions.rootPath') }}</p>
+            <p class="mt-0.5 text-xs text-neutral-500 truncate">{{ subtitle }}</p>
           </div>
 
           <div class="px-5 pb-5 border-t border-neutral-100 space-y-5 pt-4">
             <div v-if="errorMessage" class="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
               <p class="text-xs text-red-700">{{ errorMessage }}</p>
+            </div>
+
+            <div v-if="isMulti" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+              <p class="text-xs text-amber-700">{{ t('permissions.multiCascadeWarning') }}</p>
+            </div>
+            <div v-else class="rounded-lg bg-neutral-50 border border-neutral-200 px-3 py-2">
+              <p class="text-xs text-neutral-600">{{ t('permissions.cascadeNotice') }}</p>
             </div>
 
             <div v-if="isLoading" class="py-6 text-center">
@@ -244,7 +274,7 @@ onMounted(loadState)
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium text-neutral-950 truncate">{{ memberDisplayName(m) }}</p>
                       <p class="text-xs text-neutral-400 truncate">
-                        {{ m.email || m.user_id }} · {{ t('permissions.currentlyLabel', { level: levelLabel(computedEffective(m.user_id)) }) }}
+                        {{ m.email || m.user_id }}<template v-if="!isMulti"> · {{ t('permissions.currentlyLabel', { level: levelLabel(computedEffective(m.user_id)) }) }}</template>
                       </p>
                     </div>
                     <select

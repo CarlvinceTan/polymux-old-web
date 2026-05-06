@@ -53,6 +53,17 @@ export default defineNuxtConfig({
     "@vercel/analytics",
     "@vercel/speed-insights",
   ],
+  // Bundle every icon string found in source (i-heroicons-*, i-ph-*,
+  // i-simple-icons-*) into the client JS at build time. Without this,
+  // @nuxt/icon fetches each icon over HTTP on first render, which is what
+  // causes icons on tabs like /workflow/[id]/schedule to flash in after a
+  // delay the first time the page is opened.
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512,
+    },
+  },
   components: [{ path: "~/components", pathPrefix: false }],
   imports: {
     dirs: [
@@ -118,14 +129,6 @@ export default defineNuxtConfig({
     oauthStateSecret: process.env.OAUTH_STATE_SECRET || "",
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    githubClientId: process.env.GITHUB_CLIENT_ID || "",
-    githubClientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-    slackClientId: process.env.SLACK_CLIENT_ID || "",
-    slackClientSecret: process.env.SLACK_CLIENT_SECRET || "",
-    notionClientId: process.env.NOTION_CLIENT_ID || "",
-    notionClientSecret: process.env.NOTION_CLIENT_SECRET || "",
-    linearClientId: process.env.LINEAR_CLIENT_ID || "",
-    linearClientSecret: process.env.LINEAR_CLIENT_SECRET || "",
     public: {
       serverUrl: process.env.SERVER_URL || "http://localhost:8080",
       appUrl: process.env.APP_URL || "http://localhost:3000",

@@ -127,6 +127,8 @@ export function useViewports(session: SessionHandle) {
   )
 
   function handleBrowserSpawned(p: BrowserSpawnedPayload) {
+    // eslint-disable-next-line no-console
+    console.debug('[viewports] browser_spawned', { agent_id: p.agent_id, label: p.label, task: p.task?.slice(0, 60) })
     const pendingIdx = viewports.value.findIndex(v => isPendingId(v.agentId))
     if (pendingIdx !== -1) {
       const next = [...viewports.value]
@@ -170,13 +172,19 @@ export function useViewports(session: SessionHandle) {
 
     if (p.action.startsWith('tool:') && p.detail) {
       const url = extractUrl(p.detail)
-      if (url) patch.url = url
+      if (url) {
+        patch.url = url
+        // eslint-disable-next-line no-console
+        console.debug('[viewports] url from agent_thinking detail', { agent_id: p.agent_id, action: p.action, url })
+      }
     }
 
     updateViewport(p.agent_id, patch)
   }
 
   function handlePageNavigated(p: PageNavigatedPayload) {
+    // eslint-disable-next-line no-console
+    console.debug('[viewports] page_navigated', { agent_id: p.agent_id, url: p.url, hasViewport: viewports.value.some(v => v.agentId === p.agent_id) })
     if (!p.url || !viewports.value.some(v => v.agentId === p.agent_id)) return
     updateViewport(p.agent_id, { url: p.url })
   }
@@ -227,6 +235,19 @@ export function useViewports(session: SessionHandle) {
     sendPriorityUpdate()
   }
 
+  // Backfill a viewport's URL only when it's currently empty. Used to restore
+  // the displayed page on revisit when session_state returns live but already
+  // completed browser agents (the BrowserSpawnedPayload carries no URL, so
+  // payloadToViewport leaves `url: ''`). Won't clobber a real URL that arrived
+  // via page_navigated.
+  function setViewportUrlIfEmpty(agentId: string, url: string) {
+    if (!url) return
+    const idx = viewports.value.findIndex(v => v.agentId === agentId)
+    if (idx === -1) return
+    if (viewports.value[idx]!.url) return
+    updateViewport(agentId, { url })
+  }
+
   function demoteActive() {
     activeAgentId.value = null
     sendPriorityUpdate()
@@ -259,5 +280,6 @@ export function useViewports(session: SessionHandle) {
     closeViewport,
     spawnBrowserAgent,
     sendPriorityUpdate,
+    setViewportUrlIfEmpty,
   }
 }

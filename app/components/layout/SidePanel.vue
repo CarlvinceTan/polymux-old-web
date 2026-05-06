@@ -272,7 +272,7 @@ async function bootstrapData() {
     await fetchWorkspaces()
     await fetchSessions()
   }
-  restoreDraft()
+  await restoreDraft()
   await ensureAtLeastOneWorkflow()
 }
 
@@ -290,7 +290,7 @@ useOnReconnect(bootstrapData)
 // Re-fetch sessions when workspace changes
 watch(currentWorkspaceId, async () => {
   await fetchSessions()
-  restoreDraft()
+  await restoreDraft()
   await ensureAtLeastOneWorkflow()
 })
 
@@ -1051,44 +1051,39 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Leave: collapse height + fade. Staying in flow means the siblings
-   slide up smoothly as the row shrinks, no position:absolute needed
-   (which previously caused a flash alongside SortableJS). */
-.wf-leave-active {
-  transition: max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease, padding 0.22s ease;
-  overflow: hidden;
+/* Leave/enter collapse via the grid-template-rows 1fr→0fr trick: animating a
+   single grid track size is dramatically smoother than transitioning
+   max-height + margin + padding simultaneously (which forced four layout
+   passes per frame). Siblings still slide naturally because the row stays in
+   flow, so SortableJS interactions remain stable. */
+.wf-leave-active,
+.wf-enter-active {
+  transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
   pointer-events: none;
 }
-.wf-leave-from {
-  max-height: 40px;
-}
-.wf-leave-to {
-  max-height: 0;
-  opacity: 0;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* Enter: matching expand + fade for added rows. */
-.wf-enter-active {
-  transition: max-height 0.22s ease, opacity 0.18s ease;
-  overflow: hidden;
-}
-.wf-enter-from {
-  max-height: 0;
-  opacity: 0;
-}
+.wf-leave-from,
 .wf-enter-to {
-  max-height: 40px;
+  grid-template-rows: 1fr;
   opacity: 1;
+}
+.wf-leave-to,
+.wf-enter-from {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 
 /* Drag-to-reorder affordance (real sessions only). Disable text selection on
-   rows so a quick mousedown before the drag threshold can't highlight text. */
+   rows so a quick mousedown before the drag threshold can't highlight text.
+   `display: grid` pairs with the leave/enter transitions above; the inner
+   wrapper clips overflow so content collapses cleanly with the track size. */
 .wf-item {
   user-select: none;
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.wf-item > * {
+  min-height: 0;
+  overflow: hidden;
 }
 .wf-item > div:first-child {
   cursor: grab;

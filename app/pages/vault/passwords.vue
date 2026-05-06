@@ -3,10 +3,7 @@ import { useI18n } from '#imports'
 
 const { t } = useI18n()
 
-const headerTabs = {
-  Passwords: '/vault/passwords',
-  Wallet: '/vault/wallet',
-} as const satisfies Record<string, string>
+const { headerTabs } = useVaultNavTabs()
 
 const {
   passwords,
@@ -147,7 +144,7 @@ onUnmounted(() => {
   <FeatureGate name="vault">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
+      <PageHeader :tabs="headerTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">

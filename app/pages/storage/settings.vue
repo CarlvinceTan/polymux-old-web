@@ -5,10 +5,7 @@ import type { StorageProvider } from '~/types/storage'
 
 type AnyDirection = MigrationDirection | LocalMigrationDirection
 
-const headerTabs = {
-  FILES: '/storage/files',
-  SETTINGS: '/storage/settings',
-} as const satisfies Record<string, string>
+const { headerTabs } = useStorageNavTabs()
 
 const { t } = useI18n()
 const {
@@ -290,7 +287,7 @@ onUnmounted(() => {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
+      <PageHeader :tabs="headerTabs" raw-tab-labels />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">

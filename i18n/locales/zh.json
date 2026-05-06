@@ -165,6 +165,7 @@
     "chatView": "聊天",
     "viewportView": "视图",
     "workflowView": "工作流",
+    "nodeView": "节点",
     "spawnBrowserAgent": "启动浏览器代理",
     "voiceListening": "正在聆听…",
     "voiceUnsupported": "此浏览器不支持语音输入。请使用 Chrome、Edge 或 Safari。",
@@ -220,7 +221,24 @@
     "saveBeforeRun": "运行前先保存你的编辑",
     "runLabel": "运行",
     "restoreChangeSummary": "回退至 v{version}",
-    "revertedToast": "工作流已回退"
+    "revertedToast": "工作流已回退",
+    "nodeCanvasEmpty": "节点画布为空",
+    "nodeDetails": "节点详情",
+    "toolUse": "工具使用",
+    "noToolUse": "无工具使用",
+    "selectedCount": "已选择 {n} 项",
+    "fitToView": "适应视图",
+    "addNode": "添加节点",
+    "clearSelection": "清除选择",
+    "tabs": {
+      "agent": "智能体",
+      "schedule": "计划",
+      "artifacts": "工件"
+    },
+    "liveBadge": "实时",
+    "liveNow": "正在直播",
+    "sequence": "序列",
+    "unsavedChanges": "有未保存的更改"
   },
   "dashboard": {
     "home": "首页",
@@ -359,7 +377,6 @@
     "editorSlugHelp": "小写，可使用 author/name 命名空间。",
     "editorSlugAutoHelp": "根据你的标识和上方名称自动生成。",
     "editorSlugPreviewEmpty": "author/name",
-    "editorWorkflowNameTaken": "此工作区已存在同名工作流。",
     "editorName": "名称",
     "editorDescription": "描述",
     "editorTags": "标签",
@@ -502,7 +519,10 @@
       "sharedWithOne": "已与 {n} 个工作区共享",
       "sharedWithMany": "已与 {n} 个工作区共享",
       "failedToShare": "共享失败",
-      "failedToShareWorkspace": "与工作区共享失败"
+      "failedToShareWorkspace": "与工作区共享失败",
+      "multiTitleSuffix": "{n} 项",
+      "partialSuccess": "已与 {n} 个工作区共享 — 部分失败",
+      "sharedItemsWithWorkspaces": "已将 {items} 项与 {n} 个工作区共享"
     },
     "settings": {
       "title": "存储设置",
@@ -600,6 +620,10 @@
       "config": "配置",
       "executable": "可执行文件",
       "file": "文件"
+    },
+    "tabs": {
+      "files": "文件",
+      "settings": "设置"
     }
   },
   "contact": {
@@ -677,6 +701,172 @@
       "copied": "已复制！",
       "loading": "加载密码中…",
       "saving": "保存中…"
+    },
+    "tabs": {
+      "passwords": "密码",
+      "wallet": "钱包"
+    },
+    "wallet": {
+      "sections": {
+        "overview": "概览",
+        "activity": "活动",
+        "workflows": "工作流",
+        "policies": "策略"
+      },
+      "banner": {
+        "topUpCompleted": "充值完成。余额已更新。",
+        "topUpCancelled": "充值已取消。未发生任何扣款。"
+      },
+      "overview": {
+        "availableBalance": "可用余额",
+        "autoTopUp": "自动充值",
+        "autoTopUpOn": "已开启",
+        "topUp": "充值",
+        "newTopUpsCharged": "新的充值将以 {currency} 计费。"
+      },
+      "activity": {
+        "title": "消费活动",
+        "subtitle": "工作区的每日合计。",
+        "spentN": "{n} 天消费",
+        "toppedN": "{n} 天充值",
+        "dailyAverage": "日均",
+        "activeDays": "活跃天数",
+        "tooltipSpent": "消费",
+        "tooltipTopped": "充值"
+      },
+      "chartRanges": {
+        "d7": "7 天",
+        "d30": "30 天",
+        "d90": "90 天"
+      },
+      "spendingByWorkflow": {
+        "title": "按工作流的消费",
+        "subtitle": "选择某个工作流以查看其活动。",
+        "count": "{n} 个工作流",
+        "loading": "正在加载工作流…",
+        "empty": "尚无工作流消费。"
+      },
+      "sortOptions": {
+        "spent": "消费最多",
+        "allocated": "分配最多",
+        "recent": "最近活动"
+      },
+      "status": {
+        "active": "活动",
+        "paused": "已暂停",
+        "exhausted": "已耗尽",
+        "released": "已释放"
+      },
+      "txTable": {
+        "searchPlaceholder": "搜索交易…",
+        "allSources": "所有来源",
+        "workspaceOnly": "仅工作区",
+        "workflowOption": "工作流 {id}",
+        "countSummary": "显示 {shown}/{total}",
+        "type": "类型",
+        "description": "描述",
+        "workflow": "工作流",
+        "date": "日期",
+        "amount": "金额",
+        "balance": "余额",
+        "workspaceTag": "工作区",
+        "loading": "正在加载交易…",
+        "empty": "没有交易匹配这些筛选条件。"
+      },
+      "txType": {
+        "topUp": "充值",
+        "allocation": "分配",
+        "deduction": "扣款",
+        "refund": "退款",
+        "adjustment": "调整"
+      },
+      "txTypeFilter": {
+        "all": "所有类型",
+        "topUp": "充值",
+        "allocation": "分配",
+        "deduction": "扣款",
+        "refund": "退款",
+        "adjustment": "调整"
+      },
+      "workflowsView": {
+        "workflowsLabel": "工作流",
+        "emptyAside": "暂无工作流。",
+        "emptyDetail": "选择一个工作流查看详情。",
+        "workflow": "工作流",
+        "createdAt": "创建于 {date}",
+        "spent": "已消费",
+        "remaining": "剩余",
+        "allocated": "已分配",
+        "consumption": "消耗",
+        "activity": "活动",
+        "entries": "{n} 条",
+        "noActivity": "此工作流暂无活动。"
+      },
+      "topUpModal": {
+        "title": "充值余额",
+        "amount": "金额",
+        "chargeCurrency": "计费货币",
+        "minMaxNote": "最小 {min} · 最大 {max} / 次充值。",
+        "amountRangeError": "金额必须在 {min} 到 {max} 之间。",
+        "checkoutError": "无法开始结账。请重试。",
+        "cancel": "取消",
+        "redirecting": "正在跳转…",
+        "continueToStripe": "继续前往 Stripe"
+      },
+      "autoTopUpModal": {
+        "title": "自动充值",
+        "enable": "启用自动充值",
+        "enableDesc": "余额不足时自动充值。",
+        "triggerBelow": "低于此金额时触发",
+        "addAmount": "添加金额",
+        "note": "扣款使用您当前的充值货币。可在充值弹窗中更改。",
+        "done": "完成"
+      },
+      "policies": {
+        "budgetCapsTitle": "预算上限",
+        "budgetCapsDesc": "新工作流的默认消费上限。",
+        "workflowTotal": "工作流总额",
+        "workflowTotalHint": "单次工作流执行的默认上限。",
+        "perOpMax": "每次操作最大",
+        "perOpMaxHint": "无需审批允许的最大单笔扣款。",
+        "llmCap": "LLM 调用上限",
+        "llmCapHint": "单次 LLM 调用的最大成本。",
+        "approvalThreshold": "审批阈值",
+        "approvalThresholdHint": "超过此金额的扣款需要审批。",
+        "automationTitle": "自动化限制",
+        "automationDesc": "对自动执行的时长与范围设定护栏。",
+        "maxSteps": "最大步数",
+        "maxScreenshots": "最大截图数",
+        "maxDuration": "最大时长（分钟）",
+        "concurrent": "并发执行",
+        "dailyCap": "工作区每日上限",
+        "dailyCapHint": "工作区每日允许的总消费。",
+        "blockAfterHours": "阻止下班后运行",
+        "blockAfterHoursDesc": "在工作时间之外暂停新的运行。",
+        "alertsTitle": "提醒与审批",
+        "alertsDesc": "在重要场景下通知团队并要求审批。",
+        "pauseOnExhaustion": "耗尽时暂停",
+        "pauseOnExhaustionDesc": "暂停达到预算的工作流。",
+        "lowBalance": "低余额提醒",
+        "lowBalanceDesc": "钱包余额不足时通知。",
+        "overrun": "超额提醒",
+        "overrunDesc": "工作流超出预算时通知。",
+        "approveExternal": "审批外部扣款",
+        "approveExternalDesc": "在向外部服务计费前要求审批。",
+        "domainTitle": "域名策略",
+        "domainDesc": "限制自动执行可访问的网站。",
+        "policyLabel": "策略",
+        "domainAny": "任意",
+        "domainAllowlist": "允许列表",
+        "domainDenylist": "阻止列表",
+        "domainPlaceholderAny": "允许任何域名。",
+        "domainPlaceholderList": "每行一个域名，例如 example.com",
+        "howApplyTitle": "规则如何生效",
+        "howApply1": "允许列表：仅列出的域名可访问。",
+        "howApply2": "阻止列表：除已列出的域名外其余可访问。",
+        "howApply3": "子域名会被自动匹配。",
+        "howApply4": "更改将在下一次运行生效。"
+      }
     }
   },
   "schedule": {
@@ -786,7 +976,11 @@
     "currentlyLabel": "当前 {level}",
     "cancel": "取消",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "cascadeNotice": "权限更改将应用于此项目及其内部的所有内容。",
+    "multiCascadeWarning": "这些权限更改将应用于 {n} 项及每项内部的所有内容。",
+    "multiSubtitle": "已选择 {n} 项",
+    "multiTitleSuffix": "{n} 项"
   },
   "pricing": {
     "storage": {
@@ -816,5 +1010,42 @@
   "featureUnavailableBody": "您的账户暂时无法使用此功能。",
   "accountSuspendedTitle": "账户已暂停",
   "accountSuspendedBody": "您的账户访问已被临时暂停。如认为是误操作，请联系客服。",
-  "accountSuspendedSignOut": "退出登录"
+  "accountSuspendedSignOut": "退出登录",
+  "onboarding": {
+    "skip": "跳过",
+    "back": "上一步",
+    "next": "下一步",
+    "getStarted": "开始使用",
+    "stepLabel": "第 {current} / {total} 步",
+    "welcome": {
+      "title": "欢迎使用 Polymux",
+      "description": "运行由 AI 驱动的工作流，浏览网页、处理文件，并代您行事。"
+    },
+    "workflows": {
+      "title": "可视化构建工作流",
+      "description": "在画布上编排步骤，按计划运行，并查看每一项结果。"
+    },
+    "browser": {
+      "title": "同步跟随的浏览器",
+      "description": "实时观看工作流操作浏览器，或随时接管。"
+    },
+    "vault": {
+      "title": "您的保险库，您的秘密",
+      "description": "安全保存密码与凭据，让工作流代您登录。"
+    },
+    "terms": {
+      "title": "一些注意事项",
+      "description": "Polymux 处于测试阶段。请在继续之前阅读并同意以下条款。",
+      "bullet1": "测试期间不保证隐私。许多功能仍在开发和测试中。",
+      "bullet2": "您创建、上传或生成的内容可能被我们的团队及用于调试和改进产品的系统查阅。",
+      "bullet3": "您提供的数据可能与可信的第三方提供商（模型、基础设施、分析合作伙伴）共享，以便产品运行和改进。",
+      "bullet4": "可能出现服务中断、数据丢失和意外行为。请勿将 Polymux 用于敏感、受监管或生产关键的工作。",
+      "footnote": "继续即表示您还知悉我们的",
+      "and": "与",
+      "termsOfService": "服务条款",
+      "privacyPolicy": "隐私政策",
+      "footnoteEnd": "。",
+      "acknowledgement": "我已阅读并理解上述内容，同意在 Polymux 测试期间所述的暴露和数据共享。"
+    }
+  }
 }

@@ -217,11 +217,19 @@ onMounted(async () => {
   sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, sessionId.value)
 
   const orchestratorHistory = await fetchMessages(sessionId.value)
+  // null = HTTP 403: workflow doesn't exist or RLS hides it from this user.
+  // Redirect now rather than waiting for fetchSessions's watcher to fire —
+  // workspace bootstrap can stretch that to several seconds, during which
+  // useSession's WebSocket would be banging out 403 reconnects.
+  if (orchestratorHistory === null) {
+    void navigateTo('/workflow/new', { replace: true })
+    return
+  }
   chats.orchestrator.loadHistory(orchestratorHistory)
 
   for (const v of vp.viewports.value) {
     const agentHistory = await fetchMessages(sessionId.value, v.agentId)
-    if (agentHistory.length > 0) {
+    if (agentHistory && agentHistory.length > 0) {
       chats.get(v.agentId).loadHistory(agentHistory)
     }
     loadedAgentHistories.add(v.agentId)
@@ -233,7 +241,7 @@ watch(() => vp.viewports.value, async (viewports) => {
     if (loadedAgentHistories.has(v.agentId)) continue
     loadedAgentHistories.add(v.agentId)
     const agentHistory = await fetchMessages(sessionId.value, v.agentId)
-    if (agentHistory.length > 0) {
+    if (agentHistory && agentHistory.length > 0) {
       chats.get(v.agentId).loadHistory(agentHistory)
     }
   }
@@ -322,28 +330,42 @@ async function sendBeaconSave(id: string) {
   } catch {}
 }
 
-// Restore viewports for this workflow once per WS connection. If the server
-// already has browser agents (session still alive), skip — the live state
-// wins. Otherwise, look up the last saved viewport URLs and respawn agents
-// on each. Re-attempts on reconnect (server reset) so the user's viewports
-// come back after the server forgets them.
+// Restore viewports for this workflow once per WS connection.
+//   • Server has no agents → respawn from saved URLs (fresh agents seeded with
+//     "Navigate to <url>").
+//   • Server has live agents (revisit while session is still alive, e.g. a
+//     "done" workflow) → backfill their viewport URLs from the saved list.
+//     session_state's BrowserSpawnedPayload doesn't carry the last URL, so
+//     without this the URL strip stays blank for completed agents.
+// Re-attempts on reconnect (server reset) so the user's viewports come back
+// after the server forgets them.
 const hasAttemptedRestore = ref(false)
 
 function tryRestoreViewports() {
   if (hasAttemptedRestore.value) return
   const state = session.sessionState.value
   if (!state) return
-  if ((state.browser_agents?.length ?? 0) > 0) {
-    hasAttemptedRestore.value = true
-    return
-  }
   // Sessions list still loading — defer; the watch on `sessions` retries
   // when it populates. Burning the flag now would lose the saved URLs to
   // a race where session_state lands before fetchSessions resolves.
   if (sessions.value.length === 0) return
-  hasAttemptedRestore.value = true
   const saved = sessions.value.find(s => s.id === sessionId.value)?.last_viewport_urls ?? []
   const savedUrls = saved.filter(u => typeof u === 'string' && u)
+
+  if ((state.browser_agents?.length ?? 0) > 0) {
+    hasAttemptedRestore.value = true
+    if (savedUrls.length === 0) return
+    // Match saved URLs to existing agents in the same label-sorted order
+    // useViewports applies. currentViewportUrls saved them in that order, so
+    // index N here corresponds to the N-th saved URL.
+    const existing = vp.viewports.value
+    for (let i = 0; i < existing.length && i < savedUrls.length; i++) {
+      vp.setViewportUrlIfEmpty(existing[i]!.agentId, savedUrls[i]!)
+    }
+    return
+  }
+
+  hasAttemptedRestore.value = true
   if (savedUrls.length === 0) return
   // Seed lastSavedKey so the debounce doesn't immediately re-PATCH the same
   // URLs after spawn_browser_agent events populate viewports.
@@ -402,7 +424,7 @@ if (import.meta.client) {
 const titleRequested = ref(false)
 
 watch(chats.summarisedTitle, (title) => {
-  if (title) onRename(title)
+  if (title) renameSession(sessionId.value, title)
 })
 
 // Only show the welcome/new-workflow UI for genuinely new workflows (drafts or
@@ -441,7 +463,7 @@ function loadViewMode(id: string): ViewMode | null {
   if (!id || id === DRAFT_WORKFLOW_ID) return null
   try {
     const raw = sessionStorage.getItem(VIEW_MODE_KEY_PREFIX + id)
-    if (raw === 'chat' || raw === 'viewport' || raw === 'workflow') return raw
+    if (raw === 'chat' || raw === 'viewport' || raw === 'workflow' || raw === 'node') return raw
   } catch {}
   return null
 }

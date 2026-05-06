@@ -66,6 +66,17 @@ export function useMarketplace() {
   // loading placeholder never gets stuck — without it a single failed fetch
   // (e.g. transient 5xx) would leave the marketplace page frozen on
   // "Loading marketplace…" until a hard reload.
+  //
+  // `getCachedData` preserves the catalog when the user navigates somewhere
+  // that doesn't consume `useMarketplace` (e.g. integrations/publish). Nuxt 4
+  // defaults `experimental.purgeCachedData` to true and runs
+  // `clearNuxtDataByKey` once the last consumer unmounts, which resets the
+  // catalog to [] while our sticky `catalogLoaded` flag stays true — so the
+  // template would render "no items match your search" on return. Defining
+  // *any* custom getCachedData opts out of that purge, and returning the
+  // payload during 'initial' rehydrates the rebuilt asyncData entry with the
+  // previously-fetched catalog. Manual refreshes (`refresh:manual` /
+  // `refresh:hook`) still bypass the cache and hit the network.
   const { data: catalog, pending: catalogPending, refresh: refreshCatalog } = useAsyncData<MarketplaceItem[]>(
     'marketplace-catalog',
     async () => {
@@ -76,7 +87,16 @@ export function useMarketplace() {
         catalogLoaded.value = true
       }
     },
-    { default: () => [], lazy: true, server: false, immediate: false },
+    {
+      default: () => [],
+      lazy: true,
+      server: false,
+      immediate: false,
+      getCachedData(key, nuxtApp, ctx) {
+        if (ctx.cause === 'refresh:manual' || ctx.cause === 'refresh:hook') return undefined
+        return nuxtApp.payload.data[key] as MarketplaceItem[] | undefined
+      },
+    },
   )
 
   if (import.meta.client) {

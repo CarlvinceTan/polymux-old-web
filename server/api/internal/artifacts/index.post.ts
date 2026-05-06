@@ -37,6 +37,9 @@ export default defineEventHandler(async (event) => {
   const workspaceId = typeof body.workspace_id === 'string' ? body.workspace_id : ''
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   if (!sessionId || !workspaceId || !name) {
+    console.warn('[internal/artifacts] rejected: missing required fields', {
+      hasSession: !!sessionId, hasWorkspace: !!workspaceId, hasName: !!name,
+    })
     throw createError({
       statusCode: 400,
       statusMessage: 'session_id, workspace_id, and name are required.',
@@ -48,11 +51,21 @@ export default defineEventHandler(async (event) => {
     : null
   const content = typeof body.content === 'string' ? body.content : null
   if (!storagePath && content === null) {
+    console.warn('[internal/artifacts] rejected: storage_path and content both empty', {
+      sessionId, workspaceId, name,
+    })
     throw createError({
       statusCode: 400,
       statusMessage: 'one of storage_path or content is required.',
     })
   }
+
+  console.info('[internal/artifacts] record request', {
+    sessionId, workspaceId, name,
+    mime: typeof body.mime_type === 'string' ? body.mime_type : null,
+    size: Number(body.size_bytes) || 0,
+    via: storagePath ? 'storage_path' : 'inline',
+  })
 
   const mimeType = typeof body.mime_type === 'string' && body.mime_type
     ? body.mime_type
@@ -88,6 +101,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (cap > 0 && usage + sizeBytes > cap) {
+    console.warn('[internal/artifacts] cap rejection', {
+      workspaceId, plan, usage, size: sizeBytes, cap,
+    })
     if (storagePath) {
       const { error: removeErr } = await admin.storage.from('artifacts').remove([storagePath])
       if (removeErr) {
@@ -121,5 +137,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to record artifact.' })
   }
 
+  console.info('[internal/artifacts] recorded', {
+    id: data.id, sessionId, workspaceId, name, size: sizeBytes,
+  })
   return data
 })

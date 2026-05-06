@@ -1,10 +1,10 @@
 import type { WorkflowStep } from '~/composables/workflows/useWorkflows'
 
-// The layout-time set of kinds. The runtime data model only emits 'directive',
-// 'loop', 'parallel' today (see polymux/internal/agent/tools_orchestrator.go);
-// 'conditional' is accepted here so the renderer is ready when the orchestrator
-// starts emitting it.
-export type LayoutNodeKind = 'directive' | 'loop' | 'parallel' | 'conditional'
+// The layout-time set of kinds. The runtime data model emits 'directive',
+// 'sequence', 'loop', and 'parallel' (see
+// polymux/internal/agent/tools_orchestrator.go); 'conditional' is accepted here
+// so the renderer is ready when the orchestrator starts emitting it.
+export type LayoutNodeKind = 'directive' | 'sequence' | 'loop' | 'parallel' | 'conditional'
 
 export type DisplayState = 'active' | 'dimmed'
 
@@ -60,7 +60,7 @@ const EMPTY_FRAME: FrameResult = { height: 0, firstId: null, lastId: null }
 
 function resolveKind(step: WorkflowStep): LayoutNodeKind {
   const k = (step.kind ?? 'directive') as string
-  if (k === 'directive' || k === 'loop' || k === 'parallel' || k === 'conditional') return k
+  if (k === 'directive' || k === 'sequence' || k === 'loop' || k === 'parallel' || k === 'conditional') return k
   return 'directive'
 }
 
@@ -178,7 +178,7 @@ function layoutInto(
     // Only control-flow kinds dim themselves on expansion — their action
     // lives in their subnodes. A directive expanded inline (playwright
     // actions list inside the card) is still itself the active step.
-    const dimsWhenExpanded = kind === 'loop' || kind === 'parallel' || kind === 'conditional'
+    const dimsWhenExpanded = kind === 'sequence' || kind === 'loop' || kind === 'parallel' || kind === 'conditional'
 
     state.nodes.push({
       id,
@@ -226,6 +226,31 @@ function expandSubtree(
       // WorkflowGraphNode). They are not separate graph nodes, so
       // expansion adds no rows / wires here.
       return 0
+
+    case 'sequence': {
+      // A sequence renders its children as a straight vertical chain in the
+      // next column, connected by straight wires (layoutInto wires sibling
+      // nodes within the chain). The sequence header forks right into the
+      // first child; the last child rejoins the parent flow via the
+      // pending-join queue, mirroring how a single-branch parallel returns.
+      const r = layoutInto(children, parentCol + 1, parentRow + 1, expandedIds, state, `${pathPrefix}.s`)
+      if (r.firstId) {
+        state.wires.push({
+          id: wireId(parentId, r.firstId, 'fork-right'),
+          fromId: parentId,
+          toId: r.firstId,
+          style: 'fork-right',
+        })
+      }
+      if (r.lastId) {
+        state.pending.push({
+          fromIds: [r.lastId],
+          parentCol,
+          bottomRow: parentRow + 1 + r.height,
+        })
+      }
+      return r.height
+    }
 
     case 'loop': {
       const mid = Math.ceil(children.length / 2)

@@ -6,6 +6,7 @@ const { copy, copied } = useClipboard()
 
 const props = defineProps<{
   text: string
+  showActions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +27,7 @@ function renderMarkdown(text: string): string {
 <template>
   <div class="group w-full min-w-0">
     <div class="agent-prose text-sm leading-relaxed text-neutral-700" v-html="renderMarkdown(text)" />
-    <div class="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+    <div v-if="showActions" class="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
       <MessageAction :icon="copied ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'" :label="t('common.copy')" @click="copy(props.text)" />
       <MessageAction icon="i-heroicons-hand-thumb-up" :label="t('chat.goodResponse')" />
       <MessageAction icon="i-heroicons-hand-thumb-down" :label="t('chat.badResponse')" />

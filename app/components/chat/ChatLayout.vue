@@ -5,7 +5,7 @@ import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/compos
 
 export type { ChatMessage, ViewportState }
 
-export type ViewMode = 'chat' | 'viewport' | 'workflow'
+export type ViewMode = 'chat' | 'viewport' | 'workflow' | 'node'
 
 const { t } = useI18n()
 
@@ -19,7 +19,8 @@ const props = defineProps<{
   renameable?: boolean
   sessionId: string
   isThinking?: boolean
-  waitingForAgent?: boolean
+  isStreaming?: boolean
+  browserAgentsActive?: boolean
   browserAgentCap?: number
   activeAgentId: string | null
   browserMode: boolean
@@ -54,6 +55,7 @@ const emit = defineEmits<{
 const inChat = computed(() => props.hideViewSwitch || viewMode.value === 'chat')
 const inViewport = computed(() => !props.hideViewSwitch && viewMode.value === 'viewport')
 const inWorkflow = computed(() => !props.hideViewSwitch && viewMode.value === 'workflow')
+const inNode = computed(() => !props.hideViewSwitch && viewMode.value === 'node')
 
 const showSwitch = computed(() => !props.hideViewSwitch)
 
@@ -206,6 +208,18 @@ function onSend(value: string) {
           <UIcon name="i-heroicons-square-3-stack-3d-20-solid" class="size-3.5" />
           <span class="hidden sm:inline">{{ t('chat.workflowView') }}</span>
         </button>
+        <button
+          type="button"
+          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+          :class="inNode
+            ? 'bg-white text-neutral-900 shadow-sm'
+            : 'text-neutral-500 hover:text-neutral-700'"
+          :aria-label="t('chat.nodeView')"
+          @click="viewMode = 'node'"
+        >
+          <UIcon name="i-heroicons-share-20-solid" class="size-3.5" />
+          <span class="hidden sm:inline">{{ t('chat.nodeView') }}</span>
+        </button>
       </div>
     </template>
 
@@ -224,7 +238,8 @@ function onSend(value: string) {
           v-else
           :messages="messages"
           :is-thinking="isThinking"
-          :waiting-for-agent="waitingForAgent"
+          :is-streaming="isStreaming"
+          :browser-agents-active="browserAgentsActive"
           :session-id="sessionId"
           @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
           @retry-message="(i) => emit('retry-message', i)"
@@ -244,6 +259,12 @@ function onSend(value: string) {
 
       <WorkflowDock
         v-else-if="inWorkflow"
+        :session-id="sessionId"
+        class="min-h-0 flex-1"
+      />
+
+      <WorkflowNodeCanvas
+        v-else-if="inNode"
         :session-id="sessionId"
         class="min-h-0 flex-1"
       />
@@ -282,7 +303,8 @@ function onSend(value: string) {
           <ChatMessages
             :messages="messages"
             :is-thinking="isThinking"
-            :waiting-for-agent="waitingForAgent"
+            :is-streaming="isStreaming"
+            :browser-agents-active="browserAgentsActive"
             :session-id="sessionId"
             @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
             @retry-message="(i) => emit('retry-message', i)"

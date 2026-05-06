@@ -4,16 +4,24 @@ const user = useSupabaseUser()
 const { currentWorkspace } = useWorkspaces()
 const { draft, createDraft } = useWorkflowList()
 
-const hour = new Date().getHours()
-const greetingKey = hour < 5
-  ? 'dashboard.goodNight'
-  : hour < 12
-    ? 'dashboard.goodMorning'
-    : hour < 17
-      ? 'dashboard.goodAfternoon'
-      : hour < 22
-        ? 'dashboard.goodEvening'
-        : 'dashboard.goodNight'
+// Deferred until after mount so the SSR'd HTML matches the first client
+// render. `new Date()` evaluated during setup picks up the server's clock
+// and timezone — different from the browser's — and produces a hydration
+// mismatch when the greeting / date-of-week disagree.
+const now = ref<Date | null>(null)
+onMounted(() => {
+  now.value = new Date()
+})
+
+const greetingKey = computed(() => {
+  const h = now.value?.getHours()
+  if (h === undefined) return 'dashboard.goodMorning'
+  if (h < 5) return 'dashboard.goodNight'
+  if (h < 12) return 'dashboard.goodMorning'
+  if (h < 17) return 'dashboard.goodAfternoon'
+  if (h < 22) return 'dashboard.goodEvening'
+  return 'dashboard.goodNight'
+})
 
 const displayName = computed(() => {
   const meta = user.value?.user_metadata
@@ -32,7 +40,7 @@ const planLabel = computed(() => {
 })
 
 const todayLabel = computed(() =>
-  new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }),
+  now.value?.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }) ?? '',
 )
 
 async function handleNewWorkflow() {

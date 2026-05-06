@@ -8,7 +8,18 @@ const props = defineProps<{
 
 const isChevron = computed(() => !props.icon || props.icon === 'i-heroicons-chevron-down-20-solid')
 
-const expanded = ref(false)
+const userExpanded = ref(false)
+// While the thinking event is still producing tokens, force-show the detail
+// so the user sees the stream arriving instead of a silent "thinking" label
+// with a chevron they have to click. Once the event completes (active=false)
+// the user-controlled toggle takes back over so the detail can collapse —
+// and stay collapsed by default for completed thoughts.
+const expanded = computed(() => (props.active ? true : userExpanded.value))
+
+function toggleExpanded() {
+  if (!isChevron.value) return
+  userExpanded.value = !userExpanded.value
+}
 </script>
 
 <template>
@@ -20,7 +31,7 @@ const expanded = ref(false)
           :type="isChevron ? 'button' : undefined"
           class="flex items-center gap-1.5 text-left text-meta leading-relaxed sm:text-xs"
           :class="isChevron ? 'group' : ''"
-          @click="isChevron && (expanded = !expanded)"
+          @click="toggleExpanded"
         >
           <UIcon
             :name="icon ?? 'i-heroicons-chevron-down-20-solid'"

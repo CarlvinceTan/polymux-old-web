@@ -86,11 +86,14 @@ const selectedItemId = ref<string | null>(null)
 const selectedItem = ref<SelectedItem | null>(null)
 // Multi-select: `selectedItemIds` is the full set of grey-highlighted items.
 // `selectedItemId`/`selectedItem` continue to track the primary (first
-// selected) item for single-target UI like ShareModal/FilePermissionsModal,
-// which accept one item. `isMultiSelection` gates batch-only toolbar behavior.
+// selected) item for single-target UI like FileInfoModal/FilePreviewModal.
+// `selectedItemsArray` is what batch-aware modals (Share, Manage Access)
+// receive — it contains every selected item in selection order.
+// `isMultiSelection` gates batch-only toolbar behavior.
 const selectedItemIds = ref<Set<string>>(new Set())
 const selectedItemsMap = ref<Map<string, SelectedItem>>(new Map())
 const isMultiSelection = computed(() => selectedItemIds.value.size > 1)
+const selectedItemsArray = computed<SelectedItem[]>(() => Array.from(selectedItemsMap.value.values()))
 const isRenaming = ref(false)
 const renameInput = ref('')
 /** v-for refs become an array in Vue 3; normalize before focus/select */
@@ -2204,8 +2207,8 @@ watch(multiDragActive, (active) => {
                 >
                   {{ selectedItemIds.size }} selected
                 </span>
-                <!-- Share (single-select only; batch share with recursive override requires backend work) -->
-                <div v-if="!isMultiSelection" class="group/action relative">
+                <!-- Share -->
+                <div class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isShareModalOpen = true"
@@ -2217,7 +2220,7 @@ watch(multiDragActive, (active) => {
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Share</span>
                 </div>
                 <!-- Manage access (permissions) -->
-                <div v-if="canManageAccess && !isMultiSelection" class="group/action relative">
+                <div v-if="canManageAccess" class="group/action relative">
                   <button
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isPermissionsModalOpen = true"
@@ -2701,15 +2704,15 @@ watch(multiDragActive, (active) => {
 
     <!-- Share Modal -->
     <ShareModal
-      v-if="isShareModalOpen && selectedItem"
-      :item="selectedItem"
+      v-if="isShareModalOpen && selectedItemsArray.length > 0"
+      :items="selectedItemsArray"
       @close="isShareModalOpen = false"
     />
 
     <!-- Permissions Modal -->
     <FilePermissionsModal
-      v-if="isPermissionsModalOpen && selectedItem && currentWorkspace"
-      :item="selectedItem"
+      v-if="isPermissionsModalOpen && selectedItemsArray.length > 0 && currentWorkspace"
+      :items="selectedItemsArray"
       :workspace-id="currentWorkspace.id"
       @close="isPermissionsModalOpen = false"
     />

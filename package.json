@@ -24,6 +24,7 @@
     "resend": "^6.11.0",
     "stripe": "^22.0.1",
     "tailwindcss": "^4.2.2",
+    "vercel": "^53.1.1",
     "vue": "^3.5.31",
     "vue-draggable-plus": "^0.6.1",
     "vue-router": "^5.0.4"

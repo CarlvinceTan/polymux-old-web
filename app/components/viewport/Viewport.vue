@@ -201,14 +201,11 @@ function greenClick(e: Event) {
 
     <!-- Below the rounded panel -->
     <div
-      class="flex gap-2"
-      :class="thumbnail
-        ? 'items-center justify-center px-0'
-        : 'items-baseline justify-between px-1'
-      "
+      class="flex w-full items-baseline justify-between gap-2"
+      :class="thumbnail ? 'px-0' : 'px-1'"
     >
       <div
-        class="flex min-w-0 items-center font-mono tracking-wide"
+        class="flex min-w-0 flex-1 items-center font-mono tracking-wide"
         :class="thumbnail ? 'gap-1 text-2xs text-neutral-600 sm:text-caption' : 'gap-3 text-body-md'"
       >
         <div class="flex min-w-0 items-baseline gap-1">

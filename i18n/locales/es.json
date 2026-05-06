@@ -165,6 +165,7 @@
     "chatView": "Chat",
     "viewportView": "Visor",
     "workflowView": "Flujo de trabajo",
+    "nodeView": "Nodo",
     "spawnBrowserAgent": "Iniciar agente de navegador",
     "voiceListening": "Escuchando…",
     "voiceUnsupported": "Este navegador no admite la entrada de voz. Usa Chrome, Edge o Safari.",
@@ -220,7 +221,24 @@
     "saveBeforeRun": "Guarda tus cambios antes de ejecutar",
     "runLabel": "Ejecución",
     "restoreChangeSummary": "Revertido a v{version}",
-    "revertedToast": "Flujo de trabajo revertido"
+    "revertedToast": "Flujo de trabajo revertido",
+    "nodeCanvasEmpty": "Aún no hay nodos — cambia a la vista Flujo de trabajo para comenzar.",
+    "nodeDetails": "Detalles del nodo",
+    "toolUse": "Uso de herramienta",
+    "noToolUse": "No hay detalles de herramienta para este nodo.",
+    "selectedCount": "{n} seleccionado(s)",
+    "fitToView": "Ajustar a la vista",
+    "addNode": "Añadir nodo",
+    "clearSelection": "Limpiar selección",
+    "tabs": {
+      "agent": "Agente",
+      "schedule": "Programación",
+      "artifacts": "Artefactos"
+    },
+    "liveBadge": "En vivo",
+    "liveNow": "En vivo ahora",
+    "sequence": "Secuencia",
+    "unsavedChanges": "Cambios sin guardar"
   },
   "dashboard": {
     "home": "Inicio",
@@ -359,7 +377,6 @@
     "editorSlugHelp": "Minúsculas, opcionalmente con espacio de nombres author/name.",
     "editorSlugAutoHelp": "Generado automáticamente a partir de tu identificador y el nombre anterior.",
     "editorSlugPreviewEmpty": "author/name",
-    "editorWorkflowNameTaken": "Ya existe un flujo de trabajo con este nombre en este espacio.",
     "editorName": "Nombre",
     "editorDescription": "Descripción",
     "editorTags": "Etiquetas",
@@ -502,7 +519,10 @@
       "sharedWithOne": "Compartido con {n} espacio de trabajo",
       "sharedWithMany": "Compartido con {n} espacios de trabajo",
       "failedToShare": "No se pudo compartir",
-      "failedToShareWorkspace": "No se pudo compartir con el espacio de trabajo"
+      "failedToShareWorkspace": "No se pudo compartir con el espacio de trabajo",
+      "multiTitleSuffix": "{n} elementos",
+      "partialSuccess": "Compartido con {n} workspace(s) — algunos fallaron",
+      "sharedItemsWithWorkspaces": "{items} elemento(s) compartidos con {n} workspace(s)"
     },
     "settings": {
       "title": "Ajustes de almacenamiento",
@@ -600,6 +620,10 @@
       "config": "Configuración",
       "executable": "Ejecutable",
       "file": "Archivo"
+    },
+    "tabs": {
+      "files": "Archivos",
+      "settings": "Ajustes"
     }
   },
   "contact": {
@@ -677,6 +701,172 @@
       "copied": "¡Copiado!",
       "loading": "Cargando contraseñas…",
       "saving": "Guardando…"
+    },
+    "tabs": {
+      "passwords": "Contraseñas",
+      "wallet": "Cartera"
+    },
+    "wallet": {
+      "sections": {
+        "overview": "Resumen",
+        "activity": "Actividad",
+        "workflows": "Flujos",
+        "policies": "Políticas"
+      },
+      "banner": {
+        "topUpCompleted": "Recarga completada. Tu saldo se ha actualizado.",
+        "topUpCancelled": "Recarga cancelada. No se realizó ningún cargo."
+      },
+      "overview": {
+        "availableBalance": "Saldo disponible",
+        "autoTopUp": "Recarga automática",
+        "autoTopUpOn": "Activa",
+        "topUp": "Recargar",
+        "newTopUpsCharged": "Las nuevas recargas se cobrarán en {currency}."
+      },
+      "activity": {
+        "title": "Actividad de gasto",
+        "subtitle": "Totales diarios en tu workspace.",
+        "spentN": "Gastado en {n}d",
+        "toppedN": "Recargado en {n}d",
+        "dailyAverage": "Media diaria",
+        "activeDays": "Días activos",
+        "tooltipSpent": "Gastado",
+        "tooltipTopped": "Recargado"
+      },
+      "chartRanges": {
+        "d7": "7d",
+        "d30": "30d",
+        "d90": "90d"
+      },
+      "spendingByWorkflow": {
+        "title": "Gasto por flujo",
+        "subtitle": "Selecciona un flujo para ver su actividad.",
+        "count": "{n} flujo(s)",
+        "loading": "Cargando flujos…",
+        "empty": "Aún no hay gasto en flujos."
+      },
+      "sortOptions": {
+        "spent": "Más gastado",
+        "allocated": "Más asignado",
+        "recent": "Actividad reciente"
+      },
+      "status": {
+        "active": "Activo",
+        "paused": "Pausado",
+        "exhausted": "Agotado",
+        "released": "Liberado"
+      },
+      "txTable": {
+        "searchPlaceholder": "Buscar transacciones…",
+        "allSources": "Todas las fuentes",
+        "workspaceOnly": "Solo workspace",
+        "workflowOption": "Flujo {id}",
+        "countSummary": "Mostrando {shown} de {total}",
+        "type": "Tipo",
+        "description": "Descripción",
+        "workflow": "Flujo",
+        "date": "Fecha",
+        "amount": "Importe",
+        "balance": "Saldo",
+        "workspaceTag": "Workspace",
+        "loading": "Cargando transacciones…",
+        "empty": "Ninguna transacción coincide con estos filtros."
+      },
+      "txType": {
+        "topUp": "Recarga",
+        "allocation": "Asignación",
+        "deduction": "Cargo",
+        "refund": "Reembolso",
+        "adjustment": "Ajuste"
+      },
+      "txTypeFilter": {
+        "all": "Todos los tipos",
+        "topUp": "Recargas",
+        "allocation": "Asignaciones",
+        "deduction": "Cargos",
+        "refund": "Reembolsos",
+        "adjustment": "Ajustes"
+      },
+      "workflowsView": {
+        "workflowsLabel": "Flujos",
+        "emptyAside": "Aún no hay flujos.",
+        "emptyDetail": "Selecciona un flujo para ver sus detalles.",
+        "workflow": "Flujo",
+        "createdAt": "Creado el {date}",
+        "spent": "Gastado",
+        "remaining": "Restante",
+        "allocated": "Asignado",
+        "consumption": "Consumo",
+        "activity": "Actividad",
+        "entries": "{n} entradas",
+        "noActivity": "Aún no hay actividad para este flujo."
+      },
+      "topUpModal": {
+        "title": "Recargar saldo",
+        "amount": "Importe",
+        "chargeCurrency": "Moneda del cargo",
+        "minMaxNote": "Mín. {min} · Máx. {max} por recarga.",
+        "amountRangeError": "El importe debe estar entre {min} y {max}.",
+        "checkoutError": "No se pudo iniciar el pago. Inténtalo de nuevo.",
+        "cancel": "Cancelar",
+        "redirecting": "Redirigiendo…",
+        "continueToStripe": "Continuar a Stripe"
+      },
+      "autoTopUpModal": {
+        "title": "Recarga automática",
+        "enable": "Activar recarga automática",
+        "enableDesc": "Recarga el saldo automáticamente cuando sea bajo.",
+        "triggerBelow": "Activar por debajo de",
+        "addAmount": "Importe a añadir",
+        "note": "Los cargos usan tu moneda actual de recarga. Cámbiala desde el modal de recarga.",
+        "done": "Listo"
+      },
+      "policies": {
+        "budgetCapsTitle": "Límites de presupuesto",
+        "budgetCapsDesc": "Límites de gasto por defecto para nuevos flujos.",
+        "workflowTotal": "Total por flujo",
+        "workflowTotalHint": "Límite por defecto para una ejecución de flujo.",
+        "perOpMax": "Máx. por operación",
+        "perOpMaxHint": "Mayor cargo único permitido sin aprobación.",
+        "llmCap": "Límite por llamada LLM",
+        "llmCapHint": "Coste máximo para una llamada LLM individual.",
+        "approvalThreshold": "Umbral de aprobación",
+        "approvalThresholdHint": "Los cargos por encima requieren aprobación.",
+        "automationTitle": "Límites de automatización",
+        "automationDesc": "Barreras para la duración y alcance de las ejecuciones.",
+        "maxSteps": "Pasos máximos",
+        "maxScreenshots": "Capturas máximas",
+        "maxDuration": "Duración máx. (min)",
+        "concurrent": "Ejecuciones simultáneas",
+        "dailyCap": "Límite diario del workspace",
+        "dailyCapHint": "Gasto total permitido en el workspace al día.",
+        "blockAfterHours": "Bloquear fuera de horario",
+        "blockAfterHoursDesc": "Pausar nuevas ejecuciones fuera del horario laboral.",
+        "alertsTitle": "Alertas y aprobaciones",
+        "alertsDesc": "Notifica al equipo y exige aprobación cuando importa.",
+        "pauseOnExhaustion": "Pausar al agotarse",
+        "pauseOnExhaustionDesc": "Pausa flujos que alcanzan su presupuesto.",
+        "lowBalance": "Avisos de saldo bajo",
+        "lowBalanceDesc": "Avisa cuando el saldo de la cartera sea bajo.",
+        "overrun": "Avisos de exceso",
+        "overrunDesc": "Avisa cuando un flujo supera su presupuesto.",
+        "approveExternal": "Aprobar cargos externos",
+        "approveExternalDesc": "Requiere aprobación antes de cobrar a servicios externos.",
+        "domainTitle": "Política de dominios",
+        "domainDesc": "Limita los sitios que pueden alcanzar las ejecuciones automatizadas.",
+        "policyLabel": "Política",
+        "domainAny": "Cualquiera",
+        "domainAllowlist": "Lista permitida",
+        "domainDenylist": "Lista bloqueada",
+        "domainPlaceholderAny": "Cualquier dominio está permitido.",
+        "domainPlaceholderList": "Un dominio por línea, p. ej. example.com",
+        "howApplyTitle": "Cómo se aplican",
+        "howApply1": "Lista permitida: solo los dominios listados son accesibles.",
+        "howApply2": "Lista bloqueada: todos los dominios excepto los listados son accesibles.",
+        "howApply3": "Los subdominios se incluyen automáticamente.",
+        "howApply4": "Los cambios surten efecto en la siguiente ejecución."
+      }
     }
   },
   "schedule": {
@@ -786,7 +976,11 @@
     "currentlyLabel": "actualmente {level}",
     "cancel": "Cancelar",
     "save": "Guardar",
-    "saving": "Guardando…"
+    "saving": "Guardando…",
+    "cascadeNotice": "Los cambios de permisos se aplican a este elemento y a todo lo que contiene.",
+    "multiCascadeWarning": "Estos cambios de permisos se aplicarán a {n} elementos y a todo su contenido.",
+    "multiSubtitle": "{n} elementos seleccionados",
+    "multiTitleSuffix": "{n} elementos"
   },
   "pricing": {
     "storage": {
@@ -816,5 +1010,42 @@
   "featureUnavailableBody": "Esta función todavía no está disponible para tu cuenta.",
   "accountSuspendedTitle": "Cuenta suspendida",
   "accountSuspendedBody": "El acceso a tu cuenta ha sido suspendido temporalmente. Si crees que es un error, ponte en contacto con soporte.",
-  "accountSuspendedSignOut": "Cerrar sesión"
+  "accountSuspendedSignOut": "Cerrar sesión",
+  "onboarding": {
+    "skip": "Omitir",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "getStarted": "Empezar",
+    "stepLabel": "Paso {current} de {total}",
+    "welcome": {
+      "title": "Te damos la bienvenida a Polymux",
+      "description": "Ejecuta flujos con IA que navegan por la web, trabajan con archivos y actúan en tu nombre."
+    },
+    "workflows": {
+      "title": "Crea flujos visualmente",
+      "description": "Compón pasos en un lienzo, ejecútalos en horario y revisa cada resultado."
+    },
+    "browser": {
+      "title": "Un navegador que te acompaña",
+      "description": "Mira en tiempo real cómo los flujos manejan el navegador, o toma el control cuando quieras."
+    },
+    "vault": {
+      "title": "Tu bóveda, tus secretos",
+      "description": "Guarda contraseñas y credenciales de forma segura para que los flujos puedan iniciar sesión por ti."
+    },
+    "terms": {
+      "title": "Algunas cosas que debes saber",
+      "description": "Polymux está en beta. Por favor, lee y acepta los puntos siguientes antes de continuar.",
+      "bullet1": "La privacidad no está garantizada durante la beta. Muchas funciones aún se están construyendo y probando.",
+      "bullet2": "El contenido que crees, subas o generes puede ser revisado por nuestro equipo y los sistemas que usamos para depurar y mejorar el producto.",
+      "bullet3": "Los datos que proporciones pueden compartirse con proveedores externos de confianza (modelos, infraestructura y análisis) para que el producto funcione y mejore.",
+      "bullet4": "Son posibles cortes, pérdida de datos y comportamientos inesperados. Evita usar Polymux para trabajos sensibles, regulados o críticos para producción.",
+      "footnote": "Al continuar, también reconoces nuestros",
+      "and": "y",
+      "termsOfService": "Términos del Servicio",
+      "privacyPolicy": "Política de Privacidad",
+      "footnoteEnd": ".",
+      "acknowledgement": "He leído y entendido lo anterior y consiento la exposición e intercambio de datos descritos durante la beta de Polymux."
+    }
+  }
 }

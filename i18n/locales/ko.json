@@ -165,6 +165,7 @@
     "chatView": "채팅",
     "viewportView": "뷰포트",
     "workflowView": "워크플로우",
+    "nodeView": "노드",
     "spawnBrowserAgent": "브라우저 에이전트 시작",
     "voiceListening": "듣는 중…",
     "voiceUnsupported": "이 브라우저는 음성 입력을 지원하지 않습니다. Chrome, Edge 또는 Safari를 사용해 주세요.",
@@ -220,7 +221,24 @@
     "saveBeforeRun": "실행하기 전에 편집을 저장하세요",
     "runLabel": "실행",
     "restoreChangeSummary": "v{version}으로 되돌림",
-    "revertedToast": "워크플로가 되돌려졌습니다"
+    "revertedToast": "워크플로가 되돌려졌습니다",
+    "nodeCanvasEmpty": "노드 캔버스가 비어 있습니다",
+    "nodeDetails": "노드 상세",
+    "toolUse": "도구 사용",
+    "noToolUse": "도구 사용 없음",
+    "selectedCount": "{n}개 선택됨",
+    "fitToView": "화면에 맞춤",
+    "addNode": "노드 추가",
+    "clearSelection": "선택 해제",
+    "tabs": {
+      "agent": "에이전트",
+      "schedule": "일정",
+      "artifacts": "아티팩트"
+    },
+    "liveBadge": "라이브",
+    "liveNow": "실시간",
+    "sequence": "시퀀스",
+    "unsavedChanges": "저장되지 않은 변경 사항"
   },
   "dashboard": {
     "home": "홈",
@@ -359,7 +377,6 @@
     "editorSlugHelp": "소문자, 선택적으로 author/name 형식.",
     "editorSlugAutoHelp": "사용자 핸들과 위 이름으로 자동 생성됩니다.",
     "editorSlugPreviewEmpty": "author/name",
-    "editorWorkflowNameTaken": "이 워크스페이스에 같은 이름의 워크플로가 이미 있습니다.",
     "editorName": "이름",
     "editorDescription": "설명",
     "editorTags": "태그",
@@ -502,7 +519,10 @@
       "sharedWithOne": "{n}개의 작업공간과 공유됨",
       "sharedWithMany": "{n}개의 작업공간과 공유됨",
       "failedToShare": "공유하지 못했습니다",
-      "failedToShareWorkspace": "작업공간과 공유하지 못했습니다"
+      "failedToShareWorkspace": "작업공간과 공유하지 못했습니다",
+      "multiTitleSuffix": "{n}개 항목",
+      "partialSuccess": "{n}개 워크스페이스와 공유 — 일부 실패",
+      "sharedItemsWithWorkspaces": "{items}개 항목을 {n}개 워크스페이스와 공유했습니다"
     },
     "settings": {
       "title": "저장소 설정",
@@ -600,6 +620,10 @@
       "config": "설정",
       "executable": "실행 파일",
       "file": "파일"
+    },
+    "tabs": {
+      "files": "파일",
+      "settings": "설정"
     }
   },
   "contact": {
@@ -677,6 +701,172 @@
       "copied": "복사됨!",
       "loading": "비밀번호 불러오는 중…",
       "saving": "저장 중…"
+    },
+    "tabs": {
+      "passwords": "비밀번호",
+      "wallet": "지갑"
+    },
+    "wallet": {
+      "sections": {
+        "overview": "개요",
+        "activity": "활동",
+        "workflows": "워크플로",
+        "policies": "정책"
+      },
+      "banner": {
+        "topUpCompleted": "충전이 완료되었습니다. 잔액이 업데이트되었습니다.",
+        "topUpCancelled": "충전이 취소되었습니다. 청구되지 않았습니다."
+      },
+      "overview": {
+        "availableBalance": "사용 가능 잔액",
+        "autoTopUp": "자동 충전",
+        "autoTopUpOn": "켜짐",
+        "topUp": "충전",
+        "newTopUpsCharged": "새 충전은 {currency}로 청구됩니다."
+      },
+      "activity": {
+        "title": "지출 활동",
+        "subtitle": "워크스페이스 전체의 일별 합계입니다.",
+        "spentN": "{n}일 지출",
+        "toppedN": "{n}일 충전",
+        "dailyAverage": "일평균",
+        "activeDays": "활동 일수",
+        "tooltipSpent": "지출",
+        "tooltipTopped": "충전"
+      },
+      "chartRanges": {
+        "d7": "7일",
+        "d30": "30일",
+        "d90": "90일"
+      },
+      "spendingByWorkflow": {
+        "title": "워크플로별 지출",
+        "subtitle": "워크플로를 선택해 활동을 확인하세요.",
+        "count": "{n}개 워크플로",
+        "loading": "워크플로 불러오는 중…",
+        "empty": "아직 워크플로 지출이 없습니다."
+      },
+      "sortOptions": {
+        "spent": "지출 많은 순",
+        "allocated": "할당 많은 순",
+        "recent": "최근 활동"
+      },
+      "status": {
+        "active": "활성",
+        "paused": "일시 중지",
+        "exhausted": "소진",
+        "released": "해제됨"
+      },
+      "txTable": {
+        "searchPlaceholder": "거래 검색…",
+        "allSources": "모든 소스",
+        "workspaceOnly": "워크스페이스 전용",
+        "workflowOption": "워크플로 {id}",
+        "countSummary": "{total}개 중 {shown}개 표시",
+        "type": "유형",
+        "description": "설명",
+        "workflow": "워크플로",
+        "date": "날짜",
+        "amount": "금액",
+        "balance": "잔액",
+        "workspaceTag": "워크스페이스",
+        "loading": "거래 불러오는 중…",
+        "empty": "이 필터와 일치하는 거래가 없습니다."
+      },
+      "txType": {
+        "topUp": "충전",
+        "allocation": "할당",
+        "deduction": "차감",
+        "refund": "환불",
+        "adjustment": "조정"
+      },
+      "txTypeFilter": {
+        "all": "모든 유형",
+        "topUp": "충전",
+        "allocation": "할당",
+        "deduction": "차감",
+        "refund": "환불",
+        "adjustment": "조정"
+      },
+      "workflowsView": {
+        "workflowsLabel": "워크플로",
+        "emptyAside": "아직 워크플로가 없습니다.",
+        "emptyDetail": "워크플로를 선택해 자세한 정보를 확인하세요.",
+        "workflow": "워크플로",
+        "createdAt": "{date} 생성",
+        "spent": "사용",
+        "remaining": "잔여",
+        "allocated": "할당",
+        "consumption": "소비",
+        "activity": "활동",
+        "entries": "{n}개 항목",
+        "noActivity": "이 워크플로에 아직 활동이 없습니다."
+      },
+      "topUpModal": {
+        "title": "잔액 충전",
+        "amount": "금액",
+        "chargeCurrency": "청구 통화",
+        "minMaxNote": "최소 {min} · 최대 {max} / 충전.",
+        "amountRangeError": "금액은 {min}와 {max} 사이여야 합니다.",
+        "checkoutError": "결제를 시작할 수 없습니다. 다시 시도해 주세요.",
+        "cancel": "취소",
+        "redirecting": "이동 중…",
+        "continueToStripe": "Stripe로 계속"
+      },
+      "autoTopUpModal": {
+        "title": "자동 충전",
+        "enable": "자동 충전 사용",
+        "enableDesc": "잔액이 적어지면 자동으로 충전합니다.",
+        "triggerBelow": "이 금액 이하일 때",
+        "addAmount": "추가 금액",
+        "note": "결제는 현재 충전 통화를 사용합니다. 충전 모달에서 변경할 수 있습니다.",
+        "done": "완료"
+      },
+      "policies": {
+        "budgetCapsTitle": "예산 한도",
+        "budgetCapsDesc": "새 워크플로의 기본 지출 한도입니다.",
+        "workflowTotal": "워크플로 총액",
+        "workflowTotalHint": "단일 워크플로 실행의 기본 한도.",
+        "perOpMax": "작업당 최대",
+        "perOpMaxHint": "승인 없이 허용되는 최대 단일 청구.",
+        "llmCap": "LLM 호출 한도",
+        "llmCapHint": "개별 LLM 호출의 최대 비용.",
+        "approvalThreshold": "승인 임계값",
+        "approvalThresholdHint": "이 금액을 초과하는 청구는 승인이 필요합니다.",
+        "automationTitle": "자동화 한도",
+        "automationDesc": "자동 실행의 시간과 범위에 대한 가드레일입니다.",
+        "maxSteps": "최대 단계 수",
+        "maxScreenshots": "최대 스크린샷 수",
+        "maxDuration": "최대 시간 (분)",
+        "concurrent": "동시 실행",
+        "dailyCap": "워크스페이스 일일 한도",
+        "dailyCapHint": "워크스페이스에서 하루 허용되는 총 지출.",
+        "blockAfterHours": "업무 외 시간 차단",
+        "blockAfterHoursDesc": "근무 시간 외 새 실행을 일시 중지합니다.",
+        "alertsTitle": "알림 및 승인",
+        "alertsDesc": "중요한 경우 팀에 알리고 승인을 요구합니다.",
+        "pauseOnExhaustion": "소진 시 일시 중지",
+        "pauseOnExhaustionDesc": "예산에 도달한 워크플로를 일시 중지합니다.",
+        "lowBalance": "잔액 부족 알림",
+        "lowBalanceDesc": "지갑 잔액이 적어지면 알립니다.",
+        "overrun": "초과 알림",
+        "overrunDesc": "워크플로가 예산을 초과하면 알립니다.",
+        "approveExternal": "외부 청구 승인",
+        "approveExternalDesc": "외부 서비스 청구 전에 승인을 요구합니다.",
+        "domainTitle": "도메인 정책",
+        "domainDesc": "자동 실행이 접근할 수 있는 사이트를 제한합니다.",
+        "policyLabel": "정책",
+        "domainAny": "모두",
+        "domainAllowlist": "허용 목록",
+        "domainDenylist": "차단 목록",
+        "domainPlaceholderAny": "모든 도메인이 허용됩니다.",
+        "domainPlaceholderList": "한 줄에 도메인 하나 (예: example.com)",
+        "howApplyTitle": "규칙 적용 방식",
+        "howApply1": "허용 목록: 나열된 도메인만 접근 가능.",
+        "howApply2": "차단 목록: 나열된 도메인을 제외한 모두 접근 가능.",
+        "howApply3": "하위 도메인은 자동으로 포함됩니다.",
+        "howApply4": "변경 사항은 다음 실행부터 적용됩니다."
+      }
     }
   },
   "schedule": {
@@ -786,7 +976,11 @@
     "currentlyLabel": "현재 {level}",
     "cancel": "취소",
     "save": "저장",
-    "saving": "저장 중…"
+    "saving": "저장 중…",
+    "cascadeNotice": "권한 변경은 이 항목과 그 안의 모든 항목에 적용됩니다.",
+    "multiCascadeWarning": "이 권한 변경은 {n}개 항목과 각 항목 안의 모든 것에 적용됩니다.",
+    "multiSubtitle": "{n}개 항목 선택됨",
+    "multiTitleSuffix": "{n}개 항목"
   },
   "pricing": {
     "storage": {
@@ -816,5 +1010,42 @@
   "featureUnavailableBody": "이 기능은 아직 회원님의 계정에서 사용할 수 없습니다.",
   "accountSuspendedTitle": "계정 정지됨",
   "accountSuspendedBody": "계정 접근이 일시적으로 정지되었습니다. 오류라고 생각되시면 고객지원에 문의해 주세요.",
-  "accountSuspendedSignOut": "로그아웃"
+  "accountSuspendedSignOut": "로그아웃",
+  "onboarding": {
+    "skip": "건너뛰기",
+    "back": "뒤로",
+    "next": "다음",
+    "getStarted": "시작하기",
+    "stepLabel": "{total}단계 중 {current}단계",
+    "welcome": {
+      "title": "Polymux에 오신 것을 환영합니다",
+      "description": "웹을 탐색하고 파일을 다루며 사용자를 대신해 행동하는 AI 워크플로를 실행하세요."
+    },
+    "workflows": {
+      "title": "워크플로를 시각적으로 구성",
+      "description": "캔버스에 단계를 배치하고, 일정에 따라 실행하며, 모든 결과를 확인하세요."
+    },
+    "browser": {
+      "title": "함께 따라오는 브라우저",
+      "description": "워크플로가 브라우저를 조작하는 모습을 실시간으로 확인하거나 언제든지 직접 인계받으세요."
+    },
+    "vault": {
+      "title": "당신의 보관소, 당신의 비밀",
+      "description": "비밀번호와 자격 증명을 안전하게 저장해 워크플로가 대신 로그인할 수 있도록 합니다."
+    },
+    "terms": {
+      "title": "몇 가지 알아둘 사항",
+      "description": "Polymux는 베타입니다. 계속하기 전에 아래 항목을 읽고 동의해 주세요.",
+      "bullet1": "베타 기간 동안 개인정보 보호는 보장되지 않습니다. 많은 기능이 아직 개발 및 테스트 중입니다.",
+      "bullet2": "생성, 업로드 또는 생성한 콘텐츠는 디버깅 및 제품 개선을 위해 당사 팀과 시스템에서 검토될 수 있습니다.",
+      "bullet3": "제공한 데이터는 제품의 작동 및 개선을 위해 신뢰할 수 있는 외부 제공자(모델, 인프라, 분석 파트너)와 공유될 수 있습니다.",
+      "bullet4": "장애, 데이터 손실, 예기치 않은 동작이 발생할 수 있습니다. 민감하거나 규제 대상이거나 운영에 중요한 작업에 Polymux를 의존하지 마세요.",
+      "footnote": "계속함으로써 다음에도 동의하게 됩니다:",
+      "and": "및",
+      "termsOfService": "서비스 이용약관",
+      "privacyPolicy": "개인정보 처리방침",
+      "footnoteEnd": ".",
+      "acknowledgement": "위 내용을 읽고 이해했으며, Polymux 베타 기간 동안 설명된 노출 및 데이터 공유에 동의합니다."
+    }
+  }
 }

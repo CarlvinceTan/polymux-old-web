@@ -15,12 +15,19 @@ import type {
   UserMessagePayload,
   TitleRequestPayload,
   TitleResponsePayload,
+  SessionStatePayload,
 } from '../types'
 
 interface ChatState {
   messages: Ref<ChatMessage[]>
   thinking: Ref<ThinkingState | null>
   waitingForAgent: Ref<boolean>
+  // True while a partial agent_message is actively producing text (streamingBuffer set,
+  // not yet sealed by agent_message_boundary or the final agent_message). The chat UI
+  // uses this with waitingForAgent to keep the typing indicator visible during silent
+  // gaps in the turn — between continuation rounds, while a browser sub-agent is running,
+  // or before the first text chunk arrives.
+  isStreaming: Ref<boolean>
   streamingBuffer: { agentId: string; text: string } | null
 }
 
@@ -28,17 +35,24 @@ export interface ChatHandle {
   readonly messages: Ref<ChatMessage[]>
   readonly thinking: Ref<ThinkingState | null>
   readonly waitingForAgent: Ref<boolean>
+  readonly isStreaming: Ref<boolean>
   sendMessage(content: string, attachments?: ChatMessageAttachment[]): void
   editMessage(index: number, text: string, attachments: ChatMessageAttachment[]): void
   retryFromMessage(index: number): void
   loadHistory(history: ChatMessage[]): void
 }
 
-export function useAgentChats(session: SessionHandle, sessionId: string) {
+export function useAgentChats(session: SessionHandle, _sessionId: string) {
+  // Plain `ref`, not `useState`: workflow switches remount the parent page, and
+  // an unmounted-then-remounted workflow must rehydrate from the DB rather than
+  // from a stale slot that captured a half-streamed partial before the previous
+  // WS was torn down. Sub-agent state (see `getState` below) was already a
+  // plain `ref` for the same reason; the orchestrator was the lone outlier.
   const orchestratorState: ChatState = {
-    messages: useState<ChatMessage[]>(`chat-messages-${sessionId}`, () => []),
+    messages: ref<ChatMessage[]>([]),
     thinking: ref<ThinkingState | null>(null),
     waitingForAgent: ref(false),
+    isStreaming: ref(false),
     streamingBuffer: null,
   }
 
@@ -53,6 +67,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
         messages: ref<ChatMessage[]>([]),
         thinking: ref<ThinkingState | null>(null),
         waitingForAgent: ref(false),
+        isStreaming: ref(false),
         streamingBuffer: null,
       })
     }
@@ -65,6 +80,14 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     function sendMessage(content: string, attachments?: ChatMessageAttachment[]) {
       const msg: ChatMessage = { role: 'user', text: content }
       if (attachments?.length) msg.attachments = attachments
+      // Seal any in-progress streaming bubble before pushing the user message:
+      // a mid-turn send interrupts the orchestrator (the backend's defer fires
+      // OnMessage("", false), and a few in-flight partial chunks may still
+      // arrive). Both code paths in handleAgentMessage rewrite messages[length-1]
+      // when streamingBuffer is set — without this reset, that rewrites the
+      // user message we just appended and the prompt disappears from the panel.
+      state.streamingBuffer = null
+      state.isStreaming.value = false
       state.messages.value = [...state.messages.value, msg]
       state.waitingForAgent.value = true
 
@@ -83,6 +106,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
       if (atts) edited.attachments = atts
 
       state.streamingBuffer = null
+      state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = true
       state.messages.value = [...state.messages.value.slice(0, index), edited]
@@ -106,6 +130,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
       const attachments = userMsg.attachments
 
       state.streamingBuffer = null
+      state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = true
       state.messages.value = [...state.messages.value.slice(0, userIndex), { role: 'user', text: content, attachments }]
@@ -117,15 +142,35 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     }
 
     function loadHistory(history: ChatMessage[]) {
-      if (history.length > 0 && state.messages.value.length === 0) {
-        state.messages.value = history
-      }
+      if (history.length === 0) return
+      // Always replace from DB on rehydrate. Race we're closing: when a
+      // workflow remounts, useSession's WS connect runs in parallel with
+      // [id].vue's fetchMessages. If a live agent_thinking / agent_message
+      // event lands before the DB read resolves, it appends to state.messages
+      // — and the old guard (`messages.value.length !== 0` → bail) then
+      // dropped the entire persisted history on the floor. The user sees
+      // only fragments of the live turn until they refresh. Replacing
+      // unconditionally here gives the DB the final word; subsequent live
+      // events continue from the rehydrated tail. We also drop the
+      // pre-fetch stream/thinking residue so the next chunk starts a clean
+      // bubble instead of trying to extend a now-deleted partial.
+      state.messages.value = history
+      state.streamingBuffer = null
+      state.isStreaming.value = false
+      state.thinking.value = null
+      // Restore the typing indicator iff the orchestrator was still mid-turn
+      // when we last left this workflow (last persisted message is the user's
+      // prompt with no agent reply yet). Otherwise clear it — coming back to
+      // a workflow whose response landed in the DB while we were away should
+      // not look like it's still thinking.
+      state.waitingForAgent.value = history[history.length - 1]?.role === 'user'
     }
 
     return {
       messages: state.messages,
       thinking: state.thinking,
       waitingForAgent: state.waitingForAgent,
+      isStreaming: state.isStreaming,
       sendMessage,
       editMessage,
       retryFromMessage,
@@ -149,6 +194,13 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
         updated[updated.length - 1] = { role: 'agent', text: state.streamingBuffer.text }
         state.messages.value = updated
       }
+      state.isStreaming.value = true
+      // Re-arm waitingForAgent: covers the case where the user returned to
+      // this workflow mid-turn (after the first continuation round had
+      // already sealed to the DB) and loadHistory cleared the flag because
+      // the last persisted message looked terminal. Live partials prove
+      // the orchestrator is still working.
+      state.waitingForAgent.value = true
     } else {
       if (state.streamingBuffer) {
         const finalText = state.streamingBuffer.text + p.content
@@ -159,6 +211,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
         state.messages.value = [...state.messages.value, { role: 'agent', text: p.content }]
       }
       state.streamingBuffer = null
+      state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = false
     }
@@ -168,11 +221,21 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     const chatId = p.agent_id || 'orchestrator'
     const state = getState(chatId)
     state.streamingBuffer = null
+    // Sealing the bubble between continuation rounds: the turn is still alive
+    // (waitingForAgent stays true) but we are no longer producing text. Drop
+    // isStreaming so the typing indicator surfaces during the gap before the
+    // next round begins streaming.
+    state.isStreaming.value = false
   }
 
   function handleAgentThinking(p: AgentThinkingPayload) {
     const chatId = p.agent_id || 'orchestrator'
     const state = getState(chatId)
+
+    // Re-arm waitingForAgent (see handleAgentMessage partial path for why):
+    // a thinking event proves the agent is actively working, even if the
+    // most recent persisted message looked terminal at remount time.
+    state.waitingForAgent.value = true
 
     state.thinking.value = {
       agentId: p.agent_id,
@@ -219,8 +282,13 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   }
 
   function handleBrowserSpawned(_p: BrowserSpawnedPayload) {
+    // Re-arm waitingForAgent — same reason as the partial / thinking paths:
+    // the orchestrator is actively delegating, so the indicator should stay
+    // up even if loadHistory just cleared it on rehydrate.
+    orchestratorState.waitingForAgent.value = true
     if (orchestratorState.streamingBuffer) {
       orchestratorState.streamingBuffer = null
+      orchestratorState.isStreaming.value = false
       orchestratorState.thinking.value = null
     }
   }
@@ -228,6 +296,18 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   function handleBrowserAgentReleased(p: BrowserAgentReleasedPayload) {
     agentStates.delete(p.agent_id)
     delete drafts[p.agent_id]
+  }
+
+  // session_state lands on every WS (re)connect. If any browser sub-agent is
+  // still running, the orchestrator is necessarily mid-turn — only it can
+  // spawn them and only it consumes their results — so the typing indicator
+  // should stay up even though loadHistory may have cleared waitingForAgent
+  // based on the last persisted message. Without this, returning to a
+  // workflow during a long-running browser delegation looks like the chat
+  // settled even though work is still happening in the viewport.
+  function handleSessionState(p: SessionStatePayload) {
+    const anyRunning = (p.browser_agents ?? []).some(a => a.status === 'running')
+    if (anyRunning) orchestratorState.waitingForAgent.value = true
   }
 
   function handleTitleResponse(p: TitleResponsePayload) {
@@ -241,6 +321,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   session.on<TitleResponsePayload>('title_response', handleTitleResponse)
+  session.on<SessionStatePayload>('session_state', handleSessionState)
 
   onUnmounted(() => {
     session.off('agent_message', handleAgentMessage)
@@ -250,6 +331,7 @@ export function useAgentChats(session: SessionHandle, sessionId: string) {
     session.off('browser_spawned', handleBrowserSpawned)
     session.off('browser_agent_released', handleBrowserAgentReleased)
     session.off('title_response', handleTitleResponse)
+    session.off('session_state', handleSessionState)
   })
 
   /**

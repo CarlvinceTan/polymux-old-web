@@ -208,14 +208,34 @@ body {
     0 4px 18px rgba(26, 28, 28, 0.09);
 }
 
-/* StatusLine.vue — global keyframes so scoped CSS + Tailwind don’t strip/mismatch names */
-@keyframes status-line-pulse {
+/* StatusLine.vue — global keyframes so scoped CSS + Tailwind don’t strip/mismatch names.
+   Dot bloom: each dot fades in to peak, settles, then fades out — staggered by
+   Manhattan distance from the matrix center (see StatusLine.vue). */
+@keyframes status-line-dot-pulse {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* StatusLine "done" state: a calm, in-unison pulse. Baseline opacity is high
+   so the green stays strong; the peak only nudges it a little brighter, with
+   ease-in-out making the transition feel like a slow breath. */
+@keyframes status-line-dot-shimmer {
   0%,
   100% {
-    transform: scaleX(0.5);
+    opacity: 0.78;
   }
   50% {
-    transform: scaleX(1);
+    opacity: 1;
   }
 }
 

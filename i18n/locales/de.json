@@ -165,6 +165,7 @@
     "chatView": "Chat",
     "viewportView": "Viewport",
     "workflowView": "Workflow",
+    "nodeView": "Knoten",
     "spawnBrowserAgent": "Browser-Agent starten",
     "voiceListening": "Höre zu…",
     "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Verwende Chrome, Edge oder Safari.",
@@ -220,7 +221,24 @@
     "saveBeforeRun": "Speichere deine Änderungen vor dem Ausführen",
     "runLabel": "Ausführung",
     "restoreChangeSummary": "Auf v{version} zurückgesetzt",
-    "revertedToast": "Workflow zurückgesetzt"
+    "revertedToast": "Workflow zurückgesetzt",
+    "nodeCanvasEmpty": "Noch keine Knoten — wechseln Sie zur Workflow-Ansicht, um zu beginnen.",
+    "nodeDetails": "Knotendetails",
+    "toolUse": "Tool-Nutzung",
+    "noToolUse": "Keine Tool-Details für diesen Knoten.",
+    "selectedCount": "{n} ausgewählt",
+    "fitToView": "An Ansicht anpassen",
+    "addNode": "Knoten hinzufügen",
+    "clearSelection": "Auswahl aufheben",
+    "tabs": {
+      "agent": "Agent",
+      "schedule": "Zeitplan",
+      "artifacts": "Artefakte"
+    },
+    "liveBadge": "Live",
+    "liveNow": "Live jetzt",
+    "sequence": "Sequenz",
+    "unsavedChanges": "Ungespeicherte Änderungen"
   },
   "dashboard": {
     "home": "Startseite",
@@ -359,7 +377,6 @@
     "editorSlugHelp": "Kleinbuchstaben, optional mit Namespace author/name.",
     "editorSlugAutoHelp": "Automatisch aus deinem Handle und dem Namen oben erzeugt.",
     "editorSlugPreviewEmpty": "author/name",
-    "editorWorkflowNameTaken": "In diesem Workspace existiert bereits ein Workflow mit diesem Namen.",
     "editorName": "Name",
     "editorDescription": "Beschreibung",
     "editorTags": "Tags",
@@ -502,7 +519,10 @@
       "sharedWithOne": "Mit {n} Arbeitsbereich geteilt",
       "sharedWithMany": "Mit {n} Arbeitsbereichen geteilt",
       "failedToShare": "Teilen fehlgeschlagen",
-      "failedToShareWorkspace": "Teilen mit Arbeitsbereich fehlgeschlagen"
+      "failedToShareWorkspace": "Teilen mit Arbeitsbereich fehlgeschlagen",
+      "multiTitleSuffix": "{n} Elemente",
+      "partialSuccess": "Mit {n} Workspace(s) geteilt – einige fehlgeschlagen",
+      "sharedItemsWithWorkspaces": "{items} Element(e) mit {n} Workspace(s) geteilt"
     },
     "settings": {
       "title": "Speichereinstellungen",
@@ -600,6 +620,10 @@
       "config": "Konfiguration",
       "executable": "Ausführbare Datei",
       "file": "Datei"
+    },
+    "tabs": {
+      "files": "Dateien",
+      "settings": "Einstellungen"
     }
   },
   "contact": {
@@ -677,6 +701,172 @@
       "copied": "Kopiert!",
       "loading": "Passwörter werden geladen…",
       "saving": "Speichern…"
+    },
+    "tabs": {
+      "passwords": "Passwörter",
+      "wallet": "Wallet"
+    },
+    "wallet": {
+      "sections": {
+        "overview": "Übersicht",
+        "activity": "Aktivität",
+        "workflows": "Workflows",
+        "policies": "Richtlinien"
+      },
+      "banner": {
+        "topUpCompleted": "Aufladung abgeschlossen. Ihr Guthaben wurde aktualisiert.",
+        "topUpCancelled": "Aufladung abgebrochen. Es wurde nichts berechnet."
+      },
+      "overview": {
+        "availableBalance": "Verfügbares Guthaben",
+        "autoTopUp": "Auto-Aufladung",
+        "autoTopUpOn": "Ein",
+        "topUp": "Aufladen",
+        "newTopUpsCharged": "Neue Aufladungen werden in {currency} berechnet."
+      },
+      "activity": {
+        "title": "Ausgabenaktivität",
+        "subtitle": "Tägliche Summen in Ihrem Workspace.",
+        "spentN": "Ausgegeben in {n}T",
+        "toppedN": "Aufgeladen in {n}T",
+        "dailyAverage": "Tagesdurchschnitt",
+        "activeDays": "Aktive Tage",
+        "tooltipSpent": "Ausgegeben",
+        "tooltipTopped": "Aufgeladen"
+      },
+      "chartRanges": {
+        "d7": "7T",
+        "d30": "30T",
+        "d90": "90T"
+      },
+      "spendingByWorkflow": {
+        "title": "Ausgaben nach Workflow",
+        "subtitle": "Wählen Sie einen Workflow, um seine Aktivität zu sehen.",
+        "count": "{n} Workflow(s)",
+        "loading": "Workflows werden geladen…",
+        "empty": "Noch keine Workflow-Ausgaben."
+      },
+      "sortOptions": {
+        "spent": "Meiste Ausgaben",
+        "allocated": "Meist zugewiesen",
+        "recent": "Neueste Aktivität"
+      },
+      "status": {
+        "active": "Aktiv",
+        "paused": "Pausiert",
+        "exhausted": "Aufgebraucht",
+        "released": "Freigegeben"
+      },
+      "txTable": {
+        "searchPlaceholder": "Transaktionen suchen…",
+        "allSources": "Alle Quellen",
+        "workspaceOnly": "Nur Workspace",
+        "workflowOption": "Workflow {id}",
+        "countSummary": "Zeige {shown} von {total}",
+        "type": "Typ",
+        "description": "Beschreibung",
+        "workflow": "Workflow",
+        "date": "Datum",
+        "amount": "Betrag",
+        "balance": "Saldo",
+        "workspaceTag": "Workspace",
+        "loading": "Transaktionen werden geladen…",
+        "empty": "Keine Transaktionen entsprechen diesen Filtern."
+      },
+      "txType": {
+        "topUp": "Aufladung",
+        "allocation": "Zuteilung",
+        "deduction": "Abbuchung",
+        "refund": "Erstattung",
+        "adjustment": "Anpassung"
+      },
+      "txTypeFilter": {
+        "all": "Alle Typen",
+        "topUp": "Aufladungen",
+        "allocation": "Zuteilungen",
+        "deduction": "Abbuchungen",
+        "refund": "Erstattungen",
+        "adjustment": "Anpassungen"
+      },
+      "workflowsView": {
+        "workflowsLabel": "Workflows",
+        "emptyAside": "Noch keine Workflows.",
+        "emptyDetail": "Wählen Sie einen Workflow, um Details zu sehen.",
+        "workflow": "Workflow",
+        "createdAt": "Erstellt am {date}",
+        "spent": "Ausgegeben",
+        "remaining": "Verbleibend",
+        "allocated": "Zugewiesen",
+        "consumption": "Verbrauch",
+        "activity": "Aktivität",
+        "entries": "{n} Einträge",
+        "noActivity": "Noch keine Aktivität für diesen Workflow."
+      },
+      "topUpModal": {
+        "title": "Guthaben aufladen",
+        "amount": "Betrag",
+        "chargeCurrency": "Abrechnungswährung",
+        "minMaxNote": "Min. {min} · Max. {max} pro Aufladung.",
+        "amountRangeError": "Der Betrag muss zwischen {min} und {max} liegen.",
+        "checkoutError": "Checkout konnte nicht gestartet werden. Bitte erneut versuchen.",
+        "cancel": "Abbrechen",
+        "redirecting": "Weiterleitung…",
+        "continueToStripe": "Weiter zu Stripe"
+      },
+      "autoTopUpModal": {
+        "title": "Auto-Aufladung",
+        "enable": "Auto-Aufladung aktivieren",
+        "enableDesc": "Guthaben automatisch nachladen, wenn es niedrig ist.",
+        "triggerBelow": "Auslösen unterhalb",
+        "addAmount": "Betrag hinzufügen",
+        "note": "Abbuchungen erfolgen in Ihrer aktuellen Aufladewährung. Ändern Sie sie im Aufladen-Dialog.",
+        "done": "Fertig"
+      },
+      "policies": {
+        "budgetCapsTitle": "Budgetgrenzen",
+        "budgetCapsDesc": "Standard-Ausgabenlimits für neue Workflows.",
+        "workflowTotal": "Workflow-Gesamtbetrag",
+        "workflowTotalHint": "Standardgrenze für einen einzelnen Workflow-Lauf.",
+        "perOpMax": "Maximum pro Operation",
+        "perOpMaxHint": "Größte Einzelabbuchung ohne Genehmigung.",
+        "llmCap": "LLM-Aufruf-Grenze",
+        "llmCapHint": "Maximale Kosten für einen einzelnen LLM-Aufruf.",
+        "approvalThreshold": "Genehmigungsschwelle",
+        "approvalThresholdHint": "Beträge darüber benötigen Genehmigung.",
+        "automationTitle": "Automatisierungslimits",
+        "automationDesc": "Schutzgeländer für Dauer und Reichweite automatisierter Läufe.",
+        "maxSteps": "Max. Schritte",
+        "maxScreenshots": "Max. Screenshots",
+        "maxDuration": "Max. Dauer (Min)",
+        "concurrent": "Gleichzeitige Läufe",
+        "dailyCap": "Tageslimit Workspace",
+        "dailyCapHint": "Maximal erlaubte Gesamtausgaben pro Tag im Workspace.",
+        "blockAfterHours": "Außerhalb der Geschäftszeiten blockieren",
+        "blockAfterHoursDesc": "Neue Läufe außerhalb der Arbeitszeiten pausieren.",
+        "alertsTitle": "Warnungen & Genehmigungen",
+        "alertsDesc": "Team benachrichtigen und dort Genehmigung verlangen, wo es zählt.",
+        "pauseOnExhaustion": "Bei Erschöpfung pausieren",
+        "pauseOnExhaustionDesc": "Workflows pausieren, die ihr Budget erreichen.",
+        "lowBalance": "Warnung bei niedrigem Guthaben",
+        "lowBalanceDesc": "Benachrichtigen, wenn das Wallet-Guthaben zur Neige geht.",
+        "overrun": "Überschreitungswarnungen",
+        "overrunDesc": "Benachrichtigen, wenn ein Workflow sein Budget überschreitet.",
+        "approveExternal": "Externe Abbuchungen genehmigen",
+        "approveExternalDesc": "Genehmigung vor Abbuchungen externer Dienste verlangen.",
+        "domainTitle": "Domain-Richtlinie",
+        "domainDesc": "Beschränken Sie, welche Seiten automatisierte Läufe erreichen können.",
+        "policyLabel": "Richtlinie",
+        "domainAny": "Beliebig",
+        "domainAllowlist": "Zulassungsliste",
+        "domainDenylist": "Sperrliste",
+        "domainPlaceholderAny": "Jede Domain ist erlaubt.",
+        "domainPlaceholderList": "Eine Domain pro Zeile, z. B. example.com",
+        "howApplyTitle": "So gelten die Regeln",
+        "howApply1": "Zulassungsliste: nur gelistete Domains sind erreichbar.",
+        "howApply2": "Sperrliste: alle außer den gelisteten Domains sind erreichbar.",
+        "howApply3": "Subdomains werden automatisch erfasst.",
+        "howApply4": "Änderungen wirken beim nächsten Lauf."
+      }
     }
   },
   "schedule": {
@@ -786,7 +976,11 @@
     "currentlyLabel": "derzeit {level}",
     "cancel": "Abbrechen",
     "save": "Speichern",
-    "saving": "Speichern…"
+    "saving": "Speichern…",
+    "cascadeNotice": "Berechtigungsänderungen gelten für dieses Element und alles darin.",
+    "multiCascadeWarning": "Diese Berechtigungsänderungen gelten für {n} Elemente und alles, was sich darin befindet.",
+    "multiSubtitle": "{n} Elemente ausgewählt",
+    "multiTitleSuffix": "{n} Elemente"
   },
   "pricing": {
     "storage": {
@@ -816,5 +1010,42 @@
   "featureUnavailableBody": "Diese Funktion ist für dein Konto noch nicht verfügbar.",
   "accountSuspendedTitle": "Konto gesperrt",
   "accountSuspendedBody": "Dein Kontozugriff wurde vorübergehend gesperrt. Wenn dies ein Fehler ist, wende dich bitte an den Support.",
-  "accountSuspendedSignOut": "Abmelden"
+  "accountSuspendedSignOut": "Abmelden",
+  "onboarding": {
+    "skip": "Überspringen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "getStarted": "Loslegen",
+    "stepLabel": "Schritt {current} von {total}",
+    "welcome": {
+      "title": "Willkommen bei Polymux",
+      "description": "Führen Sie KI-gestützte Workflows aus, die im Web surfen, mit Dateien arbeiten und in Ihrem Namen handeln."
+    },
+    "workflows": {
+      "title": "Workflows visuell erstellen",
+      "description": "Setzen Sie Schritte auf einer Leinwand zusammen, lassen Sie sie geplant laufen und prüfen Sie jedes Ergebnis."
+    },
+    "browser": {
+      "title": "Ein Browser, der mitläuft",
+      "description": "Sehen Sie Workflows live im Browser zu oder übernehmen Sie jederzeit selbst."
+    },
+    "vault": {
+      "title": "Ihr Tresor, Ihre Geheimnisse",
+      "description": "Speichern Sie Passwörter und Zugangsdaten sicher, damit Workflows sich für Sie anmelden können."
+    },
+    "terms": {
+      "title": "Ein paar Hinweise",
+      "description": "Polymux ist im Beta-Stadium. Bitte lesen und akzeptieren Sie die folgenden Punkte, bevor Sie fortfahren.",
+      "bullet1": "Datenschutz ist während der Beta nicht garantiert. Viele Funktionen werden noch entwickelt und getestet.",
+      "bullet2": "Inhalte, die Sie erstellen, hochladen oder generieren, können von unserem Team und unseren Systemen zur Fehlerbehebung und Verbesserung des Produkts überprüft werden.",
+      "bullet3": "Übermittelte Daten können mit vertrauenswürdigen Drittanbietern (Modell-, Infrastruktur- und Analysepartnern) geteilt werden, damit das Produkt funktioniert und sich verbessert.",
+      "bullet4": "Ausfälle, Datenverlust und unerwartetes Verhalten sind möglich. Verlassen Sie sich nicht auf Polymux für sensible, regulierte oder produktionskritische Arbeit.",
+      "footnote": "Mit der Fortsetzung bestätigen Sie auch unsere",
+      "and": "und",
+      "termsOfService": "Nutzungsbedingungen",
+      "privacyPolicy": "Datenschutzerklärung",
+      "footnoteEnd": ".",
+      "acknowledgement": "Ich habe das oben Stehende gelesen und verstanden und stimme der Offenlegung und Datenweitergabe während der Polymux-Beta zu."
+    }
+  }
 }

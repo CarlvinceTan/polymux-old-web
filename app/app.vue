@@ -1,19 +1,5 @@
 <script setup lang="ts">
-const user = useSupabaseUser()
-const router = useRouter()
 const route = useRoute()
-
-// After OAuth, the user becomes non-null when the app regains focus.
-// Consume any stored redirect target set before the OAuth flow started.
-watch(user, (newUser, oldUser) => {
-  if (newUser && !oldUser && import.meta.client) {
-    const redirect = sessionStorage.getItem('auth_redirect')
-    if (redirect) {
-      sessionStorage.removeItem('auth_redirect')
-      router.push(redirect)
-    }
-  }
-})
 
 const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/storage', '/vault', '/integrations', '/session']
 
@@ -41,6 +27,6 @@ const betaModalOpen = computed({
       <NuxtPage />
     </NuxtLayout>
     <ServerUnavailable v-if="showServerError" />
-    <AgreementModal v-model:open="betaModalOpen" @accept="acceptBeta" />
+    <OnboardingModal v-model:open="betaModalOpen" @accept="acceptBeta" />
   </UApp>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SessionHandle } from '~/composables/auth/useSession'
+import type { LiveHistoryEntry } from '~/components/workflow/WorkflowHistoryDrawer.vue'
 import type { WorkflowStep, WorkflowVersion, WorkflowWithLatest } from '~/composables/workflows/useWorkflows'
 import { VersionConflictError } from '~/composables/workflows/useWorkflows'
 
@@ -55,6 +56,13 @@ const revertModalOpen = ref(false)
 const revertTarget = ref<WorkflowVersion | null>(null)
 const reverting = ref(false)
 
+// Save/reject events arrive over the WebSocket and are bound at the page
+// level (see `useWorkflowAgentEvents` in pages/workflow/[id].vue) so the tree
+// keeps refreshing even while this component is unmounted. We subscribe to
+// the resulting reactive ticks here to re-sync steps and the version list.
+const lastSavedName = useState<string | null>('workflow-last-saved-name', () => null)
+const lastSavedAt = useState<number>('workflow-last-saved-at', () => 0)
+
 const storageKey = computed(() => `polymux_workflow_for_session_${props.sessionId}`)
 
 const dirty = computed(() =>
@@ -90,14 +98,31 @@ const versionLabel = computed(() => {
 })
 
 // Live draft tree the orchestrator publishes via `workflow_draft` (see
-// useWorkflowDraft, bound at the page level). Used as a fallback render when
-// no saved workflow is selected — keyed per-session so other workflows don't
-// bleed in.
+// useWorkflowDraft, bound at the page level). Keyed per-session so other
+// workflows don't bleed in.
 const draftSteps = useState<WorkflowStep[]>(`workflow-draft-steps:${props.sessionId}`, () => [])
 
+// Show the live draft whenever the orchestrator is actively building one,
+// even if the user has a saved workflow selected. Without this, follow-up
+// turns after a SaveWorkflow would silently update the draft tree but the
+// view would stay frozen on the saved version. selectedWorkflowId is kept
+// intact — when the draft empties (next save / new turn), the saved view
+// reappears automatically.
 const isDraft = computed(() =>
-  !selectedWorkflowId.value && !isPreview.value && draftSteps.value.length > 0,
+  !isPreview.value && draftSteps.value.length > 0,
 )
+
+// Synthetic top row in the version-history drawer representing the workflow
+// the user is currently looking at when it isn't yet a saved version:
+//  - 'agent-draft' when the orchestrator is mid-build (no selectedWorkflowId)
+//  - 'user-unsaved' when a saved workflow has unpersisted local edits
+// Stays visible during preview so the live row doubles as a "back to live"
+// shortcut alongside the preview banner.
+const liveEntry = computed<LiveHistoryEntry | null>(() => {
+  if (isDraft.value) return { kind: 'agent-draft' }
+  if (dirty.value && selectedWorkflowId.value) return { kind: 'user-unsaved' }
+  return null
+})
 
 const displayedSteps = computed<WorkflowStep[]>(() => {
   if (isPreview.value && previewVersion.value) return previewVersion.value.steps as WorkflowStep[]
@@ -290,22 +315,36 @@ async function onRun(resumeFromNodeId?: string) {
   run.hydrate(r)
 }
 
-async function toggleHistory() {
+function toggleHistory() {
   if (historyOpen.value) {
     historyOpen.value = false
     selectedVersionId.value = null
     return
   }
   historyOpen.value = true
-  if (!selectedWorkflowId.value) return
+}
+
+// Single source of truth for keeping the version-history drawer fresh:
+// fires when the drawer opens, when the active workflow changes, and when
+// any save tick (`lastSavedAt` from useWorkflowAgentEvents) lands. Without
+// this, agent saves arriving over the WebSocket update the dock's steps but
+// leave the visible history list stale. Bails out (and clears the list) for
+// the live-draft case so we don't hit the API for a workflow that doesn't
+// exist on the server yet.
+watch([historyOpen, selectedWorkflowId, () => lastSavedAt.value], async ([open, id]) => {
+  if (!open) return
+  if (!id) {
+    versions.value = []
+    return
+  }
   loadingHistory.value = true
   try {
-    await fetchVersions(workspaceId.value, selectedWorkflowId.value)
+    await fetchVersions(workspaceId.value, id as string)
   }
   finally {
     loadingHistory.value = false
   }
-}
+})
 
 function onSelectVersion(id: string | null) {
   selectedVersionId.value = id
@@ -347,13 +386,8 @@ async function onConfirmRevert() {
   }
 }
 
-// Save/reject listeners live at the page level (see useWorkflowAgentEvents in
-// pages/workflow/[id].vue), so the tree keeps refreshing even while the user
-// is in Chat View and this component is unmounted. We subscribe to the
-// resulting reactive "save tick" and re-sync local step state on match.
-const lastSavedName = useState<string | null>('workflow-last-saved-name', () => null)
-const lastSavedAt = useState<number>('workflow-last-saved-at', () => 0)
-
+// Re-sync local step state when the agent persists a save. Logic only —
+// the underlying refs are declared above with the rest of the dock state.
 watch(lastSavedAt, async (tick) => {
   if (!tick) return
   const name = lastSavedName.value
@@ -490,6 +524,7 @@ watch(lastSavedAt, async (tick) => {
       :versions="versions"
       :current-version-id="latestVersion?.id ?? null"
       :selected-version-id="selectedVersionId"
+      :live-entry="liveEntry"
       :loading="loadingHistory"
       @close="toggleHistory"
       @select="onSelectVersion"

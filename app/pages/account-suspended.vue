@@ -7,12 +7,7 @@ useHead({
   title: () => `${t('accountSuspendedTitle')} — Polymux`,
 })
 
-const supabase = useSupabaseClient()
-
-async function signOut() {
-  await supabase.auth.signOut()
-  await navigateTo('/sign-in', { replace: true })
-}
+const { signOut } = useSignOut()
 </script>
 
 <template>

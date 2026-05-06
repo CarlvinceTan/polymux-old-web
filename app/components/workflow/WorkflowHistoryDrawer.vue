@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import type { WorkflowVersion } from '~/composables/workflows/useWorkflows'
 
+export interface LiveHistoryEntry {
+  // 'agent-draft' = orchestrator's in-progress workflow tree (no saved workflow yet)
+  // 'user-unsaved' = saved workflow with local edits the user hasn't persisted
+  kind: 'agent-draft' | 'user-unsaved'
+}
+
 const props = defineProps<{
   open: boolean
   versions: WorkflowVersion[]
   currentVersionId?: string | null
   selectedVersionId?: string | null
+  liveEntry?: LiveHistoryEntry | null
   loading?: boolean
 }>()
 
@@ -16,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { relativeOrAbsoluteTime } = useRelativeTime()
 
 function impactClasses(level: string): string {
   switch (level) {
@@ -26,20 +34,26 @@ function impactClasses(level: string): string {
   }
 }
 
-function formatDate(iso: string): string {
-  if (!iso) return ''
-  try {
-    return new Date(iso).toLocaleString()
-  }
-  catch {
-    return iso
-  }
-}
-
 function onRowClick(v: WorkflowVersion) {
   if (props.selectedVersionId === v.id) emit('select', null)
   else emit('select', v.id)
 }
+
+const liveTitle = computed(() => {
+  if (!props.liveEntry) return ''
+  return props.liveEntry.kind === 'agent-draft'
+    ? t('workflow.draftBadge')
+    : t('workflow.unsavedChanges')
+})
+
+const liveSource = computed(() =>
+  props.liveEntry?.kind === 'agent-draft' ? 'agent' : 'user',
+)
+
+// The live row is "selected" whenever the user is viewing the live state
+// (no preview version chosen). Clicking it again deselects, but since
+// selectedVersionId is already null we just keep emit'ing null — no-op.
+const liveSelected = computed(() => !!props.liveEntry && !props.selectedVersionId)
 </script>
 
 <template>
@@ -78,11 +92,44 @@ function onRowClick(v: WorkflowVersion) {
         <div v-if="loading" class="flex flex-1 items-center justify-center text-xs text-neutral-400">
           {{ t('workflow.loadingHistory') }}
         </div>
-        <div v-else-if="versions.length === 0" class="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
+        <div v-else-if="versions.length === 0 && !liveEntry" class="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
           <UIcon name="i-heroicons-clock-20-solid" class="size-8 text-neutral-300" />
           <p class="text-sm text-neutral-500">{{ t('workflow.noHistory') }}</p>
         </div>
         <ul v-else class="flex flex-col">
+          <li
+            v-if="liveEntry"
+            class="border-b border-neutral-100 last:border-b-0"
+          >
+            <button
+              type="button"
+              class="flex w-full flex-col items-stretch gap-1 border-l-2 px-4 py-3 text-left transition-colors"
+              :class="liveSelected
+                ? 'border-amber-500 bg-amber-50/80'
+                : 'border-amber-300 bg-amber-50/40 hover:bg-amber-50/70'"
+              @click="emit('select', null)"
+            >
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-semibold text-neutral-900">
+                  {{ liveTitle }}
+                </span>
+                <span
+                  class="inline-flex items-center rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600"
+                >
+                  {{ liveSource }}
+                </span>
+                <span
+                  class="ml-auto inline-flex items-center rounded-sm bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                >
+                  {{ t('workflow.liveBadge') }}
+                </span>
+              </div>
+              <p class="text-[11px] text-neutral-400">
+                {{ t('workflow.liveNow') }}
+              </p>
+            </button>
+          </li>
+
           <li
             v-for="v in versions"
             :key="v.id"
@@ -94,7 +141,7 @@ function onRowClick(v: WorkflowVersion) {
               :class="[
                 v.id === selectedVersionId
                   ? 'border-neutral-900 bg-neutral-100'
-                  : v.id === currentVersionId
+                  : v.id === currentVersionId && !liveEntry
                     ? 'border-emerald-500 bg-emerald-50/60 hover:bg-emerald-50'
                     : 'border-transparent hover:bg-neutral-50',
               ]"
@@ -124,7 +171,7 @@ function onRowClick(v: WorkflowVersion) {
                 {{ v.change_summary }}
               </p>
               <p class="text-[11px] text-neutral-400">
-                {{ formatDate(v.created_at) }}
+                {{ relativeOrAbsoluteTime(v.created_at) }}
               </p>
               <div
                 v-if="v.id === selectedVersionId && v.id !== currentVersionId"

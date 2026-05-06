@@ -1,4 +1,4 @@
-export type WorkflowStepKind = 'directive' | 'loop' | 'parallel'
+export type WorkflowStepKind = 'directive' | 'sequence' | 'loop' | 'parallel'
 
 export interface WorkflowStep {
   id?: string
@@ -114,13 +114,6 @@ export function useWorkflows() {
   const versions = useState<WorkflowVersion[]>('workflow-versions', () => [])
   const runs = useState<WorkflowRun[]>('workflow-runs', () => [])
   const { authFetch } = useAuthFetch()
-  const toast = useAppToast()
-  const { t } = useI18n()
-
-  function isNameTakenError(err: unknown): boolean {
-    const e = err as { status?: number, data?: { error?: string } } | null
-    return e?.status === 409 && e?.data?.error === 'workflow_name_taken'
-  }
 
   const currentWorkflow = computed(() =>
     workflows.value.find(w => w.id === currentWorkflowId.value) ?? null,
@@ -147,10 +140,6 @@ export function useWorkflows() {
       return wf
     }
     catch (err) {
-      if (isNameTakenError(err)) {
-        toast.show(t('integrations.editorWorkflowNameTaken'), 'error')
-        return null
-      }
       console.error('[useWorkflows] createWorkflow failed', err)
       return null
     }
@@ -184,10 +173,6 @@ export function useWorkflows() {
       return wf
     }
     catch (err) {
-      if (isNameTakenError(err)) {
-        toast.show(t('integrations.editorWorkflowNameTaken'), 'error')
-        return null
-      }
       console.error('[useWorkflows] updateWorkflow failed', err)
       return null
     }

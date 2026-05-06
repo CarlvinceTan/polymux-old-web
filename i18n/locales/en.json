@@ -165,6 +165,7 @@
     "chatView": "Chat",
     "viewportView": "Viewport",
     "workflowView": "Workflow",
+    "nodeView": "Node",
     "spawnBrowserAgent": "Spawn browser agent",
     "voiceListening": "Listening…",
     "voiceUnsupported": "Voice input isn't supported in this browser. Try Chrome, Edge, or Safari.",
@@ -220,7 +221,24 @@
     "saveBeforeRun": "Save your edits before running",
     "runLabel": "Run",
     "restoreChangeSummary": "Reverted to v{version}",
-    "revertedToast": "Workflow reverted"
+    "revertedToast": "Workflow reverted",
+    "nodeCanvasEmpty": "No nodes yet — switch to Workflow view to start building.",
+    "nodeDetails": "Node details",
+    "toolUse": "Tool use",
+    "noToolUse": "No tool details for this node.",
+    "selectedCount": "{n} selected",
+    "fitToView": "Fit to view",
+    "addNode": "Add node",
+    "clearSelection": "Clear selection",
+    "tabs": {
+      "agent": "Agent",
+      "schedule": "Schedule",
+      "artifacts": "Artifacts"
+    },
+    "liveBadge": "Live",
+    "liveNow": "Live now",
+    "sequence": "Sequence",
+    "unsavedChanges": "Unsaved changes"
   },
   "dashboard": {
     "home": "Home",
@@ -359,7 +377,6 @@
     "editorSlugHelp": "Lowercase, optionally namespaced as author/name.",
     "editorSlugAutoHelp": "Auto-generated from your handle and the name above.",
     "editorSlugPreviewEmpty": "author/name",
-    "editorWorkflowNameTaken": "A workflow with this name already exists in this workspace.",
     "editorName": "Name",
     "editorDescription": "Description",
     "editorTags": "Tags",
@@ -502,7 +519,10 @@
       "sharedWithOne": "Shared with {n} workspace",
       "sharedWithMany": "Shared with {n} workspaces",
       "failedToShare": "Failed to share",
-      "failedToShareWorkspace": "Failed to share with workspace"
+      "failedToShareWorkspace": "Failed to share with workspace",
+      "multiTitleSuffix": "{n} items",
+      "partialSuccess": "Shared with {n} workspace(s) — some failed",
+      "sharedItemsWithWorkspaces": "Shared {items} item(s) with {n} workspace(s)"
     },
     "settings": {
       "title": "Storage settings",
@@ -600,6 +620,10 @@
       "config": "Configuration",
       "executable": "Executable",
       "file": "File"
+    },
+    "tabs": {
+      "files": "Files",
+      "settings": "Settings"
     }
   },
   "contact": {
@@ -677,6 +701,172 @@
       "copied": "Copied!",
       "loading": "Loading passwords…",
       "saving": "Saving…"
+    },
+    "tabs": {
+      "passwords": "Passwords",
+      "wallet": "Wallet"
+    },
+    "wallet": {
+      "sections": {
+        "overview": "Overview",
+        "activity": "Activity",
+        "workflows": "Workflows",
+        "policies": "Policies"
+      },
+      "banner": {
+        "topUpCompleted": "Top-up completed. Your balance has been updated.",
+        "topUpCancelled": "Top-up cancelled. No charges were made."
+      },
+      "overview": {
+        "availableBalance": "Available balance",
+        "autoTopUp": "Auto top-up",
+        "autoTopUpOn": "On",
+        "topUp": "Top up",
+        "newTopUpsCharged": "New top-ups will be charged in {currency}."
+      },
+      "activity": {
+        "title": "Spending activity",
+        "subtitle": "Daily totals across your workspace.",
+        "spentN": "Spent in {n}d",
+        "toppedN": "Topped up in {n}d",
+        "dailyAverage": "Daily average",
+        "activeDays": "Active days",
+        "tooltipSpent": "Spent",
+        "tooltipTopped": "Topped up"
+      },
+      "chartRanges": {
+        "d7": "7d",
+        "d30": "30d",
+        "d90": "90d"
+      },
+      "spendingByWorkflow": {
+        "title": "Spending by workflow",
+        "subtitle": "Drill into a workflow to see its activity.",
+        "count": "{n} workflow(s)",
+        "loading": "Loading workflows…",
+        "empty": "No workflow spend yet."
+      },
+      "sortOptions": {
+        "spent": "Most spent",
+        "allocated": "Most allocated",
+        "recent": "Recent activity"
+      },
+      "status": {
+        "active": "Active",
+        "paused": "Paused",
+        "exhausted": "Exhausted",
+        "released": "Released"
+      },
+      "txTable": {
+        "searchPlaceholder": "Search transactions…",
+        "allSources": "All sources",
+        "workspaceOnly": "Workspace only",
+        "workflowOption": "Workflow {id}",
+        "countSummary": "Showing {shown} of {total}",
+        "type": "Type",
+        "description": "Description",
+        "workflow": "Workflow",
+        "date": "Date",
+        "amount": "Amount",
+        "balance": "Balance",
+        "workspaceTag": "Workspace",
+        "loading": "Loading transactions…",
+        "empty": "No transactions match these filters."
+      },
+      "txType": {
+        "topUp": "Top up",
+        "allocation": "Allocation",
+        "deduction": "Deduction",
+        "refund": "Refund",
+        "adjustment": "Adjustment"
+      },
+      "txTypeFilter": {
+        "all": "All types",
+        "topUp": "Top ups",
+        "allocation": "Allocations",
+        "deduction": "Deductions",
+        "refund": "Refunds",
+        "adjustment": "Adjustments"
+      },
+      "workflowsView": {
+        "workflowsLabel": "Workflows",
+        "emptyAside": "No workflows yet.",
+        "emptyDetail": "Select a workflow to see its details.",
+        "workflow": "Workflow",
+        "createdAt": "Created {date}",
+        "spent": "Spent",
+        "remaining": "Remaining",
+        "allocated": "Allocated",
+        "consumption": "Consumption",
+        "activity": "Activity",
+        "entries": "{n} entries",
+        "noActivity": "No activity for this workflow yet."
+      },
+      "topUpModal": {
+        "title": "Top up balance",
+        "amount": "Amount",
+        "chargeCurrency": "Charge currency",
+        "minMaxNote": "Min {min} · Max {max} per top-up.",
+        "amountRangeError": "Amount must be between {min} and {max}.",
+        "checkoutError": "Couldn't start checkout. Please try again.",
+        "cancel": "Cancel",
+        "redirecting": "Redirecting…",
+        "continueToStripe": "Continue to Stripe"
+      },
+      "autoTopUpModal": {
+        "title": "Auto top-up",
+        "enable": "Enable auto top-up",
+        "enableDesc": "Automatically reload your balance when it gets low.",
+        "triggerBelow": "Trigger when below",
+        "addAmount": "Add amount",
+        "note": "Charges use your current top-up currency. You can change it from the Top up modal.",
+        "done": "Done"
+      },
+      "policies": {
+        "budgetCapsTitle": "Budget caps",
+        "budgetCapsDesc": "Default spending limits for new workflows.",
+        "workflowTotal": "Workflow total",
+        "workflowTotalHint": "Default cap for a single workflow run.",
+        "perOpMax": "Per-operation max",
+        "perOpMaxHint": "Largest single charge allowed without approval.",
+        "llmCap": "LLM call cap",
+        "llmCapHint": "Maximum cost for any individual LLM call.",
+        "approvalThreshold": "Approval threshold",
+        "approvalThresholdHint": "Charges above this amount require approval.",
+        "automationTitle": "Automation limits",
+        "automationDesc": "Guardrails for how long and how far automated runs can go.",
+        "maxSteps": "Max steps",
+        "maxScreenshots": "Max screenshots",
+        "maxDuration": "Max duration (min)",
+        "concurrent": "Concurrent runs",
+        "dailyCap": "Daily workspace cap",
+        "dailyCapHint": "Total spend allowed across the workspace per day.",
+        "blockAfterHours": "Block after-hours runs",
+        "blockAfterHoursDesc": "Pause new runs outside working hours.",
+        "alertsTitle": "Alerts & approvals",
+        "alertsDesc": "Notify the team and require approval where it matters.",
+        "pauseOnExhaustion": "Pause on exhaustion",
+        "pauseOnExhaustionDesc": "Pause workflows that hit their budget.",
+        "lowBalance": "Low balance alerts",
+        "lowBalanceDesc": "Notify when wallet balance is running low.",
+        "overrun": "Overrun alerts",
+        "overrunDesc": "Notify when a workflow overruns its budget.",
+        "approveExternal": "Approve external charges",
+        "approveExternalDesc": "Require approval before charging external services.",
+        "domainTitle": "Domain policy",
+        "domainDesc": "Restrict which sites automated runs can reach.",
+        "policyLabel": "Policy",
+        "domainAny": "Any",
+        "domainAllowlist": "Allowlist",
+        "domainDenylist": "Denylist",
+        "domainPlaceholderAny": "Any domain is allowed.",
+        "domainPlaceholderList": "One domain per line, e.g. example.com",
+        "howApplyTitle": "How rules apply",
+        "howApply1": "Allowlist: only listed domains are reachable.",
+        "howApply2": "Denylist: every domain except those listed is reachable.",
+        "howApply3": "Subdomains are matched automatically.",
+        "howApply4": "Changes take effect on the next run."
+      }
     }
   },
   "schedule": {
@@ -786,7 +976,11 @@
     "currentlyLabel": "currently {level}",
     "cancel": "Cancel",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "cascadeNotice": "Permission changes apply to this item and everything inside it.",
+    "multiCascadeWarning": "These permission changes will apply to {n} items and everything inside each of them.",
+    "multiSubtitle": "{n} items selected",
+    "multiTitleSuffix": "{n} items"
   },
   "pricing": {
     "storage": {
@@ -816,5 +1010,42 @@
   "featureUnavailableBody": "This feature isn't available for your account yet.",
   "accountSuspendedTitle": "Account suspended",
   "accountSuspendedBody": "Your account access has been temporarily suspended. If you believe this is a mistake, please contact support.",
-  "accountSuspendedSignOut": "Sign out"
+  "accountSuspendedSignOut": "Sign out",
+  "onboarding": {
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "getStarted": "Get started",
+    "stepLabel": "Step {current} of {total}",
+    "welcome": {
+      "title": "Welcome to Polymux",
+      "description": "Run AI-powered workflows that browse the web, work with files, and act on your behalf."
+    },
+    "workflows": {
+      "title": "Build workflows visually",
+      "description": "Compose steps on a canvas, run them on a schedule, and inspect every result."
+    },
+    "browser": {
+      "title": "A browser that follows along",
+      "description": "Watch workflows operate the browser in real time, or take over whenever you need to."
+    },
+    "vault": {
+      "title": "Your vault, your secrets",
+      "description": "Store passwords and credentials securely so workflows can sign in on your behalf."
+    },
+    "terms": {
+      "title": "A few things to know",
+      "description": "Polymux is in beta. Please read and accept the points below before you continue.",
+      "bullet1": "Privacy is not guaranteed during beta. Many features are still being built and tested.",
+      "bullet2": "Content you create, upload, or generate may be reviewed by our team and the systems we use to debug and improve the product.",
+      "bullet3": "Data you provide may be shared with trusted third-party providers (model, infrastructure, and analytics partners) so the product can function and improve.",
+      "bullet4": "Outages, data loss, and unexpected behaviour are possible. Avoid relying on Polymux for sensitive, regulated, or production-critical work.",
+      "footnote": "By continuing, you also acknowledge our",
+      "and": "and",
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "footnoteEnd": ".",
+      "acknowledgement": "I have read and understood the above, and I consent to the exposure and data sharing described while Polymux is in beta."
+    }
+  }
 }

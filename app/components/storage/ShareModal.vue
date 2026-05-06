@@ -2,7 +2,7 @@
 import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
 
 const props = defineProps<{
-  item: SelectedItem
+  items: SelectedItem[]
 }>()
 
 const emit = defineEmits<{
@@ -11,10 +11,16 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { workspaces, currentWorkspace } = useWorkspaces()
-const { shareDirectory, validateSubdirectoryShare } = useStorage()
+const { validateSubdirectoryShare } = useStorage()
 const user = useSupabaseUser()
 
 type PermissionLevel = 'viewer' | 'editor'
+
+interface ApplyError {
+  filePath: string
+  targetWorkspaceId: string
+  message: string
+}
 
 const selectedWorkspaceIds = ref<Set<string>>(new Set())
 const permissionLevel = ref<PermissionLevel>('viewer')
@@ -22,8 +28,13 @@ const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const warningMessage = ref<string | null>(null)
+const applyErrors = ref<ApplyError[]>([])
 
-const canShare = computed(() => !!currentWorkspace.value && !!user.value)
+const isMulti = computed(() => props.items.length > 1)
+const primaryItem = computed(() => props.items[0] ?? null)
+const filePaths = computed(() => props.items.map(i => i.path))
+
+const canShare = computed(() => !!currentWorkspace.value && !!user.value && props.items.length > 0)
 
 const availableWorkspaces = computed(() =>
   workspaces.value.filter(ws => ws.id !== currentWorkspace.value?.id),
@@ -44,8 +55,11 @@ function isWorkspaceSelected(workspaceId: string): boolean {
 
 async function checkParentShare() {
   warningMessage.value = null
+  if (isMulti.value) return // per-path check on submit; multi-target conflicts surface in `applyErrors`.
+  const path = primaryItem.value?.path
+  if (!path) return
   try {
-    const result = await validateSubdirectoryShare(props.item.path)
+    const result = await validateSubdirectoryShare(path)
     if (!result.canShare) {
       warningMessage.value = result.message || t('storage.share.subdirectoryWarning')
     }
@@ -57,17 +71,40 @@ async function checkParentShare() {
 
 async function shareWithSelected() {
   if (selectedWorkspaceIds.value.size === 0) return
+  if (!currentWorkspace.value) return
   isLoading.value = true
   errorMessage.value = null
   successMessage.value = null
+  applyErrors.value = []
   try {
-    for (const workspaceId of selectedWorkspaceIds.value) {
-      const success = await shareDirectory(workspaceId, props.item.path, permissionLevel.value)
-      if (!success) throw new Error(t('storage.share.failedToShareWorkspace'))
+    const result = await $fetch<{
+      ok: true
+      created: { id: string; file_path: string; shared_with_workspace_id: string }[]
+      errors: ApplyError[]
+    }>(`/api/workspaces/${currentWorkspace.value.id}/shares/apply`, {
+      method: 'POST',
+      body: {
+        filePaths: filePaths.value,
+        targetWorkspaceIds: Array.from(selectedWorkspaceIds.value),
+        permissionLevel: permissionLevel.value,
+        cascade: true,
+      },
+    })
+    applyErrors.value = result.errors
+    if (result.errors.length === 0) {
+      const n = selectedWorkspaceIds.value.size
+      const messageKey = isMulti.value
+        ? 'storage.share.sharedItemsWithWorkspaces'
+        : (n === 1 ? 'storage.share.sharedWithOne' : 'storage.share.sharedWithMany')
+      successMessage.value = t(messageKey, { n, items: props.items.length })
+      setTimeout(() => emit('close'), 1500)
     }
-    const n = selectedWorkspaceIds.value.size
-    successMessage.value = t(n === 1 ? 'storage.share.sharedWithOne' : 'storage.share.sharedWithMany', { n })
-    setTimeout(() => emit('close'), 1500)
+    else if (result.created.length > 0) {
+      successMessage.value = t('storage.share.partialSuccess', { n: result.created.length })
+    }
+    else {
+      errorMessage.value = t('storage.share.failedToShare')
+    }
   }
   catch (err) {
     errorMessage.value = err instanceof Error ? err.message : t('storage.share.failedToShare')
@@ -76,6 +113,11 @@ async function shareWithSelected() {
     isLoading.value = false
   }
 }
+
+const titleSuffix = computed(() => {
+  if (isMulti.value) return t('storage.share.multiTitleSuffix', { n: props.items.length })
+  return `"${primaryItem.value?.name ?? ''}"`
+})
 
 onMounted(() => {
   selectedWorkspaceIds.value.clear()
@@ -119,7 +161,7 @@ onMounted(() => {
               </svg>
             </button>
             <h3 class="text-sm font-semibold text-neutral-900 pr-8 truncate">
-              {{ t('storage.share.title') }} "{{ item.name }}"
+              {{ t('storage.share.title') }} {{ titleSuffix }}
             </h3>
           </div>
 
@@ -138,6 +180,13 @@ onMounted(() => {
             </div>
             <div v-if="!canShare" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
               <p class="text-xs text-amber-700">{{ t('storage.share.ownerOnly') }}</p>
+            </div>
+            <div v-if="applyErrors.length > 0" class="rounded-lg bg-red-50 border border-red-200 px-3 py-2 space-y-1">
+              <p
+                v-for="(e, i) in applyErrors"
+                :key="i"
+                class="text-xs text-red-700"
+              >{{ e.filePath || '/' }} → {{ e.message }}</p>
             </div>
 
             <!-- Permission level -->

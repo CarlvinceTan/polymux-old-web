@@ -2,6 +2,12 @@
 
 Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do not manually edit `package.json` or `bun.lock` unless strictly necessary—request approval and provide justification before doing so.
 
+## Environment Variables
+
+* `web/.env` (gitignored) is the single local source of truth. All local dev reads from it. New required vars must be added to `web/.env.example` so a fresh checkout boots from a clear template.
+* Use `vercel env pull` ONLY to inspect what's currently set on Vercel — never as the runtime source. It writes to `.env.local`, which Nuxt loads after `.env` and silently overrides it. After running it, copy across whatever you needed to check, then **delete `.env.local`**.
+* When a value should also exist on Vercel (Production / Preview / Development), mirror it via the dashboard or `vercel env add` after editing `.env`. Don't round-trip through `vercel env pull`.
+
 ## Project Structure
 
 * The `SidePanel` is persistently fixed on the left across all pages.

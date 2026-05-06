@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatMessage, ChatMessageAttachment } from '~/composables/types'
+import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 import type { SessionHandle } from '~/composables/auth/useSession'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
@@ -27,6 +27,14 @@ const session = inject<SessionHandle>('chat-session')!
 
 const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
+)
+
+// Drives the typing indicator across silent gaps: while the orchestrator is
+// waiting on a browser sub-agent's result, no agent_thinking / agent_message
+// events fire on the orchestrator, but work is still happening — the dots
+// should keep pulsing.
+const browserAgentsActive = computed(() =>
+  (vp.viewports.value as ViewportState[]).some(v => v.isWorking),
 )
 
 const { consumePendingPrompt } = useWorkflowList()
@@ -99,7 +107,8 @@ onMounted(() => {
     :welcome-suggestion="welcomeSuggestion"
     :messages="(currentChat.messages.value as ChatMessage[])"
     :is-thinking="currentChat.thinking.value != null"
-    :waiting-for-agent="currentChat.waitingForAgent.value"
+    :is-streaming="currentChat.isStreaming.value"
+    :browser-agents-active="browserAgentsActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
     :session-id="sessionId"
     :browser-agent-cap="vp.browserAgentCap.value"

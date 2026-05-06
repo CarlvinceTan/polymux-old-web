@@ -56,8 +56,6 @@ export function useWorkflowList() {
   // fetchSessions on mount within a short window.
   const sessionsFetchedAt = useState<Record<string, number>>('chat-sessions-fetched-at', () => ({}))
   const { authFetch } = useAuthFetch()
-  const toast = useAppToast()
-  const { t } = useI18n()
 
   const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
   const currentUser = useSupabaseUser()
@@ -116,17 +114,35 @@ export function useWorkflowList() {
     }
   }
 
-  function restoreDraft() {
+  async function restoreDraft() {
     if (!import.meta.client) return
     const wsId = currentWorkspaceId.value
     if (!wsId) return  // workspace not loaded yet — leave draft untouched
     // If a draft already exists for this workspace in memory, keep it (avoid
     // clobbering a freshly-created draft whose persist hasn't been read back).
     if (draft.value && draft.value.workspace_id === wsId) return
+
+    let stored: WorkflowSummary | null = null
     try {
       const raw = sessionStorage.getItem(draftStorageKey(wsId))
-      draft.value = raw ? (JSON.parse(raw) as WorkflowSummary) : null
+      stored = raw ? (JSON.parse(raw) as WorkflowSummary) : null
     } catch {
+      stored = null
+    }
+    if (!stored) {
+      draft.value = null
+      return
+    }
+
+    // Drafts live in the backend's in-memory registry — server restarts and
+    // the idle sweep both wipe them, so a sessionStorage entry can outlive
+    // the registry record. Verify the id is still valid before reusing it,
+    // otherwise we'd send the user into a WS reconnect loop on an unknown id.
+    try {
+      await authFetch(`/draft-sessions/${stored.id}`, { method: 'GET' })
+      draft.value = stored
+    } catch {
+      try { sessionStorage.removeItem(draftStorageKey(wsId)) } catch {}
       draft.value = null
     }
   }
@@ -149,7 +165,7 @@ export function useWorkflowList() {
     // After the wait, try the sessionStorage restore again — if the page
     // called restoreDraft() before the workspace was loaded, that call was a
     // no-op and we'd otherwise create a duplicate draft alongside the stored one.
-    if (!draft.value) restoreDraft()
+    if (!draft.value) await restoreDraft()
     if (draft.value) return draft.value
     const me = currentUser.value?.id ?? ''
     try {
@@ -221,11 +237,11 @@ export function useWorkflowList() {
         realSessions.value = next
       }
     } catch (err) {
-      const e = err as { status?: number, data?: { error?: string } }
-      if (e?.status === 409 && e?.data?.error === 'workflow_name_taken') {
-        toast.show(t('integrations.editorWorkflowNameTaken'), 'error')
-        return
-      }
+      // 404 = the row was deleted (e.g. deleteSessionIfEmpty fired on route
+      // leave) or RLS-hidden. Title renames are best-effort — a stale title
+      // arriving over the WS shouldn't surface as an error.
+      const e = err as { status?: number }
+      if (e?.status === 404) return
       console.error('[useWorkflowList] renameSession failed', err)
     }
   }
@@ -287,7 +303,11 @@ export function useWorkflowList() {
   // session row optimistically so consecutive reads see the latest value.
   async function updateSessionViewportUrls(sessionID: string, urls: string[]): Promise<void> {
     const target = sessions.value.find(s => s.id === sessionID)
-    if (target?.is_draft) return
+    // Skip drafts (no DB row) and sessions that are no longer in the list:
+    // when the user deletes the active workflow from the sidebar, the page's
+    // onBeforeRouteLeave fires this save for the just-deleted id, and the
+    // backend 500s because RLS hides the soft-deleted row from the PATCH.
+    if (!target || target.is_draft) return
     try {
       await authFetch(`/sessions/${sessionID}/viewport-urls`, {
         method: 'PATCH',
@@ -301,7 +321,10 @@ export function useWorkflowList() {
     if (s) s.last_viewport_urls = urls
   }
 
-  async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[]> {
+  // Returns null when the workflow is forbidden / gone (HTTP 403) so callers
+  // can redirect away from a stale URL instead of treating it as an empty
+  // history. Empty array still means "loaded, no messages yet".
+  async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[] | null> {
     const target = sessions.value.find(s => s.id === sessionId)
     if (target?.is_draft) return []
     try {
@@ -335,6 +358,8 @@ export function useWorkflowList() {
       }
       return out
     } catch (err) {
+      const e = err as { status?: number }
+      if (e?.status === 403) return null
       console.error('[useWorkflowList] fetchMessages failed', err)
       return []
     }

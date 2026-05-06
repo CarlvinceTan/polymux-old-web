@@ -19,6 +19,8 @@ export function useScreencast(session: SessionHandle) {
     frameUrls.value = new Map()
   }
 
+  const seenAgents = new Set<string>()
+
   function handleBinaryFrame(data: ArrayBuffer) {
     if (data.byteLength < 2) return
 
@@ -29,6 +31,12 @@ export function useScreencast(session: SessionHandle) {
     const agentId = decoder.decode(view.subarray(1, 1 + idLen))
     const jpegBlob = new Blob([view.subarray(1 + idLen)], { type: 'image/jpeg' })
     const url = URL.createObjectURL(jpegBlob)
+
+    if (!seenAgents.has(agentId)) {
+      seenAgents.add(agentId)
+      // eslint-disable-next-line no-console
+      console.debug('[screencast] first frame for agent', agentId, 'bytes:', data.byteLength - 1 - idLen)
+    }
 
     const prev = frameUrls.value.get(agentId)
     const next = new Map(frameUrls.value)

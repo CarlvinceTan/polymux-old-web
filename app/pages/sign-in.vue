@@ -238,10 +238,11 @@ async function onSubmit() {
                 {{ t('common.signUp') }}
               </NuxtLink>
             </p>
+
+            <AuthTermsFooter />
           </div>
         </div>
       </div>
     </div>
-    <AuthTermsFooter />
   </div>
 </template>

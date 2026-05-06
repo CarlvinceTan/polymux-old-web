@@ -38,6 +38,7 @@ const terminalLabel = computed(() => {
 const title = computed(() => {
   if (kind.value === 'loop') return t('workflow.loop')
   if (kind.value === 'parallel') return t('workflow.parallel')
+  if (kind.value === 'sequence') return step.value.description || t('workflow.sequence')
   if (kind.value === 'conditional') return step.value.description || t('workflow.untitledNode')
   if (step.value.description) return step.value.description
   if (step.value.action && step.value.target) return `${step.value.action} → ${step.value.target}`
@@ -48,6 +49,7 @@ const title = computed(() => {
 const subtitle = computed(() => {
   if (kind.value === 'loop') return step.value.condition ?? ''
   if (kind.value === 'parallel') return (step.value.shared_context_keys ?? []).join(', ')
+  if (kind.value === 'sequence') return ''
   if (step.value.action && step.value.target && step.value.description) {
     return `${step.value.action} · ${step.value.target}`
   }
@@ -167,7 +169,9 @@ watch(id, (next, prev) => {
               ? 'bg-amber-100 text-amber-800'
               : kind === 'parallel'
                 ? 'bg-violet-100 text-violet-800'
-                : 'bg-sky-100 text-sky-800'"
+                : kind === 'sequence'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-sky-100 text-sky-800'"
           >
             {{ kind }}
           </span>

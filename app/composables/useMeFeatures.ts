@@ -11,7 +11,7 @@
 //   recomputes flags; this composable listens to that and refreshes its
 //   reactive snapshot.
 
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
 
 type FlagState = {
   ready: boolean
@@ -41,11 +41,16 @@ function ensureListener() {
 
 export function useMeFeatures() {
   if (import.meta.client) {
-    onMounted(() => ensureListener())
-    onBeforeUnmount(() => {
-      // Listener is global — leaving it attached is fine; only detach on app
-      // unmount, which we don't need to handle explicitly here.
-    })
+    // Global route middlewares call this composable outside any component
+    // setup, where Vue's lifecycle hooks have nothing to bind to. Attach the
+    // listener directly in that path; component callers still get the usual
+    // mount/unmount wiring. ensureListener is idempotent.
+    if (getCurrentInstance()) {
+      onMounted(() => ensureListener())
+      onBeforeUnmount(() => {})
+    } else {
+      ensureListener()
+    }
     syncFromWindow()
   }
 

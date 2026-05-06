@@ -9,7 +9,7 @@ const { sessions, draft, createDraft, restoreDraft, fetchSessions } = useWorkflo
 
 onMounted(async () => {
   await fetchSessions()
-  restoreDraft()
+  await restoreDraft()
 
   // Per-tab memory: within the same tab, `/workflow` restores the last-viewed workflow.
   const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
