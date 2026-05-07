@@ -45,7 +45,7 @@ export default defineNuxtConfig({
     },
   },
   compatibilityDate: "2025-07-15",
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   modules: [
     "@nuxt/ui",
     "@nuxtjs/supabase",
@@ -114,6 +114,7 @@ export default defineNuxtConfig({
         "@vue/devtools-kit",
         "marked",
         "vue-draggable-plus",
+        "posthog-js",
       ],
     },
     build: {

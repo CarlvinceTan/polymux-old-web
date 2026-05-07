@@ -56,6 +56,7 @@ create index if not exists idx_workflow_runs_pending_due
 -- ──────────────────────────────────────────────────────────────────────────
 
 drop policy if exists "workspace_members_insert_runs" on public.workflow_runs;
+drop policy if exists "workspace_members_insert_manual_runs" on public.workflow_runs;
 create policy "workspace_members_insert_manual_runs"
   on public.workflow_runs for insert
   to authenticated
