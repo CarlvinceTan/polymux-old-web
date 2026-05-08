@@ -17,6 +17,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'retry-message': [index: number]
+  'navigate-retry': [index: number, retryIndex: number]
 }>()
 
 // Show the dots when something is *actively* happening:
@@ -33,14 +34,6 @@ const showTypingIndicator = computed(() => {
   const orchestratorActive = !!props.isThinking || last?.role === 'user'
   return orchestratorActive || !!props.browserAgentsActive
 })
-
-function isActiveThinking(index: number): boolean {
-  if (!props.isThinking) return false
-  for (let i = index + 1; i < props.messages.length; i++) {
-    if (props.messages[i]!.role !== 'thinking') return false
-  }
-  return true
-}
 
 function showAgentActions(index: number): boolean {
   const m = props.messages[index]
@@ -60,18 +53,14 @@ function showAgentActions(index: number): boolean {
     aria-relevant="additions"
   >
     <template v-for="(msg, i) in messages" :key="i">
-      <AgentAction
-        v-if="msg.role === 'thinking'"
-        class="mb-2"
-        :action="msg.action ?? msg.text"
-        :detail="msg.detail"
-        :active="isActiveThinking(i)"
-      />
       <AgentMessage
-        v-else-if="msg.role === 'agent'"
+        v-if="msg.role === 'agent'"
         :text="msg.text"
         :show-actions="showAgentActions(i)"
+        :retry-count="msg.retryVersions?.length"
+        :active-retry-index="msg.activeRetryIndex"
         @retry="emit('retry-message', i)"
+        @navigate-retry="(r) => emit('navigate-retry', i, r)"
       />
       <UserMessage
         v-else-if="msg.role === 'user'"
@@ -85,7 +74,7 @@ function showAgentActions(index: number): boolean {
     <!-- Typing indicator: visible across the full turn whenever no text is
          currently being streamed — covers gaps between continuation rounds,
          browser sub-agent delegation, and the moment before the first chunk. -->
-    <div v-if="showTypingIndicator" class="flex items-center gap-1.5 pt-2 pb-1">
+    <div v-if="showTypingIndicator" class="flex items-center gap-1.5 pt-2 pr-1 pb-1 pl-1">
       <span class="typing-dot size-[7px] rounded-full bg-neutral-400" />
       <span class="typing-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.2s" />
       <span class="typing-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.4s" />

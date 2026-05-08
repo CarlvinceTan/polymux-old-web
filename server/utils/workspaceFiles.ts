@@ -6,9 +6,6 @@ import type { H3Event } from 'h3'
 // Path conventions:
 // - `path` is the workspace-relative logical path. No leading or trailing slash.
 // - `''` is the workspace root.
-// - Storage bucket object name is `{workspaceId}/main/{path}` for the `supabase` backend.
-
-export const STORAGE_BUCKET = 'workspace-files'
 
 export type GrantLevel = 'read' | 'write' | 'none'
 
@@ -30,15 +27,6 @@ export function basenameOf(path: string): string {
   if (!path) return ''
   const idx = path.lastIndexOf('/')
   return idx < 0 ? path : path.slice(idx + 1)
-}
-
-export function storageKey(workspaceId: string, path: string): string {
-  return `${workspaceId}/main/${path}`
-}
-
-export function storagePrefix(workspaceId: string, path: string): string {
-  const base = `${workspaceId}/main/`
-  return path ? `${base}${path}/` : base
 }
 
 export function sanitizeSegment(name: string): string {

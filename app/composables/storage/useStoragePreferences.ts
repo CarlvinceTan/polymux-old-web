@@ -3,7 +3,7 @@ import type { StorageProvider } from '~/types/storage'
 export type ProviderStatus = 'available' | 'unavailable' | 'full'
 
 const STORAGE_KEY = 'polymux_storage_save_order'
-const DEFAULT_ORDER: StorageProvider[] = ['supabase', 'google-drive', 'local']
+const DEFAULT_ORDER: StorageProvider[] = ['google-drive', 'local']
 
 function readPersisted(): StorageProvider[] {
   if (import.meta.server) return [...DEFAULT_ORDER]
@@ -13,7 +13,7 @@ function readPersisted(): StorageProvider[] {
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return [...DEFAULT_ORDER]
     const filtered = parsed.filter((v): v is StorageProvider =>
-      v === 'supabase' || v === 'google-drive' || v === 'local',
+      v === 'google-drive' || v === 'local',
     )
     for (const p of DEFAULT_ORDER) {
       if (!filtered.includes(p)) filtered.push(p)
@@ -29,7 +29,6 @@ let hydrated = false
 let healthProbed = false
 
 export function useStoragePreferences() {
-  const user = useSupabaseUser()
   const { isInstalled } = useMarketplace()
 
   const saveOrder = useState<StorageProvider[]>('storage-save-order', () => readPersisted())
@@ -76,7 +75,6 @@ export function useStoragePreferences() {
   function reset() { persist([...DEFAULT_ORDER]) }
 
   const providerStatus = computed<Record<StorageProvider, ProviderStatus>>(() => ({
-    'supabase': user.value ? 'available' : 'unavailable',
     'google-drive': isInstalled('google-drive') ? 'available' : 'unavailable',
     'local': localHealth.value,
   }))

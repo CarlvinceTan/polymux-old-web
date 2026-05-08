@@ -32,7 +32,6 @@ const emit = defineEmits<{
 }>()
 
 const providerLabels: Record<StorageProvider, string> = {
-  'supabase': 'Workspace cloud',
   'google-drive': 'Google Drive',
   'local': 'This device',
 }

@@ -17,13 +17,6 @@ const recentSessions = computed(() =>
 function sessionTitle(session: WorkflowSummary): string {
   return session.title?.trim() || t('dashboard.untitledSession')
 }
-
-function initials(session: WorkflowSummary): string {
-  const title = sessionTitle(session)
-  const parts = title.split(/\s+/).filter(Boolean)
-  const letters = parts.slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase()
-  return letters || '•'
-}
 </script>
 
 <template>
@@ -74,11 +67,6 @@ function initials(session: WorkflowSummary): string {
           :to="`/workflow/${session.id}/agent`"
           class="group flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-neutral-50"
         >
-          <div
-            class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-200 text-[11px] font-semibold tracking-tight text-neutral-700"
-          >
-            {{ initials(session) }}
-          </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-neutral-950">
               {{ sessionTitle(session) }}

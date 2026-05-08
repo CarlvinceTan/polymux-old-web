@@ -37,7 +37,6 @@ const location = computed(() => {
 
 const providerLabel = computed(() => {
   const map: Record<string, string> = {
-    supabase: 'Supabase Storage',
     'google-drive': 'Google Drive',
     local: 'Local',
   }

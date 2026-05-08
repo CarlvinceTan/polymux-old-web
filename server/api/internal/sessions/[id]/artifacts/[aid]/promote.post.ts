@@ -3,11 +3,12 @@ import { requireInternalToken } from '~~/server/utils/internalAuth'
 import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
 import { resolveArtifactId, resolveSessionId } from '~~/server/utils/sessionAccess'
 import {
-  STORAGE_BUCKET,
+  basenameOf,
   normalizePath,
   requireWrite,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/driveTokens'
+import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 
 // POST /api/internal/sessions/[id]/artifacts/[aid]/promote
 // Body: { user_id: string, path: string }
@@ -16,6 +17,7 @@ import {
 // Service-token-gated mirror of /api/sessions/[id]/artifacts/[aid]/promote.
 // The Go agent calls this when the model invokes PromoteArtifact — it acts on
 // behalf of the supplied user_id, so the same write-permission check applies.
+// Requires Google Drive to be connected for the workspace.
 
 const ARTIFACTS_BUCKET = 'artifacts'
 
@@ -54,9 +56,22 @@ export default defineEventHandler(async (event) => {
   const workspaceId = artifact.workspace_id as string
   await requireWrite(admin, workspaceId, targetPath, userId)
 
-  const targetKey = storageKey(workspaceId, targetPath)
+  const { data: driveRow } = await admin
+    .from('workspace_integrations')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('provider', 'google-drive')
+    .maybeSingle()
+  if (!driveRow) {
+    throw createError({
+      statusCode: 412,
+      statusMessage: 'Connect Google Drive to promote artifacts to your workspace.',
+    })
+  }
+
   const contentType = (artifact.mime_type as string | null) ?? 'application/octet-stream'
 
+  let bytes: Buffer
   let sizeBytes = Number(artifact.size_bytes ?? 0)
   if (artifact.storage_path) {
     const { data: blob, error: dlErr } = await admin.storage
@@ -66,33 +81,28 @@ export default defineEventHandler(async (event) => {
       console.error('[internal/promote] download error', dlErr)
       throw createError({ statusCode: 500, statusMessage: 'Failed to read artifact.' })
     }
-    const arrayBuf = await blob.arrayBuffer()
-    sizeBytes = arrayBuf.byteLength
-    const { error: upErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(targetKey, new Uint8Array(arrayBuf), {
-        contentType,
-        upsert: true,
-      })
-    if (upErr) {
-      console.error('[internal/promote] upload error', upErr)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to write to storage.' })
-    }
+    bytes = Buffer.from(await blob.arrayBuffer())
+    sizeBytes = bytes.byteLength
   }
   else if (typeof artifact.content === 'string') {
-    const buf = new TextEncoder().encode(artifact.content)
-    sizeBytes = buf.byteLength
-    const { error: upErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(targetKey, buf, { contentType, upsert: true })
-    if (upErr) {
-      console.error('[internal/promote] inline upload error', upErr)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to write to storage.' })
-    }
+    bytes = Buffer.from(new TextEncoder().encode(artifact.content))
+    sizeBytes = bytes.byteLength
   }
   else {
     throw createError({ statusCode: 422, statusMessage: 'Artifact has no content to promote.' })
   }
+
+  const access = await resolveDriveAccess(admin, workspaceId)
+  const driveFile = await uploadDriveFileBytes(
+    access.accessToken,
+    {
+      name: basenameOf(targetPath),
+      parents: [access.rootFolderId],
+      mimeType: contentType,
+    },
+    bytes,
+    workspaceId,
+  )
 
   const { data: fileRow, error: upsertErr } = await admin
     .from('files')
@@ -100,10 +110,11 @@ export default defineEventHandler(async (event) => {
       workspace_id: workspaceId,
       path: targetPath,
       kind: 'file' as const,
-      backend: 'supabase' as const,
-      backend_ref: targetKey,
+      backend: 'google-drive' as const,
+      backend_ref: driveFile.id,
       size_bytes: sizeBytes,
       content_type: contentType,
+      backend_mtime: driveFile.modifiedTime ?? new Date().toISOString(),
       created_by: userId,
     }, { onConflict: 'workspace_id,path' })
     .select('id')
@@ -117,7 +128,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     storage_path: targetPath,
-    backend: 'supabase' as const,
+    backend: 'google-drive' as const,
     file_id: fileRow.id as string,
   }
 })

@@ -1,12 +1,10 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   normalizePath,
   parentOf,
   requireWrite,
   resolveWorkspaceId,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/finalize-upload
@@ -16,9 +14,8 @@ import {
 // metadata row. The `files` table has client-blocking RLS so this runs under
 // the service role after a permission re-check.
 //
-// For Supabase uploads we verify the object exists in the bucket before
-// writing the row. For Drive uploads the browser passes back the file id from
-// the resumable upload's terminal response; we trust + record it.
+// Drive uploads pass back the file id from the resumable upload's terminal
+// response; we trust + record it. Local uploads carry the device id.
 
 interface Body {
   path?: unknown
@@ -48,12 +45,8 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  const requestedBackend: 'google-drive' | 'local' | 'supabase'
-    = body.backend === 'google-drive'
-      ? 'google-drive'
-      : body.backend === 'local'
-        ? 'local'
-        : 'supabase'
+  const requestedBackend: 'google-drive' | 'local'
+    = body.backend === 'local' ? 'local' : 'google-drive'
   const contentType = typeof body.content_type === 'string' ? body.content_type : null
 
   if (requestedBackend === 'local') {
@@ -98,51 +91,12 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (requestedBackend === 'google-drive') {
-    const backendRef = typeof body.backend_ref === 'string' ? body.backend_ref : ''
-    if (!backendRef) {
-      throw createError({ statusCode: 400, statusMessage: 'backend_ref (Drive file id) required for Drive uploads.' })
-    }
-    const size = Number(body.size) || 0
-    const etag = typeof body.etag === 'string' ? body.etag : null
-
-    const { error: upsertError } = await admin
-      .from('files')
-      .upsert({
-        workspace_id: workspaceId,
-        path: logicalPath,
-        kind: 'file',
-        backend: 'google-drive',
-        backend_ref: backendRef,
-        size_bytes: size,
-        content_type: contentType,
-        etag,
-        backend_mtime: new Date().toISOString(),
-        created_by: user.sub,
-      }, { onConflict: 'workspace_id,path' })
-
-    if (upsertError) {
-      console.error('[files] finalize-upload (drive) upsert error', upsertError)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to record metadata.' })
-    }
-
-    return { ok: true as const, path: logicalPath, size, backend: 'google-drive' as const }
+  const backendRef = typeof body.backend_ref === 'string' ? body.backend_ref : ''
+  if (!backendRef) {
+    throw createError({ statusCode: 400, statusMessage: 'backend_ref (Drive file id) required for Drive uploads.' })
   }
-
-  const objectName = storageKey(workspaceId, logicalPath)
-
-  // Verify the object actually exists before writing metadata so the row
-  // always reflects real bytes.
-  const { data: head, error: headError } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .list(objectName.split('/').slice(0, -1).join('/'), {
-      search: objectName.split('/').pop(),
-      limit: 1,
-    })
-  if (headError || !head || head.length === 0) {
-    throw createError({ statusCode: 404, statusMessage: 'Upload has not landed yet.' })
-  }
-  const actualSize = head[0]?.metadata?.size ?? Number(body.size) ?? 0
+  const size = Number(body.size) || 0
+  const etag = typeof body.etag === 'string' ? body.etag : null
 
   const { error: upsertError } = await admin
     .from('files')
@@ -150,18 +104,19 @@ export default defineEventHandler(async (event) => {
       workspace_id: workspaceId,
       path: logicalPath,
       kind: 'file',
-      backend: 'supabase',
-      backend_ref: objectName,
-      size_bytes: actualSize,
+      backend: 'google-drive',
+      backend_ref: backendRef,
+      size_bytes: size,
       content_type: contentType,
+      etag,
       backend_mtime: new Date().toISOString(),
       created_by: user.sub,
     }, { onConflict: 'workspace_id,path' })
 
   if (upsertError) {
-    console.error('[files] finalize-upload upsert error', upsertError)
+    console.error('[files] finalize-upload (drive) upsert error', upsertError)
     throw createError({ statusCode: 500, statusMessage: 'Failed to record metadata.' })
   }
 
-  return { ok: true as const, path: logicalPath, size: actualSize, backend: 'supabase' as const }
+  return { ok: true as const, path: logicalPath, size, backend: 'google-drive' as const }
 })

@@ -2,7 +2,7 @@ import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } f
 import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/count-by-backend
-// Body: { backend: 'supabase' | 'google-drive' | 'local' }
+// Body: { backend: 'google-drive' | 'local' }
 //
 // Returns the number of files (kind='file') currently stored on the given
 // backend. Drives the disconnect-storage-provider warning modal: if a user
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event).catch(() => ({}))
   const backend = body?.backend
-  if (backend !== 'supabase' && backend !== 'google-drive' && backend !== 'local') {
+  if (backend !== 'google-drive' && backend !== 'local') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid backend.' })
   }
 

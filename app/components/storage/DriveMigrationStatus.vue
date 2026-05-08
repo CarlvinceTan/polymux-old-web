@@ -6,13 +6,7 @@ interface MigrationError {
   reason: string
 }
 
-type MigrationDirection =
-  | 'supabase-to-drive'
-  | 'drive-to-supabase'
-  | 'supabase-to-local'
-  | 'drive-to-local'
-  | 'local-to-supabase'
-  | 'local-to-drive'
+type MigrationDirection = 'drive-to-local' | 'local-to-drive'
 
 interface MigrationState {
   status: 'idle' | 'running' | 'done' | 'failed'
@@ -30,30 +24,10 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const copyKeys: Record<MigrationDirection, { running: string; done: string; failed: string }> = {
-  'supabase-to-drive': {
-    running: 'integrations.driveMigrating',
-    done: 'integrations.driveMigrateDone',
-    failed: 'integrations.driveMigrateFailed',
-  },
-  'drive-to-supabase': {
-    running: 'integrations.driveImporting',
-    done: 'integrations.driveImportDone',
-    failed: 'integrations.driveImportFailed',
-  },
-  'supabase-to-local': {
-    running: 'integrations.localMigrating',
-    done: 'integrations.localMigrateDone',
-    failed: 'integrations.localMigrateFailed',
-  },
   'drive-to-local': {
     running: 'integrations.localMigrating',
     done: 'integrations.localMigrateDone',
     failed: 'integrations.localMigrateFailed',
-  },
-  'local-to-supabase': {
-    running: 'integrations.localExporting',
-    done: 'integrations.localExportDone',
-    failed: 'integrations.localExportFailed',
   },
   'local-to-drive': {
     running: 'integrations.localExporting',
@@ -63,7 +37,7 @@ const copyKeys: Record<MigrationDirection, { running: string; done: string; fail
 }
 
 function keyFor(kind: 'running' | 'done' | 'failed'): string {
-  const dir = props.state.direction ?? 'supabase-to-drive'
+  const dir = props.state.direction ?? 'drive-to-local'
   return copyKeys[dir][kind]
 }
 

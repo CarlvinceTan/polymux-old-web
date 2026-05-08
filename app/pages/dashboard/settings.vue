@@ -364,7 +364,6 @@ async function removeAvatar() {
           <div class="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-6">
             <!-- Workspace identity hero -->
             <section class="relative overflow-hidden rounded-2xl border border-neutral-200/70 bg-gradient-to-br from-white via-white to-neutral-50">
-              <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-neutral-950 via-neutral-700 to-neutral-950" />
               <div
                 class="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(10,10,10,0.06),transparent_60%)]"
                 aria-hidden="true"

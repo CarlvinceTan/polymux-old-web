@@ -35,7 +35,7 @@ interface UploadUrlResponse {
   url: string
   token: string
   path: string
-  backend: 'supabase' | 'google-drive'
+  backend: 'google-drive'
   method?: 'PUT' | 'POST'
   expires_at: string
 }
@@ -44,13 +44,13 @@ interface FinalizeUploadResponse {
   ok: true
   path: string
   size: number
-  backend: 'supabase' | 'google-drive' | 'local'
+  backend: 'google-drive' | 'local'
   file_id?: string
 }
 
 interface RemoteDownloadUrlResponse {
   url: string
-  backend: 'supabase' | 'google-drive'
+  backend: 'google-drive'
   expires_at: string
 }
 
@@ -88,9 +88,7 @@ export function useStorage() {
   const { currentWorkspace } = useWorkspaces()
   const { resolvedOrder } = useStoragePreferences()
 
-  // Top-available provider from the user's persisted save order. Falls back
-  // to 'supabase' only if nothing is currently writable (e.g. signed out).
-  const provider = computed<StorageProvider>(() => resolvedOrder.value[0] ?? 'supabase')
+  const provider = computed<StorageProvider>(() => resolvedOrder.value[0] ?? 'local')
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -200,44 +198,25 @@ export function useStorage() {
         },
       })
 
-      let backendRef: string | undefined
-
-      if (signed.backend === 'google-drive') {
-        // Google Drive's resumable-upload session URL doesn't send CORS headers
-        // for browser origins, so we stream the bytes through the same-origin
-        // Nuxt proxy instead of PUTting Drive directly.
-        const proxyUrl = `${base}/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
-        const driveRes = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': file.type || 'application/octet-stream' },
-          body: file,
-        })
-        if (!driveRes.ok) {
-          error.value = `Upload failed (${driveRes.status})`
-          return false
-        }
-        const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
-        if (!driveJson?.id) {
-          error.value = 'Upload succeeded but Drive file id was missing.'
-          return false
-        }
-        backendRef = driveJson.id
-      } else {
-        // supabase-js uploadToSignedUrl() shape: PUT with FormData wrapping the
-        // file under an empty key plus `cacheControl`, and `x-upsert` header.
-        const formData = new FormData()
-        formData.append('cacheControl', '3600')
-        formData.append('', file)
-        const putResponse = await fetch(signed.url, {
-          method: 'PUT',
-          headers: { 'x-upsert': 'true' },
-          body: formData,
-        })
-        if (!putResponse.ok) {
-          error.value = `Upload failed (${putResponse.status})`
-          return false
-        }
+      // Google Drive's resumable-upload session URL doesn't send CORS headers
+      // for browser origins, so we stream the bytes through the same-origin
+      // Nuxt proxy instead of PUTting Drive directly.
+      const proxyUrl = `${base}/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
+      const driveRes = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (!driveRes.ok) {
+        error.value = `Upload failed (${driveRes.status})`
+        return false
       }
+      const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
+      if (!driveJson?.id) {
+        error.value = 'Upload succeeded but Drive file id was missing.'
+        return false
+      }
+      const backendRef = driveJson.id
 
       await $fetch(`${base}/finalize-upload`, {
         method: 'POST',
@@ -246,7 +225,7 @@ export function useStorage() {
           size: file.size,
           content_type: file.type,
           backend: signed.backend,
-          ...(backendRef ? { backend_ref: backendRef } : {}),
+          backend_ref: backendRef,
         },
       })
 
@@ -298,10 +277,8 @@ export function useStorage() {
   }
 
   // Cross-provider migration: moves items to `targetParent` AND switches their
-  // backend to `targetProvider`. Server-side for supabase ↔ google-drive;
-  // local-involving pairs currently error out (flagged phase-2). Returns a
-  // per-item breakdown so the caller can toast successes + failures without
-  // losing progress on partial completion.
+  // backend to `targetProvider`. Returns a per-item breakdown so the caller can
+  // toast successes + failures without losing progress on partial completion.
   interface MigrateItemsInput { path: string; kind: 'file' | 'folder' }
   interface MigrateItemsResult {
     migrated: Array<{ fromPath: string; toPath: string }>

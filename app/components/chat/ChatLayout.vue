@@ -46,6 +46,7 @@ const emit = defineEmits<{
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'retry-message': [index: number]
+  'navigate-retry': [index: number, retryIndex: number]
 }>()
 
 // View-mode state (persistence + auto-switch on browser-agent activation) is
@@ -243,6 +244,7 @@ function onSend(value: string) {
           :session-id="sessionId"
           @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
           @retry-message="(i) => emit('retry-message', i)"
+          @navigate-retry="(i, r) => emit('navigate-retry', i, r)"
         />
         <div class="shrink-0 pb-3 sm:pb-4" :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'">
           <PromptInput

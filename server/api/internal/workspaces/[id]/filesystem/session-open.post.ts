@@ -34,7 +34,7 @@ interface FileRow {
   path: string
   kind: 'file' | 'folder'
   size_bytes: number | null
-  backend: 'supabase' | 'google-drive' | 'local'
+  backend: 'google-drive' | 'local'
   backend_ref: string | null
   etag: string | null
   backend_mtime: string | null

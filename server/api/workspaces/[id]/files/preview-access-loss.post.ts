@@ -2,7 +2,7 @@ import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } f
 import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/preview-access-loss
-// Body: { source: 'supabase' | 'google-drive' }
+// Body: { source: 'google-drive' }
 //
 // Returns the workspace members and share-grantee users who will lose access
 // to files in `source` once they're migrated to the caller's device (i.e.
@@ -32,11 +32,7 @@ export default defineEventHandler(async (event) => {
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event).catch(() => ({}))
-  const source = body?.source === 'google-drive'
-    ? 'google-drive'
-    : body?.source === 'local'
-      ? 'local'
-      : 'supabase'
+  const source = body?.source === 'local' ? 'local' : 'google-drive'
 
   const supabase = await serverSupabaseClient(event)
   const { data: membership, error: memberError } = await supabase

@@ -2,14 +2,13 @@ import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } f
 import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/prepare-local-migration
-// Body: { source: 'supabase'|'google-drive'|'local', batch_size?, device_id? }
+// Body: { source: 'google-drive'|'local', batch_size?, device_id? }
 //
 // Returns the next batch of files in `source` that the client should pull
-// down and process. For remote sources the client fetches each file's bytes
-// via the existing /download-url endpoint (which already knows how to sign
-// supabase objects and stage Drive bytes through the bucket cache), writes
-// them locally, then calls /finalize-local-migration with the file ids it
-// successfully stored. For source='local' (the reverse direction) the batch
+// down and process. For source='google-drive' the client fetches each file's
+// bytes via /download-url (which streams them via the drive-stream proxy),
+// writes them locally, then calls /finalize-local-migration with the file ids
+// it successfully stored. For source='local' (the reverse direction) the batch
 // is filtered to rows whose backend_ref matches the caller's `device_id`,
 // since only that device holds the bytes — the client then reads from OPFS
 // and uploads to the target backend via /upload-url.
@@ -31,12 +30,8 @@ export default defineEventHandler(async (event) => {
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event).catch(() => ({}))
-  const source: 'supabase' | 'google-drive' | 'local'
-    = body?.source === 'google-drive'
-      ? 'google-drive'
-      : body?.source === 'local'
-        ? 'local'
-        : 'supabase'
+  const source: 'google-drive' | 'local'
+    = body?.source === 'local' ? 'local' : 'google-drive'
   const batchSize = clamp(Number(body?.batch_size) || DEFAULT_BATCH, 1, MAX_BATCH)
   const deviceId = typeof body?.device_id === 'string' ? body.device_id : ''
   if (source === 'local' && !deviceId) {

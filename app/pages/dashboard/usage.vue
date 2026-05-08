@@ -44,45 +44,6 @@ const upgradeQuery = computed(() => {
   return q
 })
 
-// ---- Cloud (Supabase) storage ----
-const storageBytes = ref(0)
-const storageLoading = ref(false)
-const BUCKET = 'workspace-files'
-
-async function computeStorageBytes(workspaceId: string): Promise<number> {
-  let total = 0
-  const queue: string[] = [`${workspaceId}/main`, `${workspaceId}/shared`]
-  const MAX_FOLDERS = 500
-  let visited = 0
-  while (queue.length > 0 && visited < MAX_FOLDERS) {
-    const prefix = queue.shift()!
-    visited += 1
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
-    if (error || !data) continue
-    for (const item of data) {
-      if (item.name === '.keep') continue
-      if (item.id === null) {
-        queue.push(`${prefix}/${item.name}`)
-      }
-      else {
-        const size = (item.metadata as { size?: number } | null | undefined)?.size
-        if (typeof size === 'number') total += size
-      }
-    }
-  }
-  return total
-}
-
-async function refreshUsage(workspaceId: string) {
-  storageLoading.value = true
-  try {
-    storageBytes.value = await computeStorageBytes(workspaceId)
-  }
-  finally {
-    storageLoading.value = false
-  }
-}
-
 // ---- Local (OPFS) storage ----
 const localProbe = ref<{ supported: boolean, usage: number, quota: number, full: boolean }>({
   supported: false, usage: 0, quota: 0, full: false,
@@ -111,7 +72,6 @@ function loadWorkspaceData(wsId: string, opts?: { force?: boolean }) {
   fetchSessions(opts)
   fetchWallet(opts)
   fetchTransactions(opts)
-  refreshUsage(wsId)
   refreshDrive().catch(() => {})
 }
 
@@ -333,13 +293,6 @@ const spendThisMonthCents = computed(() =>
 
 const walletCurrency = computed(() => (wallet.value?.currency ?? 'usd') as any)
 
-// ---- Cloud storage helpers ----
-const cloudUsagePercent = computed(() => {
-  const total = planLimits.value.storageBytes
-  if (total == null || total <= 0) return null
-  return Math.min(100, Math.round((storageBytes.value / total) * 100))
-})
-
 // ---- Storage providers (ring charts) ----
 type ProviderState = 'tracked' | 'connected-untracked' | 'disconnected' | 'unsupported' | 'unlimited'
 
@@ -356,9 +309,6 @@ interface ProviderCard {
 }
 
 const providerCards = computed<ProviderCard[]>(() => {
-  const cloudTotal = planLimits.value.storageBytes
-  const cloudState: ProviderState = cloudTotal == null ? 'unlimited' : 'tracked'
-
   const local = localProbe.value
   const localState: ProviderState = !local.supported
     ? 'unsupported'
@@ -377,17 +327,6 @@ const providerCards = computed<ProviderCard[]>(() => {
         : 'Managed by Google'
 
   return [
-    {
-      provider: 'supabase',
-      label: 'Cloud',
-      sublabel: `${planLabel.value} plan storage`,
-      used: storageBytes.value,
-      total: cloudTotal,
-      state: cloudState,
-      loading: storageLoading.value,
-      ringClass: 'text-neutral-900',
-      trackClass: 'text-neutral-100',
-    },
     {
       provider: 'google-drive',
       label: 'Google Drive',
@@ -732,27 +671,6 @@ const sparkValues = computed(() => dailyBuckets.value.map(b => b.sessions))
                     />
                   </svg>
                 </div>
-              </div>
-
-              <!-- Cloud storage -->
-              <div class="relative overflow-hidden rounded-xl border border-neutral-200/70 bg-white p-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                    Cloud storage
-                  </span>
-                  <StorageProviderIcon provider="supabase" inline class="opacity-60" />
-                </div>
-                <div class="mt-2 flex items-baseline gap-1 font-mono">
-                  <span class="text-2xl font-bold leading-none tracking-tight text-neutral-950">
-                    {{ formatBytes(storageBytes) }}
-                  </span>
-                </div>
-                <p class="mt-1 text-[11px] text-neutral-500">
-                  <template v-if="planLimits.storageBytes != null">
-                    of {{ formatBytes(planLimits.storageBytes) }}
-                  </template>
-                  <template v-else>Unlimited capacity</template>
-                </p>
               </div>
 
               <!-- Balance -->

@@ -1,62 +1,24 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   normalizePath,
   parentOf,
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-  storageKey,
-  storagePrefix,
 } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/move
 // Body: { from, to, kind? } where kind is 'file' (default) or 'folder'
 //
-// Moves within the Supabase backend. Requires write on both source parent and
-// destination parent. For folders, walks the subtree and moves each object.
+// Renames / re-parents within the metadata layer. Bytes themselves never move
+// — Drive files keep their Drive id, local files keep their OPFS entry. Only
+// the logical path on the `files` row changes.
 
 interface Body {
   from?: unknown
   to?: unknown
   kind?: unknown
-}
-
-async function moveSubtree(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
-  workspaceId: string,
-  fromPath: string,
-  toPath: string,
-) {
-  const fromPrefix = storagePrefix(workspaceId, fromPath)
-  const toPrefix = storagePrefix(workspaceId, toPath)
-
-  const { data: entries, error } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .list(fromPrefix, { limit: 1000, sortBy: { column: 'name', order: 'asc' } })
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
-  }
-
-  for (const item of entries ?? []) {
-    const isFolder = item.id === null
-    if (isFolder) {
-      await moveSubtree(
-        admin,
-        workspaceId,
-        `${fromPath}/${item.name}`,
-        `${toPath}/${item.name}`,
-      )
-    } else {
-      const { error: mErr } = await admin.storage
-        .from(STORAGE_BUCKET)
-        .move(`${fromPrefix}${item.name}`, `${toPrefix}${item.name}`)
-      if (mErr) {
-        throw createError({ statusCode: 500, statusMessage: mErr.message })
-      }
-    }
-  }
 }
 
 export default defineEventHandler(async (event) => {
@@ -90,20 +52,6 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  if (kind === 'folder') {
-    await moveSubtree(admin, workspaceId, from, to)
-  } else {
-    const { error: mErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .move(storageKey(workspaceId, from), storageKey(workspaceId, to))
-    if (mErr) {
-      console.error('[files] move error', mErr, { from, to })
-      throw createError({ statusCode: 500, statusMessage: `${mErr.message} (from=${from} to=${to})` })
-    }
-  }
-
-  // Reconcile metadata: update path on any rows that match either the exact
-  // path (file) or anything nested under the folder.
   if (kind === 'folder') {
     const { data: rows } = await admin
       .from('files')

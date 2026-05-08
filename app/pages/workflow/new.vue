@@ -12,9 +12,9 @@ onMounted(async () => {
   sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, 'new')
 })
 
-// Single console tab, self-referential so the header matches the style on
+// Single agent tab, self-referential so the header matches the style on
 // real workflow pages without advertising tabs that can't work yet.
-const headerTabs = computed(() => ({ Console: route.path }))
+const headerTabs = computed(() => ({ Agent: route.path }))
 
 const command = ref('')
 const viewportList = ref<ViewportState[]>([])

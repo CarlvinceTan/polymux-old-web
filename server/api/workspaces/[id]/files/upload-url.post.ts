@@ -1,7 +1,6 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import { fileCap, storageCap } from '~~/server/utils/planLimits'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   basenameOf,
   normalizePath,
@@ -9,7 +8,6 @@ import {
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
 import { resolveDriveAccess } from '~~/server/utils/driveTokens'
 import { createResumableUploadSession } from '~~/server/utils/googleOAuth'
@@ -18,7 +16,7 @@ import { createResumableUploadSession } from '~~/server/utils/googleOAuth'
 // Body: { path, size, content_type? }
 // Returns: { url, token, path, backend, expires_at }
 //
-// Mints a signed upload URL for direct-to-storage upload. Caller must have
+// Mints a signed upload URL for direct-to-Drive upload. Caller must have
 // write permission on the target parent path. Enforces per-file size cap and
 // workspace total storage cap based on workspace plan.
 
@@ -77,9 +75,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Approximate used-bytes check from the metadata table. Files written before
-  // Phase B didn't populate rows, so this under-counts until the Phase F
-  // backfill runs — acceptable for launch.
   const { data: usedRow } = await supabase
     .from('files')
     .select('size_bytes')
@@ -94,20 +89,6 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  // Backend selection:
-  //  - If the caller passed `preferred_backend` (used by local→remote
-  //    migrations), honour it over any existing row — migration's whole point
-  //    is to change the backend.
-  //  - Else if a row already exists for this path, mint an upload URL on the
-  //    same backend (overwrites in place; preserves Drive file id, etc.).
-  //  - Else for new files, prefer Drive if a connection exists (matches the
-  //    saveOrder "top-available provider"); otherwise Supabase.
-  const preferred = body.preferred_backend === 'google-drive'
-    ? 'google-drive'
-    : body.preferred_backend === 'supabase'
-      ? 'supabase'
-      : null
-
   const { data: existing } = await admin
     .from('files')
     .select('backend, backend_ref')
@@ -115,64 +96,40 @@ export default defineEventHandler(async (event) => {
     .eq('path', logicalPath)
     .maybeSingle()
 
-  let backend: 'supabase' | 'google-drive' = 'supabase'
-  if (preferred) {
-    backend = preferred
-  }
-  else if (existing?.backend === 'google-drive' || existing?.backend === 'supabase') {
-    backend = existing.backend
-  } else {
-    const { data: driveRow } = await admin
-      .from('workspace_integrations')
-      .select('id')
-      .eq('workspace_id', workspaceId)
-      .eq('provider', 'google-drive')
-      .maybeSingle()
-    if (driveRow) backend = 'google-drive'
+  const { data: driveRow } = await admin
+    .from('workspace_integrations')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('provider', 'google-drive')
+    .maybeSingle()
+  if (!driveRow) {
+    throw createError({
+      statusCode: 412,
+      statusMessage: 'Connect Google Drive to upload files.',
+    })
   }
 
   const contentType = typeof body.content_type === 'string' && body.content_type
     ? body.content_type
     : 'application/octet-stream'
 
-  if (backend === 'google-drive') {
-    const access = await resolveDriveAccess(admin, workspaceId)
-    const url = await createResumableUploadSession(
-      access.accessToken,
-      {
-        name: basenameOf(logicalPath),
-        parents: existing?.backend_ref ? undefined : [access.rootFolderId],
-        mimeType: contentType,
-      },
-      size,
-      workspaceId,
-    )
-    return {
-      url,
-      token: '',
-      path: logicalPath,
-      backend: 'google-drive' as const,
-      method: 'PUT' as const,
-      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    }
-  }
-
-  const objectName = storageKey(workspaceId, logicalPath)
-  const { data: signed, error: signError } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUploadUrl(objectName, { upsert: true })
-
-  if (signError || !signed) {
-    console.error('[files] createSignedUploadUrl error', signError)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to mint upload URL.' })
-  }
-
+  const access = await resolveDriveAccess(admin, workspaceId)
+  const url = await createResumableUploadSession(
+    access.accessToken,
+    {
+      name: basenameOf(logicalPath),
+      parents: existing?.backend_ref ? undefined : [access.rootFolderId],
+      mimeType: contentType,
+    },
+    size,
+    workspaceId,
+  )
   return {
-    url: signed.signedUrl,
-    token: signed.token,
+    url,
+    token: '',
     path: logicalPath,
-    backend: 'supabase' as const,
-    method: 'POST' as const,
-    expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+    backend: 'google-drive' as const,
+    method: 'PUT' as const,
+    expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }
 })

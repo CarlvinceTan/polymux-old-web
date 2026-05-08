@@ -1,14 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StorageProvider } from '~/types/storage'
-
-const PLAN_STORAGE_BYTES: Record<string, number | null> = {
-  free: 100 * 1024 * 1024,
-  pro: 5 * 1024 * 1024 * 1024,
-  max: 50 * 1024 * 1024 * 1024,
-  enterprise: null,
-}
-
-const BUCKET = 'workspace-files'
 
 export interface ProviderUsageCard {
   provider: StorageProvider
@@ -26,45 +16,13 @@ interface LocalProbeState {
   quota: number
 }
 
-async function computeBucketBytes(
-  supabase: SupabaseClient,
-  workspaceId: string,
-): Promise<number> {
-  let total = 0
-  const queue: string[] = [`${workspaceId}/main`, `${workspaceId}/shared`]
-  const MAX_FOLDERS = 500
-  let visited = 0
-  while (queue.length > 0 && visited < MAX_FOLDERS) {
-    const prefix = queue.shift()!
-    visited += 1
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
-    if (error || !data) continue
-    for (const item of data) {
-      if (item.name === '.keep') continue
-      if (item.id === null) {
-        queue.push(`${prefix}/${item.name}`)
-      }
-      else {
-        const size = (item.metadata as { size?: number } | null | undefined)?.size
-        if (typeof size === 'number') total += size
-      }
-    }
-  }
-  return total
-}
-
 export function useStorageUsage() {
-  const supabase = useSupabaseClient()
-  const { currentWorkspaceId, currentWorkspace } = useWorkspaces()
+  const { currentWorkspaceId } = useWorkspaces()
   const { isInstalled } = useMarketplace()
   const { probe: probeLocal } = useLocalFileStorage()
   const { providerStatus } = useStoragePreferences()
   const { t } = useI18n()
 
-  // Shared session-level state so probes don't repeat across pages/components
-  const cloudBytes = useState<number>('storage-usage-cloud-bytes', () => 0)
-  const cloudLoaded = useState<boolean>('storage-usage-cloud-loaded', () => false)
-  const cloudLoading = useState<boolean>('storage-usage-cloud-loading', () => false)
   const localProbe = useState<LocalProbeState>(
     'storage-usage-local-probe',
     () => ({ supported: false, usage: 0, quota: 0 }),
@@ -79,22 +37,6 @@ export function useStorageUsage() {
   )
   const driveLoaded = useState<boolean>('storage-usage-drive-loaded', () => false)
   const driveLoading = useState<boolean>('storage-usage-drive-loading', () => false)
-
-  async function refreshCloud(force = false) {
-    if (!force && (cloudLoaded.value || cloudLoading.value)) return
-    if (!currentWorkspaceId.value) return
-    cloudLoading.value = true
-    try {
-      cloudBytes.value = await computeBucketBytes(supabase, currentWorkspaceId.value)
-      cloudLoaded.value = true
-    }
-    catch {
-      cloudBytes.value = 0
-    }
-    finally {
-      cloudLoading.value = false
-    }
-  }
 
   async function refreshLocal(force = false) {
     if (!force && (localLoaded.value || localLoading.value)) return
@@ -132,14 +74,8 @@ export function useStorageUsage() {
   }
 
   async function refresh(force = false) {
-    await Promise.all([refreshCloud(force), refreshLocal(force), refreshDrive(force)])
+    await Promise.all([refreshLocal(force), refreshDrive(force)])
   }
-
-  const planStorageBytes = computed<number | null>(() => {
-    const plan = (currentWorkspace.value?.plan ?? 'free').toLowerCase()
-    if (plan in PLAN_STORAGE_BYTES) return PLAN_STORAGE_BYTES[plan]!
-    return PLAN_STORAGE_BYTES.free!
-  })
 
   const driveConnected = computed(() => isInstalled('google-drive'))
 
@@ -154,23 +90,6 @@ export function useStorageUsage() {
 
   const cards = computed<ProviderUsageCard[]>(() => {
     const out: ProviderUsageCard[] = []
-
-    if (providerStatus.value['supabase'] === 'available') {
-      const total = planStorageBytes.value
-      const used = cloudBytes.value
-      const percent = total != null && total > 0
-        ? Math.min(100, (used / total) * 100)
-        : null
-      out.push({
-        provider: 'supabase',
-        label: t('storage.settings.providerCloud'),
-        state: total == null ? 'unlimited' : 'tracked',
-        used,
-        total,
-        percent,
-        loading: cloudLoading.value,
-      })
-    }
 
     if (driveConnected.value) {
       const q = driveQuota.value
@@ -235,7 +154,6 @@ export function useStorageUsage() {
   return {
     cards,
     refresh,
-    refreshCloud,
     refreshLocal,
     refreshDrive,
   }

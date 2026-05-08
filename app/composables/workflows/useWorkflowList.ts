@@ -1,3 +1,6 @@
+import { computed, useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
+import { useAuthFetch } from '../auth/useAuthFetch'
+import { useWorkspaces } from '../useWorkspaces'
 import type { ChatMessage, ChatMessageAttachment } from '../types'
 
 // `/workflow/new` is the URL slug for the page that hosts the in-flight draft.
@@ -324,6 +327,13 @@ export function useWorkflowList() {
   // Returns null when the workflow is forbidden / gone (HTTP 403) so callers
   // can redirect away from a stale URL instead of treating it as an empty
   // history. Empty array still means "loaded, no messages yet".
+  //
+  // Retry collapsing: rows whose metadata.retry_of_user_message_id points at
+  // an earlier user prompt are alternative versions of that prompt's reply.
+  // We hide the duplicate user-message rows and merge the assistant texts into
+  // the original reply bubble's retryVersions array so the UI can render arrow
+  // navigation. Each retry's user-prompt row is suppressed; only the original
+  // remains in the rendered list.
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[] | null> {
     const target = sessions.value.find(s => s.id === sessionId)
     if (target?.is_draft) return []
@@ -332,30 +342,96 @@ export function useWorkflowList() {
       if (agentId) path += `?agent_id=${encodeURIComponent(agentId)}`
       const data = await authFetch<StoredMessage[]>(path)
       if (!data || data.length === 0) return []
-      const out: ChatMessage[] = []
+
+      type Meta = {
+        attachments?: ChatMessageAttachment[]
+        thinking?: { action?: string; detail?: string }[]
+        retry_of_user_message_id?: string
+      }
+
+      // Pass 1: collect retry user-message ids and group assistant retry texts
+      // by parent user message id. Retries arrive in created_at order so the
+      // slot index in `versionsByParent` is the chronological retry attempt.
+      const retryUserMessageIds = new Set<string>()
+      // versionsByParent[parentId] = array of texts, one per retry attempt
+      // (the original reply's text fills slot 0; retries 1..N fill subsequent).
+      const retryTextsByParent = new Map<string, string[]>()
       for (const m of data) {
-        // 'assistant' is the canonical role for agent-authored messages (matches the
-        // messages.role CHECK constraint); 'agent' is accepted for legacy rows
-        // written before the constraint was tightened.
+        const meta = m.metadata as Meta | undefined
+        const retryOf = meta?.retry_of_user_message_id
+        if (!retryOf) continue
+        if (m.role === 'user') {
+          retryUserMessageIds.add(m.id)
+        } else if (m.role === 'agent' || m.role === 'assistant') {
+          const slots = retryTextsByParent.get(retryOf) ?? []
+          slots.push(m.content)
+          retryTextsByParent.set(retryOf, slots)
+        }
+      }
+
+      const out: ChatMessage[] = []
+      // Track the most recently appended agent bubble per parent user-message
+      // id so retryVersions attaches to the LAST bubble of a multi-round turn
+      // (continuation rounds produce several agent rows for one user prompt;
+      // the retry navigator should sit on the visible end-of-reply bubble).
+      const lastAgentIndexByUserId = new Map<string, number>()
+      let lastUserId = ''
+      for (const m of data) {
         if (m.role !== 'user' && m.role !== 'agent' && m.role !== 'assistant') continue
-        const meta = m.metadata as { attachments?: ChatMessageAttachment[]; thinking?: { action?: string; detail?: string }[] } | undefined
-        if (m.role !== 'user') {
-          // Mirror the live merge in handleAgentThinking: collapse the bubble's
-          // thinking entries into one collapsible AgentAction (latest action,
-          // concatenated detail) placed before the agent reply.
-          const thinking = meta?.thinking
-          if (thinking && thinking.length > 0) {
-            const action = thinking[thinking.length - 1]?.action ?? ''
-            const detail = thinking.map(t => t.detail ?? '').join('')
-            out.push({ role: 'thinking', text: action, action, detail })
-          }
+        const meta = m.metadata as Meta | undefined
+
+        if (m.role === 'user') {
+          if (retryUserMessageIds.has(m.id)) continue
+          lastUserId = m.id
+          out.push({
+            role: 'user',
+            text: m.content,
+            id: m.id,
+            attachments: meta?.attachments,
+          })
+          continue
+        }
+
+        const retryOf = meta?.retry_of_user_message_id
+        if (retryOf) {
+          // Retry-attempt agent rows merge into the original reply's
+          // retryVersions (handled below) — skip rendering separately.
+          continue
+        }
+
+        // Mirror the live merge in handleAgentThinking: collapse the bubble's
+        // thinking entries into one collapsible AgentAction (latest action,
+        // concatenated detail) placed before the agent reply.
+        const thinking = meta?.thinking
+        if (thinking && thinking.length > 0) {
+          const action = thinking[thinking.length - 1]?.action ?? ''
+          const detail = thinking.map(t => t.detail ?? '').join('')
+          out.push({ role: 'thinking', text: action, action, detail })
         }
         out.push({
-          role: (m.role === 'assistant' ? 'agent' : m.role) as ChatMessage['role'],
+          role: 'agent',
           text: m.content,
+          id: m.id,
           attachments: meta?.attachments,
         })
+        lastAgentIndexByUserId.set(lastUserId, out.length - 1)
       }
+
+      // Pass 3: attach retry versions to the trailing agent bubble per prompt.
+      // The original reply text is slot 0; subsequent retries are appended in
+      // creation order. Default the active version to the latest retry so the
+      // chat opens to the most recent reply.
+      for (const [userId, retries] of retryTextsByParent) {
+        if (retries.length === 0) continue
+        const idx = lastAgentIndexByUserId.get(userId)
+        if (idx === undefined) continue
+        const msg = out[idx]
+        if (!msg || msg.role !== 'agent') continue
+        const versions = [msg.text, ...retries]
+        const active = versions.length - 1
+        out[idx] = { ...msg, text: versions[active]!, retryVersions: versions, activeRetryIndex: active }
+      }
+
       return out
     } catch (err) {
       const e = err as { status?: number }

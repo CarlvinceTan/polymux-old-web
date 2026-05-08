@@ -32,6 +32,11 @@ export function useSession(sessionId: Ref<string> | string) {
   let reconnectAttempts = 0
   let intentionallyClosed = false
   let generation = 0
+  // Buffered until the socket reaches OPEN. Lets callers fire `send` during
+  // the connect/reconnect window without having to set up their own
+  // wait-for-status watcher — the first prompt on a freshly-promoted draft
+  // would otherwise be dropped because agent.vue mounts before the WS opens.
+  const pendingSends: Array<{ type: string, payload: unknown }> = []
 
   function dispatch(type: string, payload: unknown) {
     const set = handlers.get(type)
@@ -76,6 +81,7 @@ export function useSession(sessionId: Ref<string> | string) {
       if (myGen !== generation) return
       status.value = 'connected'
       reconnectAttempts = 0
+      flushPendingSends()
     }
 
     socket.onmessage = (event: MessageEvent) => {
@@ -136,11 +142,30 @@ export function useSession(sessionId: Ref<string> | string) {
     ws?.close()
     ws = null
     status.value = 'disconnected'
+    pendingSends.length = 0
+  }
+
+  function flushPendingSends() {
+    while (pendingSends.length > 0) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+      const item = pendingSends.shift()!
+      const envelope: Envelope = {
+        type: item.type,
+        payload: item.payload,
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+      }
+      ws.send(JSON.stringify(envelope))
+    }
   }
 
   function send<T>(type: string, payload: T) {
+    if (intentionallyClosed) {
+      console.warn(`[useSession] send dropped — closed`, type)
+      return
+    }
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn(`[useSession] send dropped — status=${status.value}`, type)
+      pendingSends.push({ type, payload })
       return
     }
     const envelope: Envelope<T> = {

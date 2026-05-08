@@ -7,10 +7,15 @@ const { copy, copied } = useClipboard()
 const props = defineProps<{
   text: string
   showActions?: boolean
+  /** Total retry versions (including the original). Hidden when 0 or 1. */
+  retryCount?: number
+  /** Active version index, 0-based. */
+  activeRetryIndex?: number
 }>()
 
 const emit = defineEmits<{
   retry: []
+  'navigate-retry': [retryIndex: number]
 }>()
 
 const renderer = new marked.Renderer()
@@ -22,17 +27,62 @@ renderer.table = function (token) {
 function renderMarkdown(text: string): string {
   return marked.parse(text, { renderer }) as string
 }
+
+// Show the retry navigator (arrows + counter) when there is more than one
+// version to choose from. The position next to the retry icon mirrors
+// design-language conventions for paginated content.
+const hasRetries = computed(() => (props.retryCount ?? 0) > 1)
+const activeIdx = computed(() => props.activeRetryIndex ?? ((props.retryCount ?? 1) - 1))
+const canPrev = computed(() => hasRetries.value && activeIdx.value > 0)
+const canNext = computed(() => hasRetries.value && activeIdx.value < (props.retryCount ?? 1) - 1)
+
+function goPrev() {
+  if (canPrev.value) emit('navigate-retry', activeIdx.value - 1)
+}
+function goNext() {
+  if (canNext.value) emit('navigate-retry', activeIdx.value + 1)
+}
 </script>
 
 <template>
   <div class="group w-full min-w-0">
     <div class="agent-prose text-sm leading-relaxed text-neutral-700" v-html="renderMarkdown(text)" />
-    <div v-if="showActions" class="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+    <div
+      v-if="showActions"
+      class="mt-0.5 flex items-center gap-0.5 transition-opacity duration-150"
+      :class="hasRetries ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+    >
       <MessageAction :icon="copied ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'" :label="t('common.copy')" @click="copy(props.text)" />
       <MessageAction icon="i-heroicons-hand-thumb-up" :label="t('chat.goodResponse')" />
       <MessageAction icon="i-heroicons-hand-thumb-down" :label="t('chat.badResponse')" />
       <MessageAction icon="i-heroicons-arrow-up-on-square" :label="t('common.share')" />
       <MessageAction icon="i-heroicons-arrow-path-20-solid" :label="t('common.retry')" @click="emit('retry')" />
+      <div
+        v-if="hasRetries"
+        class="ml-0.5 flex items-center gap-0.5 text-[11px] leading-none text-neutral-500"
+      >
+        <button
+          type="button"
+          class="flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+          :disabled="!canPrev"
+          :aria-label="t('chat.previousRetry')"
+          @click="goPrev"
+        >
+          <UIcon name="i-heroicons-chevron-left-20-solid" class="size-3" />
+        </button>
+        <span class="min-w-6 px-0.5 text-center font-medium tabular-nums">
+          {{ activeIdx + 1 }}/{{ retryCount }}
+        </span>
+        <button
+          type="button"
+          class="flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+          :disabled="!canNext"
+          :aria-label="t('chat.nextRetry')"
+          @click="goNext"
+        >
+          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-3" />
+        </button>
+      </div>
     </div>
   </div>
 </template>

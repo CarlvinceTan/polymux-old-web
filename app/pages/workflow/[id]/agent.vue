@@ -74,22 +74,19 @@ function onRetryMessage(index: number) {
   currentChat.value.retryFromMessage(index)
 }
 
-// Pick up a draft stashed during session promotion and fire it once the
-// WebSocket is actually connected.
+function onNavigateRetry(index: number, retryIndex: number) {
+  currentChat.value.setActiveRetry(index, retryIndex)
+}
+
+// Pick up a draft stashed during session promotion and fire it immediately.
+// Calling onSend now pushes the optimistic user bubble into orchestrator
+// state synchronously — the welcome view goes away on the same tick the
+// page mounts. The WS frame itself is buffered inside useSession until the
+// socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
   const pending = consumePendingPrompt(sessionId.value)
   if (!pending) return
-  const send = () => onSend(pending.text, pending.attachments)
-  if (session.status.value === 'connected') {
-    send()
-    return
-  }
-  const stop = watch(session.status, (s) => {
-    if (s === 'connected') {
-      stop()
-      send()
-    }
-  })
+  onSend(pending.text, pending.attachments)
 })
 </script>
 
@@ -123,5 +120,6 @@ onMounted(() => {
     @spawn-browser-agent="onSpawnBrowserAgent"
     @edit-message="onEditMessage"
     @retry-message="onRetryMessage"
+    @navigate-retry="onNavigateRetry"
   />
 </template>

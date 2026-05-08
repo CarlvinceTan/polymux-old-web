@@ -150,9 +150,12 @@ let dragRaf: number | null = null
 let listEl: HTMLElement | null = null
 let naturalY = 0
 let lastClampedY = 0
-// Reactive: drag-in-progress flag. Used to suppress per-row hover affordances
-// (e.g. the 3-dot menu trigger) on rows the cursor passes over during drag.
+// Drag-in-progress flag. Suppresses per-row hover affordances (e.g. the
+// 3-dot menu trigger) on rows the cursor passes over during drag.
 const isDragging = ref(false)
+// True for the one render that commits a drop, so `move-class` swaps to the
+// no-transition variant — see `onDragEnd` for why a swap is needed.
+const isDropping = ref(false)
 
 function constrainDragPreview() {
   const el = document.querySelector<HTMLElement>('.wf-drag')
@@ -218,6 +221,18 @@ function onDragEnd() {
   }
   listEl = null
   isDragging.value = false
+
+  // vue-draggable-plus reverts SortableJS's in-place DOM mutation and
+  // re-emits the new array order, so Vue's TransitionGroup runs FLIP and
+  // would slide every shifted row from its pre-drop position to the new
+  // slot at our 500ms `.wf-move` duration. Suppress that single tween by
+  // swapping `move-class` to the no-transition variant for the commit
+  // render only; during-drag sibling shifts are unaffected.
+  isDropping.value = true
+  nextTick(() => {
+    isDropping.value = false
+  })
+
   saveOrder(
     displaySessions.value
       .filter(s => !s.is_draft)
@@ -230,8 +245,9 @@ onBeforeUnmount(() => {
 })
 
 const draggableOptions = {
-  // Match the enter/leave transitions (220ms ease) so siblings shifting for a
-  // drag reorder move with the same feel as when a workflow is added/deleted.
+  // SortableJS animation duration for sibling shifts as the cursor passes
+  // over rows during the drag. The post-drop tween is suppressed in
+  // `onDragEnd` — see `isDropping`.
   animation: 220,
   easing: 'ease',
   direction: 'vertical',
@@ -807,6 +823,7 @@ onUnmounted(() => {
           v-draggable="[displaySessions, draggableOptions]"
           tag="ul"
           name="wf"
+          :move-class="isDropping ? 'wf-move-static' : 'wf-move'"
           class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative pb-4"
         >
           <li
@@ -1051,39 +1068,38 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Leave/enter collapse via the grid-template-rows 1fr→0fr trick: animating a
-   single grid track size is dramatically smoother than transitioning
-   max-height + margin + padding simultaneously (which forced four layout
-   passes per frame). Siblings still slide naturally because the row stays in
-   flow, so SortableJS interactions remain stable. */
-.wf-leave-active,
+/* Workflow-list animations:
+   - Add: new row fades in (.wf-enter-active); siblings slide down via FLIP
+     (.wf-move).
+   - Delete: leaving row drops out of flow and snaps to opacity:0 with no
+     transition — it vanishes instantly while siblings slide up via .wf-move.
+     Vue sees no transition on leave and removes it from the DOM next frame.
+   - Drag-drop commit: .wf-move-static replaces .wf-move for one render so
+     the dropped row doesn't tween from origin to slot (see `isDropping`). */
+.wf-move {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wf-move-static {
+  transition: none;
+}
 .wf-enter-active {
-  transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
-  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.wf-leave-from,
-.wf-enter-to {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.wf-leave-to,
 .wf-enter-from {
-  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.wf-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
   opacity: 0;
 }
 
 /* Drag-to-reorder affordance (real sessions only). Disable text selection on
-   rows so a quick mousedown before the drag threshold can't highlight text.
-   `display: grid` pairs with the leave/enter transitions above; the inner
-   wrapper clips overflow so content collapses cleanly with the track size. */
+   rows so a quick mousedown before the drag threshold can't highlight text. */
 .wf-item {
   user-select: none;
-  display: grid;
-  grid-template-rows: 1fr;
-}
-.wf-item > * {
-  min-height: 0;
-  overflow: hidden;
 }
 .wf-item > div:first-child {
   cursor: grab;

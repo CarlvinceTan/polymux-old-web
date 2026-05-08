@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
 import type { StorageProvider } from '~/types/storage'
-import type { MigrationDirection } from '~/composables/storage/useDriveMigration'
 import type { LocalMigrationDirection } from '~/composables/storage/useLocalMigration'
-
-type AnyDirection = MigrationDirection | LocalMigrationDirection
 
 const props = defineProps<{
   open: boolean
@@ -19,13 +16,11 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { currentWorkspace } = useWorkspaces()
 const { providerStatus } = useStoragePreferences()
-const { state: driveMigrationState, run: runDriveMigration } = useDriveMigration()
 const { state: localMigrationState, run: runLocalMigration } = useLocalMigration()
 
-const ALL_PROVIDERS: StorageProvider[] = ['supabase', 'google-drive', 'local']
+const ALL_PROVIDERS: StorageProvider[] = ['google-drive', 'local']
 
 const providerLabel = computed<Record<StorageProvider, string>>(() => ({
-  'supabase': t('storage.settings.providerCloud'),
   'google-drive': t('storage.settings.providerGoogleDrive'),
   'local': t('storage.settings.providerLocal'),
 }))
@@ -46,37 +41,20 @@ const targetCandidates = computed<StorageProvider[]>(() => {
 
 const noTargetsAvailable = computed(() => targetCandidates.value.length === 0)
 
-function directionFor(source: StorageProvider, target: StorageProvider): AnyDirection | null {
-  if (source === 'supabase' && target === 'google-drive') return 'supabase-to-drive'
-  if (source === 'google-drive' && target === 'supabase') return 'drive-to-supabase'
-  if (source === 'supabase' && target === 'local') return 'supabase-to-local'
+function directionFor(source: StorageProvider, target: StorageProvider): LocalMigrationDirection | null {
   if (source === 'google-drive' && target === 'local') return 'drive-to-local'
-  if (source === 'local' && target === 'supabase') return 'local-to-supabase'
   if (source === 'local' && target === 'google-drive') return 'local-to-drive'
   return null
 }
 
-function isLocalDirection(dir: AnyDirection): dir is LocalMigrationDirection {
-  return dir === 'supabase-to-local'
-    || dir === 'drive-to-local'
-    || dir === 'local-to-supabase'
-    || dir === 'local-to-drive'
-}
-
-const activeDirection = computed<AnyDirection | null>(() => {
+const activeDirection = computed<LocalMigrationDirection | null>(() => {
   if (!props.provider || !targetProvider.value) return null
   return directionFor(props.provider, targetProvider.value)
 })
 
-const activeMigrationState = computed(() => {
-  const dir = activeDirection.value
-  if (!dir) return null
-  return isLocalDirection(dir) ? localMigrationState : driveMigrationState
-})
+const activeMigrationState = computed(() => (activeDirection.value ? localMigrationState : null))
 
-const isMigrationRunning = computed(() =>
-  driveMigrationState.status === 'running' || localMigrationState.status === 'running',
-)
+const isMigrationRunning = computed(() => localMigrationState.status === 'running')
 
 async function refreshFileCount() {
   if (!props.provider) return
@@ -133,14 +111,8 @@ async function migrateAndDisconnect() {
   if (!dir) return
   phase.value = 'migrating'
   try {
-    if (isLocalDirection(dir)) {
-      await runLocalMigration(dir)
-    }
-    else {
-      await runDriveMigration(dir)
-    }
-    const state = isLocalDirection(dir) ? localMigrationState : driveMigrationState
-    if (state.status === 'failed') {
+    await runLocalMigration(dir)
+    if (localMigrationState.status === 'failed') {
       phase.value = 'failed'
       return
     }

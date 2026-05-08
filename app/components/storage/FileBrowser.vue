@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
+const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
 const { getIconForFile, getIconForFolder } = useFileIcons()
 const { t, locale } = useI18n()
 const toast = useAppToast()
@@ -168,6 +169,14 @@ const moveTreeRoot = ref<MoveTreeNode>({
 })
 const moveSelectedPath = ref<string[]>([])
 
+// Explicit destination-provider override for the Move modal. When the user
+// picks a non-root folder we lock this to the folder's provider (per the
+// invariant "everything inside a folder must share one provider"). At root,
+// the user is free to choose any connected provider via the dropdown.
+const moveTargetProviderOverride = ref<StorageProvider | null>(null)
+const moveProviderMenuOpen = ref(false)
+const moveProviderMenuRef = ref<HTMLElement | null>(null)
+
 const visibleMoveNodes = computed<Array<{ node: MoveTreeNode; depth: number }>>(() => {
   const out: Array<{ node: MoveTreeNode; depth: number }> = []
   const visit = (node: MoveTreeNode, depth: number) => {
@@ -190,6 +199,60 @@ function isMoveDestinationSelected(node: MoveTreeNode): boolean {
     if (node.path[i] !== moveSelectedPath.value[i]) return false
   }
   return true
+}
+
+// Provider menu options for the Move modal — only providers ready to accept
+// writes show up. Defined here next to other move-related state.
+const availableMoveProviders = computed<StorageProvider[]>(() => storageResolvedOrder.value)
+
+const moveProviderLabels: Record<StorageProvider, string> = {
+  'google-drive': 'Google Drive',
+  'local': 'Local',
+}
+
+function moveProviderLabel(provider: StorageProvider): string {
+  return moveProviderLabels[provider] ?? provider
+}
+
+// The folder selection's intrinsic provider — undefined for the workspace
+// root (the root has no inherent provider; items at root can live anywhere).
+const moveSelectedFolderProvider = computed<StorageProvider | undefined>(() => {
+  if (moveSelectedPath.value.length === 0) return undefined
+  const node = findMoveNode(moveSelectedPath.value)
+  return node?.provider
+})
+
+// Effective destination provider for the move/migrate operation. Locked to
+// the destination folder's provider when a non-root folder is selected (per
+// the per-folder invariant). At root the user picks via the dropdown override.
+const effectiveMoveTargetProvider = computed<StorageProvider>(() => {
+  const folderProvider = moveSelectedFolderProvider.value
+  if (folderProvider) return folderProvider
+  if (moveTargetProviderOverride.value && availableMoveProviders.value.includes(moveTargetProviderOverride.value)) {
+    return moveTargetProviderOverride.value
+  }
+  return availableMoveProviders.value[0] ?? storageProvider.value
+})
+
+const moveProviderLocked = computed(() => moveSelectedFolderProvider.value !== undefined)
+const moveProviderInteractive = computed(() => !moveProviderLocked.value && availableMoveProviders.value.length > 1)
+
+function selectMoveProvider(provider: StorageProvider) {
+  moveTargetProviderOverride.value = provider
+  moveProviderMenuOpen.value = false
+}
+
+function toggleMoveProviderMenu() {
+  if (!moveProviderInteractive.value) return
+  moveProviderMenuOpen.value = !moveProviderMenuOpen.value
+}
+
+function handleMoveProviderClickOutside(event: MouseEvent) {
+  if (!moveProviderMenuOpen.value) return
+  const target = event.target as Node
+  if (moveProviderMenuRef.value && !moveProviderMenuRef.value.contains(target)) {
+    moveProviderMenuOpen.value = false
+  }
 }
 
 const pendingNewFolder = ref<{ draftName: string } | null>(null)
@@ -398,10 +461,10 @@ watch(() => currentWorkspace.value?.id, () => {
   directoryCache.clear()
 })
 
-// Refresh when a Drive migration finishes so provider icons reflect the
+// Refresh when a local migration finishes so provider icons reflect the
 // new backend without requiring a manual reload.
-const { state: driveMigrationState } = useDriveMigration()
-watch(() => driveMigrationState.status, (status, prev) => {
+const { state: localMigrationState } = useLocalMigration()
+watch(() => localMigrationState.status, (status, prev) => {
   if (prev === 'running' && (status === 'done' || status === 'failed')) {
     refreshFiles()
   }
@@ -456,10 +519,12 @@ function handleClickOutside(event: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', handleMoveProviderClickOutside)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleMoveProviderClickOutside)
 })
 
 const filterItems = [
@@ -1143,6 +1208,12 @@ async function openMoveModal() {
     expanded: false,
   }
   moveSelectedPath.value = initialPath
+  // Default the provider override to whichever provider holds the current
+  // folder we open into, falling back to the first selected item's provider
+  // (for root) so the dropdown reflects the items' "home" before any move.
+  const firstSelected = selectedItemsMap.value.values().next().value
+  moveTargetProviderOverride.value = (firstSelected?.provider as StorageProvider | undefined) ?? null
+  moveProviderMenuOpen.value = false
   isMoveModalOpen.value = true
   await expandMoveNode(moveTreeRoot.value)
   let cursor: MoveTreeNode = moveTreeRoot.value
@@ -1364,10 +1435,10 @@ async function confirmMove() {
   const targets = Array.from(selectedItemsMap.value.values())
   if (targets.length === 0) return
   const destDir = moveSelectedPath.value.join('/')
-  // Resolve destination provider from the picked node. Root falls back to the
-  // user's preferred provider — there's no single "root provider".
-  const destNode = findMoveNode(moveSelectedPath.value)
-  const destProvider: StorageProvider = destNode?.provider ?? storageProvider.value
+  // Destination provider comes from `effectiveMoveTargetProvider`: locked to
+  // the chosen folder's provider when one is selected, otherwise driven by
+  // the explicit provider dropdown (root case).
+  const destProvider: StorageProvider = effectiveMoveTargetProvider.value
   const destName = moveSelectedPath.value.length === 0
     ? 'Home'
     : (moveSelectedPath.value[moveSelectedPath.value.length - 1] ?? 'Home')
@@ -1409,6 +1480,8 @@ function findMoveNode(path: string[]): MoveTreeNode | null {
 function cancelMove() {
   isMoveModalOpen.value = false
   moveSelectedPath.value = []
+  moveTargetProviderOverride.value = null
+  moveProviderMenuOpen.value = false
 }
 
 async function handleDownload() {
@@ -1495,11 +1568,12 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
     if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
   }
 
-  // Drop-into-folder zone. In LIST view the middle ~30% of a row's height is
-  // the trigger; top/bottom edges pass through to a reorder swap. In ICON
-  // (grid) view we need BOTH axes: otherwise dragging horizontally across a
-  // row puts the cursor at the vertical midline of every cell it passes, so
-  // every folder along the way returned `false` from onMove and blocked the
+  // Drop-into-folder zone. List rows are short (~37px) so a tight middle
+  // band is hard to land in — use the middle 66% there, leaving thin
+  // top/bottom strips for reorder. In ICON (grid) view we need BOTH axes
+  // with a tighter band: otherwise dragging horizontally across a row puts
+  // the cursor at the vertical midline of every cell it passes, so every
+  // folder along the way returned `false` from onMove and blocked the
   // reorder swap — which looked like "siblings never shift".
   if (target.kind === 'folder' && related) {
     const rect: DOMRect = (evt.relatedRect as DOMRect | undefined) ?? related.getBoundingClientRect()
@@ -1514,8 +1588,9 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
         y = (originalEvent as TouchEvent).touches[0]!.clientY
       }
     }
-    const inMidY = y >= rect.top + rect.height * 0.35 && y <= rect.bottom - rect.height * 0.35
-    const inMidX = x >= rect.left + rect.width * 0.35 && x <= rect.right - rect.width * 0.35
+    const yMargin = viewMode.value === 'icon' ? 0.3 : 0.17
+    const inMidY = y >= rect.top + rect.height * yMargin && y <= rect.bottom - rect.height * yMargin
+    const inMidX = x >= rect.left + rect.width * 0.3 && x <= rect.right - rect.width * 0.3
     const inMid = viewMode.value === 'icon' ? (inMidX && inMidY) : inMidY
     if (inMid) {
       related.classList.add('fb-drop-into')
@@ -1551,10 +1626,11 @@ function onDragPointerMove(ev: PointerEvent) {
   }
   if (!pendingDropInto) return
   const rect = pendingDropInto.element.getBoundingClientRect()
-  const inMidY = ev.clientY >= rect.top + rect.height * 0.35 &&
-                 ev.clientY <= rect.bottom - rect.height * 0.35
-  const inMidX = ev.clientX >= rect.left + rect.width * 0.35 &&
-                 ev.clientX <= rect.right - rect.width * 0.35
+  const yMargin = viewMode.value === 'icon' ? 0.3 : 0.17
+  const inMidY = ev.clientY >= rect.top + rect.height * yMargin &&
+                 ev.clientY <= rect.bottom - rect.height * yMargin
+  const inMidX = ev.clientX >= rect.left + rect.width * 0.3 &&
+                 ev.clientX <= rect.right - rect.width * 0.3
   // Mirror onSortableMove's zone: 2D in grid view, Y-only in list view.
   const inside = viewMode.value === 'icon'
     ? (inMidX && inMidY)
@@ -2171,8 +2247,8 @@ watch(multiDragActive, (active) => {
                     ]"
                   >
 <button
-  class="shrink-0 flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
-  :class="searchExpanded ? 'text-neutral-950 bg-neutral-100' : ''"
+  class="shrink-0 flex items-center justify-center size-8 rounded-lg transition-colors"
+  :class="searchExpanded ? 'text-neutral-500' : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100'"
   aria-label="Search files"
   @click="toggleSearch"
 >
@@ -2213,7 +2289,7 @@ watch(multiDragActive, (active) => {
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isShareModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                     </svg>
                   </button>
@@ -2225,7 +2301,7 @@ watch(multiDragActive, (active) => {
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isPermissionsModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
                   </button>
@@ -2364,7 +2440,7 @@ watch(multiDragActive, (active) => {
             <div
               v-else-if="viewMode === 'icon'"
               ref="marqueeContainer"
-              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6"
+              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6 sm:pb-6"
               @pointerdown="onMarqueePointerDown"
               @click.capture="onMarqueeClick"
             >
@@ -2510,7 +2586,7 @@ watch(multiDragActive, (active) => {
             </div>
 
             <!-- List view: Finder-style table with column headers -->
-            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
+            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
               <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
                 <!-- Column headers -->
                 <div
@@ -2535,14 +2611,16 @@ watch(multiDragActive, (active) => {
                     v-for="file in displayItems"
                     :key="file.id"
                     data-file-item
-                    data-fb-handle
                     :data-id="file.id"
                     :data-kind="file.kind"
                     :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path, provider: file.provider })"
-                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer last:border-b-0"
+                    :class="isPendingRow(file) ? 'fb-pending-row' : ''"
+                  >
+                  <div
+                    data-fb-handle
+                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer"
                     :class="[
                       isSelected(file.id) ? 'bg-neutral-50' : '',
-                      isPendingRow(file) ? 'fb-pending-row' : '',
                       isDragging ? '' : 'hover:bg-neutral-100',
                       multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
                     ]"
@@ -2674,6 +2752,7 @@ watch(multiDragActive, (active) => {
                     <div class="truncate text-xs text-neutral-500">
                       {{ 'createdAt' in file && file.createdAt ? formatListDate(file.createdAt as string) : '—' }}
                     </div>
+                  </div>
                   </div>
                   </div>
                   <div
@@ -2815,6 +2894,60 @@ watch(multiDragActive, (active) => {
               No subfolders
             </div>
           </div>
+          <!-- Storage provider picker -->
+          <div class="px-4 py-3 border-t border-neutral-200">
+            <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+              Storage provider
+            </span>
+            <div ref="moveProviderMenuRef" class="relative mt-1.5">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800 transition-colors"
+                :class="moveProviderInteractive ? 'hover:bg-neutral-100 cursor-pointer' : 'cursor-default'"
+                :aria-haspopup="moveProviderInteractive"
+                :aria-expanded="moveProviderMenuOpen"
+                :disabled="!moveProviderInteractive"
+                @click.stop="toggleMoveProviderMenu"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-white">
+                    <StorageProviderIcon :provider="effectiveMoveTargetProvider" tile />
+                  </span>
+                  <span class="truncate">{{ moveProviderLabel(effectiveMoveTargetProvider) }}</span>
+                </span>
+                <svg
+                  v-if="moveProviderInteractive"
+                  class="size-4 shrink-0 text-neutral-400 transition-transform"
+                  :class="moveProviderMenuOpen ? 'rotate-180' : ''"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <Menu :open="moveProviderMenuOpen && moveProviderInteractive" align="left" width="w-full">
+                <button
+                  v-for="p in availableMoveProviders"
+                  :key="p"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
+                  :class="p === effectiveMoveTargetProvider ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                  @click.stop="selectMoveProvider(p)"
+                >
+                  <span class="flex min-w-0 items-center gap-2">
+                    <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-50">
+                      <StorageProviderIcon :provider="p" tile />
+                    </span>
+                    <span class="truncate">{{ moveProviderLabel(p) }}</span>
+                  </span>
+                </button>
+              </Menu>
+            </div>
+          </div>
           <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-end gap-2">
             <button
               class="px-3 py-1.5 rounded-lg text-body-md text-neutral-700 hover:bg-neutral-100 transition-colors font-medium"
@@ -2898,6 +3031,11 @@ watch(multiDragActive, (active) => {
   outline: 2px solid var(--color-neutral-950);
   outline-offset: -2px;
   background-color: var(--color-neutral-100) !important;
+}
+/* List view: drop the bottom border on the last row's inner handle so it
+   doesn't double up against the scroll container's border. */
+[data-file-item]:last-child > [data-fb-handle] {
+  border-bottom-width: 0;
 }
 </style>
 

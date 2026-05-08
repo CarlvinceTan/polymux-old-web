@@ -8,19 +8,18 @@ const { installedItems, refresh, refreshCatalog } = useMarketplace()
 
 const route = useRoute()
 const router = useRouter()
-const { state: migrationState, run: runDriveMigration } = useDriveMigration()
 
-// Post-OAuth: if the callback redirected here with `?migrate=1`, drive the
-// Supabase→Drive migration job to completion. The cleanup strips the query so
-// reloading the page doesn't re-trigger.
+// Post-OAuth: refresh the marketplace state so the newly-connected provider
+// shows up. The legacy `?migrate=1` flow used to drive a Supabase→Drive
+// migration; cloud storage is gone, so we strip the param without acting on
+// it.
 onMounted(async () => {
   if (route.query.connected === 'google-drive') {
     await Promise.all([refresh(), refreshCatalog()])
   }
-  if (route.query.migrate === '1' && route.query.connected === 'google-drive') {
-    const { migrate: _migrate, connected: _connected, ...rest } = route.query
+  if (route.query.migrate === '1') {
+    const { migrate: _migrate, ...rest } = route.query
     router.replace({ query: rest })
-    await runDriveMigration()
   }
 })
 
@@ -225,10 +224,6 @@ onUnmounted(() => {
       </template>
 
       <div class="flex min-h-full flex-1 flex-col" style="padding: 2.5rem 6rem">
-        <div v-if="migrationState.status !== 'idle'" class="mb-6">
-          <DriveMigrationStatus :state="migrationState" />
-        </div>
-
         <div v-if="!installedItems.length" class="flex flex-1 flex-col items-center justify-center text-center">
           <svg
             class="mb-4 size-10 text-neutral-300"

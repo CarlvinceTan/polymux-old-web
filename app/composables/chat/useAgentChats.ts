@@ -29,6 +29,12 @@ interface ChatState {
   // or before the first text chunk arrives.
   isStreaming: Ref<boolean>
   streamingBuffer: { agentId: string; text: string } | null
+  // Index of the agent message bubble that the next streamed content should
+  // replace instead of being appended after. Set when a retry is dispatched
+  // (the last bubble of the previous reply gets reused so its retryVersions
+  // history stays attached). Cleared once the boundary or finaliser fires for
+  // the new turn.
+  retryTargetIndex: number | null
 }
 
 export interface ChatHandle {
@@ -39,7 +45,20 @@ export interface ChatHandle {
   sendMessage(content: string, attachments?: ChatMessageAttachment[]): void
   editMessage(index: number, text: string, attachments: ChatMessageAttachment[]): void
   retryFromMessage(index: number): void
+  setActiveRetry(index: number, retryIndex: number): void
   loadHistory(history: ChatMessage[]): void
+}
+
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  // Pre-randomUUID fallback (mirrors the one in useDeviceId).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
 export function useAgentChats(session: SessionHandle, _sessionId: string) {
@@ -54,6 +73,7 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     waitingForAgent: ref(false),
     isStreaming: ref(false),
     streamingBuffer: null,
+    retryTargetIndex: null,
   }
 
   const agentStates = new Map<string, ChatState>()
@@ -69,6 +89,7 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
         waitingForAgent: ref(false),
         isStreaming: ref(false),
         streamingBuffer: null,
+        retryTargetIndex: null,
       })
     }
     return agentStates.get(chatId)!
@@ -78,7 +99,8 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     const state = getState(chatId)
 
     function sendMessage(content: string, attachments?: ChatMessageAttachment[]) {
-      const msg: ChatMessage = { role: 'user', text: content }
+      const id = newId()
+      const msg: ChatMessage = { role: 'user', text: content, id }
       if (attachments?.length) msg.attachments = attachments
       // Seal any in-progress streaming bubble before pushing the user message:
       // a mid-turn send interrupts the orchestrator (the backend's defer fires
@@ -88,10 +110,11 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       // user message we just appended and the prompt disappears from the panel.
       state.streamingBuffer = null
       state.isStreaming.value = false
+      state.retryTargetIndex = null
       state.messages.value = [...state.messages.value, msg]
       state.waitingForAgent.value = true
 
-      const payload: UserMessagePayload = { content }
+      const payload: UserMessagePayload = { content, message_id: id }
       if (chatId !== 'orchestrator') payload.agent_id = chatId
       if (attachments?.length) payload.attachments = attachments.map(a => ({ id: a.id, name: a.name }))
       session.send<UserMessagePayload>('user_message', payload)
@@ -102,21 +125,31 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       if (!existing || existing.role !== 'user') return
 
       const atts = attachments.length > 0 ? attachments : undefined
-      const edited: ChatMessage = { role: 'user', text }
+      const id = newId()
+      const edited: ChatMessage = { role: 'user', text, id }
       if (atts) edited.attachments = atts
 
       state.streamingBuffer = null
       state.isStreaming.value = false
+      state.retryTargetIndex = null
       state.thinking.value = null
       state.waitingForAgent.value = true
       state.messages.value = [...state.messages.value.slice(0, index), edited]
 
-      const payload: UserMessagePayload = { content: text }
+      const payload: UserMessagePayload = { content: text, message_id: id }
       if (chatId !== 'orchestrator') payload.agent_id = chatId
       if (atts) payload.attachments = atts.map(a => ({ id: a.id, name: a.name }))
       session.send<UserMessagePayload>('user_message', payload)
     }
 
+    /**
+     * Retry the agent reply at `agentMessageIndex`. Preserves the previous
+     * reply text inside the bubble's retryVersions so the navigator arrows
+     * can switch back to it; the new agent text streams into the same bubble
+     * and becomes the active version. retry_of_message_id is forwarded to the
+     * backend so persisted assistant rows from the new turn carry the same
+     * retry marker — letting the UI reconstruct the version group on reload.
+     */
     function retryFromMessage(agentMessageIndex: number) {
       let userIndex = -1
       for (let i = agentMessageIndex - 1; i >= 0; i--) {
@@ -128,17 +161,70 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       if (!userMsg) return
       const content = userMsg.text
       const attachments = userMsg.attachments
+      // Resolve the retry-group id: chase retryOf back to the original prompt
+      // so all retries (including retries of retries) share one parent.
+      const retryOf = userMsg.retryOf ?? userMsg.id
+
+      // Snapshot the current agent reply text before resetting the bubble.
+      const target = state.messages.value[agentMessageIndex]
+      let retryVersions: string[] = []
+      let activeIdx = 0
+      if (target && target.role === 'agent') {
+        const existing = target.retryVersions ?? [target.text]
+        // Persist the in-place active text so we don't lose live edits the
+        // user navigated to. A blank text shouldn't displace a real version.
+        const live = (target.activeRetryIndex ?? existing.length - 1)
+        if (target.text && existing[live] !== target.text) {
+          existing[live] = target.text
+        }
+        retryVersions = existing
+        activeIdx = retryVersions.length // new attempt's slot
+      }
+      // Drop any messages between the user prompt and the agent bubble we are
+      // retrying (mid-turn thinking, intermediate continuation bubbles). The
+      // new turn will re-stream a fresh sequence ending at the same bubble.
+      const head = state.messages.value.slice(0, userIndex + 1)
+      const placeholder: ChatMessage = {
+        role: 'agent',
+        text: '',
+        retryVersions: [...retryVersions, ''],
+        activeRetryIndex: activeIdx,
+      }
 
       state.streamingBuffer = null
       state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = true
-      state.messages.value = [...state.messages.value.slice(0, userIndex), { role: 'user', text: content, attachments }]
+      state.messages.value = [...head, placeholder]
+      state.retryTargetIndex = state.messages.value.length - 1
 
-      const payload: UserMessagePayload = { content }
+      const payload: UserMessagePayload = {
+        content,
+        message_id: newId(),
+        retry_of_message_id: retryOf,
+      }
       if (chatId !== 'orchestrator') payload.agent_id = chatId
       if (attachments?.length) payload.attachments = attachments.map(a => ({ id: a.id, name: a.name }))
       session.send<UserMessagePayload>('user_message', payload)
+    }
+
+    /**
+     * Set which retry version is displayed for the agent message at `index`.
+     * The bubble keeps its retryVersions array; only the rendered text and
+     * activeRetryIndex change.
+     */
+    function setActiveRetry(index: number, retryIndex: number) {
+      const msg = state.messages.value[index]
+      if (!msg || msg.role !== 'agent') return
+      const versions = msg.retryVersions
+      if (!versions || retryIndex < 0 || retryIndex >= versions.length) return
+      const updated = [...state.messages.value]
+      updated[index] = {
+        ...msg,
+        text: versions[retryIndex] ?? '',
+        activeRetryIndex: retryIndex,
+      }
+      state.messages.value = updated
     }
 
     function loadHistory(history: ChatMessage[]) {
@@ -174,6 +260,7 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       sendMessage,
       editMessage,
       retryFromMessage,
+      setActiveRetry,
       loadHistory,
     }
   }
@@ -186,13 +273,53 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
 
     if (p.is_partial) {
       if (!state.streamingBuffer || state.streamingBuffer.agentId !== p.agent_id) {
-        state.streamingBuffer = { agentId: p.agent_id, text: p.content }
-        state.messages.value = [...state.messages.value, { role: 'agent', text: p.content }]
+        // Retry path: the placeholder bubble has been pre-installed at
+        // retryTargetIndex with retryVersions populated. Stream into it
+        // instead of appending a new bubble so the version history stays
+        // pinned to one bubble.
+        if (state.retryTargetIndex !== null) {
+          state.streamingBuffer = { agentId: p.agent_id, text: p.content }
+          const updated = [...state.messages.value]
+          const target = updated[state.retryTargetIndex]
+          if (target && target.role === 'agent') {
+            const versions = [...(target.retryVersions ?? [])]
+            const active = target.activeRetryIndex ?? versions.length - 1
+            versions[active] = p.content
+            updated[state.retryTargetIndex] = {
+              ...target,
+              text: p.content,
+              retryVersions: versions,
+              activeRetryIndex: active,
+              id: p.message_id || target.id,
+            }
+            state.messages.value = updated
+          } else {
+            // Placeholder lost (e.g. loadHistory replaced it) — fall back to
+            // append, accepting that retry-version tracking resets.
+            state.messages.value = [...state.messages.value, { role: 'agent', text: p.content }]
+            state.retryTargetIndex = null
+          }
+        } else {
+          state.streamingBuffer = { agentId: p.agent_id, text: p.content }
+          state.messages.value = [...state.messages.value, { role: 'agent', text: p.content }]
+        }
       } else {
         state.streamingBuffer.text += p.content
         const updated = [...state.messages.value]
-        updated[updated.length - 1] = { role: 'agent', text: state.streamingBuffer.text }
-        state.messages.value = updated
+        const targetIdx = state.retryTargetIndex ?? updated.length - 1
+        const target = updated[targetIdx]
+        if (target && target.role === 'agent') {
+          const baseText = state.streamingBuffer.text
+          if (target.retryVersions) {
+            const versions = [...target.retryVersions]
+            const active = target.activeRetryIndex ?? versions.length - 1
+            versions[active] = baseText
+            updated[targetIdx] = { ...target, text: baseText, retryVersions: versions, activeRetryIndex: active }
+          } else {
+            updated[targetIdx] = { ...target, text: baseText }
+          }
+          state.messages.value = updated
+        }
       }
       state.isStreaming.value = true
       // Re-arm waitingForAgent: covers the case where the user returned to
@@ -205,15 +332,33 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       if (state.streamingBuffer) {
         const finalText = state.streamingBuffer.text + p.content
         const updated = [...state.messages.value]
-        updated[updated.length - 1] = { role: 'agent', text: finalText }
-        state.messages.value = updated
+        const targetIdx = state.retryTargetIndex ?? updated.length - 1
+        const target = updated[targetIdx]
+        if (target && target.role === 'agent') {
+          if (target.retryVersions) {
+            const versions = [...target.retryVersions]
+            const active = target.activeRetryIndex ?? versions.length - 1
+            versions[active] = finalText
+            updated[targetIdx] = {
+              ...target,
+              text: finalText,
+              retryVersions: versions,
+              activeRetryIndex: active,
+              id: p.message_id || target.id,
+            }
+          } else {
+            updated[targetIdx] = { ...target, text: finalText, id: p.message_id || target.id }
+          }
+          state.messages.value = updated
+        }
       } else if (p.content) {
-        state.messages.value = [...state.messages.value, { role: 'agent', text: p.content }]
+        state.messages.value = [...state.messages.value, { role: 'agent', text: p.content, id: p.message_id }]
       }
       state.streamingBuffer = null
       state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = false
+      state.retryTargetIndex = null
     }
   }
 
@@ -226,6 +371,12 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     // isStreaming so the typing indicator surfaces during the gap before the
     // next round begins streaming.
     state.isStreaming.value = false
+    // After a retry the placeholder bubble has now been filled; subsequent
+    // continuation rounds in this same turn should append fresh bubbles
+    // rather than overwriting the retry-version slot. Releasing the target
+    // here means only the first round inherits retry navigation, but the
+    // alternative would clobber every continuation into one slot.
+    state.retryTargetIndex = null
   }
 
   function handleAgentThinking(p: AgentThinkingPayload) {

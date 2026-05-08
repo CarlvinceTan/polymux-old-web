@@ -1,26 +1,21 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   normalizePath,
   requireRead,
   resolveWorkspaceId,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { downloadDriveFileBytes } from '~~/server/utils/googleOAuth'
 
 // POST /api/workspaces/[id]/files/download-url
 // Body: { path, expires_in? }
 // Returns: { url, backend, expires_at }
 //
 // Backend dispatch:
-//  - 'supabase' → Supabase Storage signed URL (direct browser GET).
-//  - 'google-drive' → Drive's `?alt=media` requires the workspace's access
-//    token, which we never expose to the browser. Instead we cache the bytes
-//    into a one-shot signed URL on Supabase Storage under a `_drive_cache/`
-//    prefix and return that. Fine for typical file sizes; very large files
-//    would warrant a streaming proxy route.
+//  - 'google-drive' → URL of the same-origin streaming proxy
+//    (/files/drive-stream) which fetches the bytes from Drive using the
+//    workspace's server-side OAuth token. Tokens never reach the browser.
+//  - 'local' → no URL; the client reads from its own OPFS if it was the
+//    creating device, otherwise shows "not available here".
 
 interface Body {
   path?: unknown
@@ -58,12 +53,9 @@ export default defineEventHandler(async (event) => {
     .eq('path', logicalPath)
     .maybeSingle()
 
-  const backend = row?.backend ?? 'supabase'
+  const backend = row?.backend ?? 'google-drive'
 
   if (backend === 'local') {
-    // Bytes are in OPFS on the device recorded in `backend_ref`. Server has
-    // nothing to hand back — the client reads from its own storage if it's
-    // the right device, otherwise it shows "not available here".
     return {
       url: '',
       backend: 'local' as const,
@@ -73,53 +65,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (backend === 'google-drive') {
-    if (!row?.backend_ref) {
-      throw createError({ statusCode: 404, statusMessage: 'Drive file reference missing.' })
-    }
-    const access = await resolveDriveAccess(admin, workspaceId)
-    const bytes = await downloadDriveFileBytes(access.accessToken, row.backend_ref, workspaceId)
-
-    // Stash in Supabase under a per-workspace cache prefix so we can hand the
-    // browser a signed URL — keeps tokens off the client. Upsert overwrites
-    // any prior cache entry for the same path.
-    const cacheKey = `${workspaceId}/_drive_cache/${logicalPath}`
-    const { error: upErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(cacheKey, bytes, {
-        contentType: row.content_type ?? 'application/octet-stream',
-        upsert: true,
-      })
-    if (upErr) {
-      console.error('[files/download-url] drive cache upload failed', upErr)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to stage Drive file for download.' })
-    }
-    const { data: signed, error: signError } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .createSignedUrl(cacheKey, expiresIn)
-    if (signError || !signed) {
-      console.error('[files/download-url] drive cache sign failed', signError)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to mint Drive download URL.' })
-    }
-    return {
-      url: signed.signedUrl,
-      backend: 'google-drive' as const,
-      expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-    }
+  if (!row?.backend_ref) {
+    throw createError({ statusCode: 404, statusMessage: 'Drive file reference missing.' })
   }
 
-  const { data: signed, error: signError } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(storageKey(workspaceId, logicalPath), expiresIn)
-
-  if (signError || !signed) {
-    console.error('[files] createSignedUrl error', signError)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to mint download URL.' })
-  }
-
+  const url = `/api/workspaces/${workspaceId}/files/drive-stream?path=${encodeURIComponent(logicalPath)}`
   return {
-    url: signed.signedUrl,
-    backend: 'supabase' as const,
+    url,
+    backend: 'google-drive' as const,
     expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
   }
 })

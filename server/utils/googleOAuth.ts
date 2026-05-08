@@ -158,7 +158,7 @@ export interface DriveFile {
   md5Checksum?: string
 }
 
-function quotaUserHeader(workspaceId?: string): Record<string, string> {
+export function quotaUserHeader(workspaceId?: string): Record<string, string> {
   return workspaceId ? { 'X-Goog-Quota-User': workspaceId } : {}
 }
 

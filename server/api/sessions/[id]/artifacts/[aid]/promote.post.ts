@@ -6,23 +6,23 @@ import {
   resolveSessionId,
 } from '~~/server/utils/sessionAccess'
 import {
-  STORAGE_BUCKET,
+  basenameOf,
   normalizePath,
   requireWrite,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/driveTokens'
+import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 
 // POST /api/sessions/[id]/artifacts/[aid]/promote
 // Body: { path }
 // Returns: { storage_path, backend, file_id }
 //
-// Server-side copy from the `artifacts` bucket → `workspace-files` bucket at
-// the requested logical path, then upserts a `files` row. The artifact is
-// untouched — it lives until the session-cleanup job runs (§5.6).
+// Promotes a session artifact into the workspace as a real file. Requires
+// Google Drive to be connected: bytes are uploaded to the workspace's Drive
+// folder and a `files` row is upserted pointing at the new Drive file id.
 //
 // Permission: caller must have `write` on the *target* path. Inline-content
-// artifacts can also be promoted; their bytes are written to the workspace
-// bucket directly.
+// artifacts can also be promoted; their bytes are encoded and uploaded.
 
 const ARTIFACTS_BUCKET = 'artifacts'
 
@@ -59,13 +59,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const admin = serverSupabaseServiceRole(event)
-  const targetKey = storageKey(workspaceId, targetPath)
+
+  const { data: driveRow } = await admin
+    .from('workspace_integrations')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('provider', 'google-drive')
+    .maybeSingle()
+  if (!driveRow) {
+    throw createError({
+      statusCode: 412,
+      statusMessage: 'Connect Google Drive to promote artifacts to your workspace.',
+    })
+  }
+
   const contentType = (artifact.mime_type as string | null) ?? 'application/octet-stream'
 
-  // 1. Copy bytes from artifacts bucket → workspace bucket. Two paths:
-  //    - storage_path is set: download from artifacts bucket, re-upload.
-  //      (Supabase JS storage has no direct cross-bucket copy.)
-  //    - content is set: upload the inline string body directly.
+  let bytes: Buffer
   let sizeBytes = Number(artifact.size_bytes ?? 0)
   if (artifact.storage_path) {
     const { data: blob, error: dlErr } = await admin.storage
@@ -75,43 +85,40 @@ export default defineEventHandler(async (event) => {
       console.error('[artifacts/promote] download error', dlErr)
       throw createError({ statusCode: 500, statusMessage: 'Failed to read artifact.' })
     }
-    const arrayBuf = await blob.arrayBuffer()
-    sizeBytes = arrayBuf.byteLength
-    const { error: upErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(targetKey, new Uint8Array(arrayBuf), {
-        contentType,
-        upsert: true,
-      })
-    if (upErr) {
-      console.error('[artifacts/promote] upload error', upErr)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to write to storage.' })
-    }
-  } else if (typeof artifact.content === 'string') {
-    const buf = new TextEncoder().encode(artifact.content)
-    sizeBytes = buf.byteLength
-    const { error: upErr } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(targetKey, buf, { contentType, upsert: true })
-    if (upErr) {
-      console.error('[artifacts/promote] inline upload error', upErr)
-      throw createError({ statusCode: 500, statusMessage: 'Failed to write to storage.' })
-    }
-  } else {
+    bytes = Buffer.from(await blob.arrayBuffer())
+    sizeBytes = bytes.byteLength
+  }
+  else if (typeof artifact.content === 'string') {
+    bytes = Buffer.from(new TextEncoder().encode(artifact.content))
+    sizeBytes = bytes.byteLength
+  }
+  else {
     throw createError({ statusCode: 422, statusMessage: 'Artifact has no content to promote.' })
   }
 
-  // 2. Upsert files metadata so the new path appears in the storage UI on next reload.
+  const access = await resolveDriveAccess(admin, workspaceId)
+  const driveFile = await uploadDriveFileBytes(
+    access.accessToken,
+    {
+      name: basenameOf(targetPath),
+      parents: [access.rootFolderId],
+      mimeType: contentType,
+    },
+    bytes,
+    workspaceId,
+  )
+
   const { data: fileRow, error: upsertErr } = await admin
     .from('files')
     .upsert({
       workspace_id: workspaceId,
       path: targetPath,
       kind: 'file' as const,
-      backend: 'supabase' as const,
-      backend_ref: targetKey,
+      backend: 'google-drive' as const,
+      backend_ref: driveFile.id,
       size_bytes: sizeBytes,
       content_type: contentType,
+      backend_mtime: driveFile.modifiedTime ?? new Date().toISOString(),
       created_by: user.sub,
     }, { onConflict: 'workspace_id,path' })
     .select('id')
@@ -121,13 +128,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to record file metadata.' })
   }
 
-  // 3. Tell the Go agent to invalidate any cached file index — the new file
-  //    should show up in PullFolder responses without waiting for the 30s TTL.
   void notifyPermissionsChanged(workspaceId)
 
   return {
     storage_path: targetPath,
-    backend: 'supabase' as const,
+    backend: 'google-drive' as const,
     file_id: fileRow.id as string,
   }
 })

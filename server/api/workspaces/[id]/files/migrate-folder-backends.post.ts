@@ -13,7 +13,7 @@ import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 // `device_id` is required when `target='local'` — the row's backend_ref must
 // point at the device that "owns" the folder, mirroring how local files work.
 
-type Backend = 'supabase' | 'google-drive' | 'local'
+type Backend = 'google-drive' | 'local'
 
 interface Body {
   source?: unknown
@@ -22,7 +22,7 @@ interface Body {
 }
 
 function asBackend(v: unknown): Backend | null {
-  if (v === 'supabase' || v === 'google-drive' || v === 'local') return v
+  if (v === 'google-drive' || v === 'local') return v
   return null
 }
 

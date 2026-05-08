@@ -14,7 +14,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { isAdmin, isInstalled, install, uninstall, connectionFor } = useMarketplace()
-const { state: migrationState, run: runDriveMigration } = useDriveMigration()
 
 // Marketplace ids that map 1:1 to a StorageProvider. Disconnecting these
 // might strand workspace files, so we route them through the disconnect
@@ -38,7 +37,6 @@ const icon = computed(() =>
 
 const installed = computed(() => (props.item ? isInstalled(props.item.id) : false))
 const requiresOauth = computed(() => props.item?.requiresOauth === true)
-const isDrive = computed(() => props.item?.id === 'google-drive')
 
 const connection = computed(() =>
   props.item ? connectionFor(props.item.id) : null,
@@ -52,12 +50,6 @@ const primaryActionLabel = computed(() => {
   }
   return requiresOauth.value ? t('integrations.connect') : t('integrations.install')
 })
-
-const migrateDisabled = computed(
-  () => !isAdmin.value || migrationState.status === 'running',
-)
-
-const hasConfigSection = computed(() => installed.value && isDrive.value)
 
 function close() {
   emit('update:open', false)
@@ -88,11 +80,6 @@ async function onConfirmDisconnect() {
   await uninstall(props.item.id)
   pendingDisconnectProvider.value = null
   close()
-}
-
-function onMigrateClick() {
-  if (migrateDisabled.value) return
-  runDriveMigration()
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -234,43 +221,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </div>
                 </section>
 
-                <section v-if="hasConfigSection" class="mt-6">
-                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
-                    {{ t('integrations.settingsSectionData') }}
-                  </h3>
-                  <DriveMigrationStatus
-                    v-if="migrationState.status !== 'idle'"
-                    :state="migrationState"
-                    class="mb-3"
-                  />
-                  <div class="ghost-panel rounded-lg bg-white p-4">
-                    <div class="flex items-start gap-4">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-body-md font-medium text-neutral-950">
-                          {{ t('integrations.settingsMigrateLabel') }}
-                        </p>
-                        <p class="mt-1 text-label-md text-neutral-500">
-                          {{ t('integrations.settingsMigrateDescription') }}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 rounded-lg bg-neutral-950 px-3 py-1.5 text-label-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        :disabled="migrateDisabled"
-                        :title="!isAdmin ? t('integrations.adminOnly') : undefined"
-                        @click="onMigrateClick"
-                      >
-                        {{
-                          migrationState.status === 'running'
-                            ? t('integrations.settingsMigrateBusy')
-                            : t('integrations.settingsMigrateNow')
-                        }}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <section v-else-if="installed" class="mt-6">
+                <section v-if="installed" class="mt-6">
                   <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
                     {{ t('integrations.settingsHeading') }}
                   </h3>

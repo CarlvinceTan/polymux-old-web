@@ -1,1 +1,1 @@
-export type StorageProvider = 'supabase' | 'google-drive' | 'local'
+export type StorageProvider = 'google-drive' | 'local'

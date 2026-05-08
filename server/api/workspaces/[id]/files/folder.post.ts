@@ -1,24 +1,20 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   normalizePath,
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-  storageKey,
 } from '~~/server/utils/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/folder
-// Body: { parent, name, backend?: 'supabase' | 'google-drive' | 'local' }
+// Body: { parent, name, backend?: 'google-drive' | 'local' }
 //
-// Creates a folder metadata row and — for supabase-backed folders — a
-// `.keep` marker at `{parent}/{name}/.keep` so the Supabase Storage listing
-// returns the folder. Drive/local folders are pure metadata rows: index.get.ts
-// merges metadata-only entries into the listing, and no bucket object is
-// needed for a folder whose children don't live in Supabase Storage either.
+// Creates a folder as a metadata row. Folders are pure metadata: index.get.ts
+// merges them into the listing without needing a real backend object, since
+// children of the folder live in Drive or local OPFS.
 
-type FolderBackend = 'supabase' | 'google-drive' | 'local'
+type FolderBackend = 'google-drive' | 'local'
 
 interface Body {
   parent?: unknown
@@ -50,33 +46,11 @@ export default defineEventHandler(async (event) => {
 
   const admin = serverSupabaseServiceRole(event)
 
-  const backend: FolderBackend
-    = body.backend === 'google-drive' ? 'google-drive'
-    : body.backend === 'local' ? 'local'
-    : 'supabase'
+  const backend: FolderBackend = body.backend === 'local' ? 'local' : 'google-drive'
 
-  if (backend === 'supabase') {
-    const keepKey = storageKey(workspaceId, `${logicalPath}/.keep`)
-    const keepBody = new Blob(['\n'], { type: 'text/plain' })
-    const { error: uploadError } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(keepKey, keepBody, {
-        contentType: 'text/plain',
-        cacheControl: '3600',
-        upsert: true,
-      })
-
-    if (uploadError) {
-      console.error('[files] folder create upload error', uploadError)
-      throw createError({ statusCode: 500, statusMessage: uploadError.message })
-    }
-  }
-
-  const backendRefValue = backend === 'supabase'
-    ? storageKey(workspaceId, logicalPath)
-    : backend === 'local'
-      ? (typeof body.backend_ref === 'string' ? body.backend_ref : null)
-      : null
+  const backendRefValue = backend === 'local'
+    ? (typeof body.backend_ref === 'string' ? body.backend_ref : null)
+    : null
 
   const { error: upsertError } = await admin
     .from('files')

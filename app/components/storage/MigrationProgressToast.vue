@@ -7,7 +7,7 @@ const AUTO_DISMISS_MS = 3000
 
 const { t } = useI18n()
 const route = useRoute()
-const { state } = useDriveMigration()
+const { state } = useLocalMigration()
 
 // Tracks whether the user dismissed the *current* migration. Reset on each
 // fresh run so a new migration always surfaces, even if the prior one was
@@ -46,14 +46,9 @@ const shouldShow = computed(() =>
 )
 
 const titleKey = computed(() => {
-  const isImport = state.direction === 'drive-to-supabase'
-  if (state.status === 'running') {
-    return isImport ? 'integrations.driveImporting' : 'integrations.driveMigrating'
-  }
-  if (state.status === 'done') {
-    return isImport ? 'integrations.driveImportDone' : 'integrations.driveMigrateDone'
-  }
-  return isImport ? 'integrations.driveImportFailed' : 'integrations.driveMigrateFailed'
+  if (state.status === 'running') return 'integrations.driveMigrating'
+  if (state.status === 'done') return 'integrations.driveMigrateDone'
+  return 'integrations.driveMigrateFailed'
 })
 
 // Percent is derivable until the server reports `remaining`. Before the first
