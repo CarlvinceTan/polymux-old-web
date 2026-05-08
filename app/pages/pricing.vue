@@ -4,7 +4,7 @@ import { useI18n } from '#imports'
 definePageMeta({ layout: 'landing' })
 
 useHead({
-  title: 'Pricing — Polymux',
+  title: 'Pricing',
 })
 
 const { t } = useI18n()

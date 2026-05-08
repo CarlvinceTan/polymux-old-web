@@ -15,7 +15,9 @@ const {
   currentWorkspace,
   currentWorkspaceId,
   switchWorkspace,
-  fetchWorkspaces
+  fetchWorkspaces,
+  members: workspaceMembers,
+  fetchMembers: fetchWorkspaceMembers,
 } = useWorkspaces()
 
 type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
@@ -349,7 +351,7 @@ const navItems = computed(() => {
 const isSearchOpen = ref(false)
 
 const isProfileDropdownOpen = ref(false)
-const profileDropdownRef = ref<InstanceType<typeof Menu> | null>(null)
+const profileDropdownRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
 const isLanguageOpen = ref(false)
 const isHelpOpen = ref(false)
 const isSettingsModalOpen = ref(false)
@@ -430,7 +432,48 @@ const hoveredWorkflowId = ref<string | null>(null)
 // Workspace dropdown state
 const isWorkspaceDropdownOpen = ref(false)
 const isCreateWorkspaceOpen = ref(false)
+const isWorkspaceSettingsOpen = ref(false)
+const isManageMembersOpen = ref(false)
 const workspaceDropdownRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
+
+const otherWorkspaces = computed(() =>
+  workspaces.value.filter(w => w.id !== currentWorkspace.value?.id),
+)
+
+const memberCountText = computed(() => {
+  const count = workspaceMembers.value.length
+  return count === 1 ? t('workspaceMenu.memberCountOne') : t('workspaceMenu.memberCountMany', { n: count })
+})
+
+watch(currentWorkspaceId, async (id) => {
+  if (id) await fetchWorkspaceMembers(id)
+}, { immediate: true })
+
+watch(isWorkspaceDropdownOpen, async (open) => {
+  if (open && currentWorkspaceId.value) {
+    await fetchWorkspaceMembers(currentWorkspaceId.value)
+  }
+})
+
+const workspacePlanLabel = computed(() => {
+  locale.value
+  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
+  const k = raw.toLowerCase().trim()
+  if (k === 'pro') return t('settings.proPlan')
+  if (k === 'max') return t('settings.maxPlan')
+  if (k === 'enterprise') return t('settings.enterprisePlan')
+  return t('settings.freePlan')
+})
+
+function openWorkspaceSettings() {
+  isWorkspaceSettingsOpen.value = true
+  isWorkspaceDropdownOpen.value = false
+}
+
+function openManageMembers() {
+  isManageMembersOpen.value = true
+  isWorkspaceDropdownOpen.value = false
+}
 
 function toggleWorkspaceDropdown() {
   isWorkspaceDropdownOpen.value = !isWorkspaceDropdownOpen.value
@@ -641,7 +684,7 @@ function handleClickOutside(event: MouseEvent) {
   }
 
   // Close profile dropdown
-  const profileDropdown = profileDropdownRef.value?.$el
+  const profileDropdown = profileDropdownRef.value?.dropdownRef
   const isInsideProfile = profileDropdown && profileDropdown.contains(event.target as Node)
   const isInsideLanguage = languagePanelRef.value && languagePanelRef.value.contains(event.target as Node)
   const isInsideHelp = helpPanelRef.value && helpPanelRef.value.contains(event.target as Node)
@@ -651,10 +694,6 @@ function handleClickOutside(event: MouseEvent) {
     closeProfileDropdown()
   }
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
@@ -693,26 +732,61 @@ onUnmounted(() => {
 
         <!-- Workspace Dropdown -->
         <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
-          <MenuItem
-            v-for="ws in workspaces"
-            :key="ws.id"
-            :text="ws.name"
-            @click="handleWorkspaceSwitch(ws.id)"
-          >
+          <!-- Current workspace header -->
+          <div class="min-w-0 px-3 pb-2 pt-1.5">
+            <p class="truncate text-sm font-semibold text-neutral-950">
+              {{ currentWorkspace?.name || 'Workspace' }}
+            </p>
+            <p class="truncate text-[11px] text-neutral-500">
+              {{ workspacePlanLabel }} · {{ memberCountText }}
+            </p>
+          </div>
+          <div class="my-0.5 mx-2 h-px bg-neutral-200" />
+
+          <!-- Settings -->
+          <MenuItem :text="t('common.settings')" @click="openWorkspaceSettings">
             <template #icon>
-              <div v-if="ws.avatar_url" class="h-4 w-4 shrink-0 overflow-hidden rounded-md">
-                <img :src="ws.avatar_url" alt="" class="h-full w-full object-cover" />
-              </div>
-              <AccountIcon v-else :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
-            </template>
-            <template v-if="ws.id === currentWorkspace?.id" #icon-right>
-              <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6 9 17l-5-5" />
+              <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </template>
           </MenuItem>
-          
-          <MenuItem :text="t('nav.addWorkspace')" :has-divider="workspaces.length > 0" @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false">
+
+          <!-- Manage members (icon mirrors FileBrowser's "Manage access") -->
+          <MenuItem :text="t('workspaceMenu.manageMembers')" @click="openManageMembers">
+            <template #icon>
+              <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+              </svg>
+            </template>
+          </MenuItem>
+
+          <!-- Other workspaces (only when there are any) -->
+          <template v-if="otherWorkspaces.length > 0">
+            <div class="my-0.5 mx-2 h-px bg-neutral-200" />
+            <p class="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              {{ t('workspaceMenu.otherWorkspaces') }}
+            </p>
+            <MenuItem
+              v-for="ws in otherWorkspaces"
+              :key="ws.id"
+              :text="ws.name"
+              @click="handleWorkspaceSwitch(ws.id)"
+            >
+              <template #icon>
+                <div v-if="ws.avatar_url" class="h-4 w-4 shrink-0 overflow-hidden rounded-md">
+                  <img :src="ws.avatar_url" alt="" class="h-full w-full object-cover" />
+                </div>
+                <AccountIcon v-else :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
+              </template>
+            </MenuItem>
+          </template>
+
+          <MenuItem
+            :text="t('nav.addWorkspace')"
+            @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false"
+          >
             <template #icon>
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -1064,6 +1138,8 @@ onUnmounted(() => {
     <SettingsModal v-model:open="isSettingsModalOpen" />
     <BugReportModal v-model:open="isBugReportOpen" />
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
+    <WorkspaceSettingsModal v-model:open="isWorkspaceSettingsOpen" />
+    <ManageMembersModal v-model:open="isManageMembersOpen" />
   </aside>
 </template>
 

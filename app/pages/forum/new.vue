@@ -7,7 +7,7 @@ import {
 
 definePageMeta({ layout: 'landing' })
 
-useHead({ title: 'Start a discussion — Polymux Forum' })
+useHead({ title: 'Start a discussion' })
 
 const user = useSupabaseUser()
 const route = useRoute()

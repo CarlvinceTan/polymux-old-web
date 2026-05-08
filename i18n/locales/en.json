@@ -475,6 +475,79 @@
     "roleOwner": "Owner",
     "roleAdmin": "Admin"
   },
+  "workspaceMenu": {
+    "memberCountOne": "1 member",
+    "memberCountMany": "{n} members",
+    "manageMembers": "Manage members",
+    "otherWorkspaces": "Workspaces",
+    "modalTitle": "Workspace Settings",
+    "modalSubtitle": "Workspace settings",
+    "currentPlan": "Current plan",
+    "workspaceBilling": "Workspace billing",
+    "usage": "Usage",
+    "statSessions": "Sessions / wk",
+    "statSeats": "Seats",
+    "statTokens": "Tokens",
+    "statTokensCaption": "Wallet balance",
+    "statStorage": "Storage",
+    "statStorageCaption": "Connect a provider to track usage",
+    "statAgents": "Browser agents",
+    "statAgentsCaption": "Concurrent agents available",
+    "statFileSize": "Max file size",
+    "statFileSizeCaption": "Per upload",
+    "administration": "Administration",
+    "transferOwnership": "Transfer ownership",
+    "transferOwnershipDesc": "Hand off this workspace to another member.",
+    "transferAction": "Transfer",
+    "transferring": "Transferring…",
+    "transferSelectDesc": "Choose the new owner.",
+    "transferConfirmDesc": "This takes effect immediately.",
+    "transferNoOthers": "There are no other members in this workspace. Invite someone before transferring ownership.",
+    "transferWarning": "You will become Admin after this transfer. The new owner will have full control.",
+    "currentOwner": "Current owner",
+    "continue": "Continue",
+    "confirmTransfer": "Confirm transfer",
+    "deleteWorkspace": "Delete workspace",
+    "deleteWorkspaceDesc": "Permanently removes all sessions, files and data.",
+    "deleteWarning": "You are about to permanently delete {name}. All sessions, files, and data in this workspace will be irreversibly removed.",
+    "confirmDelete": "Yes, delete workspace",
+    "deleting": "Deleting…",
+    "cannotDelete": "Cannot delete workspace",
+    "cannotBeUndone": "This action cannot be undone.",
+    "onlyWorkspace": "This is your only workspace.",
+    "onlyWorkspaceMsg": "You must always have at least one workspace. Create another workspace before deleting this one.",
+    "membersSubtitle": "Members of {name}",
+    "searchMembers": "Search members…",
+    "invite": "Invite",
+    "inviteMembers": "Invite members",
+    "inviteDesc": "Add people to your workspace by email.",
+    "emailAddresses": "Email addresses",
+    "commaHint": "Separate multiple emails with commas.",
+    "role": "Role",
+    "roleAdminLabel": "Admin — Can manage members and settings",
+    "roleMemberLabel": "Member — Can create and edit sessions",
+    "sendInvitation": "Send invitation",
+    "sending": "Sending…",
+    "manageAccess": "Manage access",
+    "changeRoleFor": "Change role for {name}",
+    "memberSingular": "member",
+    "memberPlural": "members",
+    "pendingLabel": "pending",
+    "noMatches": "No matches for your search.",
+    "noMembers": "No members found.",
+    "removeMember": "Remove member",
+    "makeAdmin": "Make admin",
+    "makeMember": "Make member",
+    "leaveWorkspace": "Leave workspace",
+    "noAvailableActions": "No available actions",
+    "resendInvite": "Resend invitation",
+    "revokeInvite": "Revoke invitation",
+    "invPending": "Pending",
+    "invExpired": "Expired",
+    "invExpiresDays": "Expires in {n} day(s)",
+    "invExpiresHours": "Expires in {n} hour(s)",
+    "invExpiresMins": "Expires in {n} min(s)"
+  },
   "storage": {
     "workspace": "Workspace",
     "move": "Move",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "Use now"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "Developer Platform",
+      "title": "Build on Polymux.",
+      "subtitle": "The developer platform for AI agents. Ship integrations, custom tools, and marketplace apps that plug straight into Polymux workflows.",
+      "ctaPrimary": "Open Developer Platform",
+      "ctaSecondary": "View quickstart"
+    },
+    "capabilities": {
+      "title": "Everything you need to extend Polymux",
+      "subtitle": "From custom tools to marketplace apps — build what your team needs.",
+      "tools": { "title": "Custom Agent Tools", "desc": "Define tools your agents can call. From simple webhooks to full TypeScript handlers." },
+      "browser": { "title": "Browser Integrations", "desc": "Hook into live browser sessions. Inject UI, observe events, drive automation." },
+      "vault": { "title": "Vault Connectors", "desc": "Bring your own credential providers. OAuth, API keys, secrets — secured by Vault." },
+      "marketplace": { "title": "Marketplace Apps", "desc": "Publish to the Polymux marketplace. Reach thousands of teams running automations." }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "Type-safe SDKs. Honest defaults.",
+      "subtitle": "Two lines to install, one to publish. The Polymux SDK is open source under MIT — built for TypeScript first, with Python and Go in the same shape.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "languages": {
+        "ts": "TypeScript SDK",
+        "py": "Python SDK",
+        "go": "Go SDK"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "Ship in four steps.",
+      "subtitle": "Every integration follows the same path. The dashboard at dev.polymux.com runs the actual builder.",
+      "create": { "title": "Create app", "desc": "Register your integration. Pick a name, type, and OAuth scopes." },
+      "keys": { "title": "Get API keys", "desc": "Generate a publishable key and signing secret. Stored in your Vault." },
+      "sdk": { "title": "Install the SDK", "desc": "Bootstrap with `polymux init` or use cURL directly. TypeScript-first." },
+      "publish": { "title": "Publish to marketplace", "desc": "Submit for review. Once approved, your app is live for every Polymux workspace." }
+    },
+    "gallery": {
+      "title": "Inspiration from the marketplace",
+      "subtitle": "Real apps built on Polymux. Yours could be next.",
+      "browseAll": "Browse all integrations"
+    },
+    "resources": {
+      "title": "Everything is on dev.polymux.com",
+      "subtitle": "One destination for docs, references, and the integration dashboard.",
+      "open": "Open",
+      "docs": { "title": "Docs", "desc": "Tutorials, concepts, and platform guides." },
+      "api": { "title": "API Reference", "desc": "Every endpoint, parameter, and webhook." },
+      "examples": { "title": "Examples", "desc": "End-to-end sample integrations and templates." },
+      "community": { "title": "Discord & Forum", "desc": "Talk to the team and other builders." }
+    },
+    "cta": {
+      "title": "Ready to ship?",
+      "primary": "Open Developer Platform",
+      "secondary": "Read the docs"
+    }
   },
   "vault": {
     "passwords": {

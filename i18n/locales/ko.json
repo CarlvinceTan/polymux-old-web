@@ -475,6 +475,79 @@
     "roleOwner": "소유자",
     "roleAdmin": "관리자"
   },
+  "workspaceMenu": {
+    "memberCountOne": "멤버 1명",
+    "memberCountMany": "멤버 {n}명",
+    "manageMembers": "멤버 관리",
+    "otherWorkspaces": "워크스페이스",
+    "modalTitle": "워크스페이스 설정",
+    "modalSubtitle": "워크스페이스 설정",
+    "currentPlan": "현재 플랜",
+    "workspaceBilling": "워크스페이스 청구",
+    "usage": "사용량",
+    "statSessions": "주간 세션",
+    "statSeats": "시트",
+    "statTokens": "토큰",
+    "statTokensCaption": "지갑 잔액",
+    "statStorage": "저장소",
+    "statStorageCaption": "사용량 추적을 위해 공급자 연결",
+    "statAgents": "브라우저 에이전트",
+    "statAgentsCaption": "동시 사용 가능한 에이전트",
+    "statFileSize": "최대 파일 크기",
+    "statFileSizeCaption": "업로드당",
+    "administration": "관리",
+    "transferOwnership": "소유권 이전",
+    "transferOwnershipDesc": "이 워크스페이스를 다른 멤버에게 양도합니다.",
+    "transferAction": "이전",
+    "transferring": "이전 중…",
+    "transferSelectDesc": "새 소유자를 선택하세요.",
+    "transferConfirmDesc": "즉시 적용됩니다.",
+    "transferNoOthers": "이 워크스페이스에 다른 멤버가 없습니다. 소유권 이전 전에 멤버를 초대하세요.",
+    "transferWarning": "이 이전 후 관리자가 됩니다. 새 소유자가 전체 권한을 갖게 됩니다.",
+    "currentOwner": "현재 소유자",
+    "continue": "계속",
+    "confirmTransfer": "이전 확인",
+    "deleteWorkspace": "워크스페이스 삭제",
+    "deleteWorkspaceDesc": "모든 세션, 파일, 데이터를 영구적으로 제거합니다.",
+    "deleteWarning": "{name}을(를) 영구적으로 삭제하려고 합니다. 이 워크스페이스의 모든 세션, 파일, 데이터가 영구적으로 삭제됩니다.",
+    "confirmDelete": "예, 워크스페이스 삭제",
+    "deleting": "삭제 중…",
+    "cannotDelete": "워크스페이스를 삭제할 수 없습니다",
+    "cannotBeUndone": "이 작업은 취소할 수 없습니다.",
+    "onlyWorkspace": "유일한 워크스페이스입니다.",
+    "onlyWorkspaceMsg": "최소한 하나의 워크스페이스가 항상 있어야 합니다. 이를 삭제하기 전에 다른 워크스페이스를 만드세요.",
+    "membersSubtitle": "{name} 멤버",
+    "searchMembers": "멤버 검색…",
+    "invite": "초대",
+    "inviteMembers": "멤버 초대",
+    "inviteDesc": "이메일로 워크스페이스에 사람을 추가합니다.",
+    "emailAddresses": "이메일 주소",
+    "commaHint": "여러 이메일은 쉼표로 구분하세요.",
+    "role": "역할",
+    "roleAdminLabel": "관리자 — 멤버 및 설정 관리 가능",
+    "roleMemberLabel": "멤버 — 세션 생성 및 편집 가능",
+    "sendInvitation": "초대 보내기",
+    "sending": "보내는 중…",
+    "manageAccess": "액세스 관리",
+    "changeRoleFor": "{name}의 역할 변경",
+    "memberSingular": "멤버",
+    "memberPlural": "멤버",
+    "pendingLabel": "대기 중",
+    "noMatches": "검색 결과가 없습니다.",
+    "noMembers": "멤버를 찾을 수 없습니다.",
+    "removeMember": "멤버 제거",
+    "makeAdmin": "관리자로 변경",
+    "makeMember": "멤버로 변경",
+    "leaveWorkspace": "워크스페이스 떠나기",
+    "noAvailableActions": "사용 가능한 작업 없음",
+    "resendInvite": "초대 다시 보내기",
+    "revokeInvite": "초대 취소",
+    "invPending": "대기 중",
+    "invExpired": "만료됨",
+    "invExpiresDays": "{n}일 후 만료",
+    "invExpiresHours": "{n}시간 후 만료",
+    "invExpiresMins": "{n}분 후 만료"
+  },
   "storage": {
     "workspace": "작업공간",
     "move": "이동",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "지금 사용하기"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "개발자 플랫폼",
+      "title": "Polymux 위에서 만드세요.",
+      "subtitle": "AI 에이전트를 위한 개발자 플랫폼. Polymux 워크플로우에 바로 연결되는 통합, 커스텀 도구, 마켓플레이스 앱을 출시하세요.",
+      "ctaPrimary": "개발자 플랫폼 열기",
+      "ctaSecondary": "빠른 시작 보기"
+    },
+    "capabilities": {
+      "title": "Polymux를 확장하기 위한 모든 것",
+      "subtitle": "커스텀 도구부터 마켓플레이스 앱까지 — 팀에 필요한 것을 만드세요.",
+      "tools": { "title": "커스텀 에이전트 도구", "desc": "에이전트가 호출할 수 있는 도구를 정의하세요. 간단한 웹훅부터 완전한 TypeScript 핸들러까지." },
+      "browser": { "title": "브라우저 통합", "desc": "실시간 브라우저 세션에 연결하세요. UI를 주입하고, 이벤트를 관찰하고, 자동화를 구동하세요." },
+      "vault": { "title": "Vault 커넥터", "desc": "자체 자격 증명 공급자를 가져오세요. OAuth, API 키, 비밀 — Vault로 안전하게." },
+      "marketplace": { "title": "마켓플레이스 앱", "desc": "Polymux 마켓플레이스에 게시하세요. 자동화를 실행하는 수천 개 팀에 도달하세요." }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "타입 안전한 SDK. 합리적인 기본값.",
+      "subtitle": "설치는 두 줄, 게시는 한 줄. Polymux SDK는 MIT 라이선스 오픈소스로, TypeScript를 우선으로 Python과 Go도 동일한 형태로 제공합니다.",
+      "copy": "복사",
+      "copied": "복사됨",
+      "languages": {
+        "ts": "TypeScript SDK",
+        "py": "Python SDK",
+        "go": "Go SDK"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "네 단계로 출시하세요.",
+      "subtitle": "모든 통합은 같은 경로를 따릅니다. 실제 빌더는 dev.polymux.com 대시보드에서 실행됩니다.",
+      "create": { "title": "앱 만들기", "desc": "통합을 등록하세요. 이름, 유형, OAuth 범위를 선택하세요." },
+      "keys": { "title": "API 키 받기", "desc": "게시 키와 서명 비밀을 생성하세요. Vault에 저장됩니다." },
+      "sdk": { "title": "SDK 설치", "desc": "`polymux init`으로 부트스트랩하거나 cURL을 직접 사용하세요. TypeScript 우선." },
+      "publish": { "title": "마켓플레이스에 게시", "desc": "검토를 위해 제출하세요. 승인되면 모든 Polymux 워크스페이스에서 앱이 활성화됩니다." }
+    },
+    "gallery": {
+      "title": "마켓플레이스의 영감",
+      "subtitle": "Polymux 위에서 만들어진 실제 앱들. 다음은 당신의 차례입니다.",
+      "browseAll": "모든 통합 둘러보기"
+    },
+    "resources": {
+      "title": "모든 것은 dev.polymux.com에",
+      "subtitle": "문서, 레퍼런스, 통합 대시보드를 위한 단일 목적지.",
+      "open": "열기",
+      "docs": { "title": "문서", "desc": "튜토리얼, 개념, 플랫폼 가이드." },
+      "api": { "title": "API 레퍼런스", "desc": "모든 엔드포인트, 매개변수, 웹훅." },
+      "examples": { "title": "예제", "desc": "엔드투엔드 샘플 통합 및 템플릿." },
+      "community": { "title": "Discord 및 포럼", "desc": "팀 및 다른 빌더와 대화하세요." }
+    },
+    "cta": {
+      "title": "출시할 준비가 되셨나요?",
+      "primary": "개발자 플랫폼 열기",
+      "secondary": "문서 읽기"
+    }
   },
   "vault": {
     "passwords": {

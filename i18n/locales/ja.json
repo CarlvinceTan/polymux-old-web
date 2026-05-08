@@ -475,6 +475,79 @@
     "roleOwner": "オーナー",
     "roleAdmin": "管理者"
   },
+  "workspaceMenu": {
+    "memberCountOne": "メンバー 1 人",
+    "memberCountMany": "メンバー {n} 人",
+    "manageMembers": "メンバー管理",
+    "otherWorkspaces": "ワークスペース",
+    "modalTitle": "ワークスペース設定",
+    "modalSubtitle": "ワークスペース設定",
+    "currentPlan": "現在のプラン",
+    "workspaceBilling": "ワークスペース請求",
+    "usage": "使用量",
+    "statSessions": "週間セッション",
+    "statSeats": "シート",
+    "statTokens": "トークン",
+    "statTokensCaption": "ウォレット残高",
+    "statStorage": "ストレージ",
+    "statStorageCaption": "使用量を追跡するためにプロバイダーを接続",
+    "statAgents": "ブラウザエージェント",
+    "statAgentsCaption": "利用可能な同時エージェント",
+    "statFileSize": "最大ファイルサイズ",
+    "statFileSizeCaption": "アップロードごと",
+    "administration": "管理",
+    "transferOwnership": "所有権の移転",
+    "transferOwnershipDesc": "このワークスペースを他のメンバーに引き継ぎます。",
+    "transferAction": "移転",
+    "transferring": "移転中…",
+    "transferSelectDesc": "新しいオーナーを選択してください。",
+    "transferConfirmDesc": "すぐに有効になります。",
+    "transferNoOthers": "このワークスペースに他のメンバーがいません。所有権を移転する前にメンバーを招待してください。",
+    "transferWarning": "移転後、あなたは管理者になります。新しいオーナーはワークスペースを完全に制御できます。",
+    "currentOwner": "現在のオーナー",
+    "continue": "続行",
+    "confirmTransfer": "移転を確認",
+    "deleteWorkspace": "ワークスペースを削除",
+    "deleteWorkspaceDesc": "すべてのセッション、ファイル、データを永続的に削除します。",
+    "deleteWarning": "{name} を永久に削除しようとしています。このワークスペースのすべてのセッション、ファイル、データは取り消し不可能に削除されます。",
+    "confirmDelete": "はい、ワークスペースを削除",
+    "deleting": "削除中…",
+    "cannotDelete": "ワークスペースを削除できません",
+    "cannotBeUndone": "この操作は取り消せません。",
+    "onlyWorkspace": "唯一のワークスペースです。",
+    "onlyWorkspaceMsg": "常に少なくとも 1 つのワークスペースが必要です。削除する前に別のワークスペースを作成してください。",
+    "membersSubtitle": "{name} のメンバー",
+    "searchMembers": "メンバーを検索…",
+    "invite": "招待",
+    "inviteMembers": "メンバーを招待",
+    "inviteDesc": "メールでワークスペースに人を追加します。",
+    "emailAddresses": "メールアドレス",
+    "commaHint": "複数のメールはカンマで区切ってください。",
+    "role": "役割",
+    "roleAdminLabel": "管理者 — メンバーと設定を管理可能",
+    "roleMemberLabel": "メンバー — セッションを作成・編集可能",
+    "sendInvitation": "招待を送信",
+    "sending": "送信中…",
+    "manageAccess": "アクセス管理",
+    "changeRoleFor": "{name} の役割を変更",
+    "memberSingular": "メンバー",
+    "memberPlural": "メンバー",
+    "pendingLabel": "保留中",
+    "noMatches": "検索結果がありません。",
+    "noMembers": "メンバーが見つかりません。",
+    "removeMember": "メンバーを削除",
+    "makeAdmin": "管理者にする",
+    "makeMember": "メンバーにする",
+    "leaveWorkspace": "ワークスペースを退出",
+    "noAvailableActions": "利用可能な操作なし",
+    "resendInvite": "招待を再送信",
+    "revokeInvite": "招待を取り消し",
+    "invPending": "保留中",
+    "invExpired": "期限切れ",
+    "invExpiresDays": "{n} 日後に期限切れ",
+    "invExpiresHours": "{n} 時間後に期限切れ",
+    "invExpiresMins": "{n} 分後に期限切れ"
+  },
   "storage": {
     "workspace": "ワークスペース",
     "move": "移動",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "今すぐ使用"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "開発者プラットフォーム",
+      "title": "Polymux 上で構築する。",
+      "subtitle": "AI エージェントのための開発者プラットフォーム。Polymux ワークフローに直接プラグインする統合、カスタムツール、マーケットプレイスアプリを出荷しましょう。",
+      "ctaPrimary": "開発者プラットフォームを開く",
+      "ctaSecondary": "クイックスタートを見る"
+    },
+    "capabilities": {
+      "title": "Polymux を拡張するために必要なすべて",
+      "subtitle": "カスタムツールからマーケットプレイスアプリまで — チームに必要なものを構築。",
+      "tools": { "title": "カスタムエージェントツール", "desc": "エージェントが呼び出せるツールを定義。シンプルな webhook から完全な TypeScript ハンドラーまで。" },
+      "browser": { "title": "ブラウザ統合", "desc": "ライブブラウザセッションにフックします。UI を注入し、イベントを観察し、自動化を駆動します。" },
+      "vault": { "title": "Vault コネクタ", "desc": "独自の資格情報プロバイダを持ち込み。OAuth、API キー、シークレット — Vault で保護されます。" },
+      "marketplace": { "title": "マーケットプレイスアプリ", "desc": "Polymux マーケットプレイスに公開。自動化を実行する何千ものチームにリーチ。" }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "型安全な SDK。誠実なデフォルト。",
+      "subtitle": "インストールは 2 行、公開は 1 行。Polymux SDK は MIT のオープンソース — TypeScript ファーストで構築され、Python と Go も同じ形で提供されます。",
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "languages": {
+        "ts": "TypeScript SDK",
+        "py": "Python SDK",
+        "go": "Go SDK"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "4 ステップで出荷。",
+      "subtitle": "すべての統合は同じ道筋をたどります。実際のビルダーは dev.polymux.com のダッシュボードで動作します。",
+      "create": { "title": "アプリを作成", "desc": "統合を登録します。名前、タイプ、OAuth スコープを選択します。" },
+      "keys": { "title": "API キーを取得", "desc": "公開キーと署名シークレットを生成。Vault に保存されます。" },
+      "sdk": { "title": "SDK をインストール", "desc": "`polymux init` でブートストラップするか、cURL を直接使用します。TypeScript ファースト。" },
+      "publish": { "title": "マーケットプレイスに公開", "desc": "レビューを送信します。承認されると、すべての Polymux ワークスペースでアプリがライブになります。" }
+    },
+    "gallery": {
+      "title": "マーケットプレイスからのインスピレーション",
+      "subtitle": "Polymux 上に構築された実際のアプリ。次はあなたかもしれません。",
+      "browseAll": "すべての統合を閲覧"
+    },
+    "resources": {
+      "title": "すべては dev.polymux.com に",
+      "subtitle": "ドキュメント、リファレンス、統合ダッシュボードのための単一の目的地。",
+      "open": "開く",
+      "docs": { "title": "ドキュメント", "desc": "チュートリアル、コンセプト、プラットフォームガイド。" },
+      "api": { "title": "API リファレンス", "desc": "すべてのエンドポイント、パラメータ、webhook。" },
+      "examples": { "title": "例", "desc": "エンドツーエンドのサンプル統合とテンプレート。" },
+      "community": { "title": "Discord とフォーラム", "desc": "チームや他のビルダーと会話。" }
+    },
+    "cta": {
+      "title": "出荷の準備はできましたか?",
+      "primary": "開発者プラットフォームを開く",
+      "secondary": "ドキュメントを読む"
+    }
   },
   "vault": {
     "passwords": {

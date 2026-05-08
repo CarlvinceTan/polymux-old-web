@@ -475,6 +475,79 @@
     "roleOwner": "所有者",
     "roleAdmin": "管理员"
   },
+  "workspaceMenu": {
+    "memberCountOne": "1 位成员",
+    "memberCountMany": "{n} 位成员",
+    "manageMembers": "管理成员",
+    "otherWorkspaces": "工作区",
+    "modalTitle": "工作区设置",
+    "modalSubtitle": "工作区设置",
+    "currentPlan": "当前套餐",
+    "workspaceBilling": "工作区计费",
+    "usage": "用量",
+    "statSessions": "每周会话",
+    "statSeats": "席位",
+    "statTokens": "代币",
+    "statTokensCaption": "钱包余额",
+    "statStorage": "存储",
+    "statStorageCaption": "连接提供商以追踪用量",
+    "statAgents": "浏览器代理",
+    "statAgentsCaption": "可用的并发代理",
+    "statFileSize": "最大文件大小",
+    "statFileSizeCaption": "每次上传",
+    "administration": "管理",
+    "transferOwnership": "转移所有权",
+    "transferOwnershipDesc": "将此工作区移交给其他成员。",
+    "transferAction": "转移",
+    "transferring": "转移中…",
+    "transferSelectDesc": "选择新的所有者。",
+    "transferConfirmDesc": "立即生效。",
+    "transferNoOthers": "此工作区中没有其他成员。请先邀请成员再转移所有权。",
+    "transferWarning": "转移后您将成为管理员。新所有者将拥有完全控制权。",
+    "currentOwner": "当前所有者",
+    "continue": "继续",
+    "confirmTransfer": "确认转移",
+    "deleteWorkspace": "删除工作区",
+    "deleteWorkspaceDesc": "永久删除所有会话、文件和数据。",
+    "deleteWarning": "您即将永久删除 {name}。此工作区中的所有会话、文件和数据将被不可逆地移除。",
+    "confirmDelete": "是的,删除工作区",
+    "deleting": "删除中…",
+    "cannotDelete": "无法删除工作区",
+    "cannotBeUndone": "此操作无法撤消。",
+    "onlyWorkspace": "这是您唯一的工作区。",
+    "onlyWorkspaceMsg": "您必须始终至少有一个工作区。删除前请先创建另一个工作区。",
+    "membersSubtitle": "{name} 的成员",
+    "searchMembers": "搜索成员…",
+    "invite": "邀请",
+    "inviteMembers": "邀请成员",
+    "inviteDesc": "通过电子邮件将人员添加到您的工作区。",
+    "emailAddresses": "电子邮件地址",
+    "commaHint": "多个邮箱用逗号分隔。",
+    "role": "角色",
+    "roleAdminLabel": "管理员 — 可管理成员和设置",
+    "roleMemberLabel": "成员 — 可创建和编辑会话",
+    "sendInvitation": "发送邀请",
+    "sending": "发送中…",
+    "manageAccess": "管理访问",
+    "changeRoleFor": "更改 {name} 的角色",
+    "memberSingular": "成员",
+    "memberPlural": "成员",
+    "pendingLabel": "待处理",
+    "noMatches": "没有匹配的搜索结果。",
+    "noMembers": "未找到成员。",
+    "removeMember": "移除成员",
+    "makeAdmin": "设为管理员",
+    "makeMember": "设为成员",
+    "leaveWorkspace": "退出工作区",
+    "noAvailableActions": "无可用操作",
+    "resendInvite": "重新发送邀请",
+    "revokeInvite": "撤销邀请",
+    "invPending": "待处理",
+    "invExpired": "已过期",
+    "invExpiresDays": "{n} 天后过期",
+    "invExpiresHours": "{n} 小时后过期",
+    "invExpiresMins": "{n} 分钟后过期"
+  },
   "storage": {
     "workspace": "工作区",
     "move": "移动",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "立即开始"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "开发者平台",
+      "title": "在 Polymux 上构建。",
+      "subtitle": "为 AI 智能体打造的开发者平台。发布直接接入 Polymux 工作流的集成、自定义工具和市场应用。",
+      "ctaPrimary": "打开开发者平台",
+      "ctaSecondary": "查看快速开始"
+    },
+    "capabilities": {
+      "title": "扩展 Polymux 所需的一切",
+      "subtitle": "从自定义工具到市场应用 — 构建团队所需的一切。",
+      "tools": { "title": "自定义智能体工具", "desc": "定义智能体可调用的工具。从简单的 webhook 到完整的 TypeScript 处理程序。" },
+      "browser": { "title": "浏览器集成", "desc": "接入实时浏览器会话。注入 UI、观察事件、驱动自动化。" },
+      "vault": { "title": "Vault 连接器", "desc": "自带凭证提供方。OAuth、API 密钥、机密 — 由 Vault 保护。" },
+      "marketplace": { "title": "市场应用", "desc": "发布到 Polymux 市场。触达数千个运行自动化的团队。" }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "类型安全的 SDK。诚实的默认值。",
+      "subtitle": "两行安装,一行发布。Polymux SDK 在 MIT 许可下开源 — 优先支持 TypeScript,Python 和 Go 同样形态。",
+      "copy": "复制",
+      "copied": "已复制",
+      "languages": {
+        "ts": "TypeScript SDK",
+        "py": "Python SDK",
+        "go": "Go SDK"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "四步发布。",
+      "subtitle": "每个集成都遵循相同的路径。实际的构建器在 dev.polymux.com 仪表板上运行。",
+      "create": { "title": "创建应用", "desc": "注册你的集成。选择名称、类型和 OAuth 范围。" },
+      "keys": { "title": "获取 API 密钥", "desc": "生成发布密钥和签名密钥。存储在你的 Vault 中。" },
+      "sdk": { "title": "安装 SDK", "desc": "使用 `polymux init` 引导或直接使用 cURL。TypeScript 优先。" },
+      "publish": { "title": "发布到市场", "desc": "提交审核。批准后,你的应用将对每个 Polymux 工作区可用。" }
+    },
+    "gallery": {
+      "title": "来自市场的灵感",
+      "subtitle": "构建在 Polymux 上的真实应用。下一个可能就是你的。",
+      "browseAll": "浏览所有集成"
+    },
+    "resources": {
+      "title": "一切都在 dev.polymux.com",
+      "subtitle": "文档、参考和集成仪表板的统一目的地。",
+      "open": "打开",
+      "docs": { "title": "文档", "desc": "教程、概念和平台指南。" },
+      "api": { "title": "API 参考", "desc": "每个端点、参数和 webhook。" },
+      "examples": { "title": "示例", "desc": "端到端的示例集成和模板。" },
+      "community": { "title": "Discord 和论坛", "desc": "与团队和其他构建者交流。" }
+    },
+    "cta": {
+      "title": "准备好发布了吗?",
+      "primary": "打开开发者平台",
+      "secondary": "阅读文档"
+    }
   },
   "vault": {
     "passwords": {

@@ -4,7 +4,7 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `${t('accountSuspendedTitle')} — Polymux`,
+  title: () => `${t('accountSuspendedTitle')}`,
 })
 
 const { signOut } = useSignOut()

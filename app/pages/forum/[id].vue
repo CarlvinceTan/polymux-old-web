@@ -28,11 +28,7 @@ const { data, pending, error, refresh } = await useAsyncData<{
 const discussion = computed<ForumDiscussion | null>(() => data.value?.discussion ?? null)
 const replies = computed<ForumReply[]>(() => data.value?.replies ?? [])
 
-useHead(() => ({
-  title: discussion.value
-    ? `${discussion.value.title} — Polymux Forum`
-    : 'Discussion — Polymux Forum',
-}))
+useHead({ title: 'Forum' })
 
 const category = computed(() =>
   discussion.value ? forumCategoryBySlug(discussion.value.category) : undefined,

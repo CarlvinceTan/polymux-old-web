@@ -475,6 +475,79 @@
     "roleOwner": "Proprietário",
     "roleAdmin": "Administrador"
   },
+  "workspaceMenu": {
+    "memberCountOne": "1 membro",
+    "memberCountMany": "{n} membros",
+    "manageMembers": "Gerenciar membros",
+    "otherWorkspaces": "Áreas de trabalho",
+    "modalTitle": "Configurações da área",
+    "modalSubtitle": "Configurações da área",
+    "currentPlan": "Plano atual",
+    "workspaceBilling": "Faturamento da área",
+    "usage": "Uso",
+    "statSessions": "Sessões / sem.",
+    "statSeats": "Assentos",
+    "statTokens": "Tokens",
+    "statTokensCaption": "Saldo da carteira",
+    "statStorage": "Armazenamento",
+    "statStorageCaption": "Conecte um provedor para acompanhar o uso",
+    "statAgents": "Agentes de navegador",
+    "statAgentsCaption": "Agentes simultâneos disponíveis",
+    "statFileSize": "Tamanho máx. de arquivo",
+    "statFileSizeCaption": "Por upload",
+    "administration": "Administração",
+    "transferOwnership": "Transferir propriedade",
+    "transferOwnershipDesc": "Entregue esta área a outro membro.",
+    "transferAction": "Transferir",
+    "transferring": "Transferindo…",
+    "transferSelectDesc": "Escolha o novo proprietário.",
+    "transferConfirmDesc": "Efeito imediato.",
+    "transferNoOthers": "Não há outros membros nesta área. Convide alguém antes de transferir a propriedade.",
+    "transferWarning": "Você se tornará Administrador após a transferência. O novo proprietário terá controle total.",
+    "currentOwner": "Proprietário atual",
+    "continue": "Continuar",
+    "confirmTransfer": "Confirmar transferência",
+    "deleteWorkspace": "Excluir área",
+    "deleteWorkspaceDesc": "Remove permanentemente todas as sessões, arquivos e dados.",
+    "deleteWarning": "Você está prestes a excluir permanentemente {name}. Todas as sessões, arquivos e dados desta área serão removidos irreversivelmente.",
+    "confirmDelete": "Sim, excluir área",
+    "deleting": "Excluindo…",
+    "cannotDelete": "Não é possível excluir a área",
+    "cannotBeUndone": "Esta ação não pode ser desfeita.",
+    "onlyWorkspace": "Esta é sua única área de trabalho.",
+    "onlyWorkspaceMsg": "Você deve sempre ter pelo menos uma área de trabalho. Crie outra antes de excluir esta.",
+    "membersSubtitle": "Membros de {name}",
+    "searchMembers": "Buscar membros…",
+    "invite": "Convidar",
+    "inviteMembers": "Convidar membros",
+    "inviteDesc": "Adicione pessoas à sua área por e-mail.",
+    "emailAddresses": "Endereços de e-mail",
+    "commaHint": "Separe vários e-mails com vírgulas.",
+    "role": "Papel",
+    "roleAdminLabel": "Administrador — pode gerenciar membros e configurações",
+    "roleMemberLabel": "Membro — pode criar e editar sessões",
+    "sendInvitation": "Enviar convite",
+    "sending": "Enviando…",
+    "manageAccess": "Gerenciar acesso",
+    "changeRoleFor": "Alterar papel de {name}",
+    "memberSingular": "membro",
+    "memberPlural": "membros",
+    "pendingLabel": "pendente",
+    "noMatches": "Nenhuma correspondência para sua busca.",
+    "noMembers": "Nenhum membro encontrado.",
+    "removeMember": "Remover membro",
+    "makeAdmin": "Tornar administrador",
+    "makeMember": "Tornar membro",
+    "leaveWorkspace": "Sair da área",
+    "noAvailableActions": "Sem ações disponíveis",
+    "resendInvite": "Reenviar convite",
+    "revokeInvite": "Revogar convite",
+    "invPending": "Pendente",
+    "invExpired": "Expirado",
+    "invExpiresDays": "Expira em {n} dia(s)",
+    "invExpiresHours": "Expira em {n} hora(s)",
+    "invExpiresMins": "Expira em {n} min."
+  },
   "storage": {
     "workspace": "Área de trabalho",
     "move": "Mover",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "Use agora"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "Plataforma para developers",
+      "title": "Construa sobre o Polymux.",
+      "subtitle": "A plataforma para developers de agentes de IA. Lance integrações, ferramentas personalizadas e apps de marketplace que se conectam direto aos fluxos do Polymux.",
+      "ctaPrimary": "Abrir plataforma para developers",
+      "ctaSecondary": "Ver início rápido"
+    },
+    "capabilities": {
+      "title": "Tudo o que você precisa para estender o Polymux",
+      "subtitle": "De ferramentas personalizadas a apps de marketplace — construa o que sua equipe precisa.",
+      "tools": { "title": "Ferramentas de agente personalizadas", "desc": "Defina ferramentas que seus agentes podem chamar. De webhooks simples a handlers TypeScript completos." },
+      "browser": { "title": "Integrações de navegador", "desc": "Conecte-se a sessões de navegador em tempo real. Injete UI, observe eventos, conduza a automação." },
+      "vault": { "title": "Conectores de Vault", "desc": "Traga seus próprios provedores de credenciais. OAuth, chaves de API, segredos — protegidos pelo Vault." },
+      "marketplace": { "title": "Apps de Marketplace", "desc": "Publique no marketplace do Polymux. Alcance milhares de equipes que rodam automações." }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "SDKs tipados. Padrões honestos.",
+      "subtitle": "Duas linhas para instalar, uma para publicar. O SDK do Polymux é open source sob MIT — pensado primeiro em TypeScript, com Python e Go no mesmo formato.",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "languages": {
+        "ts": "SDK TypeScript",
+        "py": "SDK Python",
+        "go": "SDK Go"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "Lance em quatro passos.",
+      "subtitle": "Toda integração segue o mesmo caminho. O builder real roda no dashboard em dev.polymux.com.",
+      "create": { "title": "Criar app", "desc": "Registre sua integração. Escolha um nome, um tipo e os escopos OAuth." },
+      "keys": { "title": "Obter chaves de API", "desc": "Gere uma chave publicável e um segredo de assinatura. Armazenados no seu Vault." },
+      "sdk": { "title": "Instalar o SDK", "desc": "Inicie com `polymux init` ou use cURL diretamente. TypeScript em primeiro lugar." },
+      "publish": { "title": "Publicar no marketplace", "desc": "Envie para revisão. Após aprovação, seu app fica disponível em todo workspace do Polymux." }
+    },
+    "gallery": {
+      "title": "Inspiração do marketplace",
+      "subtitle": "Apps reais construídos sobre o Polymux. O seu pode ser o próximo.",
+      "browseAll": "Ver todas as integrações"
+    },
+    "resources": {
+      "title": "Tudo está em dev.polymux.com",
+      "subtitle": "Um único destino para documentação, referências e o dashboard de integrações.",
+      "open": "Abrir",
+      "docs": { "title": "Documentação", "desc": "Tutoriais, conceitos e guias da plataforma." },
+      "api": { "title": "Referência da API", "desc": "Cada endpoint, parâmetro e webhook." },
+      "examples": { "title": "Exemplos", "desc": "Integrações de exemplo e templates de ponta a ponta." },
+      "community": { "title": "Discord e Fórum", "desc": "Converse com a equipe e com outros builders." }
+    },
+    "cta": {
+      "title": "Pronto para lançar?",
+      "primary": "Abrir plataforma para developers",
+      "secondary": "Ler a documentação"
+    }
   },
   "vault": {
     "passwords": {

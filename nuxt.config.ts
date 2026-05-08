@@ -24,6 +24,7 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
+    "/documentation": { redirect: "/development" },
     "/dashboard": { redirect: "/dashboard/home" },
     "/config": { redirect: "/settings" },
     "/config/settings": { redirect: "/settings" },
@@ -37,7 +38,15 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: "Polymux",
+      // The page title, brand-aware titleTemplate, og:site_name, canonical
+      // URL, and JSON-LD WebSite schema are all set in app.vue so they pick
+      // the right brand ("Polymux" vs "Polymux Development Platform") based
+      // on the request hostname. Setting a static title here would feed
+      // "Polymux" into the template on pages without a per-page useHead and
+      // render as "Polymux Polymux" in the browser tab.
+      meta: [
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
       link: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },

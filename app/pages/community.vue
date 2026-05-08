@@ -19,10 +19,10 @@ const tiles: CommunityTile[] = [
     to: '/blog',
   },
   {
-    label: 'Documentation',
-    description: 'Guides, references, and API docs',
-    icon: 'i-heroicons-book-open-20-solid',
-    to: '/documentation',
+    label: 'Development',
+    description: 'Build integrations, SDKs, and apps on Polymux',
+    icon: 'i-heroicons-code-bracket-square-20-solid',
+    to: '/development',
   },
   {
     label: 'Forum',

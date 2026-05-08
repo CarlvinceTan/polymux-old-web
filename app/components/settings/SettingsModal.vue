@@ -110,7 +110,7 @@ async function saveBlogSubscription(value: boolean) {
 }
 
 const { currency, setCurrency, currencyOptions, detect: detectCurrency } = useCurrency()
-const geo = useGeolocation()
+const geo = useGeolocation({ active: false })
 
 const locationPermissionHint = computed(() => {
   switch (geo.permissionState.value) {

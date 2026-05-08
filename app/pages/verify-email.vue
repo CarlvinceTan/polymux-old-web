@@ -4,7 +4,7 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `Verify Email — Polymux`,
+  title: () => `Verify Email`,
 })
 
 const route = useRoute()

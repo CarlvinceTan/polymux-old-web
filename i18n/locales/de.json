@@ -475,6 +475,79 @@
     "roleOwner": "Inhaber",
     "roleAdmin": "Administrator"
   },
+  "workspaceMenu": {
+    "memberCountOne": "1 Mitglied",
+    "memberCountMany": "{n} Mitglieder",
+    "manageMembers": "Mitglieder verwalten",
+    "otherWorkspaces": "Arbeitsbereiche",
+    "modalTitle": "Arbeitsbereichseinstellungen",
+    "modalSubtitle": "Arbeitsbereichseinstellungen",
+    "currentPlan": "Aktueller Plan",
+    "workspaceBilling": "Arbeitsbereichsabrechnung",
+    "usage": "Nutzung",
+    "statSessions": "Sitzungen / Wo.",
+    "statSeats": "Sitze",
+    "statTokens": "Tokens",
+    "statTokensCaption": "Wallet-Guthaben",
+    "statStorage": "Speicher",
+    "statStorageCaption": "Anbieter verbinden, um Nutzung zu verfolgen",
+    "statAgents": "Browser-Agenten",
+    "statAgentsCaption": "Verfügbare gleichzeitige Agenten",
+    "statFileSize": "Max. Dateigröße",
+    "statFileSizeCaption": "Pro Upload",
+    "administration": "Verwaltung",
+    "transferOwnership": "Eigentümerschaft übertragen",
+    "transferOwnershipDesc": "Übergeben Sie diesen Arbeitsbereich an ein anderes Mitglied.",
+    "transferAction": "Übertragen",
+    "transferring": "Übertrage…",
+    "transferSelectDesc": "Wählen Sie den neuen Eigentümer.",
+    "transferConfirmDesc": "Wird sofort wirksam.",
+    "transferNoOthers": "Es gibt keine anderen Mitglieder in diesem Arbeitsbereich. Laden Sie ein Mitglied ein, bevor Sie die Eigentümerschaft übertragen.",
+    "transferWarning": "Sie werden nach dieser Übertragung Administrator. Der neue Eigentümer hat die volle Kontrolle.",
+    "currentOwner": "Aktueller Eigentümer",
+    "continue": "Weiter",
+    "confirmTransfer": "Übertragung bestätigen",
+    "deleteWorkspace": "Arbeitsbereich löschen",
+    "deleteWorkspaceDesc": "Entfernt dauerhaft alle Sitzungen, Dateien und Daten.",
+    "deleteWarning": "Sie sind dabei, {name} dauerhaft zu löschen. Alle Sitzungen, Dateien und Daten in diesem Arbeitsbereich werden unwiderruflich entfernt.",
+    "confirmDelete": "Ja, Arbeitsbereich löschen",
+    "deleting": "Lösche…",
+    "cannotDelete": "Arbeitsbereich kann nicht gelöscht werden",
+    "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden.",
+    "onlyWorkspace": "Dies ist Ihr einziger Arbeitsbereich.",
+    "onlyWorkspaceMsg": "Sie müssen immer mindestens einen Arbeitsbereich haben. Erstellen Sie einen anderen Arbeitsbereich, bevor Sie diesen löschen.",
+    "membersSubtitle": "Mitglieder von {name}",
+    "searchMembers": "Mitglieder suchen…",
+    "invite": "Einladen",
+    "inviteMembers": "Mitglieder einladen",
+    "inviteDesc": "Fügen Sie Personen per E-Mail zu Ihrem Arbeitsbereich hinzu.",
+    "emailAddresses": "E-Mail-Adressen",
+    "commaHint": "Trennen Sie mehrere E-Mails durch Kommas.",
+    "role": "Rolle",
+    "roleAdminLabel": "Administrator — kann Mitglieder und Einstellungen verwalten",
+    "roleMemberLabel": "Mitglied — kann Sitzungen erstellen und bearbeiten",
+    "sendInvitation": "Einladung senden",
+    "sending": "Sende…",
+    "manageAccess": "Zugriff verwalten",
+    "changeRoleFor": "Rolle für {name} ändern",
+    "memberSingular": "Mitglied",
+    "memberPlural": "Mitglieder",
+    "pendingLabel": "ausstehend",
+    "noMatches": "Keine Übereinstimmungen für Ihre Suche.",
+    "noMembers": "Keine Mitglieder gefunden.",
+    "removeMember": "Mitglied entfernen",
+    "makeAdmin": "Zu Administrator machen",
+    "makeMember": "Zu Mitglied machen",
+    "leaveWorkspace": "Arbeitsbereich verlassen",
+    "noAvailableActions": "Keine verfügbaren Aktionen",
+    "resendInvite": "Einladung erneut senden",
+    "revokeInvite": "Einladung widerrufen",
+    "invPending": "Ausstehend",
+    "invExpired": "Abgelaufen",
+    "invExpiresDays": "Läuft in {n} Tag(en) ab",
+    "invExpiresHours": "Läuft in {n} Stunde(n) ab",
+    "invExpiresMins": "Läuft in {n} Min. ab"
+  },
   "storage": {
     "workspace": "Arbeitsbereich",
     "move": "Verschieben",
@@ -672,6 +745,67 @@
   },
   "landing": {
     "useNow": "Jetzt nutzen"
+  },
+  "development": {
+    "hero": {
+      "eyebrow": "Entwicklerplattform",
+      "title": "Auf Polymux aufbauen.",
+      "subtitle": "Die Entwicklerplattform für KI-Agenten. Veröffentliche Integrationen, eigene Tools und Marketplace-Apps, die direkt in Polymux-Workflows einklinken.",
+      "ctaPrimary": "Entwicklerplattform öffnen",
+      "ctaSecondary": "Schnellstart ansehen"
+    },
+    "capabilities": {
+      "title": "Alles, um Polymux zu erweitern",
+      "subtitle": "Von eigenen Tools bis zu Marketplace-Apps — bau, was dein Team braucht.",
+      "tools": { "title": "Eigene Agent-Tools", "desc": "Definiere Tools, die deine Agenten aufrufen können. Von einfachen Webhooks bis zu vollwertigen TypeScript-Handlern." },
+      "browser": { "title": "Browser-Integrationen", "desc": "Klink dich in Live-Browsersitzungen ein. UI injizieren, Ereignisse beobachten, Automatisierung steuern." },
+      "vault": { "title": "Vault-Konnektoren", "desc": "Bring eigene Credential-Provider mit. OAuth, API-Schlüssel, Geheimnisse — durch Vault gesichert." },
+      "marketplace": { "title": "Marketplace-Apps", "desc": "Veröffentliche im Polymux-Marketplace. Erreiche Tausende Teams, die Automatisierungen betreiben." }
+    },
+    "sdk": {
+      "eyebrow": "SDK",
+      "title": "Typsichere SDKs. Ehrliche Defaults.",
+      "subtitle": "Zwei Zeilen zum Installieren, eine zum Veröffentlichen. Das Polymux-SDK ist Open Source unter MIT — TypeScript-first, mit Python und Go in derselben Form.",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "languages": {
+        "ts": "TypeScript-SDK",
+        "py": "Python-SDK",
+        "go": "Go-SDK"
+      },
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    },
+    "steps": {
+      "title": "In vier Schritten ausliefern.",
+      "subtitle": "Jede Integration folgt demselben Pfad. Der eigentliche Builder läuft im Dashboard auf dev.polymux.com.",
+      "create": { "title": "App erstellen", "desc": "Registriere deine Integration. Wähle Name, Typ und OAuth-Scopes." },
+      "keys": { "title": "API-Schlüssel erhalten", "desc": "Erzeuge einen veröffentlichten Schlüssel und ein Signing-Secret. Im Vault gespeichert." },
+      "sdk": { "title": "SDK installieren", "desc": "Bootstrappe mit `polymux init` oder nutze cURL direkt. TypeScript-first." },
+      "publish": { "title": "Im Marketplace veröffentlichen", "desc": "Reiche zur Prüfung ein. Nach Freigabe ist deine App in jedem Polymux-Workspace live." }
+    },
+    "gallery": {
+      "title": "Inspiration aus dem Marketplace",
+      "subtitle": "Echte Apps, gebaut auf Polymux. Deine könnte die nächste sein.",
+      "browseAll": "Alle Integrationen durchsuchen"
+    },
+    "resources": {
+      "title": "Alles auf dev.polymux.com",
+      "subtitle": "Eine Anlaufstelle für Docs, Referenzen und das Integrations-Dashboard.",
+      "open": "Öffnen",
+      "docs": { "title": "Dokumentation", "desc": "Tutorials, Konzepte und Plattform-Guides." },
+      "api": { "title": "API-Referenz", "desc": "Jeder Endpunkt, Parameter und Webhook." },
+      "examples": { "title": "Beispiele", "desc": "End-to-End-Beispielintegrationen und Templates." },
+      "community": { "title": "Discord & Forum", "desc": "Sprich mit dem Team und anderen Buildern." }
+    },
+    "cta": {
+      "title": "Bereit zum Ausliefern?",
+      "primary": "Entwicklerplattform öffnen",
+      "secondary": "Dokumentation lesen"
+    }
   },
   "vault": {
     "passwords": {

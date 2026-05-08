@@ -4,7 +4,7 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `${t('auth.verificationSuccessful')} — Polymux`,
+  title: () => `${t('auth.verificationSuccessful')}`,
 })
 </script>
 

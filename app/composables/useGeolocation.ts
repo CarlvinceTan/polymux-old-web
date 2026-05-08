@@ -8,6 +8,14 @@ export interface GeolocationCoords {
   accuracy: number
 }
 
+export interface UseGeolocationOptions {
+  // Pass `false` from passive consumers (e.g. SettingsModal) that only render
+  // permission/toggle UI. The native `watchPosition` only runs while at least
+  // one active consumer is mounted, so unrelated pages don't trigger
+  // CoreLocation requests just because the global SidePanel mounted them.
+  active?: boolean
+}
+
 const coords = ref<GeolocationCoords | null>(null)
 const permissionState = ref<GeolocationPermissionState>('prompt')
 const error = ref<string | null>(null)
@@ -16,6 +24,7 @@ const enabled = ref(false)
 let watchId: number | null = null
 let permissionStatus: PermissionStatus | null = null
 let consumers = 0
+let activeConsumers = 0
 let initialized = false
 
 function readCookie(): boolean {
@@ -111,7 +120,7 @@ async function enable() {
   enabled.value = true
   writeCookie(true)
   const result = await requestLocation()
-  if (result) {
+  if (result && activeConsumers > 0) {
     startWatching()
   }
   await queryPermission()
@@ -133,26 +142,39 @@ function toggle() {
   }
 }
 
-export function useGeolocation() {
+export function useGeolocation(options: UseGeolocationOptions = {}) {
+  const wantsActive = options.active !== false
+
   onMounted(async () => {
     consumers++
-    if (initialized) return
-    initialized = true
-    await queryPermission()
-    if (readCookie() && permissionState.value === 'granted') {
-      enabled.value = true
-      await requestLocation()
-      startWatching()
+    if (!initialized) {
+      initialized = true
+      await queryPermission()
+      if (readCookie()) enabled.value = true
     }
-    else if (readCookie()) {
-      enabled.value = true
+    if (wantsActive) {
+      activeConsumers++
+      if (
+        activeConsumers === 1
+        && watchId === null
+        && readCookie()
+        && permissionState.value === 'granted'
+      ) {
+        await requestLocation()
+        startWatching()
+      }
     }
   })
 
   onUnmounted(() => {
     consumers = Math.max(0, consumers - 1)
+    if (wantsActive) {
+      activeConsumers = Math.max(0, activeConsumers - 1)
+      if (activeConsumers === 0) {
+        stopWatching()
+      }
+    }
     if (consumers === 0) {
-      stopWatching()
       if (permissionStatus) {
         permissionStatus.onchange = null
         permissionStatus = null

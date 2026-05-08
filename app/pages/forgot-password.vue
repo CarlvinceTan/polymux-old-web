@@ -4,7 +4,7 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `${t('auth.forgotPasswordTitle')} — Polymux`,
+  title: () => `${t('auth.forgotPasswordTitle')}`,
 })
 
 const supabase = useSupabaseClient()
