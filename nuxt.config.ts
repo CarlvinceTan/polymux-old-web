@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    "/documentation": { redirect: "/development" },
     "/dashboard": { redirect: "/dashboard/home" },
     "/config": { redirect: "/settings" },
     "/config/settings": { redirect: "/settings" },

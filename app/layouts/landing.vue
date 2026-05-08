@@ -289,7 +289,7 @@ const linkGroups = [
         title: 'Community',
         links: [
             { label: 'Blog', to: '/blog' },
-            { label: 'Development', to: '/development' },
+            { label: 'Documentation', to: '/documentation' },
             { label: 'Forum', to: '/forum' },
         ],
     },

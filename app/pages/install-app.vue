@@ -394,11 +394,11 @@ const reassurance = [
         </p>
         <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
           <NuxtLink
-            to="/development"
+            to="/documentation"
             class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
           >
-            <UIcon name="i-heroicons-code-bracket-square-20-solid" class="size-4" />
-            Developer platform
+            <UIcon name="i-heroicons-book-open-20-solid" class="size-4" />
+            Read install guide
           </NuxtLink>
           <NuxtLink
             to="/contact"
