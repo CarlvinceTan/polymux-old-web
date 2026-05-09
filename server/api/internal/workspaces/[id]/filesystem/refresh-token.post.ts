@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
+import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
 import { decryptToken, encryptToken } from '~~/server/utils/tokenCrypto'
 import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 import { refreshAccessToken } from '~~/server/utils/googleOAuth'
@@ -15,7 +15,7 @@ import { refreshAccessToken } from '~~/server/utils/googleOAuth'
 // a clean error instead of a generic 500.
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const query = getQuery(event)

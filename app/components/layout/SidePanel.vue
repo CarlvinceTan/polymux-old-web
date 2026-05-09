@@ -913,6 +913,7 @@ onUnmounted(() => {
               :class="isWorkflowListItemActive(session.id) ? 'bg-neutral-300' : (isDragging ? '' : 'hover:bg-neutral-200/90')">
               <span
                 class="min-w-0 flex-1 truncate"
+                :class="session.is_running ? 'wf-title-running' : ''"
                 :title="session.title"
                 @dblclick.stop="startRename(session.id, session.title)"
               >{{ session.title }}</span>
@@ -1170,6 +1171,33 @@ onUnmounted(() => {
   right: 0;
   pointer-events: none;
   opacity: 0;
+}
+
+/* Running-workflow shimmer: keeps the title visually black, sweeps a soft
+   highlight from left to right so the user can scan the list and see at a
+   glance which workflows are actually executing on the cloud. The keyframe
+   itself lives in main.css (global) so Vue's scoped CSS doesn't rename it. */
+.wf-title-running {
+  background-image: linear-gradient(
+    90deg,
+    rgb(10, 10, 10) 0%,
+    rgb(10, 10, 10) 42%,
+    rgb(140, 140, 140) 50%,
+    rgb(10, 10, 10) 58%,
+    rgb(10, 10, 10) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wf-title-running-sweep 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-title-running {
+    animation: none;
+    -webkit-text-fill-color: rgb(10, 10, 10);
+  }
 }
 
 /* Drag-to-reorder affordance (real sessions only). Disable text selection on

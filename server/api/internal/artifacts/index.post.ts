@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
+import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
 import { artifactCap } from '~~/server/utils/planLimits'
 
 // POST /api/internal/artifacts
@@ -30,7 +30,7 @@ interface Body {
 }
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
   const body = await readBody<Body>(event)
 
   const sessionId = typeof body.session_id === 'string' ? body.session_id : ''

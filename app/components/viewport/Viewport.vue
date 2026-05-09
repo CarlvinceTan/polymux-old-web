@@ -8,6 +8,8 @@ const props = withDefaults(defineProps<{
   currentAction?: string
   isWorking?: boolean
   isDone?: boolean
+  /** Solid red status line — agent ended in failed/stopped/interrupted. */
+  isFailed?: boolean
   /** Traffic lights + URL bar (default on; set false to hide, e.g. chat thumbnails) */
   showBar?: boolean
   /** When false, status line shows only `agentName` (no `currentAction`); StatusLine unchanged */
@@ -31,6 +33,7 @@ const props = withDefaults(defineProps<{
   currentAction: 'REFACTORING...',
   isWorking: true,
   isDone: false,
+  isFailed: false,
   showBar: true,
   showActionText: true,
   thumbnail: false,
@@ -171,7 +174,7 @@ function greenClick(e: Event) {
             </svg>
           </div>
           <div
-            v-else-if="!frameUrl"
+            v-else-if="!frameUrl && isWorking"
             class="absolute inset-0 flex w-full flex-col"
             :class="thumbnail ? 'gap-2 p-2' : 'gap-6 p-8'"
           >
@@ -187,6 +190,12 @@ function greenClick(e: Event) {
               class="animate-pulse rounded-full bg-neutral-200/60 opacity-70"
               :class="thumbnail ? 'h-2 w-[42%]' : 'h-4 w-2/4'"
             />
+          </div>
+          <div
+            v-else-if="!frameUrl"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-neutral-50 text-neutral-400"
+          >
+            <UIcon name="i-heroicons-photo" :class="thumbnail ? 'size-4' : 'size-8'" />
           </div>
           <img
             v-if="frameUrl"
@@ -221,7 +230,7 @@ function greenClick(e: Event) {
         </div>
       </div>
 
-      <StatusLine :is-working="isWorking" :is-done="isDone" :small="thumbnail" />
+      <StatusLine :is-working="isWorking" :is-done="isDone" :is-failed="isFailed" :small="thumbnail" />
     </div>
   </div>
 </template>

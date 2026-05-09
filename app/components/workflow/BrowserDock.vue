@@ -102,7 +102,7 @@ function activeViewportBinds(vp: ViewportState) {
       <div class="flex min-h-0 min-w-0 flex-1 items-center justify-center">
         <div class="mx-auto w-[min(100cqw,max(1px,calc((100cqh-5.5rem)*16/9)))] max-w-full min-w-0 shrink-0">
           <Viewport
-            v-if="activeViewport && (activeFrameUrl || reconnecting)"
+            v-if="activeViewport && (activeFrameUrl || reconnecting || !activeViewport.isWorking)"
             class="w-full min-w-0 shrink-0"
             v-bind="activeViewportBinds(activeViewport)"
           />

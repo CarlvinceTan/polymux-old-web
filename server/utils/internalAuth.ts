@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 
-// Verify the Authorization header matches runtimeConfig.internalServiceToken.
+// Verify the Authorization header matches runtimeConfig.polymuxSecret.
 //
 // These routes are only callable by the Go backend, which holds the shared
 // secret in its own config. Never accept requests without it — unlike the
@@ -9,19 +9,19 @@ import type { H3Event } from 'h3'
 // Use `crypto.timingSafeEqual` to prevent token-length side channels. We
 // hash both sides to equal-length digests first; that also avoids the
 // "buffer length mismatch" throw when the lengths differ.
-export async function requireInternalToken(event: H3Event): Promise<void> {
-  const expected = useRuntimeConfig().internalServiceToken
+export async function requirePolymuxSecret(event: H3Event): Promise<void> {
+  const expected = useRuntimeConfig().polymuxSecret
   if (!expected) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'INTERNAL_SERVICE_TOKEN is not configured on the server.',
+      statusMessage: 'POLYMUX_SECRET is not configured on the server.',
     })
   }
 
   const auth = getRequestHeader(event, 'authorization') ?? ''
   const m = /^Bearer\s+(.+)$/i.exec(auth.trim())
   if (!m) {
-    throw createError({ statusCode: 401, statusMessage: 'Missing internal service token.' })
+    throw createError({ statusCode: 401, statusMessage: 'Missing polymux secret.' })
   }
   const presented = m[1]!
 
@@ -29,6 +29,6 @@ export async function requireInternalToken(event: H3Event): Promise<void> {
   const a = createHash('sha256').update(expected).digest()
   const b = createHash('sha256').update(presented).digest()
   if (!timingSafeEqual(a, b)) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid internal service token.' })
+    throw createError({ statusCode: 401, statusMessage: 'Invalid polymux secret.' })
   }
 }

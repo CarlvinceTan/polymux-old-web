@@ -75,8 +75,19 @@ export interface BrowserSpawnedPayload {
   session_name: string
   cdp_endpoint?: string
   label?: string
-  /** Last-known lifecycle status; only set on session_state re-sync. */
-  status?: 'running' | 'completed' | 'failed' | 'stopped' | string
+  /** Last-known lifecycle status. Sent on session_state re-sync (live agents
+   *  AND DB-hydrated visual-only placeholders). `interrupted` is the marker
+   *  the server sets on agents that were running when a 5-min grace window
+   *  elapsed without a client. */
+  status?: 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted' | string
+  /** Last-navigated URL captured by the server. Lets the client paint the URL
+   *  strip on a reload-restored viewport even when no live screencast is
+   *  attached. */
+  url?: string
+  /** True when this entry came from the persisted last_browser_states column
+   *  rather than a live in-memory agent. The viewport renders read-only: no
+   *  screencast, no working/yellow status line, no tool messages. */
+  is_visual_only?: boolean
 }
 
 export interface AgentLabelEntry {
@@ -102,6 +113,11 @@ export interface SessionStatePayload {
   stream_priorities: AgentPriority[]
   browser_agent_cap: number
   agent_labels?: AgentLabelEntry[]
+  /** True while the workflow is genuinely executing — at least one browser
+   *  agent in status=running OR a scheduled run in flight. Drives the
+   *  workflow-list shimmer and the chat typing-dots so a reloaded but idle
+   *  workflow stops looking like it's working. */
+  is_running?: boolean
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -265,8 +281,17 @@ export interface ViewportState {
   agentName: string
   currentAction: string
   isLoading: boolean
+  /** Yellow status-line + 3-dot animation. True only when the server reports
+   *  status=running for a live agent. Visual-only placeholders never set this. */
   isWorking: boolean
+  /** Green status-line — agent finished its task successfully. */
   isDone: boolean
+  /** Red status-line — agent ended in failed/stopped/interrupted. */
+  isFailed: boolean
+  /** Set when the viewport was hydrated from last_browser_states rather than a
+   *  live agent. The screencast frame map will never receive a frame for it,
+   *  the URL strip is the only meaningful surface. */
+  isVisualOnly: boolean
 }
 
 export interface ThinkingState {

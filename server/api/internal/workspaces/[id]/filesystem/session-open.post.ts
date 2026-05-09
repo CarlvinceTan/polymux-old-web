@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
+import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
 import { artifactCap, fileCap, pullFolderCap } from '~~/server/utils/planLimits'
 import { decryptToken } from '~~/server/utils/tokenCrypto'
 import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
@@ -42,7 +42,7 @@ interface FileRow {
 }
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event)

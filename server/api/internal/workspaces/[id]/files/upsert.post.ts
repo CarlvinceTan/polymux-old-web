@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
+import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
 import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
 
 // POST /api/internal/workspaces/[id]/files/upsert
@@ -32,7 +32,7 @@ interface Body {
 const ALLOWED_BACKENDS = new Set(['google-drive', 'local'])
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event)

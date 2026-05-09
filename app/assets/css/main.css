@@ -248,3 +248,19 @@ body {
     transform: translateX(300%);
   }
 }
+
+/* SidePanel workflow-list "running" shimmer. Defined globally because Vue's
+   scoped CSS rewrites animation-name in <style scoped>, which would break the
+   reference from .wf-title-running (also defined in SidePanel.vue's scoped
+   block — the rule itself is fine inside scoped, only the keyframes name
+   has to live outside). The image starts off-canvas to the right
+   (background-position: 200%) and slides to align (0%), so the bright band
+   reads as a left-to-right sweep across the title text. */
+@keyframes wf-title-running-sweep {
+  0% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

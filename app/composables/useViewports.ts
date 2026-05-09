@@ -36,20 +36,40 @@ export function useViewports(session: SessionHandle) {
   }
 
   function payloadToViewport(p: BrowserSpawnedPayload): ViewportState {
-    // Session_state re-sync carries `status` so a completed agent restored
-    // after a reconnect or reload stays green instead of flipping back to the
-    // working/yellow state.
-    const done = p.status != null && p.status !== 'running'
+    // Map the server's lifecycle status to a viewport color:
+    //   running              → yellow + 3 dots (only when truly working)
+    //   completed            → green DONE
+    //   failed/stopped/
+    //   interrupted          → red INTERRUPTED/FAILED
+    //   anything else        → idle gray (defensive — covers undefined on
+    //                         cold-start spawns before the first transition).
+    // Visual-only entries hydrated from last_browser_states never go through
+    // the working/yellow branch: a placeholder must not look like it's busy
+    // when the only thing happening is the URL repaint on reload.
+    const status = p.status ?? ''
+    const isVisualOnly = !!p.is_visual_only
+    const isRunning = status === 'running' && !isVisualOnly
+    const isCompleted = status === 'completed'
+    const isFailed = status === 'failed' || status === 'stopped' || status === 'interrupted'
+    const action = isRunning
+      ? `TASK: ${p.task.slice(0, 40)}`
+      : isCompleted
+        ? 'DONE'
+        : isFailed
+          ? status.toUpperCase()
+          : isVisualOnly
+            ? 'IDLE'
+            : `TASK: ${p.task.slice(0, 40)}`
     return {
       agentId: p.agent_id,
-      url: '',
-      agentName: p.label ?? p.session_name,
-      currentAction: done
-        ? (p.status === 'completed' ? 'DONE' : (p.status ?? '').toUpperCase())
-        : `TASK: ${p.task.slice(0, 40)}`,
-      isLoading: !done,
-      isWorking: !done,
-      isDone: done,
+      url: p.url ?? '',
+      agentName: p.label ?? p.session_name ?? '',
+      currentAction: action,
+      isLoading: isRunning,
+      isWorking: isRunning,
+      isDone: isCompleted,
+      isFailed,
+      isVisualOnly,
     }
   }
 
@@ -62,6 +82,8 @@ export function useViewports(session: SessionHandle) {
       isLoading: true,
       isWorking: true,
       isDone: false,
+      isFailed: false,
+      isVisualOnly: false,
     }
   }
 
@@ -143,10 +165,12 @@ export function useViewports(session: SessionHandle) {
   }
 
   function handleBrowserClosed(p: BrowserClosedPayload) {
+    const completed = p.reason === 'completed'
     updateViewport(p.agent_id, {
       isWorking: false,
-      isDone: true,
-      currentAction: p.reason === 'completed' ? 'DONE' : p.reason.toUpperCase(),
+      isDone: completed,
+      isFailed: !completed,
+      currentAction: completed ? 'DONE' : p.reason.toUpperCase(),
     })
   }
 
@@ -158,7 +182,13 @@ export function useViewports(session: SessionHandle) {
 
   function handleAgentThinking(p: AgentThinkingPayload) {
     if (p.agent_id === 'orchestrator') return
-    if (!viewports.value.some(v => v.agentId === p.agent_id)) return
+    const target = viewports.value.find(v => v.agentId === p.agent_id)
+    if (!target) return
+    // Visual-only placeholders (hydrated from last_browser_states) should not
+    // accept live activity events. The DB snapshot is authoritative for them
+    // — a stray thinking frame for a freshly-spawned successor with the same
+    // id would otherwise flip a red/green tile back to yellow on reload.
+    if (target.isVisualOnly) return
 
     // Any activity on a previously-completed agent means the orchestrator has
     // assigned a new task to the same worker — flip the status line back to
@@ -168,6 +198,7 @@ export function useViewports(session: SessionHandle) {
       isLoading: false,
       isWorking: true,
       isDone: false,
+      isFailed: false,
     }
 
     if (p.action.startsWith('tool:') && p.detail) {

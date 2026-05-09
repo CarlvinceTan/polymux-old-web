@@ -19,9 +19,15 @@ export interface WorkflowSummary {
   created_at: string
   updated_at: string
   is_draft?: boolean
-  /** URLs of browser sub-agents active when the user last left this workflow.
-   * Used to respawn fresh agents on those URLs when the user returns. */
+  /** Legacy: URLs of browser sub-agents active when the user last left this
+   *  workflow. Deprecated in favour of the server-authored last_browser_states
+   *  column carried via session_state. Kept on the type so old API responses
+   *  still parse. */
   last_viewport_urls?: string[]
+  /** True while a browser agent is in status=running OR a scheduled run is in
+   *  flight. Drives the workflow-list shimmer so users can see at a glance
+   *  which workflows are actually executing on the cloud. */
+  is_running?: boolean
 }
 
 interface StoredMessage {
@@ -249,6 +255,19 @@ export function useWorkflowList() {
     }
   }
 
+  // Patches the cached is_running flag for a workflow row so the SidePanel
+  // shimmer reacts the moment the WS reports a state change, without waiting
+  // for the next /sessions refresh. The DB row is still the source of truth
+  // (Go server writes it on every browser-agent transition + run start/end).
+  function setSessionRunning(id: string, isRunning: boolean) {
+    const idx = realSessions.value.findIndex(s => s.id === id)
+    if (idx === -1) return
+    if (realSessions.value[idx]!.is_running === isRunning) return
+    const next = [...realSessions.value]
+    next[idx] = { ...next[idx]!, is_running: isRunning }
+    realSessions.value = next
+  }
+
   async function deleteSession(id: string) {
     const target = sessions.value.find(s => s.id === id)
     if (target?.is_draft) {
@@ -471,6 +490,7 @@ export function useWorkflowList() {
     markDraftCommitted,
     restoreDraft,
     renameSession,
+    setSessionRunning,
     deleteSession,
     deleteSessionIfEmpty,
     fetchMessages,

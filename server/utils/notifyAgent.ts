@@ -8,7 +8,7 @@
 export async function notifyPermissionsChanged(workspaceId: string): Promise<void> {
   const cfg = useRuntimeConfig()
   const serverUrl = cfg.public.serverUrl
-  const token = cfg.internalServiceToken
+  const token = cfg.polymuxSecret
   if (!serverUrl || !token) {
     return
   }
