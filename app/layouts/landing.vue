@@ -365,47 +365,44 @@ const linkGroups = [
                         Install App
                     </NuxtLink>
 
-                    <!-- Auth-dependent UI is client-only to avoid SSR/CSR mismatch when the Supabase session differs between server and client. -->
-                    <ClientOnly>
-                        <!-- Authenticated: account menu (desktop header only) -->
-                        <div v-if="user" class="relative hidden md:inline-flex">
-                            <button type="button"
-                                class="landing-profile-trigger inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium leading-snug text-neutral-800 transition-colors hover:bg-neutral-100 outline-none"
-                                aria-label="Account menu" aria-haspopup="menu" :aria-expanded="isProfileDropdownOpen"
-                                @click="isProfileDropdownOpen = !isProfileDropdownOpen">
-                                <UIcon name="i-heroicons-user-20-solid" class="size-4 shrink-0 text-neutral-600"
-                                    aria-hidden="true" />
-                                <span class="max-w-35 truncate">{{ displayName }}</span>
-                            </button>
+                    <!-- Authenticated: account menu (desktop header only) -->
+                    <div v-if="user" class="relative hidden md:inline-flex">
+                        <button type="button"
+                            class="landing-profile-trigger inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium leading-snug text-neutral-800 transition-colors hover:bg-neutral-100 outline-none"
+                            aria-label="Account menu" aria-haspopup="menu" :aria-expanded="isProfileDropdownOpen"
+                            @click="isProfileDropdownOpen = !isProfileDropdownOpen">
+                            <UIcon name="i-heroicons-user-20-solid" class="size-4 shrink-0 text-neutral-600"
+                                aria-hidden="true" />
+                            <span class="max-w-35 truncate">{{ displayName }}</span>
+                        </button>
 
-                            <Transition enter-active-class="transition duration-100 ease-out"
-                                leave-active-class="transition duration-75 ease-in"
-                                enter-from-class="opacity-0 -translate-y-0.5"
-                                leave-to-class="opacity-0 -translate-y-0.5">
-                                <div v-if="isProfileDropdownOpen" ref="profileMenuRef"
-                                    class="absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
-                                    role="menu">
-                                    <button type="button" role="menuitem"
-                                        class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-neutral-800 transition-colors hover:bg-neutral-50 outline-none"
-                                        @click="handleLandingSettings">
-                                        Settings
-                                    </button>
-                                    <div class="mx-3 my-1 h-px bg-neutral-100"></div>
-                                    <button type="button" role="menuitem"
-                                        class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-red-600 transition-colors hover:bg-red-50/70 outline-none"
-                                        @click="handleLandingSignOut">
-                                        Sign out
-                                    </button>
-                                </div>
-                            </Transition>
-                        </div>
+                        <Transition enter-active-class="transition duration-100 ease-out"
+                            leave-active-class="transition duration-75 ease-in"
+                            enter-from-class="opacity-0 -translate-y-0.5"
+                            leave-to-class="opacity-0 -translate-y-0.5">
+                            <div v-if="isProfileDropdownOpen" ref="profileMenuRef"
+                                class="absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                                role="menu">
+                                <button type="button" role="menuitem"
+                                    class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-neutral-800 transition-colors hover:bg-neutral-50 outline-none"
+                                    @click="handleLandingSettings">
+                                    Settings
+                                </button>
+                                <div class="mx-3 my-1 h-px bg-neutral-100"></div>
+                                <button type="button" role="menuitem"
+                                    class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-red-600 transition-colors hover:bg-red-50/70 outline-none"
+                                    @click="handleLandingSignOut">
+                                    Sign out
+                                </button>
+                            </div>
+                        </Transition>
+                    </div>
 
-                        <!-- Signed-out: sign in button -->
-                        <NuxtLink v-else to="/sign-in?redirect=/"
-                            class="hidden rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90 md:inline-flex md:items-center md:justify-center">
-                            Sign in
-                        </NuxtLink>
-                    </ClientOnly>
+                    <!-- Signed-out: sign in button -->
+                    <NuxtLink v-else to="/sign-in?redirect=/"
+                        class="hidden rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90 md:inline-flex md:items-center md:justify-center">
+                        Sign in
+                    </NuxtLink>
 
                     <button type="button"
                         class="flex size-9 items-center justify-center rounded-md transition-colors hover:bg-neutral-100 md:hidden"
@@ -470,28 +467,26 @@ const linkGroups = [
                             Install App
                         </NuxtLink>
 
-                        <ClientOnly>
-                            <!-- Authenticated: profile row -->
-                            <NuxtLink v-if="user" to="/dashboard/settings"
-                                class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
-                                @click="mobileOpen = false">
-                                <span v-if="avatarUrl" class="size-8 shrink-0 overflow-hidden rounded-full">
-                                    <img :src="avatarUrl" :alt="displayName" class="size-full object-cover"
-                                        referrerpolicy="no-referrer">
-                                </span>
-                                <span v-else
-                                    class="btn-gradient flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
-                                    {{ initials }}
-                                </span>
-                                <span class="truncate text-base font-medium text-neutral-800">{{ displayName }}</span>
-                            </NuxtLink>
+                        <!-- Authenticated: profile row -->
+                        <NuxtLink v-if="user" to="/dashboard/settings"
+                            class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
+                            @click="mobileOpen = false">
+                            <span v-if="avatarUrl" class="size-8 shrink-0 overflow-hidden rounded-full">
+                                <img :src="avatarUrl" :alt="displayName" class="size-full object-cover"
+                                    referrerpolicy="no-referrer">
+                            </span>
+                            <span v-else
+                                class="btn-gradient flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
+                                {{ initials }}
+                            </span>
+                            <span class="truncate text-base font-medium text-neutral-800">{{ displayName }}</span>
+                        </NuxtLink>
 
-                            <!-- Signed-out: sign in button -->
-                            <NuxtLink v-else to="/sign-in?redirect=/"
-                                class="inline-flex w-full items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90">
-                                Sign in
-                            </NuxtLink>
-                        </ClientOnly>
+                        <!-- Signed-out: sign in button -->
+                        <NuxtLink v-else to="/sign-in?redirect=/"
+                            class="inline-flex w-full items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90">
+                            Sign in
+                        </NuxtLink>
                     </nav>
                 </div>
             </Transition>
