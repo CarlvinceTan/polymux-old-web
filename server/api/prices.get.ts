@@ -8,6 +8,11 @@ export default defineEventHandler((event) => {
 
   const planPrices = PLAN_PRICES[currencyParam]
 
+  // Pricing is global and changes rarely; safe to cache at the edge keyed on
+  // the currency query param. SWR keeps responses snappy if the worker has to
+  // revalidate after a price change.
+  setHeader(event, 'Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
+
   return {
     free: {
       monthly: formatPrice(0, currencyParam),

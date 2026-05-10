@@ -252,7 +252,12 @@
     "liveBadge": "ライブ",
     "liveNow": "ライブ中",
     "sequence": "シーケンス",
-    "unsavedChanges": "未保存の変更"
+    "unsavedChanges": "未保存の変更",
+    "wireStyle": "ワイヤースタイル",
+    "wireFluid": "カーブ",
+    "wireLinear": "直線",
+    "wireStep": "ステップ",
+    "moreInstances": "その他"
   },
   "dashboard": {
     "home": "ホーム",
@@ -351,7 +356,10 @@
     "noActiveViewport": "アクティブなビューポートがありません。サムネイルまたは+タイルをクリックしてください。",
     "launchingAgent": "ブラウザエージェントを起動中…",
     "closeAgent": "エージェントを閉じる",
-    "agentCapReached": "ブラウザエージェントの最大数に達しました"
+    "agentCapReached": "ブラウザエージェントの最大数に達しました",
+    "galleryView": "すべてのビューポートを表示",
+    "singleView": "単一のビューポートを表示",
+    "galleryZoom": "ビューポートのサイズ"
   },
   "integrations": {
     "installed": "インストール済み",
@@ -546,7 +554,18 @@
     "invExpired": "期限切れ",
     "invExpiresDays": "{n} 日後に期限切れ",
     "invExpiresHours": "{n} 時間後に期限切れ",
-    "invExpiresMins": "{n} 分後に期限切れ"
+    "invExpiresMins": "{n} 分後に期限切れ",
+    "identity": "アイデンティティ",
+    "workspaceName": "ワークスペース名",
+    "avatarHint": "PNG、JPG、WebP、GIF — 最大 1 MB。",
+    "removeImage": "削除",
+    "changeImage": "変更",
+    "uploading": "アップロード中…",
+    "saving": "保存中…",
+    "avatarErrorType": "画像ファイル（PNG、JPG、WebP、GIF）を選択してください。",
+    "avatarErrorSize": "画像は 1 MB 以下にしてください。",
+    "avatarErrorRead": "この画像を読み込めません。破損している可能性があります。",
+    "identityUpdateError": "ワークスペースを更新できませんでした。もう一度お試しください。"
   },
   "storage": {
     "workspace": "ワークスペース",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Polymux を拡張するために必要なすべて",
       "subtitle": "カスタムツールからマーケットプレイスアプリまで — チームに必要なものを構築。",
-      "tools": { "title": "カスタムエージェントツール", "desc": "エージェントが呼び出せるツールを定義。シンプルな webhook から完全な TypeScript ハンドラーまで。" },
-      "browser": { "title": "ブラウザ統合", "desc": "ライブブラウザセッションにフックします。UI を注入し、イベントを観察し、自動化を駆動します。" },
-      "vault": { "title": "Vault コネクタ", "desc": "独自の資格情報プロバイダを持ち込み。OAuth、API キー、シークレット — Vault で保護されます。" },
-      "marketplace": { "title": "マーケットプレイスアプリ", "desc": "Polymux マーケットプレイスに公開。自動化を実行する何千ものチームにリーチ。" }
+      "tools": {
+        "title": "カスタムエージェントツール",
+        "desc": "エージェントが呼び出せるツールを定義。シンプルな webhook から完全な TypeScript ハンドラーまで。"
+      },
+      "browser": {
+        "title": "ブラウザ統合",
+        "desc": "ライブブラウザセッションにフックします。UI を注入し、イベントを観察し、自動化を駆動します。"
+      },
+      "vault": {
+        "title": "Vault コネクタ",
+        "desc": "独自の資格情報プロバイダを持ち込み。OAuth、API キー、シークレット — Vault で保護されます。"
+      },
+      "marketplace": {
+        "title": "マーケットプレイスアプリ",
+        "desc": "Polymux マーケットプレイスに公開。自動化を実行する何千ものチームにリーチ。"
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "4 ステップで出荷。",
       "subtitle": "すべての統合は同じ道筋をたどります。実際のビルダーは dev.polymux.com のダッシュボードで動作します。",
-      "create": { "title": "アプリを作成", "desc": "統合を登録します。名前、タイプ、OAuth スコープを選択します。" },
-      "keys": { "title": "API キーを取得", "desc": "公開キーと署名シークレットを生成。Vault に保存されます。" },
-      "sdk": { "title": "SDK をインストール", "desc": "`polymux init` でブートストラップするか、cURL を直接使用します。TypeScript ファースト。" },
-      "publish": { "title": "マーケットプレイスに公開", "desc": "レビューを送信します。承認されると、すべての Polymux ワークスペースでアプリがライブになります。" }
+      "create": {
+        "title": "アプリを作成",
+        "desc": "統合を登録します。名前、タイプ、OAuth スコープを選択します。"
+      },
+      "keys": {
+        "title": "API キーを取得",
+        "desc": "公開キーと署名シークレットを生成。Vault に保存されます。"
+      },
+      "sdk": {
+        "title": "SDK をインストール",
+        "desc": "`polymux init` でブートストラップするか、cURL を直接使用します。TypeScript ファースト。"
+      },
+      "publish": {
+        "title": "マーケットプレイスに公開",
+        "desc": "レビューを送信します。承認されると、すべての Polymux ワークスペースでアプリがライブになります。"
+      }
     },
     "gallery": {
       "title": "マーケットプレイスからのインスピレーション",
@@ -796,10 +839,22 @@
       "title": "すべては dev.polymux.com に",
       "subtitle": "ドキュメント、リファレンス、統合ダッシュボードのための単一の目的地。",
       "open": "開く",
-      "docs": { "title": "ドキュメント", "desc": "チュートリアル、コンセプト、プラットフォームガイド。" },
-      "api": { "title": "API リファレンス", "desc": "すべてのエンドポイント、パラメータ、webhook。" },
-      "examples": { "title": "例", "desc": "エンドツーエンドのサンプル統合とテンプレート。" },
-      "community": { "title": "Discord とフォーラム", "desc": "チームや他のビルダーと会話。" }
+      "docs": {
+        "title": "ドキュメント",
+        "desc": "チュートリアル、コンセプト、プラットフォームガイド。"
+      },
+      "api": {
+        "title": "API リファレンス",
+        "desc": "すべてのエンドポイント、パラメータ、webhook。"
+      },
+      "examples": {
+        "title": "例",
+        "desc": "エンドツーエンドのサンプル統合とテンプレート。"
+      },
+      "community": {
+        "title": "Discord とフォーラム",
+        "desc": "チームや他のビルダーと会話。"
+      }
     },
     "cta": {
       "title": "出荷の準備はできましたか?",

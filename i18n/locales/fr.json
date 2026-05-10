@@ -252,7 +252,12 @@
     "liveBadge": "En direct",
     "liveNow": "En direct",
     "sequence": "Séquence",
-    "unsavedChanges": "Modifications non enregistrées"
+    "unsavedChanges": "Modifications non enregistrées",
+    "wireStyle": "Style de fil",
+    "wireFluid": "Fluide",
+    "wireLinear": "Linéaire",
+    "wireStep": "Escalier",
+    "moreInstances": "autres"
   },
   "dashboard": {
     "home": "Accueil",
@@ -351,7 +356,10 @@
     "noActiveViewport": "Aucune vue active. Cliquez sur une vignette ou la tuile +.",
     "launchingAgent": "Lancement de l'agent navigateur…",
     "closeAgent": "Fermer l'agent",
-    "agentCapReached": "Nombre maximum d'agents navigateur atteint"
+    "agentCapReached": "Nombre maximum d'agents navigateur atteint",
+    "galleryView": "Afficher toutes les vues",
+    "singleView": "Afficher une seule vue",
+    "galleryZoom": "Taille de la vue"
   },
   "integrations": {
     "installed": "Installés",
@@ -546,7 +554,18 @@
     "invExpired": "Expiré",
     "invExpiresDays": "Expire dans {n} jour(s)",
     "invExpiresHours": "Expire dans {n} heure(s)",
-    "invExpiresMins": "Expire dans {n} min."
+    "invExpiresMins": "Expire dans {n} min.",
+    "identity": "Identité",
+    "workspaceName": "Nom de l'espace",
+    "avatarHint": "PNG, JPG, WebP ou GIF — jusqu’à 1 Mo.",
+    "removeImage": "Supprimer",
+    "changeImage": "Modifier",
+    "uploading": "Téléversement…",
+    "saving": "Enregistrement…",
+    "avatarErrorType": "Choisissez une image (PNG, JPG, WebP ou GIF).",
+    "avatarErrorSize": "L’image doit faire 1 Mo ou moins.",
+    "avatarErrorRead": "Impossible de lire cette image. Elle est peut-être corrompue.",
+    "identityUpdateError": "Impossible de mettre à jour l’espace. Réessayez."
   },
   "storage": {
     "workspace": "Espace de travail",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Tout ce qu'il faut pour étendre Polymux",
       "subtitle": "Des outils personnalisés aux apps marketplace — construisez ce dont votre équipe a besoin.",
-      "tools": { "title": "Outils d'agents personnalisés", "desc": "Définissez les outils que vos agents peuvent appeler. Des simples webhooks aux handlers TypeScript complets." },
-      "browser": { "title": "Intégrations navigateur", "desc": "Branchez-vous sur des sessions de navigateur en direct. Injectez de l'UI, observez les événements, pilotez l'automatisation." },
-      "vault": { "title": "Connecteurs Vault", "desc": "Apportez vos propres fournisseurs d'identifiants. OAuth, clés API, secrets — sécurisés par Vault." },
-      "marketplace": { "title": "Apps Marketplace", "desc": "Publiez sur le marketplace Polymux. Atteignez des milliers d'équipes qui exécutent des automatisations." }
+      "tools": {
+        "title": "Outils d'agents personnalisés",
+        "desc": "Définissez les outils que vos agents peuvent appeler. Des simples webhooks aux handlers TypeScript complets."
+      },
+      "browser": {
+        "title": "Intégrations navigateur",
+        "desc": "Branchez-vous sur des sessions de navigateur en direct. Injectez de l'UI, observez les événements, pilotez l'automatisation."
+      },
+      "vault": {
+        "title": "Connecteurs Vault",
+        "desc": "Apportez vos propres fournisseurs d'identifiants. OAuth, clés API, secrets — sécurisés par Vault."
+      },
+      "marketplace": {
+        "title": "Apps Marketplace",
+        "desc": "Publiez sur le marketplace Polymux. Atteignez des milliers d'équipes qui exécutent des automatisations."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "Livrez en quatre étapes.",
       "subtitle": "Chaque intégration suit le même chemin. Le véritable builder s'exécute sur le dashboard de dev.polymux.com.",
-      "create": { "title": "Créer une app", "desc": "Enregistrez votre intégration. Choisissez un nom, un type et des scopes OAuth." },
-      "keys": { "title": "Obtenir les clés API", "desc": "Générez une clé publishable et un secret de signature. Stockés dans votre Vault." },
-      "sdk": { "title": "Installer le SDK", "desc": "Bootstrappez avec `polymux init` ou utilisez cURL directement. TypeScript d'abord." },
-      "publish": { "title": "Publier sur le marketplace", "desc": "Soumettez pour relecture. Une fois approuvée, votre app est en ligne pour chaque workspace Polymux." }
+      "create": {
+        "title": "Créer une app",
+        "desc": "Enregistrez votre intégration. Choisissez un nom, un type et des scopes OAuth."
+      },
+      "keys": {
+        "title": "Obtenir les clés API",
+        "desc": "Générez une clé publishable et un secret de signature. Stockés dans votre Vault."
+      },
+      "sdk": {
+        "title": "Installer le SDK",
+        "desc": "Bootstrappez avec `polymux init` ou utilisez cURL directement. TypeScript d'abord."
+      },
+      "publish": {
+        "title": "Publier sur le marketplace",
+        "desc": "Soumettez pour relecture. Une fois approuvée, votre app est en ligne pour chaque workspace Polymux."
+      }
     },
     "gallery": {
       "title": "Inspirations du marketplace",
@@ -796,10 +839,22 @@
       "title": "Tout est sur dev.polymux.com",
       "subtitle": "Une seule destination pour les docs, les références et le dashboard d'intégrations.",
       "open": "Ouvrir",
-      "docs": { "title": "Docs", "desc": "Tutoriels, concepts et guides de la plateforme." },
-      "api": { "title": "Référence API", "desc": "Chaque endpoint, paramètre et webhook." },
-      "examples": { "title": "Exemples", "desc": "Intégrations d'exemple et templates de bout en bout." },
-      "community": { "title": "Discord & Forum", "desc": "Échangez avec l'équipe et d'autres builders." }
+      "docs": {
+        "title": "Docs",
+        "desc": "Tutoriels, concepts et guides de la plateforme."
+      },
+      "api": {
+        "title": "Référence API",
+        "desc": "Chaque endpoint, paramètre et webhook."
+      },
+      "examples": {
+        "title": "Exemples",
+        "desc": "Intégrations d'exemple et templates de bout en bout."
+      },
+      "community": {
+        "title": "Discord & Forum",
+        "desc": "Échangez avec l'équipe et d'autres builders."
+      }
     },
     "cta": {
       "title": "Prêt à livrer ?",

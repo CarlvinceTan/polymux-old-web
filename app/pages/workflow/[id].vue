@@ -71,6 +71,13 @@ const vp = useViewports(session)
 const screencast = useScreencast(session)
 const geo = useGeolocation()
 const toast = useAppToast()
+// Single source of truth for workflow_run state across the page tree —
+// WorkflowDock injects the same instance instead of re-instantiating, so
+// each `workflow_run_*` WS event is handled exactly once. Lifted to the
+// page level so the SidePanel "running kind" watch below can distinguish
+// node-driven runs (progress arc) from chat-driven activity (spinner).
+const workflowRun = useWorkflowRun(session)
+provide('workflow-run', workflowRun)
 
 // Title resolution order:
 // 1. Backend-generated title from the websocket `title_response` (only set
@@ -254,16 +261,59 @@ onUnmounted(() => screencast.cleanup())
 // start operating the workflow, which is reserved for explicit user prompts
 // or scheduled cloud runs.
 
-// Mirror session_state.is_running onto the cached workflow row so the
-// SidePanel shimmer reacts immediately to spawn / close / scheduled-run
-// events, instead of waiting for the 30s /sessions stale window.
-watch(
-  () => session.sessionState.value?.is_running ?? false,
-  (running) => {
-    if (!sessionId.value) return
-    setSessionRunning(sessionId.value, running)
-  },
+// Drive the SidePanel running-indicator. Two distinct activity modes share
+// the workflow row's "running" slot, and they MUST stay distinguishable —
+// they represent fundamentally different things the user is doing:
+//
+//   'workflow' (progress arc) ─ the workflow_run engine is executing the
+//     persisted node graph. Triggered by the dock's Run button or by a
+//     scheduled cron firing. Read-only against the workflow definition: no
+//     nodes are being added, edited, or removed during a run.
+//
+//   'chat' (spinner) ─ the user is in a chat turn that's building or
+//     modifying the workflow (orchestrator streaming, mid-think, browser
+//     sub-agent the orchestrator just spawned, or a freshly-sent prompt
+//     awaiting reply). The workflow definition can mutate at any moment.
+//
+// Order matters below: a confirmed workflow_run wins outright; otherwise
+// any chat signal classifies the activity as chat-driven. Only when no
+// local signal is present do we fall back to session_state.is_running —
+// at that point there's no chat happening in this tab, so the cloud-side
+// activity is a workflow_run (scheduled trigger that pre-dates the WS
+// connect, or a run in another tab) and the progress arc is correct.
+const workflowRunActive = computed(() =>
+  workflowRun.runStatus.value === 'running' || workflowRun.runStatus.value === 'pending',
 )
+const chatActive = computed(() => {
+  if (chats.orchestrator.isStreaming.value) return true
+  if (chats.orchestrator.thinking.value != null) return true
+  const messages = chats.orchestrator.messages.value
+  if (messages[messages.length - 1]?.role === 'user') return true
+  if ((vp.viewports.value as ViewportState[]).some(v => v.isWorking)) return true
+  return false
+})
+const runningKind = computed<'chat' | 'workflow' | null>(() => {
+  if (workflowRunActive.value) return 'workflow'
+  if (chatActive.value) return 'chat'
+  return session.sessionState.value?.is_running ? 'workflow' : null
+})
+
+watch(
+  runningKind,
+  (kind) => {
+    if (!sessionId.value) return
+    setSessionRunning(sessionId.value, kind)
+  },
+  { immediate: true },
+)
+
+// Release the override when this page tears down so the SidePanel falls back
+// to server-authoritative is_running for this row. Otherwise the last-known
+// override would linger and the indicator could keep painting (or hiding)
+// activity after we've lost the local signals to update it.
+onUnmounted(() => {
+  if (sessionId.value) setSessionRunning(sessionId.value, null)
+})
 
 const titleRequested = ref(false)
 

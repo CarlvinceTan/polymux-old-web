@@ -1,4 +1,5 @@
 import type { WorkflowStep } from '~/composables/workflows/useWorkflows'
+import { groupChildrenBySimilarity } from '~/composables/workflows/useParallelGrouping'
 
 // The layout-time set of kinds. The runtime data model emits 'directive',
 // 'sequence', 'loop', and 'parallel' (see
@@ -15,10 +16,10 @@ export interface NodeModel {
   col: number
   row: number
   displayState: DisplayState
-  // Synthetic terminal anchor injected by the layout engine. Not present in
-  // the persisted WorkflowStep JSON — purely a UI marker so column 0 always
-  // reads "Start of workflow → … → End of workflow".
   terminal?: 'start' | 'end'
+  collapsedGroups?: SimilarityGroup[]
+  groupChildren?: WorkflowStep[]
+  groupCount?: number
 }
 
 export type WireStyle = 'straight' | 'fork-right' | 'join-left' | 'back-edge'
@@ -180,14 +181,22 @@ function layoutInto(
     // actions list inside the card) is still itself the active step.
     const dimsWhenExpanded = kind === 'sequence' || kind === 'loop' || kind === 'parallel' || kind === 'conditional'
 
-    state.nodes.push({
+    const nodeModel: NodeModel = {
       id,
       step,
       kind,
       col,
       row,
       displayState: expanded && dimsWhenExpanded ? 'dimmed' : 'active',
-    })
+    }
+
+    // Collapsed parallel/conditional nodes carry their grouped children metadata
+    // so renderers can show stacked-card summaries without expanding.
+    if (!expanded && childCount > 0 && (kind === 'parallel' || kind === 'conditional')) {
+      nodeModel.collapsedGroups = groupChildrenBySimilarity(step.children ?? [])
+    }
+
+    state.nodes.push(nodeModel)
 
     if (prevId) {
       state.wires.push({ id: wireId(prevId, id, 'straight'), fromId: prevId, toId: id, style: 'straight' })
@@ -295,7 +304,50 @@ function expandSubtree(
       return h
     }
 
-    case 'parallel':
+    case 'parallel': {
+      // Group parallel children by (action, target) similarity so the renderer
+      // can show stacked cards instead of N separate columns.
+      const groups = groupChildrenBySimilarity(children)
+      const branchResults: FrameResult[] = []
+      let maxH = 0
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i]!
+        const branchCol = parentCol + 1 + i
+        const groupId = `${parentId}__pg${i}`
+        // Create a synthetic group node using the first child as representative
+        const groupNode: NodeModel = {
+          id: groupId,
+          step: group.children[0]!,
+          kind: 'directive',
+          col: branchCol,
+          row: parentRow + 1,
+          displayState: 'active',
+          groupChildren: group.children,
+          groupCount: group.children.length,
+        }
+        state.nodes.push(groupNode)
+        state.wires.push({
+          id: wireId(parentId, groupId, 'fork-right'),
+          fromId: parentId,
+          toId: groupId,
+          style: 'fork-right',
+        })
+        branchResults.push({ height: 1, firstId: groupId, lastId: groupId })
+        if (1 > maxH) maxH = 1
+      }
+      const branchLasts = branchResults
+        .map(r => r.lastId)
+        .filter((x): x is string => !!x)
+      if (branchLasts.length > 0) {
+        state.pending.push({
+          fromIds: branchLasts,
+          parentCol,
+          bottomRow: parentRow + 1 + maxH,
+        })
+      }
+      return maxH
+    }
+
     case 'conditional': {
       const branchResults: FrameResult[] = []
       let maxH = 0

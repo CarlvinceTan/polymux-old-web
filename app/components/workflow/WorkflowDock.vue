@@ -37,7 +37,13 @@ const {
   getWorkflow,
 } = useWorkflows()
 
-const run = useWorkflowRun(session)
+// Provided by pages/workflow/[id].vue. Sharing the instance ensures each
+// `workflow_run_*` WS event is handled exactly once and that the SidePanel's
+// running-kind watch sees the same status transitions the dock does.
+const run = inject<ReturnType<typeof useWorkflowRun>>('workflow-run')
+if (!run) {
+  throw new Error('WorkflowDock requires `workflow-run` to be provided by an ancestor')
+}
 
 const selectedWorkflowId = ref<string | null>(null)
 const selectedWorkflow = computed(() =>

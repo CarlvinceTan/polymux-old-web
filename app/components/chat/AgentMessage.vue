@@ -24,6 +24,74 @@ renderer.table = function (token) {
   return `<div class="table-scroll">${defaultTableRenderer(token)}</div>`
 }
 
+// Progressive reveal: even when WS chunks arrive in bursts (network packing,
+// fast LLM bursts), paint the new characters in over a few frames so the
+// bubble visibly streams instead of snapping to a complete chunk. The
+// reveal cursor only catches up; it never holds back data the model has
+// already produced — the underlying `text` prop is always the full target.
+const revealedLen = ref(0)
+let prevText = ''
+let initialised = false
+let rafId: number | null = null
+let lastFrame = 0
+// ~24 chars/frame at 60fps ≈ 1500 chars/sec. Faster than typical reading
+// pace but slow enough that a 200-char burst still paints in over ~8 frames.
+const CHARS_PER_MS = 0.4
+
+function step(now: number) {
+  rafId = null
+  if (lastFrame === 0) lastFrame = now
+  const elapsed = now - lastFrame
+  lastFrame = now
+  const target = props.text.length
+  if (revealedLen.value >= target) return
+  const advance = Math.max(1, Math.ceil(elapsed * CHARS_PER_MS))
+  revealedLen.value = Math.min(target, revealedLen.value + advance)
+  if (revealedLen.value < target) {
+    rafId = requestAnimationFrame(step)
+  }
+}
+
+function ensureTicking() {
+  if (rafId !== null || revealedLen.value >= props.text.length) return
+  if (typeof requestAnimationFrame !== 'function') {
+    revealedLen.value = props.text.length
+    return
+  }
+  lastFrame = 0
+  rafId = requestAnimationFrame(step)
+}
+
+watch(() => props.text, (next) => {
+  // First paint: snap so rehydrated history (or a fresh bubble's first chunk,
+  // which is typically a few characters) doesn't typewriter through pre-existing
+  // content. Subsequent extensions are what get the reveal treatment.
+  if (!initialised) {
+    revealedLen.value = next.length
+    prevText = next
+    initialised = true
+    return
+  }
+  const isExtension = next.startsWith(prevText) && next.length > prevText.length
+  prevText = next
+  if (!isExtension) {
+    // Replacement (retry navigation, edit) or shrink — snap to the new text.
+    revealedLen.value = next.length
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    return
+  }
+  ensureTicking()
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (rafId !== null) cancelAnimationFrame(rafId)
+})
+
+const visibleText = computed(() => props.text.slice(0, revealedLen.value))
+
 function renderMarkdown(text: string): string {
   return marked.parse(text, { renderer }) as string
 }
@@ -46,7 +114,7 @@ function goNext() {
 
 <template>
   <div class="group w-full min-w-0">
-    <div class="agent-prose text-sm leading-relaxed text-neutral-700" v-html="renderMarkdown(text)" />
+    <div class="agent-prose text-sm leading-relaxed text-neutral-700" v-html="renderMarkdown(visibleText)" />
     <div
       v-if="showActions"
       class="mt-0.5 flex items-center gap-0.5 transition-opacity duration-150"

@@ -43,9 +43,7 @@ export default defineNuxtConfig({
       // on the request hostname. Setting a static title here would feed
       // "Polymux" into the template on pages without a per-page useHead and
       // render as "Polymux Polymux" in the browser tab.
-      meta: [
-        { name: "twitter:card", content: "summary_large_image" },
-      ],
+      meta: [{ name: "twitter:card", content: "summary_large_image" }],
       link: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
@@ -54,6 +52,16 @@ export default defineNuxtConfig({
   },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: false },
+  vue: {
+    compilerOptions: {
+      // HTML comments inside <Teleport to="body"> render as real comment
+      // nodes in <body> on SSR, which derails the teleport hydration walker
+      // when multiple sibling components teleport to the same root (e.g.
+      // ManageMembersModal + NotificationsToast). Stripping comments from
+      // compiled templates keeps SSR and CSR teleport markers aligned.
+      comments: false,
+    },
+  },
   modules: [
     "@nuxt/ui",
     "@nuxtjs/supabase",
@@ -123,6 +131,8 @@ export default defineNuxtConfig({
         "marked",
         "vue-draggable-plus",
         "posthog-js",
+        "dompurify",
+        "@vueuse/core",
       ],
     },
     build: {

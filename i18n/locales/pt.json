@@ -252,7 +252,12 @@
     "liveBadge": "Ao vivo",
     "liveNow": "Ao vivo agora",
     "sequence": "Sequência",
-    "unsavedChanges": "Alterações não salvas"
+    "unsavedChanges": "Alterações não salvas",
+    "wireStyle": "Estilo do fio",
+    "wireFluid": "Fluido",
+    "wireLinear": "Linear",
+    "wireStep": "Degrau",
+    "moreInstances": "mais"
   },
   "dashboard": {
     "home": "Início",
@@ -351,7 +356,10 @@
     "noActiveViewport": "Nenhuma vista ativa. Clique numa miniatura ou no bloco +.",
     "launchingAgent": "A iniciar agente do navegador…",
     "closeAgent": "Fechar agente",
-    "agentCapReached": "Número máximo de agentes do navegador atingido"
+    "agentCapReached": "Número máximo de agentes do navegador atingido",
+    "galleryView": "Mostrar todas as vistas",
+    "singleView": "Mostrar uma única vista",
+    "galleryZoom": "Tamanho da vista"
   },
   "integrations": {
     "installed": "Instalados",
@@ -546,7 +554,18 @@
     "invExpired": "Expirado",
     "invExpiresDays": "Expira em {n} dia(s)",
     "invExpiresHours": "Expira em {n} hora(s)",
-    "invExpiresMins": "Expira em {n} min."
+    "invExpiresMins": "Expira em {n} min.",
+    "identity": "Identidade",
+    "workspaceName": "Nome do espaço",
+    "avatarHint": "PNG, JPG, WebP ou GIF — até 1 MB.",
+    "removeImage": "Remover",
+    "changeImage": "Alterar",
+    "uploading": "Enviando…",
+    "saving": "Salvando…",
+    "avatarErrorType": "Escolha uma imagem (PNG, JPG, WebP ou GIF).",
+    "avatarErrorSize": "A imagem deve ter no máximo 1 MB.",
+    "avatarErrorRead": "Não foi possível ler esta imagem. Pode estar corrompida.",
+    "identityUpdateError": "Não foi possível atualizar o espaço. Tente novamente."
   },
   "storage": {
     "workspace": "Área de trabalho",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Tudo o que você precisa para estender o Polymux",
       "subtitle": "De ferramentas personalizadas a apps de marketplace — construa o que sua equipe precisa.",
-      "tools": { "title": "Ferramentas de agente personalizadas", "desc": "Defina ferramentas que seus agentes podem chamar. De webhooks simples a handlers TypeScript completos." },
-      "browser": { "title": "Integrações de navegador", "desc": "Conecte-se a sessões de navegador em tempo real. Injete UI, observe eventos, conduza a automação." },
-      "vault": { "title": "Conectores de Vault", "desc": "Traga seus próprios provedores de credenciais. OAuth, chaves de API, segredos — protegidos pelo Vault." },
-      "marketplace": { "title": "Apps de Marketplace", "desc": "Publique no marketplace do Polymux. Alcance milhares de equipes que rodam automações." }
+      "tools": {
+        "title": "Ferramentas de agente personalizadas",
+        "desc": "Defina ferramentas que seus agentes podem chamar. De webhooks simples a handlers TypeScript completos."
+      },
+      "browser": {
+        "title": "Integrações de navegador",
+        "desc": "Conecte-se a sessões de navegador em tempo real. Injete UI, observe eventos, conduza a automação."
+      },
+      "vault": {
+        "title": "Conectores de Vault",
+        "desc": "Traga seus próprios provedores de credenciais. OAuth, chaves de API, segredos — protegidos pelo Vault."
+      },
+      "marketplace": {
+        "title": "Apps de Marketplace",
+        "desc": "Publique no marketplace do Polymux. Alcance milhares de equipes que rodam automações."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "Lance em quatro passos.",
       "subtitle": "Toda integração segue o mesmo caminho. O builder real roda no dashboard em dev.polymux.com.",
-      "create": { "title": "Criar app", "desc": "Registre sua integração. Escolha um nome, um tipo e os escopos OAuth." },
-      "keys": { "title": "Obter chaves de API", "desc": "Gere uma chave publicável e um segredo de assinatura. Armazenados no seu Vault." },
-      "sdk": { "title": "Instalar o SDK", "desc": "Inicie com `polymux init` ou use cURL diretamente. TypeScript em primeiro lugar." },
-      "publish": { "title": "Publicar no marketplace", "desc": "Envie para revisão. Após aprovação, seu app fica disponível em todo workspace do Polymux." }
+      "create": {
+        "title": "Criar app",
+        "desc": "Registre sua integração. Escolha um nome, um tipo e os escopos OAuth."
+      },
+      "keys": {
+        "title": "Obter chaves de API",
+        "desc": "Gere uma chave publicável e um segredo de assinatura. Armazenados no seu Vault."
+      },
+      "sdk": {
+        "title": "Instalar o SDK",
+        "desc": "Inicie com `polymux init` ou use cURL diretamente. TypeScript em primeiro lugar."
+      },
+      "publish": {
+        "title": "Publicar no marketplace",
+        "desc": "Envie para revisão. Após aprovação, seu app fica disponível em todo workspace do Polymux."
+      }
     },
     "gallery": {
       "title": "Inspiração do marketplace",
@@ -796,10 +839,22 @@
       "title": "Tudo está em dev.polymux.com",
       "subtitle": "Um único destino para documentação, referências e o dashboard de integrações.",
       "open": "Abrir",
-      "docs": { "title": "Documentação", "desc": "Tutoriais, conceitos e guias da plataforma." },
-      "api": { "title": "Referência da API", "desc": "Cada endpoint, parâmetro e webhook." },
-      "examples": { "title": "Exemplos", "desc": "Integrações de exemplo e templates de ponta a ponta." },
-      "community": { "title": "Discord e Fórum", "desc": "Converse com a equipe e com outros builders." }
+      "docs": {
+        "title": "Documentação",
+        "desc": "Tutoriais, conceitos e guias da plataforma."
+      },
+      "api": {
+        "title": "Referência da API",
+        "desc": "Cada endpoint, parâmetro e webhook."
+      },
+      "examples": {
+        "title": "Exemplos",
+        "desc": "Integrações de exemplo e templates de ponta a ponta."
+      },
+      "community": {
+        "title": "Discord e Fórum",
+        "desc": "Converse com a equipe e com outros builders."
+      }
     },
     "cta": {
       "title": "Pronto para lançar?",

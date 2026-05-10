@@ -39,6 +39,7 @@ const {
   sessions,
   realSessions,
   draft,
+  runningOverrides,
   fetchSessions,
   createDraft,
   restoreDraft,
@@ -113,7 +114,7 @@ function applySavedOrder(list: WorkflowSummary[]): WorkflowSummary[] {
 }
 
 watch(
-  [realSessions, draft, currentWorkspaceId],
+  [realSessions, draft, currentWorkspaceId, runningOverrides],
   () => {
     // Drafts now carry a real uuid that survives commit (see useWorkflowList:
     // markDraftCommitted reuses the same id), so the row's v-for key stays
@@ -126,8 +127,21 @@ watch(
       if (!liveIds.has(id)) slotKeyForId.delete(id)
     }
 
-    const ordered = applySavedOrder(realSessions.value)
-    const next = draft.value ? [draft.value, ...ordered] : ordered
+    // Merge runningOverrides over server data when projecting rows for the
+    // template. The override map is the workflow page's authoritative read of
+    // which engine is driving the row (chat vs. workflow_run); without it,
+    // server `/sessions` refreshes would wipe `running_kind` back to undefined
+    // and the indicator would default to the workflow_run progress arc even
+    // for plain chat-driven activity.
+    const overrides = runningOverrides.value
+    const project = (s: WorkflowSummary): WorkflowSummary => {
+      const o = overrides[s.id]
+      return o ? { ...s, is_running: o.is_running, running_kind: o.running_kind } : s
+    }
+
+    const ordered = applySavedOrder(realSessions.value).map(project)
+    const projectedDraft = draft.value ? project(draft.value) : null
+    const next = projectedDraft ? [projectedDraft, ...ordered] : ordered
     displaySessions.value.splice(0, displaySessions.value.length, ...next)
   },
   { deep: true, immediate: true },
@@ -913,16 +927,75 @@ onUnmounted(() => {
               :class="isWorkflowListItemActive(session.id) ? 'bg-neutral-300' : (isDragging ? '' : 'hover:bg-neutral-200/90')">
               <span
                 class="min-w-0 flex-1 truncate"
-                :class="session.is_running ? 'wf-title-running' : ''"
                 :title="session.title"
                 @dblclick.stop="startRename(session.id, session.title)"
               >{{ session.title }}</span>
               <div
                 class="shrink-0 overflow-hidden"
-                :class="(!isDragging && (hoveredWorkflowId === session.id || activeDropdownIndex === session.id)) ? 'w-4 ml-1.5' : 'w-0'"
+                :class="(!isDragging && (hoveredWorkflowId === session.id || activeDropdownIndex === session.id || session.is_running)) ? 'w-4 ml-1.5' : 'w-0'"
                 @click.stop
               >
-                <svg @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
+                <!-- Running indicator: shown only when the row isn't being
+                     hovered and its menu isn't open, so the three-dot trigger
+                     can take over the slot the moment the user moves a cursor
+                     over the row (preserving the existing menu interaction).
+                     Two visual modes — they are NOT cosmetic variants of the
+                     same state, they signal which engine is driving the row:
+                       - `running_kind === 'chat'` → spinner. The user's chat
+                         turn is in flight: orchestrator streaming, browser
+                         sub-agent the orchestrator just spawned, etc. The
+                         workflow definition may be mutating right now.
+                       - `running_kind === 'workflow'` (or unknown but
+                         is_running) → indeterminate progress arc that fills
+                         clockwise from the top. The workflow_run engine is
+                         executing the persisted node graph (dock Run or
+                         scheduled cron). The definition is read-only for
+                         the duration of the run.
+                     Picking the wrong mode misleads the user about whether
+                     their workflow is being edited or just executed; see
+                     `runningKind` in pages/workflow/[id].vue for the
+                     authoritative mapping. -->
+
+                <span
+                  v-if="session.is_running && !isDragging && hoveredWorkflowId !== session.id && activeDropdownIndex !== session.id"
+                  class="flex size-4 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <span
+                    v-if="session.running_kind === 'chat'"
+                    class="size-3.5 animate-spin rounded-full border-2 border-gold/25 border-t-gold"
+                  />
+                  <svg
+                    v-else
+                    class="size-3.5 -rotate-90"
+                    viewBox="0 0 16 16"
+                  >
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--color-gold)"
+                      stroke-opacity="0.25"
+                      stroke-width="2"
+                    />
+                    <circle
+                      class="wf-progress-arc"
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--color-gold)"
+                      stroke-width="2"
+                      stroke-linecap="butt"
+                      pathLength="100"
+                      stroke-dasharray="100 100"
+                    />
+                  </svg>
+                </span>
+                <svg
+                  v-else
+                  @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
                   class="workflow-list-trigger size-4 text-neutral-400 cursor-pointer hover:text-neutral-950"
                   :data-id="session.id"
                   viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1171,33 +1244,6 @@ onUnmounted(() => {
   right: 0;
   pointer-events: none;
   opacity: 0;
-}
-
-/* Running-workflow shimmer: keeps the title visually black, sweeps a soft
-   highlight from left to right so the user can scan the list and see at a
-   glance which workflows are actually executing on the cloud. The keyframe
-   itself lives in main.css (global) so Vue's scoped CSS doesn't rename it. */
-.wf-title-running {
-  background-image: linear-gradient(
-    90deg,
-    rgb(10, 10, 10) 0%,
-    rgb(10, 10, 10) 42%,
-    rgb(140, 140, 140) 50%,
-    rgb(10, 10, 10) 58%,
-    rgb(10, 10, 10) 100%
-  );
-  background-size: 200% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: wf-title-running-sweep 2.6s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wf-title-running {
-    animation: none;
-    -webkit-text-fill-color: rgb(10, 10, 10);
-  }
 }
 
 /* Drag-to-reorder affordance (real sessions only). Disable text selection on

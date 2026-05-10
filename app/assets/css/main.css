@@ -148,6 +148,11 @@ body {
      visually. Stay subtle since the surrounding UI is monochrome. */
   --color-google-drive: #1d6f42;
   --color-google-drive-tint: #e8f4ee;
+
+  /* Gold accent — used for the "running workflow" dot-matrix loader in the
+     SidePanel. Muted enough to live alongside the otherwise monochrome list
+     without screaming. */
+  --color-gold: #c9941f;
 }
 
 /* SidePanel collapse: drive column width and panel translate from the same
@@ -249,18 +254,27 @@ body {
   }
 }
 
-/* SidePanel workflow-list "running" shimmer. Defined globally because Vue's
-   scoped CSS rewrites animation-name in <style scoped>, which would break the
-   reference from .wf-title-running (also defined in SidePanel.vue's scoped
-   block — the rule itself is fine inside scoped, only the keyframes name
-   has to live outside). The image starts off-canvas to the right
-   (background-position: 200%) and slides to align (0%), so the bright band
-   reads as a left-to-right sweep across the title text. */
-@keyframes wf-title-running-sweep {
-  0% {
-    background-position: 200% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
+/* SidePanel workflow-list "running" progress arc (workflow-run kind):
+   indeterminate clockwise fill from the top of a 16×16 ring. The circle
+   is authored with `pathLength="100"` so the dasharray/offset can be
+   reasoned about as percentages regardless of the actual circumference,
+   and the parent SVG carries `-rotate-90` to move the dash start from
+   3 o'clock (SVG default) to 12 o'clock. The keyframes hold "full" for
+   a few frames at the end of each cycle so the loop reads as fill-then-
+   reset rather than continuous motion (which would feel like a spinner
+   and defeat the visual contrast with the chat-kind variant). */
+.wf-progress-arc {
+  animation: wf-progress-arc 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes wf-progress-arc {
+  0%   { stroke-dashoffset: 100; }
+  85%  { stroke-dashoffset: 0;   }
+  100% { stroke-dashoffset: 0;   }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-progress-arc {
+    animation: none;
+    stroke-dashoffset: 50;
   }
 }
+

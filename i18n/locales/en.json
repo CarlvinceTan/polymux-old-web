@@ -252,7 +252,12 @@
     "liveBadge": "Live",
     "liveNow": "Live now",
     "sequence": "Sequence",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Unsaved changes",
+    "wireStyle": "Wire style",
+    "wireFluid": "Fluid",
+    "wireLinear": "Linear",
+    "wireStep": "Step",
+    "moreInstances": "more"
   },
   "dashboard": {
     "home": "Home",
@@ -351,7 +356,10 @@
     "noActiveViewport": "No active viewport. Click a thumbnail or the + tile.",
     "launchingAgent": "Launching browser agent…",
     "closeAgent": "Close agent",
-    "agentCapReached": "Maximum number of browser agents reached"
+    "agentCapReached": "Maximum number of browser agents reached",
+    "galleryView": "Show all viewports",
+    "singleView": "Show one viewport",
+    "galleryZoom": "Viewport size"
   },
   "integrations": {
     "installed": "Installed",
@@ -546,7 +554,18 @@
     "invExpired": "Expired",
     "invExpiresDays": "Expires in {n} day(s)",
     "invExpiresHours": "Expires in {n} hour(s)",
-    "invExpiresMins": "Expires in {n} min(s)"
+    "invExpiresMins": "Expires in {n} min(s)",
+    "identity": "Identity",
+    "workspaceName": "Workspace name",
+    "avatarHint": "PNG, JPG, WebP or GIF — up to 1 MB.",
+    "removeImage": "Remove",
+    "changeImage": "Change",
+    "uploading": "Uploading…",
+    "saving": "Saving…",
+    "avatarErrorType": "Please choose an image (PNG, JPG, WebP or GIF).",
+    "avatarErrorSize": "Image must be 1 MB or smaller.",
+    "avatarErrorRead": "Could not read this image. It may be corrupted.",
+    "identityUpdateError": "Could not update workspace. Please try again."
   },
   "storage": {
     "workspace": "Workspace",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Everything you need to extend Polymux",
       "subtitle": "From custom tools to marketplace apps — build what your team needs.",
-      "tools": { "title": "Custom Agent Tools", "desc": "Define tools your agents can call. From simple webhooks to full TypeScript handlers." },
-      "browser": { "title": "Browser Integrations", "desc": "Hook into live browser sessions. Inject UI, observe events, drive automation." },
-      "vault": { "title": "Vault Connectors", "desc": "Bring your own credential providers. OAuth, API keys, secrets — secured by Vault." },
-      "marketplace": { "title": "Marketplace Apps", "desc": "Publish to the Polymux marketplace. Reach thousands of teams running automations." }
+      "tools": {
+        "title": "Custom Agent Tools",
+        "desc": "Define tools your agents can call. From simple webhooks to full TypeScript handlers."
+      },
+      "browser": {
+        "title": "Browser Integrations",
+        "desc": "Hook into live browser sessions. Inject UI, observe events, drive automation."
+      },
+      "vault": {
+        "title": "Vault Connectors",
+        "desc": "Bring your own credential providers. OAuth, API keys, secrets — secured by Vault."
+      },
+      "marketplace": {
+        "title": "Marketplace Apps",
+        "desc": "Publish to the Polymux marketplace. Reach thousands of teams running automations."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "Ship in four steps.",
       "subtitle": "Every integration follows the same path. The dashboard at dev.polymux.com runs the actual builder.",
-      "create": { "title": "Create app", "desc": "Register your integration. Pick a name, type, and OAuth scopes." },
-      "keys": { "title": "Get API keys", "desc": "Generate a publishable key and signing secret. Stored in your Vault." },
-      "sdk": { "title": "Install the SDK", "desc": "Bootstrap with `polymux init` or use cURL directly. TypeScript-first." },
-      "publish": { "title": "Publish to marketplace", "desc": "Submit for review. Once approved, your app is live for every Polymux workspace." }
+      "create": {
+        "title": "Create app",
+        "desc": "Register your integration. Pick a name, type, and OAuth scopes."
+      },
+      "keys": {
+        "title": "Get API keys",
+        "desc": "Generate a publishable key and signing secret. Stored in your Vault."
+      },
+      "sdk": {
+        "title": "Install the SDK",
+        "desc": "Bootstrap with `polymux init` or use cURL directly. TypeScript-first."
+      },
+      "publish": {
+        "title": "Publish to marketplace",
+        "desc": "Submit for review. Once approved, your app is live for every Polymux workspace."
+      }
     },
     "gallery": {
       "title": "Inspiration from the marketplace",
@@ -796,10 +839,22 @@
       "title": "Everything is on dev.polymux.com",
       "subtitle": "One destination for docs, references, and the integration dashboard.",
       "open": "Open",
-      "docs": { "title": "Docs", "desc": "Tutorials, concepts, and platform guides." },
-      "api": { "title": "API Reference", "desc": "Every endpoint, parameter, and webhook." },
-      "examples": { "title": "Examples", "desc": "End-to-end sample integrations and templates." },
-      "community": { "title": "Discord & Forum", "desc": "Talk to the team and other builders." }
+      "docs": {
+        "title": "Docs",
+        "desc": "Tutorials, concepts, and platform guides."
+      },
+      "api": {
+        "title": "API Reference",
+        "desc": "Every endpoint, parameter, and webhook."
+      },
+      "examples": {
+        "title": "Examples",
+        "desc": "End-to-end sample integrations and templates."
+      },
+      "community": {
+        "title": "Discord & Forum",
+        "desc": "Talk to the team and other builders."
+      }
     },
     "cta": {
       "title": "Ready to ship?",

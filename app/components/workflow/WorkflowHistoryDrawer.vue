@@ -7,14 +7,17 @@ export interface LiveHistoryEntry {
   kind: 'agent-draft' | 'user-unsaved'
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   open: boolean
   versions: WorkflowVersion[]
   currentVersionId?: string | null
   selectedVersionId?: string | null
   liveEntry?: LiveHistoryEntry | null
   loading?: boolean
-}>()
+  variant?: 'drawer' | 'panel'
+}>(), {
+  variant: 'drawer',
+})
 
 const emit = defineEmits<{
   close: []
@@ -54,37 +57,49 @@ const liveSource = computed(() =>
 // (no preview version chosen). Clicking it again deselects, but since
 // selectedVersionId is already null we just keep emit'ing null — no-op.
 const liveSelected = computed(() => !!props.liveEntry && !props.selectedVersionId)
+
+const isPanel = computed(() => props.variant === 'panel')
 </script>
 
 <template>
   <Transition
-    enter-from-class="translate-x-full"
-    enter-to-class="translate-x-0"
-    leave-from-class="translate-x-0"
-    leave-to-class="translate-x-full"
-    enter-active-class="transition-transform duration-200 ease-out"
-    leave-active-class="transition-transform duration-200 ease-in"
+    :enter-from-class="isPanel ? 'translate-x-4 opacity-0' : 'translate-x-full'"
+    :enter-to-class="isPanel ? 'translate-x-0 opacity-100' : 'translate-x-0'"
+    :leave-from-class="isPanel ? 'translate-x-0 opacity-100' : 'translate-x-0'"
+    :leave-to-class="isPanel ? 'translate-x-4 opacity-0' : 'translate-x-full'"
+    :enter-active-class="isPanel ? 'transition duration-200 ease-out' : 'transition-transform duration-200 ease-out'"
+    :leave-active-class="isPanel ? 'transition duration-150 ease-in' : 'transition-transform duration-200 ease-in'"
   >
     <aside
       v-if="open"
-      class="absolute inset-y-0 right-0 z-10 flex w-80 min-w-0 flex-col bg-white"
+      class="flex min-w-0 flex-col bg-white"
+      :class="isPanel
+        ? 'absolute right-3 top-[60px] bottom-3 z-40 w-[340px] overflow-hidden rounded-xl border border-neutral-200 shadow-lg'
+        : 'absolute inset-y-0 right-0 z-10 w-80'"
     >
-      <header class="flex shrink-0 items-start justify-between gap-2 px-4 py-2">
+      <header
+        class="flex shrink-0 items-start justify-between gap-2 px-4 py-3"
+        :class="isPanel ? 'border-b border-neutral-200' : ''"
+      >
         <div class="min-w-0">
-          <h2 class="truncate text-sm font-semibold text-neutral-900">
+          <div
+            :class="isPanel
+              ? 'truncate text-caption font-semibold uppercase tracking-wider text-neutral-500'
+              : 'truncate text-sm font-semibold text-neutral-900'"
+          >
             {{ t('workflow.historyTitle') }}
-          </h2>
+          </div>
           <p class="truncate text-[11px] text-neutral-500">
             {{ t('workflow.historySubtitle') }}
           </p>
         </div>
         <button
           type="button"
-          class="flex size-7 shrink-0 items-center justify-center rounded hover:bg-neutral-100"
+          class="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
           :aria-label="t('workflow.close')"
           @click="emit('close')"
         >
-          <UIcon name="i-heroicons-x-mark-20-solid" class="size-4 text-neutral-600" />
+          <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
         </button>
       </header>
 

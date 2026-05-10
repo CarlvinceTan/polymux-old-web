@@ -252,7 +252,12 @@
     "liveBadge": "라이브",
     "liveNow": "실시간",
     "sequence": "시퀀스",
-    "unsavedChanges": "저장되지 않은 변경 사항"
+    "unsavedChanges": "저장되지 않은 변경 사항",
+    "wireStyle": "와이어 스타일",
+    "wireFluid": "유체",
+    "wireLinear": "직선",
+    "wireStep": "계단",
+    "moreInstances": "더 보기"
   },
   "dashboard": {
     "home": "홈",
@@ -351,7 +356,10 @@
     "noActiveViewport": "활성 뷰포트가 없습니다. 썸네일이나 + 타일을 클릭하세요.",
     "launchingAgent": "브라우저 에이전트 시작 중…",
     "closeAgent": "에이전트 닫기",
-    "agentCapReached": "최대 브라우저 에이전트 수에 도달했습니다"
+    "agentCapReached": "최대 브라우저 에이전트 수에 도달했습니다",
+    "galleryView": "모든 뷰포트 보기",
+    "singleView": "단일 뷰포트 보기",
+    "galleryZoom": "뷰포트 크기"
   },
   "integrations": {
     "installed": "설치됨",
@@ -546,7 +554,18 @@
     "invExpired": "만료됨",
     "invExpiresDays": "{n}일 후 만료",
     "invExpiresHours": "{n}시간 후 만료",
-    "invExpiresMins": "{n}분 후 만료"
+    "invExpiresMins": "{n}분 후 만료",
+    "identity": "신원",
+    "workspaceName": "워크스페이스 이름",
+    "avatarHint": "PNG, JPG, WebP 또는 GIF — 최대 1 MB.",
+    "removeImage": "제거",
+    "changeImage": "변경",
+    "uploading": "업로드 중…",
+    "saving": "저장 중…",
+    "avatarErrorType": "이미지 파일(PNG, JPG, WebP 또는 GIF)을 선택하세요.",
+    "avatarErrorSize": "이미지는 1 MB 이하여야 합니다.",
+    "avatarErrorRead": "이미지를 읽을 수 없습니다. 손상되었을 수 있습니다.",
+    "identityUpdateError": "워크스페이스를 업데이트할 수 없습니다. 다시 시도하세요."
   },
   "storage": {
     "workspace": "작업공간",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Polymux를 확장하기 위한 모든 것",
       "subtitle": "커스텀 도구부터 마켓플레이스 앱까지 — 팀에 필요한 것을 만드세요.",
-      "tools": { "title": "커스텀 에이전트 도구", "desc": "에이전트가 호출할 수 있는 도구를 정의하세요. 간단한 웹훅부터 완전한 TypeScript 핸들러까지." },
-      "browser": { "title": "브라우저 통합", "desc": "실시간 브라우저 세션에 연결하세요. UI를 주입하고, 이벤트를 관찰하고, 자동화를 구동하세요." },
-      "vault": { "title": "Vault 커넥터", "desc": "자체 자격 증명 공급자를 가져오세요. OAuth, API 키, 비밀 — Vault로 안전하게." },
-      "marketplace": { "title": "마켓플레이스 앱", "desc": "Polymux 마켓플레이스에 게시하세요. 자동화를 실행하는 수천 개 팀에 도달하세요." }
+      "tools": {
+        "title": "커스텀 에이전트 도구",
+        "desc": "에이전트가 호출할 수 있는 도구를 정의하세요. 간단한 웹훅부터 완전한 TypeScript 핸들러까지."
+      },
+      "browser": {
+        "title": "브라우저 통합",
+        "desc": "실시간 브라우저 세션에 연결하세요. UI를 주입하고, 이벤트를 관찰하고, 자동화를 구동하세요."
+      },
+      "vault": {
+        "title": "Vault 커넥터",
+        "desc": "자체 자격 증명 공급자를 가져오세요. OAuth, API 키, 비밀 — Vault로 안전하게."
+      },
+      "marketplace": {
+        "title": "마켓플레이스 앱",
+        "desc": "Polymux 마켓플레이스에 게시하세요. 자동화를 실행하는 수천 개 팀에 도달하세요."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "네 단계로 출시하세요.",
       "subtitle": "모든 통합은 같은 경로를 따릅니다. 실제 빌더는 dev.polymux.com 대시보드에서 실행됩니다.",
-      "create": { "title": "앱 만들기", "desc": "통합을 등록하세요. 이름, 유형, OAuth 범위를 선택하세요." },
-      "keys": { "title": "API 키 받기", "desc": "게시 키와 서명 비밀을 생성하세요. Vault에 저장됩니다." },
-      "sdk": { "title": "SDK 설치", "desc": "`polymux init`으로 부트스트랩하거나 cURL을 직접 사용하세요. TypeScript 우선." },
-      "publish": { "title": "마켓플레이스에 게시", "desc": "검토를 위해 제출하세요. 승인되면 모든 Polymux 워크스페이스에서 앱이 활성화됩니다." }
+      "create": {
+        "title": "앱 만들기",
+        "desc": "통합을 등록하세요. 이름, 유형, OAuth 범위를 선택하세요."
+      },
+      "keys": {
+        "title": "API 키 받기",
+        "desc": "게시 키와 서명 비밀을 생성하세요. Vault에 저장됩니다."
+      },
+      "sdk": {
+        "title": "SDK 설치",
+        "desc": "`polymux init`으로 부트스트랩하거나 cURL을 직접 사용하세요. TypeScript 우선."
+      },
+      "publish": {
+        "title": "마켓플레이스에 게시",
+        "desc": "검토를 위해 제출하세요. 승인되면 모든 Polymux 워크스페이스에서 앱이 활성화됩니다."
+      }
     },
     "gallery": {
       "title": "마켓플레이스의 영감",
@@ -796,10 +839,22 @@
       "title": "모든 것은 dev.polymux.com에",
       "subtitle": "문서, 레퍼런스, 통합 대시보드를 위한 단일 목적지.",
       "open": "열기",
-      "docs": { "title": "문서", "desc": "튜토리얼, 개념, 플랫폼 가이드." },
-      "api": { "title": "API 레퍼런스", "desc": "모든 엔드포인트, 매개변수, 웹훅." },
-      "examples": { "title": "예제", "desc": "엔드투엔드 샘플 통합 및 템플릿." },
-      "community": { "title": "Discord 및 포럼", "desc": "팀 및 다른 빌더와 대화하세요." }
+      "docs": {
+        "title": "문서",
+        "desc": "튜토리얼, 개념, 플랫폼 가이드."
+      },
+      "api": {
+        "title": "API 레퍼런스",
+        "desc": "모든 엔드포인트, 매개변수, 웹훅."
+      },
+      "examples": {
+        "title": "예제",
+        "desc": "엔드투엔드 샘플 통합 및 템플릿."
+      },
+      "community": {
+        "title": "Discord 및 포럼",
+        "desc": "팀 및 다른 빌더와 대화하세요."
+      }
     },
     "cta": {
       "title": "출시할 준비가 되셨나요?",

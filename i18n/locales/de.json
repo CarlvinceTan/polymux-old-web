@@ -252,7 +252,12 @@
     "liveBadge": "Live",
     "liveNow": "Live jetzt",
     "sequence": "Sequenz",
-    "unsavedChanges": "Ungespeicherte Änderungen"
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "wireStyle": "Linienstil",
+    "wireFluid": "Fließend",
+    "wireLinear": "Gerade",
+    "wireStep": "Stufig",
+    "moreInstances": "weitere"
   },
   "dashboard": {
     "home": "Startseite",
@@ -351,7 +356,10 @@
     "noActiveViewport": "Kein aktiver Viewport. Klicken Sie auf eine Miniaturansicht oder die + Kachel.",
     "launchingAgent": "Browser-Agent wird gestartet…",
     "closeAgent": "Agenten schließen",
-    "agentCapReached": "Maximale Anzahl an Browser-Agenten erreicht"
+    "agentCapReached": "Maximale Anzahl an Browser-Agenten erreicht",
+    "galleryView": "Alle Viewports anzeigen",
+    "singleView": "Einzelnen Viewport anzeigen",
+    "galleryZoom": "Viewport-Größe"
   },
   "integrations": {
     "installed": "Installiert",
@@ -546,7 +554,18 @@
     "invExpired": "Abgelaufen",
     "invExpiresDays": "Läuft in {n} Tag(en) ab",
     "invExpiresHours": "Läuft in {n} Stunde(n) ab",
-    "invExpiresMins": "Läuft in {n} Min. ab"
+    "invExpiresMins": "Läuft in {n} Min. ab",
+    "identity": "Identität",
+    "workspaceName": "Workspace-Name",
+    "avatarHint": "PNG, JPG, WebP oder GIF — bis zu 1 MB.",
+    "removeImage": "Entfernen",
+    "changeImage": "Ändern",
+    "uploading": "Hochladen…",
+    "saving": "Speichern…",
+    "avatarErrorType": "Bitte ein Bild auswählen (PNG, JPG, WebP oder GIF).",
+    "avatarErrorSize": "Bild darf höchstens 1 MB groß sein.",
+    "avatarErrorRead": "Bild konnte nicht gelesen werden. Möglicherweise beschädigt.",
+    "identityUpdateError": "Workspace konnte nicht aktualisiert werden. Bitte erneut versuchen."
   },
   "storage": {
     "workspace": "Arbeitsbereich",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Alles, um Polymux zu erweitern",
       "subtitle": "Von eigenen Tools bis zu Marketplace-Apps — bau, was dein Team braucht.",
-      "tools": { "title": "Eigene Agent-Tools", "desc": "Definiere Tools, die deine Agenten aufrufen können. Von einfachen Webhooks bis zu vollwertigen TypeScript-Handlern." },
-      "browser": { "title": "Browser-Integrationen", "desc": "Klink dich in Live-Browsersitzungen ein. UI injizieren, Ereignisse beobachten, Automatisierung steuern." },
-      "vault": { "title": "Vault-Konnektoren", "desc": "Bring eigene Credential-Provider mit. OAuth, API-Schlüssel, Geheimnisse — durch Vault gesichert." },
-      "marketplace": { "title": "Marketplace-Apps", "desc": "Veröffentliche im Polymux-Marketplace. Erreiche Tausende Teams, die Automatisierungen betreiben." }
+      "tools": {
+        "title": "Eigene Agent-Tools",
+        "desc": "Definiere Tools, die deine Agenten aufrufen können. Von einfachen Webhooks bis zu vollwertigen TypeScript-Handlern."
+      },
+      "browser": {
+        "title": "Browser-Integrationen",
+        "desc": "Klink dich in Live-Browsersitzungen ein. UI injizieren, Ereignisse beobachten, Automatisierung steuern."
+      },
+      "vault": {
+        "title": "Vault-Konnektoren",
+        "desc": "Bring eigene Credential-Provider mit. OAuth, API-Schlüssel, Geheimnisse — durch Vault gesichert."
+      },
+      "marketplace": {
+        "title": "Marketplace-Apps",
+        "desc": "Veröffentliche im Polymux-Marketplace. Erreiche Tausende Teams, die Automatisierungen betreiben."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "In vier Schritten ausliefern.",
       "subtitle": "Jede Integration folgt demselben Pfad. Der eigentliche Builder läuft im Dashboard auf dev.polymux.com.",
-      "create": { "title": "App erstellen", "desc": "Registriere deine Integration. Wähle Name, Typ und OAuth-Scopes." },
-      "keys": { "title": "API-Schlüssel erhalten", "desc": "Erzeuge einen veröffentlichten Schlüssel und ein Signing-Secret. Im Vault gespeichert." },
-      "sdk": { "title": "SDK installieren", "desc": "Bootstrappe mit `polymux init` oder nutze cURL direkt. TypeScript-first." },
-      "publish": { "title": "Im Marketplace veröffentlichen", "desc": "Reiche zur Prüfung ein. Nach Freigabe ist deine App in jedem Polymux-Workspace live." }
+      "create": {
+        "title": "App erstellen",
+        "desc": "Registriere deine Integration. Wähle Name, Typ und OAuth-Scopes."
+      },
+      "keys": {
+        "title": "API-Schlüssel erhalten",
+        "desc": "Erzeuge einen veröffentlichten Schlüssel und ein Signing-Secret. Im Vault gespeichert."
+      },
+      "sdk": {
+        "title": "SDK installieren",
+        "desc": "Bootstrappe mit `polymux init` oder nutze cURL direkt. TypeScript-first."
+      },
+      "publish": {
+        "title": "Im Marketplace veröffentlichen",
+        "desc": "Reiche zur Prüfung ein. Nach Freigabe ist deine App in jedem Polymux-Workspace live."
+      }
     },
     "gallery": {
       "title": "Inspiration aus dem Marketplace",
@@ -796,10 +839,22 @@
       "title": "Alles auf dev.polymux.com",
       "subtitle": "Eine Anlaufstelle für Docs, Referenzen und das Integrations-Dashboard.",
       "open": "Öffnen",
-      "docs": { "title": "Dokumentation", "desc": "Tutorials, Konzepte und Plattform-Guides." },
-      "api": { "title": "API-Referenz", "desc": "Jeder Endpunkt, Parameter und Webhook." },
-      "examples": { "title": "Beispiele", "desc": "End-to-End-Beispielintegrationen und Templates." },
-      "community": { "title": "Discord & Forum", "desc": "Sprich mit dem Team und anderen Buildern." }
+      "docs": {
+        "title": "Dokumentation",
+        "desc": "Tutorials, Konzepte und Plattform-Guides."
+      },
+      "api": {
+        "title": "API-Referenz",
+        "desc": "Jeder Endpunkt, Parameter und Webhook."
+      },
+      "examples": {
+        "title": "Beispiele",
+        "desc": "End-to-End-Beispielintegrationen und Templates."
+      },
+      "community": {
+        "title": "Discord & Forum",
+        "desc": "Sprich mit dem Team und anderen Buildern."
+      }
     },
     "cta": {
       "title": "Bereit zum Ausliefern?",

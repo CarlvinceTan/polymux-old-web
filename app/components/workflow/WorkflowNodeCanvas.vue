@@ -83,7 +83,60 @@ const expandedSet = computed(() => {
   return s
 })
 
-const layout = computed(() => buildLayout(displayedSteps.value, expandedSet.value))
+// -- Parallel collapse / expand state ------------------------------------
+// Parallel parents start collapsed (no children in the layout). Clicking the
+// node toggles it into the expandedIds set so the layout engine generates
+// grouped child nodes. The canvas auto-expands parallel nodes by default
+// (they go into expandedSet above); this collapsedParallelIds set is used
+// by the *node canvas* to override that and keep them collapsed until clicked.
+const collapsedParallelIds = ref<Set<string>>(new Set())
+
+// The expandedSet used by buildLayout needs to exclude collapsed parallel IDs.
+const canvasExpandedSet = computed(() => {
+  const base = expandedSet.value
+  const collapsed = collapsedParallelIds.value
+  if (collapsed.size === 0) return base
+  const result = new Set<string>()
+  for (const id of base) {
+    if (!collapsed.has(id)) result.add(id)
+  }
+  return result
+})
+
+const layout = computed(() => buildLayout(displayedSteps.value, canvasExpandedSet.value))
+
+// Bootstrap initial collapsed set by walking displayedSteps directly.
+// We must NOT watch `layout` here — modifying collapsedParallelIds would
+// invalidate canvasExpandedSet, which invalidates layout, which retriggers
+// this watch, infinite-looping until Vue bails (which leaves the canvas in
+// a broken half-rendered state).
+const collapsedInitialized = ref(false)
+watch(displayedSteps, (steps) => {
+  if (collapsedInitialized.value) return
+  if (steps.length === 0) return
+  const next = new Set<string>()
+  const walk = (nodes: WorkflowStep[]) => {
+    for (const n of nodes) {
+      if (n.kind === 'parallel' && n.children?.length && n.id) {
+        next.add(n.id)
+      }
+      if (n.children) walk(n.children)
+    }
+  }
+  walk(steps)
+  collapsedParallelIds.value = next
+  collapsedInitialized.value = true
+}, { immediate: true })
+
+function toggleParallelCollapse(nodeId: string) {
+  const next = new Set(collapsedParallelIds.value)
+  if (next.has(nodeId)) {
+    next.delete(nodeId)
+  } else {
+    next.add(nodeId)
+  }
+  collapsedParallelIds.value = next
+}
 
 // ── Node positions ──────────────────────────────────────────────────────────
 // Default grid from buildLayout columns/rows; user drags overlay per-node deltas
@@ -781,13 +834,9 @@ const ghostWireGeom = computed<{ d: string } | null>(() => {
   const sides = chooseSides(pa, pb)
   const p1 = pointOnSide(pa, sides.from)
   const p2 = pointOnSide(pb, sides.to)
-  const n1 = outwardNormal(sides.from)
-  const n2 = outwardNormal(sides.to)
-  const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
-  const k1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
-  const k2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
+  const wt = settings.value.wireType ?? 'fluid'
   return {
-    d: `M ${p1.x} ${p1.y} C ${k1.x} ${k1.y}, ${k2.x} ${k2.y}, ${p2.x} ${p2.y}`,
+    d: buildWirePath(p1, p2, sides.from, sides.to, wt),
   }
 })
 
@@ -798,17 +847,15 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
   if (!connecting.value || !connecting.value.isDragging) return null
   const c = connecting.value
   const sourcePort = c.startPos
-  const sourceNormal = outwardNormal(c.fromSide)
 
   let endPort: Pt
-  let endNormal: Pt
+  let targetSide: Side
   const target = c.targetId ? allNodes.value.find(n => n.id === c.targetId) : null
   if (target) {
     const tp = nodePos(target)
     const tCenter = { x: tp.x + NODE_W / 2, y: tp.y + NODE_H / 2 }
     const ddx = tCenter.x - sourcePort.x
     const ddy = tCenter.y - sourcePort.y
-    let targetSide: Side
     if (Math.abs(ddx) >= Math.abs(ddy)) {
       targetSide = ddx >= 0 ? 'left' : 'right'
     }
@@ -816,17 +863,22 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
       targetSide = ddy >= 0 ? 'top' : 'bottom'
     }
     endPort = pointOnSide(tp, targetSide)
-    endNormal = outwardNormal(targetSide)
   }
   else {
+    // Free cursor — use fluid bezier regardless of setting
+    const sourceNormal = outwardNormal(c.fromSide)
     endPort = c.currPos
-    endNormal = { x: -sourceNormal.x, y: -sourceNormal.y }
+    const endNormal = { x: -sourceNormal.x, y: -sourceNormal.y }
+    const dist = Math.max(40, Math.min(180, Math.hypot(endPort.x - sourcePort.x, endPort.y - sourcePort.y) * 0.5))
+    const k1 = { x: sourcePort.x + sourceNormal.x * dist, y: sourcePort.y + sourceNormal.y * dist }
+    const k2 = { x: endPort.x + endNormal.x * dist, y: endPort.y + endNormal.y * dist }
+    return {
+      d: `M ${sourcePort.x} ${sourcePort.y} C ${k1.x} ${k1.y}, ${k2.x} ${k2.y}, ${endPort.x} ${endPort.y}`,
+    }
   }
-  const dist = Math.max(40, Math.min(180, Math.hypot(endPort.x - sourcePort.x, endPort.y - sourcePort.y) * 0.5))
-  const k1 = { x: sourcePort.x + sourceNormal.x * dist, y: sourcePort.y + sourceNormal.y * dist }
-  const k2 = { x: endPort.x + endNormal.x * dist, y: endPort.y + endNormal.y * dist }
+  const wt = settings.value.wireType ?? 'fluid'
   return {
-    d: `M ${sourcePort.x} ${sourcePort.y} C ${k1.x} ${k1.y}, ${k2.x} ${k2.y}, ${endPort.x} ${endPort.y}`,
+    d: buildWirePath(sourcePort, endPort, c.fromSide, targetSide, wt),
   }
 })
 
@@ -837,6 +889,7 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
 // curve for diagonals. The bezier control handles are pushed *away* from
 // each port along its outward normal, which makes the curve enter and leave
 // each node perpendicular to the chosen edge instead of clipping the corner.
+type WireType = 'fluid' | 'linear' | 'step'
 type Side = 'top' | 'bottom' | 'left' | 'right'
 
 function pointOnSide(pos: Pt, side: Side): Pt {
@@ -971,42 +1024,116 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
 })
 
 interface WireGeom { id: string; d: string }
+
+function buildWirePath(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType): string {
+  if (wireType === 'linear') {
+    return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
+  }
+
+  if (wireType === 'step') {
+    // Orthogonal (right-angle) path with curved corners.
+    // Route: depart from p1 along its outward normal, travel horizontally or
+    // vertically to an intermediate row/column, then arrive at p2 along its
+    // inward normal.  Every corner is a quadratic bezier for a smooth turn.
+    const n1 = outwardNormal(fromSide)
+    const n2 = outwardNormal(toSide)
+    const R = 12 // corner radius
+
+    // Compute the midpoint where the two legs of the path should meet.
+    // For horizontal departures we route at a shared X; for vertical at a shared Y.
+    const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
+    const isToHorizontal = toSide === 'left' || toSide === 'right'
+
+    const pts: Pt[] = [{ ...p1 }]
+
+    if (isFromHorizontal && isToHorizontal) {
+      // Both horizontal — route through a shared vertical axis at the midpoint X.
+      const mx = (p1.x + p2.x) / 2
+      pts.push({ x: mx, y: p1.y })
+      pts.push({ x: mx, y: p2.y })
+    } else if (!isFromHorizontal && !isToHorizontal) {
+      // Both vertical — route through a shared horizontal axis at the midpoint Y.
+      const my = (p1.y + p2.y) / 2
+      pts.push({ x: p1.x, y: my })
+      pts.push({ x: p2.x, y: my })
+    } else if (isFromHorizontal) {
+      // From horizontal, to vertical — route to target's X along p1's Y, then down/up to p2.
+      pts.push({ x: p2.x, y: p1.y })
+    } else {
+      // From vertical, to horizontal — route to p2's Y along p1's X, then across to p2.
+      pts.push({ x: p1.x, y: p2.y })
+    }
+
+    pts.push({ ...p2 })
+
+    // Build path with rounded corners using quadratic bezier arcs.
+    // For each intermediate point we round the corner with a Q command.
+    if (pts.length <= 2) return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
+
+    let d = `M ${pts[0]!.x} ${pts[0]!.y}`
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i - 1]!
+      const curr = pts[i]!
+      const next = pts[i + 1]!
+      // Vector from curr toward prev and toward next
+      const v1x = prev.x - curr.x
+      const v1y = prev.y - curr.y
+      const v2x = next.x - curr.x
+      const v2y = next.y - curr.y
+      const len1 = Math.max(1, Math.hypot(v1x, v1y))
+      const len2 = Math.max(1, Math.hypot(v2x, v2y))
+      const r = Math.min(R, len1 / 2, len2 / 2)
+      // Start of the arc (r pixels before the corner along the incoming leg)
+      const ax = curr.x + (v1x / len1) * r
+      const ay = curr.y + (v1y / len1) * r
+      // End of the arc (r pixels after the corner along the outgoing leg)
+      const bx = curr.x + (v2x / len2) * r
+      const by = curr.y + (v2y / len2) * r
+      d += ` L ${ax} ${ay} Q ${curr.x} ${curr.y}, ${bx} ${by}`
+    }
+    const last = pts[pts.length - 1]!
+    d += ` L ${last.x} ${last.y}`
+    return d
+  }
+
+  // Default: fluid (cubic bezier)
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
+  const c1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
+  const c2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
+  return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
+}
+
 const wireGeoms = computed<WireGeom[]>(() => {
   const out: WireGeom[] = []
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const sides = wireSidesMap.value
+  const wt = settings.value.wireType ?? 'fluid'
   for (const w of allWires.value) {
     const a = nodeMap.get(w.fromId)
     const b = nodeMap.get(w.toId)
     if (!a || !b) continue
     const pa = nodePos(a)
     const pb = nodePos(b)
-    // Each wire chose its own from-/to-side based on geometry, with the
-    // constraint that a node's incoming sides never overlap with its
-    // outgoing sides. So one wire can leave a node's right while another
-    // leaves the bottom, depending on where their targets are.
     const assigned = sides.get(w.id)
     const fromSide: Side = assigned?.fromSide ?? 'right'
     const toSide: Side = assigned?.toSide ?? 'left'
     const p1 = pointOnSide(pa, fromSide)
     const p2 = pointOnSide(pb, toSide)
-    const n1 = outwardNormal(fromSide)
-    const n2 = outwardNormal(toSide)
-    // Curve handles scale with the gap between the two ports — far apart
-    // gets a softer arc, very close gets a tighter one. Clamped so a tiny
-    // node-to-node hop still bows enough to clear the edge nicely.
-    const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
-    const c1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
-    const c2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
     out.push({
       id: `${w.fromId}->${w.toId}`,
-      d: `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`,
+      d: buildWirePath(p1, p2, fromSide, toSide, wt),
     })
   }
   return out
 })
 
 // ── Actions ────────────────────────────────────────────────────────────────
+
+// visibleNodesFinal just uses visibleNodes (the hidden set is for user-deleted nodes)
+const visibleNodesFinal = computed(() => visibleNodes.value)
+
 function badgeClass(kind: string) {
   switch (kind) {
     case 'loop': return 'bg-amber-100 text-amber-800'
@@ -1211,10 +1338,11 @@ watch(
 interface CanvasSettings {
   showGrid: boolean
   snapToGrid: boolean
+  wireType: WireType
 }
 const SETTINGS_KEY = 'polymux_canvas_settings'
 const SNAP_GRID = 24
-const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: false })
+const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: false, wireType: 'fluid' })
 
 if (import.meta.client) {
   try {
@@ -1224,6 +1352,7 @@ if (import.meta.client) {
       settings.value = {
         showGrid: parsed.showGrid ?? true,
         snapToGrid: parsed.snapToGrid ?? false,
+        wireType: parsed.wireType ?? 'fluid',
       }
     }
   }
@@ -1247,6 +1376,17 @@ function toggleSnapToGrid() {
   settings.value = { ...settings.value, snapToGrid: !settings.value.snapToGrid }
   persistSettings()
 }
+
+function setWireType(wt: WireType) {
+  settings.value = { ...settings.value, wireType: wt }
+  persistSettings()
+}
+
+const wireTypeOptions = computed(() => [
+  { value: 'fluid' as WireType, label: t('workflow.wireFluid') },
+  { value: 'linear' as WireType, label: t('workflow.wireLinear') },
+  { value: 'step' as WireType, label: t('workflow.wireStep') },
+])
 
 const showSettings = ref(false)
 const settingsButtonEl = ref<HTMLElement | null>(null)
@@ -1281,82 +1421,85 @@ onBeforeUnmount(() => {
       separate chip with Save and Run.
     -->
     <div class="absolute left-3 right-3 top-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
-      <div class="flex items-center gap-2 pointer-events-auto">
-        <!-- View chip — label + Fit + Auto layout, then a stepper for zoom. -->
-        <div class="flex h-9 items-center gap-1 rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-2 shadow-sm">
-          <span class="text-caption font-semibold uppercase tracking-wider text-neutral-500">
-            {{ t('workflow.view') }}
-          </span>
-          <span class="mx-1 h-3.5 w-px bg-neutral-200" />
+      <div class="flex items-center gap-1.5 pointer-events-auto">
+        <!-- Single unified toolbar chip -->
+        <div class="flex h-9 items-center gap-0.5 rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-1.5 shadow-sm">
+          <!-- Fit to view -->
           <button
             type="button"
-            class="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-caption text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
             :title="t('workflow.fitToView')"
             @click="fitToView"
           >
             <UIcon name="i-heroicons-arrows-pointing-out-20-solid" class="size-3.5" />
-            {{ t('workflow.fit') }}
           </button>
+          <!-- Auto layout -->
           <button
             type="button"
-            class="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-caption text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!hasOverrides"
             :title="t('workflow.resetLayoutTitle')"
             @click="resetLayout"
           >
             <UIcon name="i-heroicons-sparkles-20-solid" class="size-3.5" />
-            {{ t('workflow.resetLayout') }}
           </button>
-          <span class="mx-1 h-3.5 w-px bg-neutral-200" />
+
+          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
+
+          <!-- Zoom controls -->
           <button
             type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="scale <= 0.4 + 0.001"
             :title="t('workflow.zoomOut')"
             @click="zoomOut"
           >
             <UIcon name="i-heroicons-minus-20-solid" class="size-3.5" />
           </button>
-          <span class="min-w-[3ch] text-center font-mono text-caption tabular-nums text-neutral-500">
+          <span class="min-w-[3ch] text-center font-mono text-[11px] tabular-nums text-neutral-400">
             {{ Math.round(scale * 100) }}%
           </span>
           <button
             type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="scale >= 2 - 0.001"
             :title="t('workflow.zoomIn')"
             @click="zoomIn"
           >
             <UIcon name="i-heroicons-plus-20-solid" class="size-3.5" />
           </button>
-        </div>
 
-        <!-- Undo / redo / settings chip -->
-        <div class="flex h-9 items-center gap-1 rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-2 shadow-sm">
+          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
+
+          <!-- Undo -->
           <button
             type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!canUndo"
             :title="t('workflow.undo')"
             @click="undo"
           >
             <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
           </button>
+          <!-- Redo -->
           <button
             type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!canRedo"
             :title="t('workflow.redo')"
             @click="redo"
           >
             <UIcon name="i-heroicons-arrow-uturn-right-20-solid" class="size-3.5" />
           </button>
-          <span class="mx-1 h-3.5 w-px bg-neutral-200" />
+
+          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
+
+          <!-- Settings -->
           <div class="relative">
             <button
               ref="settingsButtonEl"
               type="button"
-              class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
               :class="showSettings ? 'bg-neutral-100 text-neutral-900' : ''"
               :title="t('workflow.canvasSettings')"
               @click="showSettings = !showSettings"
@@ -1411,6 +1554,51 @@ onBeforeUnmount(() => {
                     />
                   </span>
                 </button>
+                <div class="border-t border-neutral-100 px-3 py-2">
+                  <div class="mb-1.5 text-caption font-semibold uppercase tracking-wider text-neutral-500">
+                    {{ t('workflow.wireStyle') }}
+                  </div>
+                  <div class="flex gap-1">
+                    <button
+                      v-for="opt in wireTypeOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors"
+                      :class="settings.wireType === opt.value
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'"
+                      @click="setWireType(opt.value)"
+                    >
+                      <svg width="16" height="10" viewBox="0 0 16 10" fill="none" class="shrink-0">
+                        <path
+                              v-if="opt.value === 'fluid'"
+                              d="M1 9 C 4 1, 12 1, 15 1"
+                              stroke="currentColor"
+                              stroke-width="1.5"
+                              stroke-linecap="round"
+                              fill="none"
+                            />
+                        <path
+                              v-else-if="opt.value === 'linear'"
+                              d="M1 9 L 15 1"
+                              stroke="currentColor"
+                              stroke-width="1.5"
+                              stroke-linecap="round"
+                              fill="none"
+                            />
+                        <path
+                              v-else
+                              d="M1 9 L 1 5 Q 1 1, 5 1 L 15 1"
+                              stroke="currentColor"
+                              stroke-width="1.5"
+                              stroke-linecap="round"
+                              fill="none"
+                            />
+                      </svg>
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </Transition>
           </div>
@@ -1418,47 +1606,41 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="flex items-center gap-2 pointer-events-auto">
-        <!-- History — own bubble, label only. -->
-        <div class="flex h-9 items-center rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-2 shadow-sm">
-          <button
-            type="button"
-            class="inline-flex h-7 items-center rounded-lg px-2 text-caption text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-            :class="historyOpen ? 'bg-neutral-100 text-neutral-900' : ''"
-            :title="t('workflow.historyTitle')"
-            @click="toggleHistory"
-          >
-            {{ t('workflow.history') }}
-          </button>
-        </div>
+        <!-- History — single chip-button. Hover highlights the whole chip. -->
+        <button
+          type="button"
+          class="inline-flex h-9 items-center rounded-xl border border-neutral-200 bg-white/90 px-3.5 text-caption text-neutral-600 shadow-sm backdrop-blur-md transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+          :class="historyOpen ? 'bg-neutral-100 text-neutral-900' : ''"
+          :title="t('workflow.historyTitle')"
+          @click="toggleHistory"
+        >
+          {{ t('workflow.history') }}
+        </button>
 
-        <!-- Save — own bubble, label only. -->
-        <div class="flex h-9 items-center rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-2 shadow-sm">
-          <button
-            type="button"
-            class="inline-flex h-7 items-center rounded-lg px-2 text-caption text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!canSave"
-            :title="t('workflow.save')"
-            @click="onSave"
-          >
-            {{ saving ? t('workflow.saving') : t('workflow.save') }}
-          </button>
-        </div>
+        <!-- Save — single chip-button. -->
+        <button
+          type="button"
+          class="inline-flex h-9 items-center rounded-xl border border-neutral-200 bg-white/90 px-3.5 text-caption text-neutral-600 shadow-sm backdrop-blur-md transition-colors hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!canSave"
+          :title="t('workflow.save')"
+          @click="onSave"
+        >
+          {{ saving ? t('workflow.saving') : t('workflow.save') }}
+        </button>
 
-        <!-- Run — own bubble, label only, accent fill. Uses workflow.run
-             (the imperative verb form — "Run" / "Ausführen" / "Exécuter"
-             — matching WorkflowDock's Run button) rather than runLabel
+        <!-- Run — accent-filled chip-button. Uses workflow.run (the
+             imperative verb form — "Run" / "Ausführen" / "Exécuter" —
+             matching WorkflowDock's Run button) rather than runLabel
              which is the noun used as a status-field label. -->
-        <div class="flex h-9 items-center rounded-xl bg-emerald-600 border border-emerald-700/20 px-2 shadow-sm transition-colors hover:bg-emerald-500 has-[:disabled]:bg-emerald-600/60">
-          <button
-            type="button"
-            class="inline-flex h-7 items-center rounded-lg px-2 text-caption font-medium text-white disabled:cursor-not-allowed"
-            :disabled="!canRun"
-            :title="t('workflow.run')"
-            @click="onRun"
-          >
-            {{ running ? t('workflow.running') : t('workflow.run') }}
-          </button>
-        </div>
+        <button
+          type="button"
+          class="inline-flex h-9 items-center rounded-xl border border-emerald-700/20 bg-emerald-600 px-3.5 text-caption font-medium text-white shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-600/60"
+          :disabled="!canRun"
+          :title="t('workflow.run')"
+          @click="onRun"
+        >
+          {{ running ? t('workflow.running') : t('workflow.run') }}
+        </button>
       </div>
     </div>
 
@@ -1515,24 +1697,38 @@ onBeforeUnmount(() => {
             :height="canvasBounds.height"
             style="overflow: visible"
           >
-            <!--
-              Direction indicator: a gold-coloured dash painted into the
-              wire's own stroke, at the same stroke-width as the wire,
-              sliding along it. Reads as "the wire's colour temporarily
-              turns gold for a section, and that section travels toward
-              the target". No halo, no drop-shadow — the colour change
-              is contained entirely within the wire's own silhouette,
-              and the dash naturally follows every curve because it IS
-              the path's stroke.
-            -->
+            <defs>
+              <marker
+                id="wire-arrow"
+                viewBox="0 0 10 10"
+                refX="10"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0.5 L 10 5 L 0 9.5 Z" fill="rgb(163 163 163)" />
+              </marker>
+            </defs>
             <g v-for="w in visibleWires" :key="w.id">
+              <!-- Wire shadow for depth -->
+              <path
+                :d="w.d"
+                fill="none"
+                stroke="rgb(0 0 0 / 0.04)"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <!-- Main wire with arrowhead -->
               <path
                 :d="w.d"
                 fill="none"
                 stroke="rgb(163 163 163)"
                 stroke-width="1.5"
                 stroke-linecap="round"
+                marker-end="url(#wire-arrow)"
               />
+              <!-- Direction pulse -->
               <path
                 :d="w.d"
                 fill="none"
@@ -1587,7 +1783,7 @@ onBeforeUnmount(() => {
           inside it is treated as "on a node" by the canvas pan handler.
         -->
         <div
-          v-for="node in visibleNodes"
+          v-for="node in visibleNodesFinal"
           :key="node.id"
           data-node
           class="absolute"
@@ -1773,7 +1969,7 @@ onBeforeUnmount(() => {
     >
       <aside
         v-if="selectionDetailNode"
-        class="absolute right-3 top-3 bottom-3 z-40 flex w-[340px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
+        class="absolute right-3 top-[60px] bottom-3 z-40 flex w-[340px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
       >
         <header class="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
           <div class="min-w-0">
@@ -1920,6 +2116,7 @@ onBeforeUnmount(() => {
       :current-version-id="latestVersionId"
       :selected-version-id="selectedVersionId"
       :loading="loadingHistory"
+      variant="panel"
       @close="toggleHistory"
       @select="(id) => (selectedVersionId = id)"
     />

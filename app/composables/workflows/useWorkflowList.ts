@@ -28,6 +28,16 @@ export interface WorkflowSummary {
    *  flight. Drives the workflow-list shimmer so users can see at a glance
    *  which workflows are actually executing on the cloud. */
   is_running?: boolean
+  /** Distinguishes the kind of activity behind `is_running`:
+   *   - 'chat': orchestrator / browser sub-agent driven by the user's chat
+   *     turn (mirrors ChatMessages's typing-indicator gating).
+   *   - 'workflow': a workflow_run is in flight — manual run-from-dock or
+   *     scheduled trigger.
+   *  Undefined when the row was hydrated from /sessions and we only know
+   *  is_running but not the source; the SidePanel treats that as 'workflow'
+   *  since cloud-side runs are workflow-driven by definition (the user
+   *  isn't sitting in front of the chat). */
+  running_kind?: 'chat' | 'workflow' | null
 }
 
 interface StoredMessage {
@@ -64,6 +74,18 @@ export function useWorkflowList() {
   // round-trip when multiple consumers (SidePanel, dashboard, etc.) call
   // fetchSessions on mount within a short window.
   const sessionsFetchedAt = useState<Record<string, number>>('chat-sessions-fetched-at', () => ({}))
+  // Per-session running indicator overrides keyed by session id. Owned by the
+  // workflow page's runningKind watch — it has the only authoritative view
+  // of which engine is driving the row (chat building/modifying the workflow
+  // vs. workflow_run executing the persisted node graph). We MUST keep these
+  // outside `realSessions` because `fetchSessions` replaces the list every
+  // 30s with whatever the server returns, and the server doesn't know about
+  // running_kind — without the separation, the page sets running_kind='chat'
+  // and the next `/sessions` refresh wipes it back to undefined, falling the
+  // SidePanel into the workflow_run progress-arc default. The map sticks
+  // until the page explicitly clears the entry (kind === null on unmount /
+  // chat idle), so server-list churn no longer affects the indicator.
+  const runningOverrides = useState<Record<string, { is_running: boolean; running_kind: 'chat' | 'workflow' | null }>>('chat-running-overrides', () => ({}))
   const { authFetch } = useAuthFetch()
 
   const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
@@ -255,17 +277,35 @@ export function useWorkflowList() {
     }
   }
 
-  // Patches the cached is_running flag for a workflow row so the SidePanel
-  // shimmer reacts the moment the WS reports a state change, without waiting
-  // for the next /sessions refresh. The DB row is still the source of truth
-  // (Go server writes it on every browser-agent transition + run start/end).
-  function setSessionRunning(id: string, isRunning: boolean) {
-    const idx = realSessions.value.findIndex(s => s.id === id)
-    if (idx === -1) return
-    if (realSessions.value[idx]!.is_running === isRunning) return
-    const next = [...realSessions.value]
-    next[idx] = { ...next[idx]!, is_running: isRunning }
-    realSessions.value = next
+  // Records the workflow page's authoritative view of what's driving the
+  // current session — chat-building vs. workflow_run-executing — into the
+  // override map the SidePanel merges over server data. Stays decoupled from
+  // `realSessions` on purpose: `fetchSessions` and `markDraftCommitted` both
+  // rebuild rows without `running_kind`, so writing here would be wiped on
+  // the next refresh.
+  //
+  // Pass a non-null `kind` to assert "this row is running, with this engine."
+  // Pass `null` to release the override entirely so the SidePanel falls back
+  // to server data — that's the right behaviour both when the local view
+  // observes idle (no chat / no workflow_run / no sessionState.is_running)
+  // and on page unmount, when we've lost the signals to keep it accurate.
+  // Keeping a stale `is_running=false` override would otherwise mask a real
+  // cloud-side run that started after we stopped watching.
+  function setSessionRunning(id: string, kind: 'chat' | 'workflow' | null) {
+    if (!id) return
+    if (kind == null) {
+      if (!(id in runningOverrides.value)) return
+      const next = { ...runningOverrides.value }
+      delete next[id]
+      runningOverrides.value = next
+      return
+    }
+    const cur = runningOverrides.value[id]
+    if (cur && cur.is_running === true && cur.running_kind === kind) return
+    runningOverrides.value = {
+      ...runningOverrides.value,
+      [id]: { is_running: true, running_kind: kind },
+    }
   }
 
   async function deleteSession(id: string) {
@@ -347,6 +387,12 @@ export function useWorkflowList() {
   // can redirect away from a stale URL instead of treating it as an empty
   // history. Empty array still means "loaded, no messages yet".
   //
+  // Transient errors (network blip, 5xx, gateway timeout) trigger a single
+  // retry with a short delay before giving up. Without the retry, a remount
+  // mid-turn that lost the GET to a transient hiccup would silently return []
+  // — loadHistory would then short-circuit, and the user would only see the
+  // live in-progress partials with all prior turns missing from the panel.
+  //
   // Retry collapsing: rows whose metadata.retry_of_user_message_id points at
   // an earlier user prompt are alternative versions of that prompt's reply.
   // We hide the duplicate user-message rows and merge the assistant texts into
@@ -356,108 +402,123 @@ export function useWorkflowList() {
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[] | null> {
     const target = sessions.value.find(s => s.id === sessionId)
     if (target?.is_draft) return []
-    try {
-      let path = `/sessions/${sessionId}/messages`
-      if (agentId) path += `?agent_id=${encodeURIComponent(agentId)}`
-      const data = await authFetch<StoredMessage[]>(path)
-      if (!data || data.length === 0) return []
 
-      type Meta = {
-        attachments?: ChatMessageAttachment[]
-        thinking?: { action?: string; detail?: string }[]
-        retry_of_user_message_id?: string
-      }
+    let path = `/sessions/${sessionId}/messages`
+    if (agentId) path += `?agent_id=${encodeURIComponent(agentId)}`
 
-      // Pass 1: collect retry user-message ids and group assistant retry texts
-      // by parent user message id. Retries arrive in created_at order so the
-      // slot index in `versionsByParent` is the chronological retry attempt.
-      const retryUserMessageIds = new Set<string>()
-      // versionsByParent[parentId] = array of texts, one per retry attempt
-      // (the original reply's text fills slot 0; retries 1..N fill subsequent).
-      const retryTextsByParent = new Map<string, string[]>()
-      for (const m of data) {
-        const meta = m.metadata as Meta | undefined
-        const retryOf = meta?.retry_of_user_message_id
-        if (!retryOf) continue
-        if (m.role === 'user') {
-          retryUserMessageIds.add(m.id)
-        } else if (m.role === 'agent' || m.role === 'assistant') {
-          const slots = retryTextsByParent.get(retryOf) ?? []
-          slots.push(m.content)
-          retryTextsByParent.set(retryOf, slots)
+    let data: StoredMessage[] | null = null
+    let lastErr: unknown = null
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        data = await authFetch<StoredMessage[]>(path)
+        lastErr = null
+        break
+      } catch (err) {
+        const e = err as { status?: number }
+        if (e?.status === 403) return null
+        lastErr = err
+        if (attempt === 0) {
+          console.warn('[useWorkflowList] fetchMessages transient failure, retrying', { path, status: e?.status, err })
+          await new Promise(r => setTimeout(r, 400))
         }
       }
+    }
+    if (lastErr) {
+      console.error('[useWorkflowList] fetchMessages failed after retry', { path, err: lastErr })
+      return []
+    }
+    if (!data || data.length === 0) return []
 
-      const out: ChatMessage[] = []
-      // Track the most recently appended agent bubble per parent user-message
-      // id so retryVersions attaches to the LAST bubble of a multi-round turn
-      // (continuation rounds produce several agent rows for one user prompt;
-      // the retry navigator should sit on the visible end-of-reply bubble).
-      const lastAgentIndexByUserId = new Map<string, number>()
-      let lastUserId = ''
-      for (const m of data) {
-        if (m.role !== 'user' && m.role !== 'agent' && m.role !== 'assistant') continue
-        const meta = m.metadata as Meta | undefined
+    type Meta = {
+      attachments?: ChatMessageAttachment[]
+      thinking?: { action?: string; detail?: string }[]
+      retry_of_user_message_id?: string
+    }
 
-        if (m.role === 'user') {
-          if (retryUserMessageIds.has(m.id)) continue
-          lastUserId = m.id
-          out.push({
-            role: 'user',
-            text: m.content,
-            id: m.id,
-            attachments: meta?.attachments,
-          })
-          continue
-        }
+    // Pass 1: collect retry user-message ids and group assistant retry texts
+    // by parent user message id. Retries arrive in created_at order so the
+    // slot index in `versionsByParent` is the chronological retry attempt.
+    const retryUserMessageIds = new Set<string>()
+    // versionsByParent[parentId] = array of texts, one per retry attempt
+    // (the original reply's text fills slot 0; retries 1..N fill subsequent).
+    const retryTextsByParent = new Map<string, string[]>()
+    for (const m of data) {
+      const meta = m.metadata as Meta | undefined
+      const retryOf = meta?.retry_of_user_message_id
+      if (!retryOf) continue
+      if (m.role === 'user') {
+        retryUserMessageIds.add(m.id)
+      } else if (m.role === 'agent' || m.role === 'assistant') {
+        const slots = retryTextsByParent.get(retryOf) ?? []
+        slots.push(m.content)
+        retryTextsByParent.set(retryOf, slots)
+      }
+    }
 
-        const retryOf = meta?.retry_of_user_message_id
-        if (retryOf) {
-          // Retry-attempt agent rows merge into the original reply's
-          // retryVersions (handled below) — skip rendering separately.
-          continue
-        }
+    const out: ChatMessage[] = []
+    // Track the most recently appended agent bubble per parent user-message
+    // id so retryVersions attaches to the LAST bubble of a multi-round turn
+    // (continuation rounds produce several agent rows for one user prompt;
+    // the retry navigator should sit on the visible end-of-reply bubble).
+    const lastAgentIndexByUserId = new Map<string, number>()
+    let lastUserId = ''
+    for (const m of data) {
+      if (m.role !== 'user' && m.role !== 'agent' && m.role !== 'assistant') continue
+      const meta = m.metadata as Meta | undefined
 
-        // Mirror the live merge in handleAgentThinking: collapse the bubble's
-        // thinking entries into one collapsible AgentAction (latest action,
-        // concatenated detail) placed before the agent reply.
-        const thinking = meta?.thinking
-        if (thinking && thinking.length > 0) {
-          const action = thinking[thinking.length - 1]?.action ?? ''
-          const detail = thinking.map(t => t.detail ?? '').join('')
-          out.push({ role: 'thinking', text: action, action, detail })
-        }
+      if (m.role === 'user') {
+        if (retryUserMessageIds.has(m.id)) continue
+        lastUserId = m.id
         out.push({
-          role: 'agent',
+          role: 'user',
           text: m.content,
           id: m.id,
           attachments: meta?.attachments,
         })
-        lastAgentIndexByUserId.set(lastUserId, out.length - 1)
+        continue
       }
 
-      // Pass 3: attach retry versions to the trailing agent bubble per prompt.
-      // The original reply text is slot 0; subsequent retries are appended in
-      // creation order. Default the active version to the latest retry so the
-      // chat opens to the most recent reply.
-      for (const [userId, retries] of retryTextsByParent) {
-        if (retries.length === 0) continue
-        const idx = lastAgentIndexByUserId.get(userId)
-        if (idx === undefined) continue
-        const msg = out[idx]
-        if (!msg || msg.role !== 'agent') continue
-        const versions = [msg.text, ...retries]
-        const active = versions.length - 1
-        out[idx] = { ...msg, text: versions[active]!, retryVersions: versions, activeRetryIndex: active }
+      const retryOf = meta?.retry_of_user_message_id
+      if (retryOf) {
+        // Retry-attempt agent rows merge into the original reply's
+        // retryVersions (handled below) — skip rendering separately.
+        continue
       }
 
-      return out
-    } catch (err) {
-      const e = err as { status?: number }
-      if (e?.status === 403) return null
-      console.error('[useWorkflowList] fetchMessages failed', err)
-      return []
+      // Mirror the live merge in handleAgentThinking: collapse the bubble's
+      // thinking entries into one collapsible AgentAction (latest action,
+      // concatenated detail) placed before the agent reply.
+      const thinking = meta?.thinking
+      if (thinking && thinking.length > 0) {
+        const action = thinking[thinking.length - 1]?.action ?? ''
+        const detail = thinking.map(t => t.detail ?? '').join('')
+        out.push({ role: 'thinking', text: action, action, detail })
+      }
+      out.push({
+        role: 'agent',
+        text: m.content,
+        id: m.id,
+        attachments: meta?.attachments,
+      })
+      lastAgentIndexByUserId.set(lastUserId, out.length - 1)
     }
+
+    // Pass 3: attach retry versions to the trailing agent bubble per prompt.
+    // The original reply text is slot 0; subsequent retries are appended in
+    // creation order. Default the active version to the latest retry so the
+    // chat opens to the most recent reply.
+    for (const [userId, retries] of retryTextsByParent) {
+      if (retries.length === 0) continue
+      const idx = lastAgentIndexByUserId.get(userId)
+      if (idx === undefined) continue
+      const msg = out[idx]
+      if (!msg || msg.role !== 'agent') continue
+      const versions = [msg.text, ...retries]
+      const active = versions.length - 1
+      out[idx] = { ...msg, text: versions[active]!, retryVersions: versions, activeRetryIndex: active }
+    }
+
+    return out
   }
 
   function setPendingPrompt(sessionID: string, prompt: PendingDraftPrompt) {
@@ -484,6 +545,7 @@ export function useWorkflowList() {
     realSessions,
     sessionsLoaded,
     draft,
+    runningOverrides,
     fetchSessions,
     createDraft,
     dropDraft,

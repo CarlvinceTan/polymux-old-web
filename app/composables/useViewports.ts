@@ -14,6 +14,7 @@ import type {
   ErrorPayload,
 } from './types'
 import type { SessionHandle } from './auth/useSession'
+import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 
 const URL_RE = /https?:\/\/[^\s"',)}\]]+/
 
@@ -95,6 +96,32 @@ export function useViewports(session: SessionHandle) {
     viewports.value = next
   }
 
+  // Defer URL bar updates by the same window the screencast holds the
+  // previous frame for. The chrome bar would otherwise flip to the new URL
+  // ahead of the first meaningful paint of that URL, leaving a brief
+  // mismatch where the bar says one thing and the viewport still shows the
+  // old page (or chromium's blank-flash). With the deferral, the URL and
+  // the first new frame land together.
+  const pendingUrlUpdates = new Map<string, ReturnType<typeof setTimeout>>()
+
+  function scheduleUrlUpdate(agentId: string, url: string) {
+    const existing = pendingUrlUpdates.get(agentId)
+    if (existing) clearTimeout(existing)
+    const handle = setTimeout(() => {
+      pendingUrlUpdates.delete(agentId)
+      updateViewport(agentId, { url })
+    }, NAVIGATION_FREEZE_MS)
+    pendingUrlUpdates.set(agentId, handle)
+  }
+
+  function cancelPendingUrlUpdate(agentId: string) {
+    const existing = pendingUrlUpdates.get(agentId)
+    if (existing) {
+      clearTimeout(existing)
+      pendingUrlUpdates.delete(agentId)
+    }
+  }
+
   function sendPriorityUpdate() {
     const priorities: AgentPriority[] = viewports.value.map(v => ({
       agent_id: v.agentId,
@@ -132,6 +159,8 @@ export function useViewports(session: SessionHandle) {
         viewports.value = []
         browserAgentCap.value = 0
         activeAgentId.value = null
+        for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
+        pendingUrlUpdates.clear()
         return
       }
       viewports.value = sortByLabel((state.browser_agents ?? []).map(payloadToViewport))
@@ -175,6 +204,7 @@ export function useViewports(session: SessionHandle) {
   }
 
   function handleBrowserAgentReleased(p: BrowserAgentReleasedPayload) {
+    cancelPendingUrlUpdate(p.agent_id)
     if (activeAgentId.value === p.agent_id) activeAgentId.value = null
     viewports.value = viewports.value.filter(v => v.agentId !== p.agent_id)
     sendPriorityUpdate()
@@ -201,23 +231,25 @@ export function useViewports(session: SessionHandle) {
       isFailed: false,
     }
 
+    let pendingUrl: string | null = null
     if (p.action.startsWith('tool:') && p.detail) {
       const url = extractUrl(p.detail)
       if (url) {
-        patch.url = url
+        pendingUrl = url
         // eslint-disable-next-line no-console
         console.debug('[viewports] url from agent_thinking detail', { agent_id: p.agent_id, action: p.action, url })
       }
     }
 
     updateViewport(p.agent_id, patch)
+    if (pendingUrl) scheduleUrlUpdate(p.agent_id, pendingUrl)
   }
 
   function handlePageNavigated(p: PageNavigatedPayload) {
     // eslint-disable-next-line no-console
     console.debug('[viewports] page_navigated', { agent_id: p.agent_id, url: p.url, hasViewport: viewports.value.some(v => v.agentId === p.agent_id) })
     if (!p.url || !viewports.value.some(v => v.agentId === p.agent_id)) return
-    updateViewport(p.agent_id, { url: p.url })
+    scheduleUrlUpdate(p.agent_id, p.url)
   }
 
   function handleToolDescriptor(p: ToolDescriptorPayload) {
@@ -258,6 +290,8 @@ export function useViewports(session: SessionHandle) {
     session.off('tool_descriptor', handleToolDescriptor)
     session.off('page_navigated', handlePageNavigated)
     session.off('error', handleAgentLimitReached)
+    for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
+    pendingUrlUpdates.clear()
   })
 
   function promoteViewport(agentId: string) {
@@ -288,6 +322,7 @@ export function useViewports(session: SessionHandle) {
     if (!isPendingId(agentId)) {
       session.send<CloseBrowserAgentPayload>('close_browser_agent', { agent_id: agentId })
     }
+    cancelPendingUrlUpdate(agentId)
     if (activeAgentId.value === agentId) activeAgentId.value = null
     viewports.value = viewports.value.filter(v => v.agentId !== agentId)
     sendPriorityUpdate()

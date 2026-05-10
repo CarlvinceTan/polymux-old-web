@@ -10,6 +10,11 @@ export default defineEventHandler((event) => {
 
   const currency = countryToCurrency(country)
 
+  // Country is derived from the caller's IP, so this MUST stay private — a
+  // shared edge cache would serve one user's country to another. Browser-only
+  // cache is safe and avoids hammering the route on every page mount.
+  setHeader(event, 'Cache-Control', 'private, max-age=300, stale-while-revalidate=3600')
+
   return { country: country.toUpperCase(), currency }
 })
 

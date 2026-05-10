@@ -12,6 +12,7 @@ const {
   currentWorkspaceId,
   members,
   fetchMembers,
+  updateWorkspace,
   transferOwnership,
   deleteWorkspace,
 } = useWorkspaces()
@@ -48,6 +49,14 @@ const planLabel = computed(() => planKey.value.charAt(0).toUpperCase() + planKey
 const planLimits = computed(() => PLAN_LIMITS[planKey.value])
 const showUpgrade = computed(() => planKey.value !== 'enterprise')
 
+const PLAN_ACCENT: Record<PlanKey, string> = {
+  free: 'bg-neutral-300',
+  pro: 'bg-blue-400',
+  max: 'bg-amber-400',
+  enterprise: 'bg-purple-400',
+}
+const planAccentClass = computed(() => PLAN_ACCENT[planKey.value] ?? PLAN_ACCENT.free)
+
 const upgradeQuery = computed(() => {
   const q: Record<string, string> = { current: planKey.value }
   if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
@@ -59,6 +68,7 @@ const myRole = computed(() => {
   if (!user.value || !members.value.length) return null
   return members.value.find(m => m.user_id === user.value!.id)?.role ?? null
 })
+const canManageWorkspace = computed(() => myRole.value === 'owner' || myRole.value === 'admin')
 const canTransferOwnership = computed(() => myRole.value === 'owner')
 const canDeleteWorkspace = computed(() => myRole.value === 'owner')
 const isOnlyWorkspace = computed(() => workspaces.value.length <= 1)
@@ -279,6 +289,129 @@ async function handleDeleteWorkspace() {
   }
 }
 
+// ---- Workspace identity (name + avatar) ----
+const editName = ref('')
+const isNameSaving = ref(false)
+const isNameFocused = ref(false)
+const identityError = ref('')
+
+watch(currentWorkspace, (ws) => { if (ws) editName.value = ws.name }, { immediate: true })
+watch(isOpen, (open) => { if (open && currentWorkspace.value) editName.value = currentWorkspace.value.name })
+
+const nameValidation = computed(() => validateWorkspaceName(editName.value))
+const nameError = computed(() => {
+  if (!editName.value || editName.value === currentWorkspace.value?.name) return ''
+  return nameValidation.value.ok ? '' : nameValidation.value.error
+})
+
+async function saveName() {
+  if (!currentWorkspace.value || !canManageWorkspace.value) return
+  const validation = validateWorkspaceName(editName.value)
+  if (!validation.ok) return
+  isNameSaving.value = true
+  identityError.value = ''
+  try {
+    const result = await updateWorkspace(currentWorkspace.value.id, { name: editName.value.trim() })
+    if (!result) identityError.value = t('workspaceMenu.identityUpdateError')
+  }
+  finally {
+    isNameSaving.value = false
+  }
+}
+
+const AVATAR_MAX_INPUT_BYTES = 1 * 1024 * 1024
+const AVATAR_OUTPUT_SIZE = 256
+const AVATAR_OUTPUT_QUALITY = 0.85
+const avatarInput = ref<HTMLInputElement | null>(null)
+const isAvatarSaving = ref(false)
+const workspaceInitials = computed(() =>
+  (currentWorkspace.value?.name?.trim().substring(0, 2) || 'W').toUpperCase(),
+)
+
+function triggerAvatarPicker() {
+  if (!canManageWorkspace.value || isAvatarSaving.value) return
+  avatarInput.value?.click()
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode-failed')) }
+    img.src = url
+  })
+}
+
+function cropImageToDataURL(img: HTMLImageElement): string {
+  const side = Math.min(img.naturalWidth, img.naturalHeight)
+  const sx = Math.floor((img.naturalWidth - side) / 2)
+  const sy = Math.floor((img.naturalHeight - side) / 2)
+  const canvas = document.createElement('canvas')
+  canvas.width = AVATAR_OUTPUT_SIZE
+  canvas.height = AVATAR_OUTPUT_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas-unsupported')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_OUTPUT_SIZE, AVATAR_OUTPUT_SIZE)
+  let dataUrl = canvas.toDataURL('image/webp', AVATAR_OUTPUT_QUALITY)
+  if (!dataUrl.startsWith('data:image/webp')) {
+    dataUrl = canvas.toDataURL('image/jpeg', AVATAR_OUTPUT_QUALITY)
+  }
+  return dataUrl
+}
+
+async function handleAvatarSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !currentWorkspace.value || !canManageWorkspace.value) return
+
+  identityError.value = ''
+  if (!file.type.startsWith('image/')) {
+    identityError.value = t('workspaceMenu.avatarErrorType')
+    return
+  }
+  if (file.size > AVATAR_MAX_INPUT_BYTES) {
+    identityError.value = t('workspaceMenu.avatarErrorSize')
+    return
+  }
+
+  let img: HTMLImageElement
+  try { img = await loadImage(file) }
+  catch {
+    identityError.value = t('workspaceMenu.avatarErrorRead')
+    return
+  }
+
+  isAvatarSaving.value = true
+  try {
+    const dataUrl = cropImageToDataURL(img)
+    const result = await updateWorkspace(currentWorkspace.value.id, { avatar_url: dataUrl })
+    if (!result) identityError.value = t('workspaceMenu.identityUpdateError')
+  }
+  catch (err) {
+    console.error('[workspace-settings-modal] avatar upload failed', err)
+    identityError.value = t('workspaceMenu.identityUpdateError')
+  }
+  finally {
+    isAvatarSaving.value = false
+  }
+}
+
+async function removeAvatar() {
+  if (!currentWorkspace.value || !canManageWorkspace.value) return
+  isAvatarSaving.value = true
+  identityError.value = ''
+  try {
+    const result = await updateWorkspace(currentWorkspace.value.id, { avatar_url: null })
+    if (!result) identityError.value = t('workspaceMenu.identityUpdateError')
+  }
+  finally {
+    isAvatarSaving.value = false
+  }
+}
+
 function memberDisplayName(m: WorkspaceMember) {
   return m.display_name || m.email || m.user_id.substring(0, 8) + '…'
 }
@@ -340,7 +473,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               </h2>
               <button
                 type="button"
-                class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
                 @click="close"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -349,44 +482,153 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
             <!-- Body -->
             <div class="flex-1 overflow-y-auto">
-              <div class="space-y-4 px-5 py-4">
-                <!-- Plan -->
-                <section class="flex items-center justify-between gap-3 rounded-xl border border-neutral-200/70 bg-gradient-to-br from-white via-white to-neutral-50 p-3.5">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                      {{ t('workspaceMenu.currentPlan') }}
-                    </p>
-                    <p class="mt-1 text-base font-semibold text-neutral-950">{{ planLabel }}</p>
+              <div class="divide-y divide-neutral-100 px-5">
+                <!-- Identity (avatar + name) -->
+                <section class="py-5">
+                  <div class="flex items-start gap-4">
+                    <!-- Avatar + change link -->
+                    <div class="flex shrink-0 flex-col items-center gap-2">
+                      <div class="relative size-14 overflow-hidden rounded-lg ring-1 ring-neutral-200/70">
+                        <img
+                          v-if="currentWorkspace?.avatar_url"
+                          :src="currentWorkspace.avatar_url"
+                          alt=""
+                          class="h-full w-full object-cover"
+                        />
+                        <div
+                          v-else
+                          class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950 text-base font-bold text-white"
+                          aria-hidden="true"
+                        >
+                          {{ workspaceInitials }}
+                        </div>
+                        <div
+                          v-if="isAvatarSaving"
+                          class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 text-white"
+                          aria-hidden="true"
+                        >
+                          <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
+                            <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
+                          </svg>
+                        </div>
+                      </div>
+                      <button
+                        v-if="canManageWorkspace"
+                        type="button"
+                        class="whitespace-nowrap text-[10px] font-medium text-neutral-600 transition-colors hover:text-neutral-950 disabled:opacity-50"
+                        :disabled="isAvatarSaving"
+                        @click="triggerAvatarPicker"
+                      >
+                        {{ t('workspaceMenu.changeImage') }}
+                      </button>
+                    </div>
+
+                    <!-- Name field -->
+                    <div class="min-w-0 flex-1">
+                      <label
+                        for="ws-settings-name"
+                        class="block text-[10px] font-medium uppercase tracking-wider text-neutral-500"
+                      >
+                        {{ t('workspaceMenu.workspaceName') }}
+                      </label>
+                      <div class="mt-1.5 flex gap-2">
+                        <div class="relative min-w-0 flex-1">
+                          <input
+                            id="ws-settings-name"
+                            v-model="editName"
+                            type="text"
+                            :maxlength="WORKSPACE_NAME_MAX_LENGTH"
+                            :placeholder="t('workspaceMenu.workspaceName')"
+                            class="w-full rounded-md border-0 bg-neutral-50 px-2.5 py-1.5 pr-12 text-xs text-neutral-950 outline-none transition focus:bg-white focus:ring-2 focus:ring-neutral-950/10 disabled:cursor-not-allowed disabled:text-neutral-500"
+                            :disabled="!canManageWorkspace || isNameSaving"
+                            @focus="isNameFocused = true"
+                            @blur="isNameFocused = false"
+                            @keyup.enter="saveName"
+                          />
+                          <span
+                            v-if="isNameFocused && canManageWorkspace"
+                            class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] leading-none tabular-nums text-neutral-400"
+                          >
+                            {{ editName.length }}/{{ WORKSPACE_NAME_MAX_LENGTH }}
+                          </span>
+                        </div>
+                        <button
+                          v-if="canManageWorkspace"
+                          type="button"
+                          class="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+                          :disabled="isNameSaving || !nameValidation.ok || editName.trim() === currentWorkspace?.name"
+                          @click="saveName"
+                        >
+                          {{ isNameSaving ? t('workspaceMenu.saving') : t('common.save') }}
+                        </button>
+                      </div>
+                      <div class="mt-1.5 flex min-h-[14px] items-center justify-between gap-3 text-[10px] leading-tight">
+                        <p v-if="nameError" class="text-red-600">{{ nameError }}</p>
+                        <p v-else-if="identityError" class="text-red-600">{{ identityError }}</p>
+                        <p v-else-if="canManageWorkspace" class="text-neutral-400">
+                          {{ t('workspaceMenu.avatarHint') }}
+                        </p>
+                        <span v-else />
+                        <button
+                          v-if="canManageWorkspace && currentWorkspace?.avatar_url"
+                          type="button"
+                          class="shrink-0 text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
+                          :disabled="isAvatarSaving"
+                          @click="removeAvatar"
+                        >
+                          {{ t('workspaceMenu.removeImage') }}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    v-if="showUpgrade"
-                    type="button"
-                    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                    @click="handleUpgrade"
-                  >
-                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
-                    {{ t('common.upgrade') }}
-                  </button>
+
+                  <input
+                    ref="avatarInput"
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    @change="handleAvatarSelected"
+                  />
                 </section>
 
-                <!-- Usage grid -->
-                <section>
-                  <h3 class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                    {{ t('workspaceMenu.usage') }}
-                  </h3>
-                  <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <!-- Plan + Usage -->
+                <section class="py-5">
+                  <div class="mb-5 flex items-center justify-between gap-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <span
+                        :class="planAccentClass"
+                        class="h-9 w-1 shrink-0 rounded-full"
+                        aria-hidden="true"
+                      />
+                      <div class="min-w-0">
+                        <p class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                          {{ t('workspaceMenu.currentPlan') }}
+                        </p>
+                        <h3 class="mt-0.5 text-sm font-semibold text-neutral-950">{{ planLabel }}</h3>
+                      </div>
+                    </div>
+                    <button
+                      v-if="showUpgrade"
+                      type="button"
+                      class="shrink-0 rounded-md bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                      @click="handleUpgrade"
+                    >
+                      {{ t('common.upgrade') }}
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
                     <!-- Weekly sessions -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statSessions') }}
                       </p>
-                      <p class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
-                        {{ sessionsThisWeek.toLocaleString() }}
-                        <span class="text-[11px] font-normal text-neutral-400">
-                          / {{ weeklyLimit == null ? '∞' : weeklyLimit.toLocaleString() }}
-                        </span>
+                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
+                        <span class="font-semibold">{{ sessionsThisWeek.toLocaleString() }}</span>
+                        <span class="text-neutral-400">/ {{ weeklyLimit == null ? '∞' : weeklyLimit.toLocaleString() }}</span>
                       </p>
-                      <div class="mt-2 h-1 overflow-hidden rounded-full bg-neutral-200/70">
+                      <div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
                         <div
                           class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
                           :style="{ width: (weeklyPercent ?? 0) + '%' }"
@@ -395,17 +637,15 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </div>
 
                     <!-- Seats -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statSeats') }}
                       </p>
-                      <p class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
-                        {{ members.length }}
-                        <span class="text-[11px] font-normal text-neutral-400">
-                          / {{ planLimits.seats == null ? '∞' : planLimits.seats }}
-                        </span>
+                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
+                        <span class="font-semibold">{{ members.length }}</span>
+                        <span class="text-neutral-400">/ {{ planLimits.seats == null ? '∞' : planLimits.seats }}</span>
                       </p>
-                      <div class="mt-2 h-1 overflow-hidden rounded-full bg-neutral-200/70">
+                      <div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
                         <div
                           class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
                           :style="{ width: (planLimits.seats ? Math.min(100, Math.round((members.length / planLimits.seats) * 100)) : 100) + '%' }"
@@ -414,118 +654,104 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </div>
 
                     <!-- Tokens / wallet balance -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statTokens') }}
                       </p>
-                      <p class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950 truncate">
+                      <p class="mt-1 truncate font-mono text-xs font-semibold leading-none text-neutral-950">
                         {{ walletBalanceText }}
                       </p>
-                      <p class="mt-2 text-[10px] text-neutral-500">
+                      <p class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statTokensCaption') }}
                       </p>
                     </div>
 
                     <!-- Storage -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statStorage') }}
                       </p>
-                      <p v-if="storageSummary.unlimited" class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
-                        ∞
+                      <p v-if="storageSummary.unlimited" class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">∞</p>
+                      <p v-else-if="storageSummary.trackedAny && storageSummary.total > 0" class="mt-1 font-mono text-xs leading-none text-neutral-950">
+                        <span class="font-semibold">{{ formatBytes(storageSummary.used) }}</span>
+                        <span class="text-neutral-400">/ {{ formatBytes(storageSummary.total) }}</span>
                       </p>
-                      <p v-else-if="storageSummary.trackedAny && storageSummary.total > 0" class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
-                        {{ formatBytes(storageSummary.used) }}
-                        <span class="text-[11px] font-normal text-neutral-400">
-                          / {{ formatBytes(storageSummary.total) }}
-                        </span>
-                      </p>
-                      <p v-else class="mt-1 font-mono text-sm font-bold leading-none text-neutral-400">—</p>
-                      <div v-if="!storageSummary.unlimited && storageSummary.total > 0" class="mt-2 h-1 overflow-hidden rounded-full bg-neutral-200/70">
+                      <p v-else class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-400">—</p>
+                      <div v-if="!storageSummary.unlimited && storageSummary.total > 0" class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
                         <div
                           class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
                           :style="{ width: Math.min(100, Math.round((storageSummary.used / storageSummary.total) * 100)) + '%' }"
                         />
                       </div>
-                      <p v-else class="mt-2 text-[10px] text-neutral-500">
+                      <p v-else class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statStorageCaption') }}
                       </p>
                     </div>
 
                     <!-- Browser agents -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statAgents') }}
                       </p>
-                      <p class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
+                      <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
                         <template v-if="planLimits.browserAgents == null">∞</template>
                         <template v-else>{{ planLimits.browserAgents.toLocaleString() }}</template>
                       </p>
-                      <p class="mt-2 text-[10px] text-neutral-500">
+                      <p class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statAgentsCaption') }}
                       </p>
                     </div>
 
                     <!-- Max file size -->
-                    <div class="rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                    <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                         {{ t('workspaceMenu.statFileSize') }}
                       </p>
-                      <p class="mt-1 font-mono text-sm font-bold leading-none text-neutral-950">
+                      <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
                         <template v-if="planLimits.fileSizeBytes == null">∞</template>
                         <template v-else>{{ formatBytes(planLimits.fileSizeBytes) }}</template>
                       </p>
-                      <p class="mt-2 text-[10px] text-neutral-500">
+                      <p class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statFileSizeCaption') }}
                       </p>
                     </div>
                   </div>
                 </section>
 
-                <!-- Ownership / Danger zone -->
-                <section v-if="canTransferOwnership || canDeleteWorkspace" class="space-y-2">
-                  <h3 class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                <!-- Administration -->
+                <section v-if="canTransferOwnership || canDeleteWorkspace" class="py-5">
+                  <h3 class="mb-4 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
                     {{ t('workspaceMenu.administration') }}
                   </h3>
 
-                  <div
-                    v-if="canTransferOwnership"
-                    class="flex items-center justify-between gap-3 rounded-lg border border-neutral-200/70 bg-white p-3"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <p class="text-xs font-semibold text-neutral-950">{{ t('workspaceMenu.transferOwnership') }}</p>
-                      <p class="mt-0.5 text-[11px] text-neutral-500">
-                        {{ t('workspaceMenu.transferOwnershipDesc') }}
-                      </p>
+                  <div class="space-y-4">
+                    <div v-if="canTransferOwnership" class="flex items-start justify-between gap-4">
+                      <div class="min-w-0 flex-1">
+                        <p class="text-xs font-medium text-neutral-950">{{ t('workspaceMenu.transferOwnership') }}</p>
+                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.transferOwnershipDesc') }}</p>
+                      </div>
+                      <button
+                        type="button"
+                        class="shrink-0 self-center rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                        @click="openTransferModal"
+                      >
+                        {{ t('workspaceMenu.transferAction') }}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
-                      @click="openTransferModal"
-                    >
-                      <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5" /><path d="M21 3l-7 7" /><path d="M8 21H3v-5" /><path d="m3 21 7-7" /></svg>
-                      {{ t('workspaceMenu.transferAction') }}
-                    </button>
-                  </div>
 
-                  <div
-                    v-if="canDeleteWorkspace"
-                    class="flex items-center justify-between gap-3 rounded-lg border border-red-200/70 bg-red-50/30 p-3"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <p class="text-xs font-semibold text-red-900">{{ t('workspaceMenu.deleteWorkspace') }}</p>
-                      <p class="mt-0.5 text-[11px] text-red-700">
-                        {{ t('workspaceMenu.deleteWorkspaceDesc') }}
-                      </p>
+                    <div v-if="canDeleteWorkspace" class="flex items-start justify-between gap-4">
+                      <div class="min-w-0 flex-1">
+                        <p class="text-xs font-medium text-red-700">{{ t('workspaceMenu.deleteWorkspace') }}</p>
+                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.deleteWorkspaceDesc') }}</p>
+                      </div>
+                      <button
+                        type="button"
+                        class="shrink-0 self-center rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                        @click="openDeleteModal"
+                      >
+                        {{ t('common.delete') }}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:bg-red-700"
-                      @click="openDeleteModal"
-                    >
-                      <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
-                      {{ t('common.delete') }}
-                    </button>
                   </div>
                 </section>
               </div>

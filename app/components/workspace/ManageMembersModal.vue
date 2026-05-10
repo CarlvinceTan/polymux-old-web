@@ -1,10 +1,39 @@
 <script setup lang="ts">
+import type { User } from '@supabase/supabase-js'
 import type { WorkspaceInvitation, WorkspaceMember } from '~/composables/useWorkspaces'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
-const user = useSupabaseUser()
+const supabaseUser = useSupabaseUser()
+const supabase = useSupabaseClient()
+
+// `useSupabaseUser()` returns a useState wrapper that, in this teleported
+// modal, comes back as an empty placeholder (truthy but with no `.id`) before
+// the auth listener fires — so we can't rely on it for self-row detection.
+// Resolve the auth user ourselves from the supabase session as a fallback.
+function hasId(u: User | null | undefined | Record<string, never>): u is User {
+  return !!u && typeof (u as User).id === 'string' && (u as User).id.length > 0
+}
+
+const resolvedUser = ref<User | null>(hasId(supabaseUser.value) ? supabaseUser.value : null)
+watchEffect(() => { if (hasId(supabaseUser.value)) resolvedUser.value = supabaseUser.value })
+
+async function ensureResolvedUser() {
+  if (hasId(resolvedUser.value)) return
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (sessionData.session?.user) {
+    resolvedUser.value = sessionData.session.user
+    return
+  }
+  const { data: userData } = await supabase.auth.getUser()
+  if (userData.user) resolvedUser.value = userData.user
+}
+
+onMounted(ensureResolvedUser)
+watch(isOpen, (open) => { if (open) ensureResolvedUser() })
+
+const user = resolvedUser
 
 const {
   currentWorkspace,
@@ -72,6 +101,13 @@ function invitationStatusLabel(inv: WorkspaceInvitation): string {
 }
 
 const memberSearch = ref('')
+
+const currentUserAvatarUrl = computed<string | null>(() => {
+  const meta = user.value?.user_metadata
+  return (meta?.avatar_url as string | undefined) || (meta?.picture as string | undefined) || null
+})
+const currentUserAvatarFailed = ref(false)
+watch(currentUserAvatarUrl, () => { currentUserAvatarFailed.value = false })
 
 type MemberRow = { kind: 'member', member: WorkspaceMember }
 type InvitationRow = { kind: 'invitation', invitation: WorkspaceInvitation }
@@ -419,7 +455,7 @@ onUnmounted(() => {
         >
           <div
             v-if="isOpen"
-            class="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            class="flex h-[560px] max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
             role="dialog"
             aria-modal="true"
             aria-label="Manage members"
@@ -430,7 +466,7 @@ onUnmounted(() => {
               <h2 class="text-sm font-semibold text-neutral-950">{{ t('workspaceMenu.manageMembers') }}</h2>
               <button
                 type="button"
-                class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
                 @click="close"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -473,9 +509,19 @@ onUnmounted(() => {
                 <template v-for="row in filteredRows" :key="row.kind === 'member' ? `m:${row.member.user_id}` : `i:${row.invitation.id}`">
                   <li
                     v-if="row.kind === 'member'"
-                    class="group flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-neutral-50"
+                    class="group flex items-center gap-3 px-5 py-2.5 transition-colors"
+                    :class="row.member.user_id === user?.id ? 'pointer-events-none bg-neutral-50/60 opacity-50' : 'hover:bg-neutral-50'"
                   >
-                    <AccountIcon :initials="memberInitials(row.member)" size="sm" color="bg-neutral-800" />
+                    <template v-if="row.member.user_id === user?.id && currentUserAvatarUrl && !currentUserAvatarFailed">
+                      <img
+                        :src="currentUserAvatarUrl"
+                        referrerpolicy="no-referrer"
+                        class="h-4 w-4 shrink-0 rounded-md object-cover ring-1 ring-neutral-200/80"
+                        alt=""
+                        @error="currentUserAvatarFailed = true"
+                      />
+                    </template>
+                    <AccountIcon v-else :initials="memberInitials(row.member)" size="sm" color="bg-neutral-800" />
                     <div class="min-w-0 flex-1">
                       <p class="truncate text-xs font-medium text-neutral-950">{{ memberDisplayName(row.member) }}</p>
                       <p class="truncate text-[11px] text-neutral-500">{{ memberEmail(row.member) }}</p>
@@ -497,7 +543,11 @@ onUnmounted(() => {
                       </button>
                       <button
                         type="button"
-                        class="mm-action-trigger rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                        class="rounded-md p-1 text-neutral-400 transition-colors"
+                        :class="row.member.user_id === user?.id
+                          ? 'cursor-default'
+                          : 'mm-action-trigger hover:bg-neutral-100 hover:text-neutral-700'"
+                        :disabled="row.member.user_id === user?.id"
                         @click.stop="toggleMenu(`member:${row.member.user_id}`, $event)"
                       >
                         <svg class="size-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" /></svg>
@@ -646,7 +696,7 @@ onUnmounted(() => {
               </div>
               <button
                 type="button"
-                class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
                 @click="isInviteOpen = false"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -733,7 +783,7 @@ onUnmounted(() => {
               </div>
               <button
                 type="button"
-                class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
                 @click="closeManageAccess"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>

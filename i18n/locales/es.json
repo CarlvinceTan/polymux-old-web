@@ -252,7 +252,12 @@
     "liveBadge": "En vivo",
     "liveNow": "En vivo ahora",
     "sequence": "Secuencia",
-    "unsavedChanges": "Cambios sin guardar"
+    "unsavedChanges": "Cambios sin guardar",
+    "wireStyle": "Estilo de cable",
+    "wireFluid": "Fluido",
+    "wireLinear": "Lineal",
+    "wireStep": "Escalonado",
+    "moreInstances": "más"
   },
   "dashboard": {
     "home": "Inicio",
@@ -351,7 +356,10 @@
     "noActiveViewport": "Sin vista activa. Haz clic en una miniatura o en la ficha +.",
     "launchingAgent": "Iniciando agente de navegador…",
     "closeAgent": "Cerrar agente",
-    "agentCapReached": "Se ha alcanzado el número máximo de agentes de navegador"
+    "agentCapReached": "Se ha alcanzado el número máximo de agentes de navegador",
+    "galleryView": "Ver todas las vistas",
+    "singleView": "Ver una sola vista",
+    "galleryZoom": "Tamaño de vista"
   },
   "integrations": {
     "installed": "Instalados",
@@ -546,7 +554,18 @@
     "invExpired": "Caducada",
     "invExpiresDays": "Caduca en {n} día(s)",
     "invExpiresHours": "Caduca en {n} hora(s)",
-    "invExpiresMins": "Caduca en {n} min."
+    "invExpiresMins": "Caduca en {n} min.",
+    "identity": "Identidad",
+    "workspaceName": "Nombre del espacio",
+    "avatarHint": "PNG, JPG, WebP o GIF — hasta 1 MB.",
+    "removeImage": "Quitar",
+    "changeImage": "Cambiar",
+    "uploading": "Subiendo…",
+    "saving": "Guardando…",
+    "avatarErrorType": "Elige una imagen (PNG, JPG, WebP o GIF).",
+    "avatarErrorSize": "La imagen debe pesar 1 MB o menos.",
+    "avatarErrorRead": "No se pudo leer la imagen. Puede estar dañada.",
+    "identityUpdateError": "No se pudo actualizar el espacio. Inténtalo de nuevo."
   },
   "storage": {
     "workspace": "Espacio de trabajo",
@@ -757,10 +776,22 @@
     "capabilities": {
       "title": "Todo lo que necesitas para extender Polymux",
       "subtitle": "Desde herramientas personalizadas hasta apps de marketplace — construye lo que tu equipo necesita.",
-      "tools": { "title": "Herramientas de agente personalizadas", "desc": "Define herramientas que tus agentes pueden invocar. Desde webhooks simples hasta handlers TypeScript completos." },
-      "browser": { "title": "Integraciones de navegador", "desc": "Engánchate a sesiones de navegador en vivo. Inyecta UI, observa eventos, dirige la automatización." },
-      "vault": { "title": "Conectores de Vault", "desc": "Trae tus propios proveedores de credenciales. OAuth, claves API, secretos — protegidos por Vault." },
-      "marketplace": { "title": "Apps de Marketplace", "desc": "Publica en el marketplace de Polymux. Llega a miles de equipos que ejecutan automatizaciones." }
+      "tools": {
+        "title": "Herramientas de agente personalizadas",
+        "desc": "Define herramientas que tus agentes pueden invocar. Desde webhooks simples hasta handlers TypeScript completos."
+      },
+      "browser": {
+        "title": "Integraciones de navegador",
+        "desc": "Engánchate a sesiones de navegador en vivo. Inyecta UI, observa eventos, dirige la automatización."
+      },
+      "vault": {
+        "title": "Conectores de Vault",
+        "desc": "Trae tus propios proveedores de credenciales. OAuth, claves API, secretos — protegidos por Vault."
+      },
+      "marketplace": {
+        "title": "Apps de Marketplace",
+        "desc": "Publica en el marketplace de Polymux. Llega a miles de equipos que ejecutan automatizaciones."
+      }
     },
     "sdk": {
       "eyebrow": "SDK",
@@ -782,10 +813,22 @@
     "steps": {
       "title": "Lanza en cuatro pasos.",
       "subtitle": "Cada integración sigue el mismo camino. El builder real corre en el dashboard de dev.polymux.com.",
-      "create": { "title": "Crear app", "desc": "Registra tu integración. Elige un nombre, un tipo y los scopes OAuth." },
-      "keys": { "title": "Obtener claves API", "desc": "Genera una clave publicable y un secreto de firma. Guardados en tu Vault." },
-      "sdk": { "title": "Instalar el SDK", "desc": "Arranca con `polymux init` o usa cURL directamente. TypeScript primero." },
-      "publish": { "title": "Publicar en el marketplace", "desc": "Envía para revisión. Una vez aprobada, tu app está en vivo para cada workspace de Polymux." }
+      "create": {
+        "title": "Crear app",
+        "desc": "Registra tu integración. Elige un nombre, un tipo y los scopes OAuth."
+      },
+      "keys": {
+        "title": "Obtener claves API",
+        "desc": "Genera una clave publicable y un secreto de firma. Guardados en tu Vault."
+      },
+      "sdk": {
+        "title": "Instalar el SDK",
+        "desc": "Arranca con `polymux init` o usa cURL directamente. TypeScript primero."
+      },
+      "publish": {
+        "title": "Publicar en el marketplace",
+        "desc": "Envía para revisión. Una vez aprobada, tu app está en vivo para cada workspace de Polymux."
+      }
     },
     "gallery": {
       "title": "Inspiración del marketplace",
@@ -796,10 +839,22 @@
       "title": "Todo está en dev.polymux.com",
       "subtitle": "Un solo destino para docs, referencias y el dashboard de integraciones.",
       "open": "Abrir",
-      "docs": { "title": "Documentación", "desc": "Tutoriales, conceptos y guías de la plataforma." },
-      "api": { "title": "Referencia de API", "desc": "Cada endpoint, parámetro y webhook." },
-      "examples": { "title": "Ejemplos", "desc": "Integraciones de ejemplo y plantillas de extremo a extremo." },
-      "community": { "title": "Discord y Foro", "desc": "Habla con el equipo y con otros builders." }
+      "docs": {
+        "title": "Documentación",
+        "desc": "Tutoriales, conceptos y guías de la plataforma."
+      },
+      "api": {
+        "title": "Referencia de API",
+        "desc": "Cada endpoint, parámetro y webhook."
+      },
+      "examples": {
+        "title": "Ejemplos",
+        "desc": "Integraciones de ejemplo y plantillas de extremo a extremo."
+      },
+      "community": {
+        "title": "Discord y Foro",
+        "desc": "Habla con el equipo y con otros builders."
+      }
     },
     "cta": {
       "title": "¿Listo para lanzar?",
