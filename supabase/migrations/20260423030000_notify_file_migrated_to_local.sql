@@ -31,7 +31,7 @@ begin
       -- file's path. Use prefix matching so folder-level shares cover the
       -- migrated file.
       select wm.user_id as recipient_id
-      from public.workspace_file_shares s
+      from public.file_shares s
       join public.workspace_members wm
         on wm.workspace_id = s.shared_with_workspace_id
       where s.workspace_id = new.workspace_id

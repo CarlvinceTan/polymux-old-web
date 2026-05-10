@@ -7,15 +7,19 @@ const { copy, copied } = useClipboard()
 const props = defineProps<{
   text: string
   showActions?: boolean
-  /** Total retry versions (including the original). Hidden when 0 or 1. */
-  retryCount?: number
-  /** Active version index, 0-based. */
-  activeRetryIndex?: number
+  /** Persisted-row id for this assistant bubble. Required to attach feedback;
+   *  when absent the thumbs buttons stay inert (the bubble is mid-stream and
+   *  hasn't been written to the database yet). */
+  messageId?: string
+  /** Current rating for this bubble from the calling user, or null when none.
+   *  The two thumbs are mutually exclusive — only one can be active at a time. */
+  feedback?: 'up' | 'down' | null
 }>()
 
 const emit = defineEmits<{
-  retry: []
-  'navigate-retry': [retryIndex: number]
+  /** Toggle the rating: emits null when the user clicks the currently-active
+   *  thumb (clearing it), otherwise emits the new rating. The parent persists. */
+  'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
 
 const renderer = new marked.Renderer()
@@ -96,19 +100,21 @@ function renderMarkdown(text: string): string {
   return marked.parse(text, { renderer }) as string
 }
 
-// Show the retry navigator (arrows + counter) when there is more than one
-// version to choose from. The position next to the retry icon mirrors
-// design-language conventions for paginated content.
-const hasRetries = computed(() => (props.retryCount ?? 0) > 1)
-const activeIdx = computed(() => props.activeRetryIndex ?? ((props.retryCount ?? 1) - 1))
-const canPrev = computed(() => hasRetries.value && activeIdx.value > 0)
-const canNext = computed(() => hasRetries.value && activeIdx.value < (props.retryCount ?? 1) - 1)
+const thumbUpIcon = computed(() =>
+  props.feedback === 'up' ? 'i-heroicons-hand-thumb-up-solid' : 'i-heroicons-hand-thumb-up',
+)
+const thumbDownIcon = computed(() =>
+  props.feedback === 'down' ? 'i-heroicons-hand-thumb-down-solid' : 'i-heroicons-hand-thumb-down',
+)
 
-function goPrev() {
-  if (canPrev.value) emit('navigate-retry', activeIdx.value - 1)
-}
-function goNext() {
-  if (canNext.value) emit('navigate-retry', activeIdx.value + 1)
+// Mutually-exclusive toggle: clicking the currently-active thumb clears the
+// rating; clicking the opposite thumb switches sides (one POST, the parent's
+// upsert handles the flip without a separate DELETE). Inert until messageId
+// is known — a still-streaming bubble has no row to rate yet.
+function onThumb(rating: 'up' | 'down') {
+  if (!props.messageId) return
+  const next = props.feedback === rating ? null : rating
+  emit('feedback-change', props.messageId, next)
 }
 </script>
 
@@ -117,40 +123,23 @@ function goNext() {
     <div class="agent-prose text-sm leading-relaxed text-neutral-700" v-html="renderMarkdown(visibleText)" />
     <div
       v-if="showActions"
-      class="mt-0.5 flex items-center gap-0.5 transition-opacity duration-150"
-      :class="hasRetries ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+      class="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
     >
       <MessageAction :icon="copied ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'" :label="t('common.copy')" @click="copy(props.text)" />
-      <MessageAction icon="i-heroicons-hand-thumb-up" :label="t('chat.goodResponse')" />
-      <MessageAction icon="i-heroicons-hand-thumb-down" :label="t('chat.badResponse')" />
-      <MessageAction icon="i-heroicons-arrow-up-on-square" :label="t('common.share')" />
-      <MessageAction icon="i-heroicons-arrow-path-20-solid" :label="t('common.retry')" @click="emit('retry')" />
-      <div
-        v-if="hasRetries"
-        class="ml-0.5 flex items-center gap-0.5 text-[11px] leading-none text-neutral-500"
-      >
-        <button
-          type="button"
-          class="flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-          :disabled="!canPrev"
-          :aria-label="t('chat.previousRetry')"
-          @click="goPrev"
-        >
-          <UIcon name="i-heroicons-chevron-left-20-solid" class="size-3" />
-        </button>
-        <span class="min-w-6 px-0.5 text-center font-medium tabular-nums">
-          {{ activeIdx + 1 }}/{{ retryCount }}
-        </span>
-        <button
-          type="button"
-          class="flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-          :disabled="!canNext"
-          :aria-label="t('chat.nextRetry')"
-          @click="goNext"
-        >
-          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-3" />
-        </button>
-      </div>
+      <MessageAction
+        :icon="thumbUpIcon"
+        :label="t('chat.goodResponse')"
+        :active="feedback === 'up'"
+        @click="onThumb('up')"
+      />
+      <MessageAction
+        :icon="thumbDownIcon"
+        :label="t('chat.badResponse')"
+        :active="feedback === 'down'"
+        @click="onThumb('down')"
+      />
+      <!-- Share: hidden until the share flow is implemented. -->
+      <MessageAction v-if="false" icon="i-heroicons-arrow-up-on-square" :label="t('common.share')" />
     </div>
   </div>
 </template>

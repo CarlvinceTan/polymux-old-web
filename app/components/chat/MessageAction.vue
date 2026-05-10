@@ -2,6 +2,10 @@
 defineProps<{
   icon: string
   label: string
+  /** When true, the icon renders as a filled-black "selected" state instead of
+   *  the default outline + neutral-400 idle. Used by toggleable actions like
+   *  thumbs-up / thumbs-down. */
+  active?: boolean
 }>()
 </script>
 
@@ -9,8 +13,12 @@ defineProps<{
   <div class="group/action relative">
     <button
       type="button"
-      class="flex size-5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-900"
+      class="flex size-5 items-center justify-center rounded-md transition-colors"
+      :class="active
+        ? 'text-neutral-900'
+        : 'text-neutral-400 hover:bg-neutral-200/60 hover:text-neutral-900'"
       :aria-label="label"
+      :aria-pressed="active"
     >
       <UIcon :name="icon" class="size-3" />
     </button>

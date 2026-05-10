@@ -3,9 +3,11 @@ import { nextTick, ref, watch } from 'vue'
 import type { FileAttachmentState } from '~/composables/chat/useAttachments'
 import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/useSpeechRecognition'
 import { useAppToast } from '~/composables/useAppToast'
+import { useAgentConfig } from '~/composables/useAgentConfig'
 
 const { t, locale } = useI18n()
 const toast = useAppToast()
+const { inputTokenCap } = useAgentConfig()
 
 const props = withDefaults(
   defineProps<{
@@ -139,7 +141,22 @@ onMounted(async () => {
   clampTextareaHeight()
 })
 
+function estimateTokens(text: string): number {
+  // Rough cl100k-style heuristic: 4 chars per token. Server uses real
+  // tiktoken; this is just enough to flag obviously oversized pastes
+  // before we round-trip.
+  return Math.ceil(text.length / 4)
+}
+
 function onSendClick() {
+  const cap = inputTokenCap.value
+  if (cap && cap > 0) {
+    const estimated = estimateTokens(String(inputValue.value ?? ''))
+    if (estimated > cap) {
+      toast.show(t('chat.tokenCapExceeded', { tokens: estimated, cap }), 'warning')
+      return
+    }
+  }
   emit('send', inputValue.value)
 }
 

@@ -13,7 +13,6 @@
     "delete": "Excluir",
     "edit": "Editar",
     "copy": "Copiar",
-    "retry": "Tentar novamente",
     "close": "Fechar",
     "search": "Buscar",
     "back": "Voltar",
@@ -55,7 +54,10 @@
     "hoursAgo": "há {n} h",
     "daysAgo": "há {n} d",
     "fileMigratedToLocalTitle": "Um arquivo foi movido para o dispositivo de um colega",
-    "fileMigratedToLocalBody": "\"{path}\" não está mais disponível neste espaço de trabalho."
+    "fileMigratedToLocalBody": "\"{path}\" não está mais disponível neste espaço de trabalho.",
+    "fileShareReceivedTitle": "Uma pasta foi compartilhada com seu espaço de trabalho",
+    "fileShareReceivedBody": "\"{path}\" foi compartilhada de {source}.",
+    "anotherWorkspace": "outro espaço de trabalho"
   },
   "auth": {
     "welcomeBack": "Bem-vindo de volta",
@@ -119,6 +121,10 @@
     "locationDenied": "Bloqueado pelo navegador — atualize nas definições do navegador",
     "locationPrompt": "Será solicitado a permitir o acesso à localização",
     "locationUnsupported": "A geolocalização não é suportada pelo seu navegador",
+    "cloakedBrowser": "Navegador disfarçado",
+    "cloakedBrowserHint": "Encaminha sessões do navegador via CloakBrowser quando se sabe que um site bloqueia com CAPTCHA, Cloudflare ou DataDome. Desativado força cada navegação pelo navegador normal.",
+    "showCursor": "Mostrar cursor",
+    "showCursorHint": "Renderiza um cursor de seta sobre a viewport do navegador ao vivo na posição onde o agente está pairando ou clicando. Útil para observar o mouse simulado em tempo real. Desativado por padrão.",
     "notifications": "Notificações",
     "emailNotif": "E-mail",
     "pushNotif": "Push",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "Executar um comando global…",
     "goodResponse": "Boa resposta",
     "badResponse": "Resposta ruim",
-    "previousRetry": "Tentativa anterior",
-    "nextRetry": "Próxima tentativa",
     "doubleClickToRename": "Duplo clique para renomear",
     "expandedBrowserPreview": "Visualização expandida do navegador",
     "showAsMainViewport": "Mostrar {url} como visualização principal",
@@ -172,7 +176,8 @@
     "voiceListening": "Ouvindo…",
     "voiceUnsupported": "Este navegador não suporta entrada por voz. Use Chrome, Edge ou Safari.",
     "voicePermissionBlocked": "O acesso ao microfone está bloqueado. Clique no ícone à esquerda da barra de endereços do navegador para ativá-lo.",
-    "voiceError": "Falha na entrada por voz. Tente novamente."
+    "voiceError": "Falha na entrada por voz. Tente novamente.",
+    "tokenCapExceeded": "Sua mensagem tem cerca de {tokens} tokens, o que excede o limite de entrada de {cap} tokens. Por favor, encurte-a."
   },
   "workflow": {
     "loop": "Loop",

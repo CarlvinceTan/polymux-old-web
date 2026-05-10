@@ -35,7 +35,6 @@ interface ShareRow {
   permission_level: 'viewer' | 'editor'
   created_by: string
   created_at: string
-  updated_at: string
 }
 
 function normalizeFilePath(raw: unknown): string {
@@ -114,7 +113,7 @@ export default defineEventHandler(async (event) => {
   // (no LIKE escaping pitfalls).
   const { data: existingShares, error: existingError } = await supabase
     .from('file_shares')
-    .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at, updated_at')
+    .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at')
     .eq('workspace_id', workspaceId)
   if (existingError) {
     console.error('[shares/apply] load existing error', existingError)
@@ -147,9 +146,9 @@ export default defineEventHandler(async (event) => {
         if (same.permission_level !== permissionLevel) {
           const { data, error } = await supabase
             .from('file_shares')
-            .update({ permission_level: permissionLevel, updated_at: new Date().toISOString() })
+            .update({ permission_level: permissionLevel })
             .eq('id', same.id)
-            .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at, updated_at')
+            .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at')
             .single()
           if (error) {
             console.error('[shares/apply] update error', error)
@@ -172,7 +171,7 @@ export default defineEventHandler(async (event) => {
             permission_level: permissionLevel,
             created_by: user.sub,
           })
-          .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at, updated_at')
+          .select('id, workspace_id, shared_with_workspace_id, file_path, permission_level, created_by, created_at')
           .single()
         if (error) {
           if (error.code === '23505') {

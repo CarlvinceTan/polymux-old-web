@@ -3,36 +3,43 @@ import type { ChatMessage, ChatMessageAttachment } from '~/composables/types'
 
 const props = defineProps<{
   messages: ChatMessage[]
-  isThinking?: boolean
   // True while a partial agent_message is actively producing text. Hides the
   // dots so they don't double up with the streaming bubble.
   isStreaming?: boolean
+  // True while the orchestrator owns the current turn (set on send/edit, on
+  // thinking/partial events, on browser-spawn, cleared by a final
+  // agent_message). Drives the dots through every silent gap inside a turn —
+  // the moment after submit before the first chunk, between continuation
+  // rounds, while a browser sub-agent the orchestrator just spawned is
+  // working, or after an edit that wiped the bubble below it.
+  waitingForAgent?: boolean
   // True while any browser sub-agent under the orchestrator is currently
-  // working. Drives the dots even when the orchestrator itself is idle
-  // because it's waiting on a sub-agent's result.
+  // working. Keeps the dots up even if the orchestrator's turn already
+  // closed — the user is still waiting on visible work.
   browserAgentsActive?: boolean
   sessionId: string
+  // Per-message thumbs rating from the calling user, keyed by message id.
+  // Bubbles whose id is absent stay un-rated.
+  feedback?: Map<string, 'up' | 'down'>
 }>()
 
 const emit = defineEmits<{
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
-  'retry-message': [index: number]
-  'navigate-retry': [index: number, retryIndex: number]
+  'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
 
-// Show the dots when something is *actively* happening:
-//   - the orchestrator is producing thinking events, or
-//   - the user just sent a prompt and no agent reply has landed yet, or
-//   - a browser sub-agent is running.
-// Hide them while a chunk is streaming into the latest bubble — the visible
-// text is the activity signal there. The previous gate was a sticky
-// `waitingForAgent` flag that stayed true through long idle stretches, so
-// the dots kept spinning when nothing was actually happening.
-const showTypingIndicator = computed(() => {
+function feedbackFor(id: string | undefined): 'up' | 'down' | null {
+  if (!id || !props.feedback) return null
+  return props.feedback.get(id) ?? null
+}
+
+// Dots appear whenever something is in flight but no tokens are landing in
+// the chat right now. `isStreaming` is the only suppressor — the visible
+// streaming text is its own activity signal. Anything else (orchestrator
+// owns the turn, sub-agent is working) keeps the dots up.
+const showWorkingIndicator = computed(() => {
   if (props.isStreaming) return false
-  const last = props.messages[props.messages.length - 1]
-  const orchestratorActive = !!props.isThinking || last?.role === 'user'
-  return orchestratorActive || !!props.browserAgentsActive
+  return !!props.waitingForAgent || !!props.browserAgentsActive
 })
 
 function showAgentActions(index: number): boolean {
@@ -57,10 +64,9 @@ function showAgentActions(index: number): boolean {
         v-if="msg.role === 'agent'"
         :text="msg.text"
         :show-actions="showAgentActions(i)"
-        :retry-count="msg.retryVersions?.length"
-        :active-retry-index="msg.activeRetryIndex"
-        @retry="emit('retry-message', i)"
-        @navigate-retry="(r) => emit('navigate-retry', i, r)"
+        :message-id="msg.id"
+        :feedback="feedbackFor(msg.id)"
+        @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
       />
       <UserMessage
         v-else-if="msg.role === 'user'"
@@ -71,19 +77,19 @@ function showAgentActions(index: number): boolean {
       />
     </template>
 
-    <!-- Typing indicator: visible across the full turn whenever no text is
+    <!-- Working indicator: visible across the full turn whenever no text is
          currently being streamed — covers gaps between continuation rounds,
          browser sub-agent delegation, and the moment before the first chunk. -->
-    <div v-if="showTypingIndicator" class="flex items-center gap-1.5 pt-2 pr-1 pb-1 pl-1">
-      <span class="typing-dot size-[7px] rounded-full bg-neutral-400" />
-      <span class="typing-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.2s" />
-      <span class="typing-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.4s" />
+    <div v-if="showWorkingIndicator" class="flex items-center gap-1.5 pt-2 pr-1 pb-1 pl-1">
+      <span class="working-dot size-[7px] rounded-full bg-neutral-400" />
+      <span class="working-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.2s" />
+      <span class="working-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.4s" />
     </div>
   </div>
 </template>
 
 <style scoped>
-@keyframes typing-pulse {
+@keyframes working-pulse {
   0%, 60%, 100% {
     transform: scale(1);
     opacity: 0.4;
@@ -94,7 +100,7 @@ function showAgentActions(index: number): boolean {
   }
 }
 
-.typing-dot {
-  animation: typing-pulse 1.2s ease-in-out infinite;
+.working-dot {
+  animation: working-pulse 1.2s ease-in-out infinite;
 }
 </style>

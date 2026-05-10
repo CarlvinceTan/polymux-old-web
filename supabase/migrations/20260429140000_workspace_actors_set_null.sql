@@ -27,9 +27,11 @@ alter table public.workspace_integrations
   drop constraint workspace_integrations_connected_by_fkey,
   add  constraint workspace_integrations_connected_by_fkey
     foreign key (connected_by) references auth.users(id) on delete set null;
--- workspace_file_shares: skipped — table does not exist on the remote despite
--- the source migration `20260419000000_workspace_file_shares.sql`. Source files
--- have drifted from the actual schema; not in scope to reconcile here.
+-- file_shares.created_by: skipped — the source migration that created the
+-- share table (`20260419000000_workspace_file_shares.sql`) had drifted from
+-- the live schema at the time, so this alter was deferred. The drift was
+-- reconciled later by `20260510005000_reconcile_file_shares_drift.sql`; the
+-- FK→SET NULL conversion remains a separate follow-up if the team wants it.
 
 -- workspace_file_permissions.created_by (the grantor; user_id is the grantee
 -- and already cascades — that's correct, the grant disappears with the user).

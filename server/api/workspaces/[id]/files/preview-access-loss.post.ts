@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
   // Fan out to other workspaces this one shares with. We pull every unique
   // shared_with_workspace_id, then list each of their members.
   const { data: shares } = await admin
-    .from('workspace_file_shares')
+    .from('file_shares')
     .select('shared_with_workspace_id')
     .eq('workspace_id', workspaceId)
   const shareTargets = Array.from(new Set((shares ?? []).map(s => s.shared_with_workspace_id).filter(Boolean)))

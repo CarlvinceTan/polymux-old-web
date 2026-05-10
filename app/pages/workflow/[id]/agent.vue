@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
+import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 import type { SessionHandle } from '~/composables/auth/useSession'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
 const chats = inject<any>('chat-chats')!
+const messageFeedback = inject<{
+  feedback: Ref<Map<string, 'up' | 'down'>>
+  setRating: (id: string, rating: 'up' | 'down' | null) => Promise<void>
+}>('chat-message-feedback')!
 const vp = inject<any>('chat-vp')!
 const screencast = inject<any>('chat-screencast')!
 const chatTitle = inject<Ref<string>>('chat-title')!
@@ -29,7 +33,10 @@ const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
 )
 
-// Drives the typing indicator across silent gaps: while the orchestrator is
+const { settings: userSettings } = useUserSettings()
+const showCursor = computed(() => userSettings.value.show_cursor_overlay)
+
+// Drives the working indicator across silent gaps: while the orchestrator is
 // waiting on a browser sub-agent's result, no agent_thinking / agent_message
 // events fire on the orchestrator, but work is still happening — the dots
 // should keep pulsing.
@@ -69,13 +76,8 @@ function onEditMessage(index: number, text: string, attachments: ChatMessageAtta
   currentChat.value.editMessage(index, text, attachments)
 }
 
-function onRetryMessage(index: number) {
-  armAutoSwitch()
-  currentChat.value.retryFromMessage(index)
-}
-
-function onNavigateRetry(index: number, retryIndex: number) {
-  currentChat.value.setActiveRetry(index, retryIndex)
+function onFeedbackChange(messageId: string, rating: 'up' | 'down' | null) {
+  void messageFeedback.setRating(messageId, rating)
 }
 
 // Pick up a draft stashed during session promotion and fire it immediately.
@@ -103,14 +105,17 @@ onMounted(() => {
     :user-name="userName"
     :welcome-suggestion="welcomeSuggestion"
     :messages="(currentChat.messages.value as ChatMessage[])"
-    :is-thinking="currentChat.thinking.value != null"
     :is-streaming="currentChat.isStreaming.value"
+    :waiting-for-agent="currentChat.waitingForAgent.value"
     :browser-agents-active="browserAgentsActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
+    :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
+    :show-cursor="showCursor"
     :session-id="sessionId"
     :browser-agent-cap="vp.browserAgentCap.value"
     :active-agent-id="vp.activeAgentId.value"
     :reconnecting="reconnecting"
+    :feedback="messageFeedback.feedback.value"
     @welcome-suggestion="onSend(presetPrompt)"
     @send="onSend"
     @rename="onRename"
@@ -119,7 +124,6 @@ onMounted(() => {
     @close-viewport="onCloseViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"
     @edit-message="onEditMessage"
-    @retry-message="onRetryMessage"
-    @navigate-retry="onNavigateRetry"
+    @feedback-change="onFeedbackChange"
   />
 </template>

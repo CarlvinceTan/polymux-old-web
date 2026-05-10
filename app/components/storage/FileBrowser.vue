@@ -2573,7 +2573,11 @@ watch(multiDragActive, (active) => {
                 >
                 <div v-else class="flex items-center justify-center gap-1 w-full min-w-0">
                   <span :title="file.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ file.name }}</span>
-                  <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                  <StorageProviderIcon
+                    v-if="file.provider !== 'local'"
+                    :provider="file.provider as StorageProvider"
+                    inline
+                  />
                 </div>
                 </div>
               </div>
@@ -2734,7 +2738,11 @@ watch(multiDragActive, (active) => {
                       >
                       <template v-else>
                         <span :title="file.name" class="truncate text-sm text-neutral-950 font-medium min-w-0">{{ file.name }}</span>
-                        <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                        <StorageProviderIcon
+                          v-if="file.provider !== 'local'"
+                          :provider="file.provider as StorageProvider"
+                          inline
+                        />
                       </template>
                     </div>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
-import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
+import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 
 export type { ChatMessage, ViewportState }
 
@@ -16,10 +16,12 @@ const props = defineProps<{
   welcomeSuggestion: string
   messages: ChatMessage[]
   frameUrls?: Map<string, string>
+  cursorPositions?: Map<string, CursorState>
+  showCursor?: boolean
   renameable?: boolean
   sessionId: string
-  isThinking?: boolean
   isStreaming?: boolean
+  waitingForAgent?: boolean
   browserAgentsActive?: boolean
   browserAgentCap?: number
   activeAgentId: string | null
@@ -28,6 +30,7 @@ const props = defineProps<{
   hideTitle?: boolean
   showHeaderDivider?: boolean
   reconnecting?: boolean
+  feedback?: Map<string, 'up' | 'down'>
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -45,8 +48,7 @@ const emit = defineEmits<{
   spawnBrowserAgent: []
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
-  'retry-message': [index: number]
-  'navigate-retry': [index: number, retryIndex: number]
+  'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
 
 // View-mode state (persistence + auto-switch on browser-agent activation) is
@@ -238,13 +240,13 @@ function onSend(value: string) {
         <ChatMessages
           v-else
           :messages="messages"
-          :is-thinking="isThinking"
           :is-streaming="isStreaming"
+          :waiting-for-agent="waitingForAgent"
           :browser-agents-active="browserAgentsActive"
           :session-id="sessionId"
+          :feedback="feedback"
           @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
-          @retry-message="(i) => emit('retry-message', i)"
-          @navigate-retry="(i, r) => emit('navigate-retry', i, r)"
+          @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
         />
         <div class="shrink-0 pb-3 sm:pb-4" :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'">
           <PromptInput
@@ -279,6 +281,8 @@ function onSend(value: string) {
         <BrowserDock
           :viewport-list="viewportList"
           :frame-urls="frameUrls"
+          :cursor-positions="cursorPositions"
+          :show-cursor="showCursor"
           :browser-agent-cap="props.browserAgentCap"
           :active-agent-id="props.activeAgentId"
           :reconnecting="props.reconnecting"
@@ -304,12 +308,13 @@ function onSend(value: string) {
         >
           <ChatMessages
             :messages="messages"
-            :is-thinking="isThinking"
             :is-streaming="isStreaming"
+            :waiting-for-agent="waitingForAgent"
             :browser-agents-active="browserAgentsActive"
             :session-id="sessionId"
+            :feedback="feedback"
             @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
-            @retry-message="(i) => emit('retry-message', i)"
+            @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
           />
 
           <div

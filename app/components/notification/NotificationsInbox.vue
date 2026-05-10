@@ -40,12 +40,24 @@ function titleFor(n: typeof notifications.value[number]): string {
   if (n.type === 'file_migrated_to_local') {
     return t('notifications.fileMigratedToLocalTitle')
   }
+  if (n.type === 'file_share_received') {
+    return t('notifications.fileShareReceivedTitle')
+  }
   return n.title
 }
 function descriptionFor(n: typeof notifications.value[number]): string | null {
   if (n.type === 'file_migrated_to_local') {
     const path = typeof n.metadata?.file_path === 'string' ? n.metadata.file_path : ''
     return t('notifications.fileMigratedToLocalBody', { path })
+  }
+  if (n.type === 'file_share_received') {
+    const rawPath = typeof n.metadata?.file_path === 'string' ? n.metadata.file_path : ''
+    const path = rawPath || '/'
+    const sourceMeta = n.metadata?.source_workspace_name
+    const source = typeof sourceMeta === 'string' && sourceMeta
+      ? sourceMeta
+      : t('notifications.anotherWorkspace')
+    return t('notifications.fileShareReceivedBody', { path, source })
   }
   return n.description
 }

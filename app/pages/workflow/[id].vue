@@ -67,6 +67,7 @@ const presetPrompt = pickRandomPresetPrompt()
 
 const session = useSession(sessionId)
 const chats = useAgentChats(session, sessionId.value)
+const messageFeedback = useMessageFeedback(sessionId.value)
 const vp = useViewports(session)
 const screencast = useScreencast(session)
 const geo = useGeolocation()
@@ -231,6 +232,9 @@ onMounted(async () => {
     return
   }
   chats.orchestrator.loadHistory(orchestratorHistory)
+  // Hydrate the calling user's thumbs-up/down state so reload reflects every
+  // bubble the user previously rated.
+  await messageFeedback.load()
 
   for (const v of vp.viewports.value) {
     const agentHistory = await fetchMessages(sessionId.value, v.agentId)
@@ -270,17 +274,18 @@ onUnmounted(() => screencast.cleanup())
 //     scheduled cron firing. Read-only against the workflow definition: no
 //     nodes are being added, edited, or removed during a run.
 //
-//   'chat' (spinner) ─ the user is in a chat turn that's building or
-//     modifying the workflow (orchestrator streaming, mid-think, browser
-//     sub-agent the orchestrator just spawned, or a freshly-sent prompt
-//     awaiting reply). The workflow definition can mutate at any moment.
+//   'chat' (spinner) ─ orchestrator/agent activity in service of a chat turn.
+//     Includes orchestrator streaming, mid-think, freshly-sent prompts, AND
+//     orchestrator-spawned browser agents that keep working in the
+//     background after the user has navigated away. The workflow definition
+//     can mutate at any moment.
 //
 // Order matters below: a confirmed workflow_run wins outright; otherwise
-// any chat signal classifies the activity as chat-driven. Only when no
-// local signal is present do we fall back to session_state.is_running —
-// at that point there's no chat happening in this tab, so the cloud-side
-// activity is a workflow_run (scheduled trigger that pre-dates the WS
-// connect, or a run in another tab) and the progress arc is correct.
+// any local chat signal classifies the activity as chat-driven. When no
+// local signal is present we defer to the server's running_kind (carried on
+// session_state), which is computed from activeRuns vs agent statuses on
+// the same session — so 'chat' there means "agents are still working in the
+// background", which the SidePanel must NOT misrepresent as a workflow_run.
 const workflowRunActive = computed(() =>
   workflowRun.runStatus.value === 'running' || workflowRun.runStatus.value === 'pending',
 )
@@ -295,7 +300,13 @@ const chatActive = computed(() => {
 const runningKind = computed<'chat' | 'workflow' | null>(() => {
   if (workflowRunActive.value) return 'workflow'
   if (chatActive.value) return 'chat'
-  return session.sessionState.value?.is_running ? 'workflow' : null
+  const serverKind = session.sessionState.value?.running_kind
+  if (serverKind === 'chat' || serverKind === 'workflow') return serverKind
+  // is_running=true with no server-classified kind should not happen once
+  // Session.RunningKind is populated, but if the server is mid-rollout we
+  // default to 'chat' — the loading spinner is the safer fallback because
+  // workflow_run rows are always classified explicitly via activeRuns.
+  return session.sessionState.value?.is_running ? 'chat' : null
 })
 
 watch(
@@ -424,6 +435,7 @@ provide('chat-on-promote-viewport', (agentId: string) => vp.promoteViewport(agen
 provide('chat-on-demote-active', () => vp.demoteActive())
 provide('chat-on-close-viewport', (agentId: string) => { vp.closeViewport(agentId); chats.drop(agentId) })
 provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
+provide('chat-message-feedback', messageFeedback)
 </script>
 
 <template>

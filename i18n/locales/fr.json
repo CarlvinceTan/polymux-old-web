@@ -13,7 +13,6 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "copy": "Copier",
-    "retry": "Réessayer",
     "close": "Fermer",
     "search": "Rechercher",
     "back": "Retour",
@@ -55,7 +54,10 @@
     "hoursAgo": "il y a {n} h",
     "daysAgo": "il y a {n} j",
     "fileMigratedToLocalTitle": "Un fichier a été déplacé sur l'appareil d'un coéquipier",
-    "fileMigratedToLocalBody": "« {path} » n'est plus disponible dans cet espace de travail."
+    "fileMigratedToLocalBody": "« {path} » n'est plus disponible dans cet espace de travail.",
+    "fileShareReceivedTitle": "Un dossier a été partagé avec votre espace de travail",
+    "fileShareReceivedBody": "« {path} » a été partagé depuis {source}.",
+    "anotherWorkspace": "un autre espace de travail"
   },
   "auth": {
     "welcomeBack": "Bon retour",
@@ -119,6 +121,10 @@
     "locationDenied": "Bloqué par le navigateur — mettre à jour dans les paramètres du navigateur",
     "locationPrompt": "Il vous sera demandé d'autoriser l'accès à la localisation",
     "locationUnsupported": "La géolocalisation n'est pas prise en charge par votre navigateur",
+    "cloakedBrowser": "Navigateur masqué",
+    "cloakedBrowserHint": "Achemine les sessions du navigateur via CloakBrowser lorsque le site est connu pour bloquer avec CAPTCHA, Cloudflare ou DataDome. Désactivé force chaque navigation via le navigateur normal.",
+    "showCursor": "Afficher le curseur",
+    "showCursorHint": "Affiche un curseur en flèche sur le viewport du navigateur en direct, à la position où l'agent pointe ou clique. Utile pour observer la souris simulée en temps réel. Désactivé par défaut.",
     "notifications": "Notifications",
     "emailNotif": "E-mail",
     "pushNotif": "Push",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "Exécuter une commande globale…",
     "goodResponse": "Bonne réponse",
     "badResponse": "Mauvaise réponse",
-    "previousRetry": "Tentative précédente",
-    "nextRetry": "Tentative suivante",
     "doubleClickToRename": "Double-cliquez pour renommer",
     "expandedBrowserPreview": "Aperçu navigateur agrandi",
     "showAsMainViewport": "Afficher {url} comme vue principale",
@@ -172,7 +176,8 @@
     "voiceListening": "Écoute…",
     "voiceUnsupported": "La saisie vocale n'est pas prise en charge par ce navigateur. Utilisez Chrome, Edge ou Safari.",
     "voicePermissionBlocked": "L'accès au microphone est bloqué. Cliquez sur l'icône à gauche dans la barre d'adresse de votre navigateur pour l'activer.",
-    "voiceError": "Échec de la saisie vocale. Veuillez réessayer."
+    "voiceError": "Échec de la saisie vocale. Veuillez réessayer.",
+    "tokenCapExceeded": "Votre message fait environ {tokens} tokens, ce qui dépasse la limite d'entrée de {cap} tokens. Veuillez le raccourcir."
   },
   "workflow": {
     "loop": "Boucle",

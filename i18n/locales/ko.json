@@ -13,7 +13,6 @@
     "delete": "삭제",
     "edit": "편집",
     "copy": "복사",
-    "retry": "다시 시도",
     "close": "닫기",
     "search": "검색",
     "back": "뒤로",
@@ -55,7 +54,10 @@
     "hoursAgo": "{n}시간 전",
     "daysAgo": "{n}일 전",
     "fileMigratedToLocalTitle": "파일이 팀원의 기기로 이동되었습니다",
-    "fileMigratedToLocalBody": "'{path}'은(는) 이 워크스페이스에서 더 이상 사용할 수 없습니다."
+    "fileMigratedToLocalBody": "'{path}'은(는) 이 워크스페이스에서 더 이상 사용할 수 없습니다.",
+    "fileShareReceivedTitle": "워크스페이스에 폴더가 공유되었습니다",
+    "fileShareReceivedBody": "'{path}'이(가) {source}에서 공유되었습니다.",
+    "anotherWorkspace": "다른 워크스페이스"
   },
   "auth": {
     "welcomeBack": "다시 오신 것을 환영합니다",
@@ -119,6 +121,10 @@
     "locationDenied": "브라우저에 의해 차단됨 — 브라우저 설정에서 업데이트하세요",
     "locationPrompt": "위치 접근 허용을 요청받게 됩니다",
     "locationUnsupported": "브라우저에서 위치 정보가 지원되지 않습니다",
+    "cloakedBrowser": "클로크 브라우저",
+    "cloakedBrowserHint": "사이트가 CAPTCHA, Cloudflare 또는 DataDome 챌린지로 차단하는 것으로 알려진 경우 CloakBrowser를 통해 브라우저 세션을 라우팅합니다. 끄면 모든 탐색이 일반 브라우저를 통해 강제 실행됩니다.",
+    "showCursor": "커서 표시",
+    "showCursorHint": "에이전트가 가리키거나 클릭하는 위치에 라이브 브라우저 뷰포트 위에 화살표 커서를 표시합니다. 시뮬레이션된 마우스를 실시간으로 관찰하는 데 유용합니다. 기본적으로 꺼짐.",
     "notifications": "알림",
     "emailNotif": "이메일",
     "pushNotif": "푸시",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "글로벌 명령어 입력…",
     "goodResponse": "좋은 답변",
     "badResponse": "나쁜 답변",
-    "previousRetry": "이전 재시도",
-    "nextRetry": "다음 재시도",
     "doubleClickToRename": "더블클릭하여 이름 변경",
     "expandedBrowserPreview": "확대된 브라우저 미리보기",
     "showAsMainViewport": "{url}을 메인 뷰포트로 표시",
@@ -172,7 +176,8 @@
     "voiceListening": "듣는 중…",
     "voiceUnsupported": "이 브라우저는 음성 입력을 지원하지 않습니다. Chrome, Edge 또는 Safari를 사용해 주세요.",
     "voicePermissionBlocked": "마이크 접근이 차단되었습니다. 브라우저 주소창 왼쪽의 아이콘을 클릭하여 활성화하세요.",
-    "voiceError": "음성 입력에 실패했습니다. 다시 시도해 주세요."
+    "voiceError": "음성 입력에 실패했습니다. 다시 시도해 주세요.",
+    "tokenCapExceeded": "메시지가 약 {tokens}개 토큰으로, 입력 한도 {cap}개 토큰을 초과합니다. 줄여 주세요."
   },
   "workflow": {
     "loop": "반복",

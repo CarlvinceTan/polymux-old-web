@@ -13,7 +13,6 @@
     "delete": "删除",
     "edit": "编辑",
     "copy": "复制",
-    "retry": "重试",
     "close": "关闭",
     "search": "搜索",
     "back": "返回",
@@ -55,7 +54,10 @@
     "hoursAgo": "{n} 小时前",
     "daysAgo": "{n} 天前",
     "fileMigratedToLocalTitle": "一个文件已移动到队友的设备",
-    "fileMigratedToLocalBody": "「{path}」在此工作区中不再可用。"
+    "fileMigratedToLocalBody": "「{path}」在此工作区中不再可用。",
+    "fileShareReceivedTitle": "已与你的工作区共享了一个文件夹",
+    "fileShareReceivedBody": "「{path}」由 {source} 共享。",
+    "anotherWorkspace": "另一个工作区"
   },
   "auth": {
     "welcomeBack": "欢迎回来",
@@ -119,6 +121,10 @@
     "locationDenied": "已被浏览器阻止 — 在浏览器设置中更新",
     "locationPrompt": "您将被要求允许位置访问",
     "locationUnsupported": "您的浏览器不支持地理定位",
+    "cloakedBrowser": "隐身浏览器",
+    "cloakedBrowserHint": "当已知某个站点会用 CAPTCHA、Cloudflare 或 DataDome 进行挑战时，将浏览器会话通过 CloakBrowser 路由。关闭后，所有导航都将强制使用普通浏览器。",
+    "showCursor": "显示光标",
+    "showCursorHint": "在实时浏览器视口上显示一个箭头光标，位于代理悬停或点击的位置。适合实时查看模拟鼠标。默认关闭。",
     "notifications": "通知",
     "emailNotif": "邮件",
     "pushNotif": "推送",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "执行全局命令…",
     "goodResponse": "好的回答",
     "badResponse": "不好的回答",
-    "previousRetry": "上一次重试",
-    "nextRetry": "下一次重试",
     "doubleClickToRename": "双击重命名",
     "expandedBrowserPreview": "展开的浏览器预览",
     "showAsMainViewport": "将 {url} 设为主视图",
@@ -172,7 +176,8 @@
     "voiceListening": "正在聆听…",
     "voiceUnsupported": "此浏览器不支持语音输入。请使用 Chrome、Edge 或 Safari。",
     "voicePermissionBlocked": "麦克风访问已被阻止。请点击浏览器地址栏左侧的图标以启用。",
-    "voiceError": "语音输入失败。请重试。"
+    "voiceError": "语音输入失败。请重试。",
+    "tokenCapExceeded": "您的消息约 {tokens} 个令牌，超过了 {cap} 个令牌的输入上限。请缩短。"
   },
   "workflow": {
     "loop": "循环",

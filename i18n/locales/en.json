@@ -13,7 +13,6 @@
     "delete": "Delete",
     "edit": "Edit",
     "copy": "Copy",
-    "retry": "Retry",
     "close": "Close",
     "search": "Search",
     "back": "Back",
@@ -55,7 +54,10 @@
     "hoursAgo": "{n}h ago",
     "daysAgo": "{n}d ago",
     "fileMigratedToLocalTitle": "A file moved to a teammate's device",
-    "fileMigratedToLocalBody": "\"{path}\" is no longer available in this workspace."
+    "fileMigratedToLocalBody": "\"{path}\" is no longer available in this workspace.",
+    "fileShareReceivedTitle": "Folder shared with your workspace",
+    "fileShareReceivedBody": "\"{path}\" was shared from {source}.",
+    "anotherWorkspace": "another workspace"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -119,6 +121,10 @@
     "locationDenied": "Blocked by browser — update in browser settings",
     "locationPrompt": "You'll be asked to allow location access",
     "locationUnsupported": "Geolocation is not supported by your browser",
+    "cloakedBrowser": "Cloaked browser",
+    "cloakedBrowserHint": "Routes browser sessions through CloakBrowser when a site is known to challenge with CAPTCHA, Cloudflare, or DataDome. Off forces every navigation through the normal browser.",
+    "showCursor": "Show cursor",
+    "showCursorHint": "Renders an arrow cursor on top of the live browser viewport at the position the agent is hovering or clicking. Useful for watching the simulated mouse in real time. Off by default.",
     "notifications": "Notifications",
     "emailNotif": "Email",
     "pushNotif": "Push",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "Issue a global command…",
     "goodResponse": "Good response",
     "badResponse": "Bad response",
-    "previousRetry": "Previous retry",
-    "nextRetry": "Next retry",
     "doubleClickToRename": "Double-click to rename",
     "expandedBrowserPreview": "Expanded browser preview",
     "showAsMainViewport": "Show {url} as main viewport",
@@ -172,7 +176,8 @@
     "voiceListening": "Listening…",
     "voiceUnsupported": "Voice input isn't supported in this browser. Try Chrome, Edge, or Safari.",
     "voicePermissionBlocked": "Microphone access is blocked. Click the icon on the left inside your browser's address bar to enable.",
-    "voiceError": "Voice input failed. Please try again."
+    "voiceError": "Voice input failed. Please try again.",
+    "tokenCapExceeded": "Your message is about {tokens} tokens, which exceeds the {cap}-token input cap. Please shorten it."
   },
   "workflow": {
     "loop": "Loop",

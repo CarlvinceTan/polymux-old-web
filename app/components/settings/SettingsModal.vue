@@ -109,6 +109,24 @@ async function saveBlogSubscription(value: boolean) {
   }
 }
 
+async function saveCloakedBrowser(value: boolean) {
+  try {
+    await useUserSettings().saveSettings({ cloaked_browser_enabled: value })
+  }
+  catch (e) {
+    console.error('[settings] Error saving cloaked browser preference:', e)
+  }
+}
+
+async function saveShowCursorOverlay(value: boolean) {
+  try {
+    await useUserSettings().saveSettings({ show_cursor_overlay: value })
+  }
+  catch (e) {
+    console.error('[settings] Error saving cursor overlay preference:', e)
+  }
+}
+
 const { currency, setCurrency, currencyOptions, detect: detectCurrency } = useCurrency()
 const geo = useGeolocation({ active: false })
 
@@ -432,6 +450,35 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       </SettingsSectionRow>
                       <p class="px-5 pb-3 text-label-md text-neutral-400">{{ locationPermissionHint }}</p>
                     </div>
+                    <div>
+                      <SettingsSectionRow>
+                        <template #icon>
+                          <UIcon name="i-heroicons-shield-check-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                        </template>
+                        <template #label>{{ t('settings.cloakedBrowser') }}</template>
+                        <template #trailing>
+                          <SettingsToggle
+                            :model-value="userSettings.cloaked_browser_enabled"
+                            :disabled="blogSubscriptionSaving"
+                            @update:model-value="saveCloakedBrowser"
+                          />
+                        </template>
+                      </SettingsSectionRow>
+                      <p class="px-5 pb-3 text-label-md text-neutral-400">{{ t('settings.cloakedBrowserHint') }}</p>
+                    </div>
+                    <!--
+                      "Display cursor" toggle (settings.showCursor / settings.showCursorHint) is
+                      intentionally hidden until midas reaches full driver parity with playwright
+                      and is the production default. Cursor positions only stream when the runtime
+                      is *browser.MidasAdapter (see polymux/cmd/api/main.go); shipping the toggle
+                      while users are still on playwright/vbrowser/extension-mode would surface
+                      a setting that does nothing for most accounts.
+
+                      Wiring is in place end-to-end: user_settings.show_cursor_overlay column,
+                      useUserSettings.show_cursor_overlay, /api/user-settings PATCH, the
+                      saveShowCursorOverlay handler in <script>, plus i18n keys in all 8 locales.
+                      Re-introduce the SettingsSectionRow + hint here once midas is the default.
+                    -->
                   </SettingsSection>
 
                   <!-- Notifications -->

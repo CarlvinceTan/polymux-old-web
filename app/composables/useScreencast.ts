@@ -1,6 +1,6 @@
 import { ref, readonly, watch, onUnmounted } from 'vue'
 import type { SessionHandle } from './auth/useSession'
-import type { PageNavigatedPayload } from './types'
+import type { CursorPositionPayload, CursorState, PageNavigatedPayload } from './types'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 
 const decoder = new TextDecoder()
@@ -13,6 +13,10 @@ const decoder = new TextDecoder()
  */
 export function useScreencast(session: SessionHandle) {
   const frameUrls = ref<Map<string, string>>(new Map())
+  // Per-agent cursor positions. Updates are forwarded as fast as midas
+  // reports them — we let Vue's reactivity coalesce paints. Cleared when an
+  // agent's screencast frame URL goes away (close / navigation reset).
+  const cursorPositions = ref<Map<string, CursorState>>(new Map())
 
   function revokeAll() {
     for (const url of frameUrls.value.values()) {
@@ -66,10 +70,26 @@ export function useScreencast(session: SessionHandle) {
   function handlePageNavigated(p: PageNavigatedPayload) {
     if (!p.agent_id) return
     freezeUntil.set(p.agent_id, Date.now() + NAVIGATION_FREEZE_MS)
+    // Drop the stale cursor on navigation — the new page might never see a
+    // cursor event before its first paint, and a stranded arrow on the old
+    // coordinates looks like a bug.
+    if (cursorPositions.value.has(p.agent_id)) {
+      const next = new Map(cursorPositions.value)
+      next.delete(p.agent_id)
+      cursorPositions.value = next
+    }
+  }
+
+  function handleCursorPosition(p: CursorPositionPayload) {
+    if (!p.agent_id || !p.vw || !p.vh) return
+    const next = new Map(cursorPositions.value)
+    next.set(p.agent_id, { x: p.x, y: p.y, vw: p.vw, vh: p.vh })
+    cursorPositions.value = next
   }
 
   session.onBinary(handleBinaryFrame)
   session.on<PageNavigatedPayload>('page_navigated', handlePageNavigated)
+  session.on<CursorPositionPayload>('cursor_position', handleCursorPosition)
 
   // Clear stale frames when the session resets (navigation to a different
   // session sets sessionState to null before the new session connects).
@@ -79,6 +99,7 @@ export function useScreencast(session: SessionHandle) {
       if (!state) {
         revokeAll()
         freezeUntil.clear()
+        cursorPositions.value = new Map()
       }
     },
   )
@@ -86,14 +107,17 @@ export function useScreencast(session: SessionHandle) {
   function cleanup() {
     session.offBinary(handleBinaryFrame)
     session.off('page_navigated', handlePageNavigated)
+    session.off('cursor_position', handleCursorPosition)
     freezeUntil.clear()
     revokeAll()
+    cursorPositions.value = new Map()
   }
 
   onUnmounted(cleanup)
 
   return {
     frameUrls: readonly(frameUrls),
+    cursorPositions: readonly(cursorPositions),
     cleanup,
   }
 }

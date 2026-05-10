@@ -190,33 +190,6 @@ export function useChat(session: SessionHandle, sessionId: string) {
     messages.value = updated
   }
 
-  function retryFromMessage(agentMessageIndex: number) {
-    let userIndex = -1
-    for (let i = agentMessageIndex - 1; i >= 0; i--) {
-      if (messages.value[i]!.role === 'user') {
-        userIndex = i
-        break
-      }
-    }
-    if (userIndex === -1) return
-
-    const userMsg = messages.value[userIndex]!
-    const content = userMsg.text
-    const attachments = userMsg.attachments
-
-    streamingBuffer = null
-    thinking.value = null
-    waitingForAgent.value = true
-
-    messages.value = [...messages.value.slice(0, userIndex), { role: 'user', text: content, attachments }]
-
-    const payload: UserMessagePayload = { content }
-    if (attachments && attachments.length > 0) {
-      payload.attachments = attachments.map(a => ({ id: a.id, name: a.name }))
-    }
-    session.send<UserMessagePayload>('user_message', payload)
-  }
-
   /**
    * provideCredential ships a vault-picker result back to the orchestrator.
    * Pass cancelled=true (with the other fields blank) to abandon the request
@@ -271,7 +244,6 @@ export function useChat(session: SessionHandle, sessionId: string) {
     waitingForAgent: readonly(waitingForAgent),
     sendMessage,
     editMessage,
-    retryFromMessage,
     provideCredential,
     stopAgent,
     requestTitle,

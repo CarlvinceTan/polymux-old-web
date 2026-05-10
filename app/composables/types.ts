@@ -115,9 +115,14 @@ export interface SessionStatePayload {
   agent_labels?: AgentLabelEntry[]
   /** True while the workflow is genuinely executing — at least one browser
    *  agent in status=running OR a scheduled run in flight. Drives the
-   *  workflow-list shimmer and the chat typing-dots so a reloaded but idle
+   *  workflow-list shimmer and the chat working-dots so a reloaded but idle
    *  workflow stops looking like it's working. */
   is_running?: boolean
+  /** Classifies what's behind is_running so the SidePanel renders the right
+   *  indicator: 'workflow' = workflow_run engine (manual run-from-dock or
+   *  scheduled cron), 'chat' = orchestrator/agent activity in service of a
+   *  chat turn. Empty/undefined when nothing is running. */
+  running_kind?: 'chat' | 'workflow' | ''
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -200,6 +205,30 @@ export interface PageNavigatedPayload {
   url: string
 }
 
+/**
+ * CursorPositionPayload streams the live CDP cursor position the browser
+ * driver (midas) is dispatching for an agent. (vw, vh) are the viewport's
+ * CSS pixel dimensions, captured server-side, so the client can render the
+ * overlay at a stable percentage regardless of how the screencast image is
+ * scaled. Frames arrive only when the user has the "Display cursor" setting
+ * enabled is irrelevant on the wire — the server always emits; the frontend
+ * decides whether to render.
+ */
+export interface CursorPositionPayload {
+  agent_id: string
+  x: number
+  y: number
+  vw: number
+  vh: number
+}
+
+export interface CursorState {
+  x: number
+  y: number
+  vw: number
+  vh: number
+}
+
 // ── Client → Server payloads ──────────────────────────────────────────────────
 
 export interface UserMessagePayload {
@@ -207,13 +236,14 @@ export interface UserMessagePayload {
   attachments?: { id: string; name: string }[]
   agent_id?: string
   /** Persisted-row id for this user message. Frontend mints a UUID ahead of
-   *  send so retries can reference it without waiting for the backend echo. */
+   *  send so other features can reference it without waiting for the backend echo. */
   message_id?: string
-  /** Set when this dispatch is a retry of an earlier prompt — the value is
-   *  the original user message id (the one the user clicked retry on). The
-   *  resulting assistant bubbles share this in their metadata so the UI can
-   *  group retry versions of the same prompt. */
-  retry_of_message_id?: string
+  /** Set on the edit-resend path: the persisted-row id of the original prompt
+   *  the user just edited. The server deletes that row + every later row from
+   *  this transcript and truncates the orchestrator's in-memory History to
+   *  match before persisting the replacement, so the LLM resumes from the
+   *  same context the user sees in the chat panel. */
+  replaces_message_id?: string
 }
 
 export interface StopAgentPayload {
@@ -261,17 +291,6 @@ export interface ChatMessage {
   /** Persisted-row id for this message (when known). User messages mint it
    *  client-side before send; assistant rows inherit it from the WS frame. */
   id?: string
-  /** For user messages: the id of the original user message this dispatch is
-   *  a retry of. Original prompts leave this undefined; retries point back to
-   *  the prompt the user clicked retry on. All retries of the same prompt
-   *  share the same `retryOf` value so they can be grouped as siblings. */
-  retryOf?: string
-  /** For agent messages: alternative full texts produced by retrying the
-   *  preceding user prompt. Populated only when more than one version exists.
-   *  retryVersions[activeRetryIndex] is the text that should be displayed. */
-  retryVersions?: string[]
-  /** Index into retryVersions; defaults to the latest (length - 1). */
-  activeRetryIndex?: number
 }
 
 /** Viewport state for a browser agent — extends the UI config with `agentId` for backend association. */

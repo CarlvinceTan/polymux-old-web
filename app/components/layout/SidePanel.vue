@@ -941,19 +941,24 @@ onUnmounted(() => {
                      over the row (preserving the existing menu interaction).
                      Two visual modes — they are NOT cosmetic variants of the
                      same state, they signal which engine is driving the row:
-                       - `running_kind === 'chat'` → spinner. The user's chat
-                         turn is in flight: orchestrator streaming, browser
-                         sub-agent the orchestrator just spawned, etc. The
-                         workflow definition may be mutating right now.
-                       - `running_kind === 'workflow'` (or unknown but
-                         is_running) → indeterminate progress arc that fills
-                         clockwise from the top. The workflow_run engine is
-                         executing the persisted node graph (dock Run or
-                         scheduled cron). The definition is read-only for
-                         the duration of the run.
-                     Picking the wrong mode misleads the user about whether
-                     their workflow is being edited or just executed; see
-                     `runningKind` in pages/workflow/[id].vue for the
+                       - `running_kind === 'workflow'` → progress arc. The
+                         workflow_run engine is executing the persisted node
+                         graph (dock Run or scheduled cron). The definition
+                         is read-only for the duration of the run.
+                       - `running_kind === 'chat'` (default for any other
+                         is_running case) → spinner. Orchestrator/agent
+                         activity in service of a chat turn — including
+                         background orchestrator-spawned agents on workflows
+                         the user is no longer focused on. The workflow
+                         definition may be mutating right now.
+                     The progress arc is the OPT-IN mode: only render it when
+                     the server (or focused-workflow override) explicitly
+                     reports 'workflow'. Defaulting unknown is_running rows
+                     to the progress arc misrepresents background chat-driven
+                     activity as scheduled/run-from-node executions, which is
+                     the bug this comment intentionally guards against. See
+                     `runningKind` in pages/workflow/[id].vue and
+                     Session.RunningKind in the Go server for the
                      authoritative mapping. -->
 
                 <span
@@ -961,12 +966,8 @@ onUnmounted(() => {
                   class="flex size-4 shrink-0 items-center justify-center"
                   aria-hidden="true"
                 >
-                  <span
-                    v-if="session.running_kind === 'chat'"
-                    class="size-3.5 animate-spin rounded-full border-2 border-gold/25 border-t-gold"
-                  />
                   <svg
-                    v-else
+                    v-if="session.running_kind === 'workflow'"
                     class="size-3.5 -rotate-90"
                     viewBox="0 0 16 16"
                   >
@@ -992,6 +993,10 @@ onUnmounted(() => {
                       stroke-dasharray="100 100"
                     />
                   </svg>
+                  <span
+                    v-else
+                    class="size-3.5 animate-spin rounded-full border-2 border-gold/25 border-t-gold"
+                  />
                 </span>
                 <svg
                   v-else

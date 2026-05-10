@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CursorState } from '~/composables/types'
+
 const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
@@ -26,6 +28,13 @@ const props = withDefaults(defineProps<{
   frameUrl?: string
   /** When true, no-frame state shows a centered spinner (WS reconnecting) instead of the skeleton. */
   reconnecting?: boolean
+  /** Latest cursor position the driver reported for this agent. Rendered as
+   *  an arrow overlay on top of the screencast image when showCursor is on. */
+  cursor?: CursorState
+  /** Render the cursor overlay. Gated by the user's "Display cursor" setting
+   *  upstream — Viewport itself just paints when the flag is on and a
+   *  position is available. */
+  showCursor?: boolean
 }>(), {
   isLoading: true,
   url: 'localhost:3001/instance_alpha/preview/session/very-long-url-to-demonstrate-truncation',
@@ -38,6 +47,25 @@ const props = withDefaults(defineProps<{
   showActionText: true,
   thumbnail: false,
   reconnecting: false,
+  showCursor: false,
+})
+
+// Cursor overlay coordinates as percentages of the image's intrinsic
+// dimensions. The viewport panel is locked at 16:9 and the <img> is
+// object-contain, so percentage-of-vw / percentage-of-vh maps directly to
+// percentage-of-element regardless of how the dock has scaled it. We clamp
+// to [0, 100] so a brief out-of-range coord (rare, during a viewport-resize
+// negotiation) doesn't escape the viewport box.
+const cursorStyle = computed(() => {
+  if (!props.showCursor || !props.cursor || !props.frameUrl) return null
+  const { x, y, vw, vh } = props.cursor
+  if (!vw || !vh) return null
+  const left = Math.max(0, Math.min(100, (x / vw) * 100))
+  const top = Math.max(0, Math.min(100, (y / vh) * 100))
+  return {
+    left: `${left}%`,
+    top: `${top}%`,
+  }
 })
 
 function redClick(e: Event) {
@@ -203,6 +231,37 @@ function greenClick(e: Event) {
             alt=""
             class="absolute inset-0 h-full w-full object-contain"
           >
+          <!-- Driver cursor overlay. Anchored at the tip of the arrow (the
+               default macOS-style cursor's hotspot is the top-left corner)
+               via translate(-1px, -1px) — keeps the arrow tip on the
+               reported (x, y) instead of the SVG's bounding box origin. The
+               drop-shadow keeps the arrow visible against bright page
+               backgrounds. pointer-events-none so it never eats clicks
+               targeted at modal traffic-light buttons that overlap the
+               preview area. -->
+          <div
+            v-if="cursorStyle"
+            class="pointer-events-none absolute z-10 -translate-x-px -translate-y-px transition-[left,top] duration-75 ease-out"
+            :style="cursorStyle"
+            aria-hidden="true"
+          >
+            <svg
+              :width="thumbnail ? 10 : 18"
+              :height="thumbnail ? 10 : 18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style="filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));"
+            >
+              <path
+                d="M5 3 L5 19 L9.5 14.5 L12.5 21 L15 19.7 L12 13.5 L18 13.5 Z"
+                fill="white"
+                stroke="black"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
           <slot />
         </div>
       </div>

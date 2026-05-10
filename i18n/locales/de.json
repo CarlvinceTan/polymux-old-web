@@ -13,7 +13,6 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "copy": "Kopieren",
-    "retry": "Erneut versuchen",
     "close": "Schließen",
     "search": "Suchen",
     "back": "Zurück",
@@ -55,7 +54,10 @@
     "hoursAgo": "vor {n} Std.",
     "daysAgo": "vor {n} T.",
     "fileMigratedToLocalTitle": "Eine Datei wurde auf das Gerät einer Kollegin/eines Kollegen verschoben",
-    "fileMigratedToLocalBody": "„{path}\" ist in diesem Workspace nicht mehr verfügbar."
+    "fileMigratedToLocalBody": "„{path}\" ist in diesem Workspace nicht mehr verfügbar.",
+    "fileShareReceivedTitle": "Ein Ordner wurde mit deinem Workspace geteilt",
+    "fileShareReceivedBody": "„{path}\" wurde von {source} geteilt.",
+    "anotherWorkspace": "einem anderen Workspace"
   },
   "auth": {
     "welcomeBack": "Willkommen zurück",
@@ -119,6 +121,10 @@
     "locationDenied": "Vom Browser blockiert — in den Browsereinstellungen aktualisieren",
     "locationPrompt": "Sie werden aufgefordert, den Standortzugriff zu erlauben",
     "locationUnsupported": "Ihr Browser unterstützt keine Geolokalisierung",
+    "cloakedBrowser": "Getarnter Browser",
+    "cloakedBrowserHint": "Leitet Browsersitzungen über CloakBrowser, wenn eine Seite bekanntlich mit CAPTCHA, Cloudflare oder DataDome blockiert. Aus erzwingt jede Navigation über den normalen Browser.",
+    "showCursor": "Cursor anzeigen",
+    "showCursorHint": "Zeigt einen Pfeilcursor über dem Live-Browser-Viewport an der Position, auf die der Agent zeigt oder klickt. Hilfreich, um die simulierte Maus in Echtzeit zu beobachten. Standardmäßig aus.",
     "notifications": "Benachrichtigungen",
     "emailNotif": "E-Mail",
     "pushNotif": "Push",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "Globalen Befehl ausführen…",
     "goodResponse": "Gute Antwort",
     "badResponse": "Schlechte Antwort",
-    "previousRetry": "Vorheriger Wiederholungsversuch",
-    "nextRetry": "Nächster Wiederholungsversuch",
     "doubleClickToRename": "Doppelklick zum Umbenennen",
     "expandedBrowserPreview": "Erweiterte Browservorschau",
     "showAsMainViewport": "{url} als Hauptansicht anzeigen",
@@ -172,7 +176,8 @@
     "voiceListening": "Höre zu…",
     "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Verwende Chrome, Edge oder Safari.",
     "voicePermissionBlocked": "Der Mikrofonzugriff ist blockiert. Klicke auf das Symbol links in der Adressleiste deines Browsers, um ihn zu aktivieren.",
-    "voiceError": "Spracheingabe fehlgeschlagen. Bitte erneut versuchen."
+    "voiceError": "Spracheingabe fehlgeschlagen. Bitte erneut versuchen.",
+    "tokenCapExceeded": "Deine Nachricht hat etwa {tokens} Tokens und überschreitet das Eingabelimit von {cap} Tokens. Bitte kürze sie."
   },
   "workflow": {
     "loop": "Schleife",

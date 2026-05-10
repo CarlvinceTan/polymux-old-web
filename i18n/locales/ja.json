@@ -13,7 +13,6 @@
     "delete": "削除",
     "edit": "編集",
     "copy": "コピー",
-    "retry": "再試行",
     "close": "閉じる",
     "search": "検索",
     "back": "戻る",
@@ -55,7 +54,10 @@
     "hoursAgo": "{n}時間前",
     "daysAgo": "{n}日前",
     "fileMigratedToLocalTitle": "ファイルが他のメンバーのデバイスへ移動されました",
-    "fileMigratedToLocalBody": "「{path}」はこのワークスペースでは利用できなくなりました。"
+    "fileMigratedToLocalBody": "「{path}」はこのワークスペースでは利用できなくなりました。",
+    "fileShareReceivedTitle": "あなたのワークスペースにフォルダーが共有されました",
+    "fileShareReceivedBody": "「{path}」が{source}から共有されました。",
+    "anotherWorkspace": "別のワークスペース"
   },
   "auth": {
     "welcomeBack": "おかえりなさい",
@@ -119,6 +121,10 @@
     "locationDenied": "ブラウザによりブロックされています — ブラウザ設定で更新してください",
     "locationPrompt": "位置情報へのアクセスを許可するよう求められます",
     "locationUnsupported": "お使いのブラウザは位置情報をサポートしていません",
+    "cloakedBrowser": "クロークブラウザ",
+    "cloakedBrowserHint": "サイトが CAPTCHA、Cloudflare、または DataDome でチャレンジを行うことが既知の場合、CloakBrowser 経由でブラウザセッションをルーティングします。オフにすると、すべてのナビゲーションを通常のブラウザで強制実行します。",
+    "showCursor": "カーソルを表示",
+    "showCursorHint": "エージェントがホバー / クリックしている位置に、ライブブラウザビューポート上に矢印カーソルを表示します。シミュレートされたマウスをリアルタイムで観察するのに便利です。デフォルトでオフ。",
     "notifications": "通知",
     "emailNotif": "メール",
     "pushNotif": "プッシュ",
@@ -156,8 +162,6 @@
     "globalCommandPlaceholder": "グローバルコマンドを実行…",
     "goodResponse": "良い回答",
     "badResponse": "悪い回答",
-    "previousRetry": "前の再試行",
-    "nextRetry": "次の再試行",
     "doubleClickToRename": "ダブルクリックで名前を変更",
     "expandedBrowserPreview": "拡大ブラウザプレビュー",
     "showAsMainViewport": "{url}をメインビューに表示",
@@ -172,7 +176,8 @@
     "voiceListening": "聞き取り中…",
     "voiceUnsupported": "このブラウザは音声入力に対応していません。Chrome、Edge、または Safari をご利用ください。",
     "voicePermissionBlocked": "マイクへのアクセスがブロックされています。ブラウザのアドレスバー左側のアイコンをクリックして有効にしてください。",
-    "voiceError": "音声入力に失敗しました。もう一度お試しください。"
+    "voiceError": "音声入力に失敗しました。もう一度お試しください。",
+    "tokenCapExceeded": "メッセージは約 {tokens} トークンで、入力上限の {cap} トークンを超えています。短くしてください。"
   },
   "workflow": {
     "loop": "ループ",

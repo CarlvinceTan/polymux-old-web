@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ViewportState } from '~/composables/types'
+import type { CursorState, ViewportState } from '~/composables/types'
 
 defineOptions({ inheritAttrs: false })
 
@@ -8,6 +8,8 @@ const { t } = useI18n()
 const props = defineProps<{
   viewportList: ViewportState[]
   frameUrls?: Map<string, string>
+  cursorPositions?: Map<string, CursorState>
+  showCursor?: boolean
   browserAgentCap?: number
   activeAgentId: string | null
   reconnecting?: boolean
@@ -214,6 +216,8 @@ function activeViewportBinds(vp: ViewportState) {
     ...vp,
     ...activeTrafficHandlers(),
     frameUrl: props.frameUrls?.get(vp.agentId),
+    cursor: props.cursorPositions?.get(vp.agentId),
+    showCursor: props.showCursor,
     reconnecting: props.reconnecting,
   }
 }
@@ -324,7 +328,7 @@ function activeViewportBinds(vp: ViewportState) {
           >
             <div class="min-w-0 w-full max-w-full p-2">
               <Viewport
-                v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId) }"
+                v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
                 thumbnail
                 :show-action-text="false"
                 :show-bar="false"
@@ -411,7 +415,7 @@ function activeViewportBinds(vp: ViewportState) {
           @keydown.space.prevent="onGalleryPick(vp.agentId)"
         >
           <Viewport
-            v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId) }"
+            v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
             :thumbnail="compactInGallery"
             :show-bar="showBarInGallery"
             :show-action-text="!compactInGallery"
@@ -451,6 +455,8 @@ function activeViewportBinds(vp: ViewportState) {
     v-if="expandedViewport"
     :viewport="expandedViewport"
     :frame-url="expandedFrameUrl"
+    :cursor="cursorPositions?.get(expandedViewport.agentId)"
+    :show-cursor="showCursor"
     @close="expandedAgentId = null"
   />
 </template>
