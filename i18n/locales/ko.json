@@ -182,6 +182,7 @@
     "parallel": "병렬",
     "untitledNode": "제목 없는 단계",
     "untitledWorkflow": "제목 없는 워크플로",
+    "listEmptyPlaceholder": "시작하려면 사이드바에서 워크플로를 열어주세요.",
     "startNode": "시작",
     "endNode": "종료",
     "save": "저장",
@@ -452,6 +453,21 @@
     "roleOwner": "소유자",
     "roleAdmin": "관리자"
   },
+  "workspaceCreate": {
+    "title": "작업공간 만들기",
+    "subtitle": "팀을 위한 새 작업공간을 설정하세요.",
+    "billingNote": "새 작업공간은 {plan} 플랜으로 시작합니다. 플랜과 한도는 작업공간마다 별도로 적용됩니다 — 가격 페이지에서 각각 개별적으로 업그레이드할 수 있습니다.",
+    "freePlanName": "Free",
+    "nameLabel": "작업공간 이름",
+    "namePlaceholder": "예: 우리 팀",
+    "invitesLabel": "사람 초대",
+    "invitesHint": "선택 사항 — 나중에 언제든지 추가할 수 있습니다.",
+    "emailPlaceholder": "email{'@'}example.com",
+    "addAnother": "더 추가",
+    "creating": "생성 중…",
+    "submit": "작업공간 만들기",
+    "errorFallback": "작업공간을 만들지 못했습니다. 다시 시도해 주세요."
+  },
   "workspaceMenu": {
     "memberCountOne": "멤버 1명",
     "memberCountMany": "멤버 {n}명",
@@ -693,6 +709,25 @@
     "tabs": {
       "files": "파일",
       "settings": "설정"
+    },
+    "toolbar": {
+      "back": "뒤로",
+      "iconView": "아이콘 보기",
+      "listView": "목록 보기",
+      "newFolder": "새 폴더",
+      "upload": "업로드",
+      "filter": "필터",
+      "filterFiles": "파일 필터",
+      "search": "검색",
+      "searchFiles": "파일 검색",
+      "searchPlaceholder": "검색...",
+      "selectedCount": "{n}개 선택됨"
+    },
+    "filters": {
+      "all": "모든 파일",
+      "images": "이미지",
+      "documents": "문서",
+      "videos": "동영상"
     }
   },
   "contact": {
@@ -702,9 +737,95 @@
     "contentField": "내용",
     "titlePlaceholder": "무엇에 관한 것인가요?",
     "contentPlaceholder": "자세히 알려주세요…",
+    "emailPlaceholder": "your{'@'}email.com",
+    "send": "보내기",
     "sending": "전송 중…",
     "success": "메시지가 전송되었습니다. 곧 답변드리겠습니다!",
-    "error": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
+    "error": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+    "errorTitle": "제목을 입력해 주세요.",
+    "errorEmail": "유효한 이메일 주소를 입력해 주세요.",
+    "errorContent": "메시지를 입력해 주세요.",
+    "enterprisePrefill": "엔터프라이즈 플랜에 관심"
+  },
+  "forum": {
+    "pageTitle": "포럼",
+    "newPageTitle": "토론 시작하기",
+    "heading": "Polymux 포럼",
+    "subtitle": "질문하고, 워크플로우를 공유하고, Polymux로 만드는 다른 팀과 연결하세요.",
+    "startDiscussion": "토론 시작하기",
+    "readGuidelines": "가이드라인 읽기",
+    "searchPlaceholder": "토론 검색...",
+    "browseCategoriesAria": "카테고리 탐색",
+    "browseByCategoryHeading": "카테고리별 탐색",
+    "resetFilters": "필터 재설정",
+    "allPosts": "모든 게시글",
+    "sort": {
+      "latest": "최신",
+      "top": "인기",
+      "unanswered": "미답변"
+    },
+    "loading": "불러오는 중…",
+    "unableToLoad": "토론을 불러올 수 없습니다",
+    "discussionCountOne": "토론 1개",
+    "discussionCountMany": "토론 {n}개",
+    "loadingDiscussions": "토론을 불러오는 중…",
+    "couldntLoadForum": "포럼을 불러올 수 없습니다. 데이터베이스가 아직 준비 중일 수 있습니다.",
+    "retry": "다시 시도",
+    "pinned": "고정됨",
+    "answered": "답변됨",
+    "startedBy": "{name}님이 시작",
+    "viewCountOne": "조회 1회",
+    "viewCountMany": "조회 {n}회",
+    "replyCountOne": "답글 1개",
+    "replyCountMany": "답글 {n}개",
+    "noMatchingDiscussions": "필터와 일치하는 토론이 없습니다.",
+    "noDiscussions": "아직 토론이 없습니다. 첫 번째로 시작해 보세요.",
+    "clearFilters": "필터 지우기",
+    "guidelinesEyebrow": "새로 오셨나요?",
+    "beforeYouPost": "게시하기 전에",
+    "guidelinesSubtitle": "몇 분의 맥락 설명이 커뮤니티에서 더 빠르고 친절한 답변을 가져옵니다.",
+    "guideline1Title": "게시하기 전에 검색하세요",
+    "guideline1Desc": "이미 누군가가 같은 문제를 만났을 가능성이 있습니다. 빠른 검색으로 몇 초 만에 답을 찾을 수 있습니다.",
+    "guideline2Title": "올바른 카테고리를 선택하세요",
+    "guideline2Desc": "정확한 카테고리는 가장 도움이 될 만한 사람들에게 게시글을 노출합니다. 모더레이터는 잘못된 카테고리의 글을 옮깁니다.",
+    "guideline3Title": "친절하고 구체적으로",
+    "guideline3Desc": "시도한 것, 예상한 것, 실제로 일어난 일을 설명하세요. 스크린샷과 코드 스니펫이 큰 도움이 됩니다.",
+    "backToForum": "포럼으로 돌아가기",
+    "loadingDiscussion": "토론을 불러오는 중…",
+    "couldNotLoadDiscussion": "이 토론을 불러올 수 없습니다. 삭제되었을 수 있습니다.",
+    "returnToForum": "포럼으로 돌아가기",
+    "repliesAria": "답글",
+    "noReplies": "아직 답글이 없습니다. 첫 번째로 답글을 남겨보세요.",
+    "yourReply": "내 답글",
+    "replyPlaceholder": "대화에 추가…",
+    "replyCounter": "친절하게 · {count}/20,000",
+    "posting": "게시 중…",
+    "postReply": "답글 게시",
+    "replyTooLong": "답글이 너무 깁니다 (최대 20,000자).",
+    "failedToPost": "답글을 게시하지 못했습니다.",
+    "signInToJoin": "로그인하여 대화에 참여하세요.",
+    "createAccount": "계정 만들기",
+    "newSubtitle": "질문을 공유하거나, 만든 것을 보여주거나, Polymux를 사용하는 다른 팀과 대화를 시작하세요.",
+    "categoryLegend": "카테고리",
+    "titleLabel": "제목",
+    "titlePlaceholder": "무엇에 관한 것인가요?",
+    "titleHint": "{n}/200 · 최소 3자",
+    "bodyLabel": "내용",
+    "bodyPlaceholder": "시도한 것, 예상한 것, 실제로 일어난 일을 설명하세요. 스니펫과 스크린샷이 큰 도움이 됩니다.",
+    "bodyHint": "{n}/20,000 · 최소 10자",
+    "postingAs": "{who}(으)로 게시 중",
+    "you": "본인",
+    "publishing": "게시 중…",
+    "publish": "토론 게시",
+    "newErrorGeneric": "문제가 발생했습니다. 다시 시도해 주세요.",
+    "categories": {
+      "announcements": { "label": "공지사항", "description": "제품 업데이트 및 커뮤니티 소식" },
+      "help": { "label": "도움말 & 지원", "description": "질문하고 문제 해결" },
+      "show-and-tell": { "label": "보여주기 & 들려주기", "description": "Polymux로 만든 것을 공유" },
+      "feedback": { "label": "피드백 & 아이디어", "description": "다음에 만들 것을 함께 정해요" },
+      "workflows": { "label": "워크플로우", "description": "블루프린트, 템플릿, 레시피" },
+      "agents": { "label": "에이전트", "description": "프롬프트, 튜닝, 실행 비교" }
+    }
   },
   "artifacts": {
     "empty": "아직 아티팩트가 없습니다. 여기서 생성된 파일은 세션이 끝나면 사라지므로 보관할 파일은 저장하세요.",
@@ -1035,6 +1156,22 @@
       }
     }
   },
+  "credentialRequest": {
+    "heading": "에이전트가 {site}에 로그인해야 합니다",
+    "useSavedLabel": "저장된 자격 증명 사용",
+    "lastUsed": "마지막 사용 {date} · {count}회",
+    "working": "처리 중…",
+    "useThisCredential": "이 자격 증명 사용",
+    "orSaveNew": "또는 새로 저장",
+    "usernameLabel": "사용자 이름 또는 이메일",
+    "usernamePlaceholder": "you{'@'}example.com",
+    "passwordLabel": "비밀번호",
+    "passwordPlaceholder": "작업공간 금고에 저장됩니다",
+    "saving": "저장 중…",
+    "saveAndUse": "저장하고 사용",
+    "errorReveal": "저장된 비밀번호를 가져올 수 없습니다.",
+    "errorSave": "자격 증명을 금고에 저장할 수 없습니다."
+  },
   "schedule": {
     "title": "스케줄",
     "subtitle": "‘{workflow}’을(를) 반복 스케줄로 자동 실행합니다",
@@ -1149,12 +1286,101 @@
     "multiTitleSuffix": "{n}개 항목"
   },
   "pricing": {
+    "billingPeriod": "결제 주기",
     "storage": {
       "total": "워크스페이스 저장 용량",
       "file": "파일당 크기 한도",
       "pullFolder": "폴더 풀(pull) 한도",
       "artifacts": "아티팩트 저장 용량"
     }
+  },
+  "install": {
+    "versionBadge": "Polymux 데스크톱 · v{version}",
+    "heading": "Polymux 설치",
+    "subtitle": "AI 에이전트를 위한 조용하고 네이티브한 공간. macOS, Windows, Linux에서 동작하는 빠르고 집중된 단일 앱.",
+    "downloadFallback": "Polymux 다운로드",
+    "detectedNote": "{platform} 감지됨 · {meta}",
+    "chooseFallback": "아래에서 플랫폼을 선택하세요",
+    "otherPlatformLink": "{platform}이 아닌가요? 모든 다운로드 보기",
+    "yourComputer": "사용 중인 컴퓨터",
+    "reassurance": {
+      "signed": "서명 및 공증됨",
+      "updates": "자동 업데이트",
+      "free": "무료 다운로드",
+      "private": "기본적으로 비공개"
+    },
+    "featureLabel": "기능",
+    "manual": {
+      "eyebrow": "수동 설치",
+      "heading": "플랫폼 선택",
+      "subtitle": "모든 빌드는 서명 및 공증되었으며 동일한 기능을 제공합니다. 환경에 맞는 변형을 다운로드하세요."
+    },
+    "yourSystem": "사용 중인 시스템",
+    "otherOptions": "다른 옵션",
+    "platforms": {
+      "macos": { "tagline": "유니버설 빌드", "requirement": "macOS 12 Monterey 이상", "downloadLabel": "macOS용 다운로드" },
+      "windows": { "tagline": "x64 및 ARM64", "requirement": "Windows 10 이상", "downloadLabel": "Windows용 다운로드" },
+      "linux": { "tagline": "주요 배포판", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Linux용 다운로드" }
+    },
+    "mobile": {
+      "eyebrow": "준비 중",
+      "heading": "모바일 앱",
+      "subtitle": "네이티브 컴패니언 앱을 개발 중입니다. 에이전트를 확인하고, 작업을 승인하며, 어디서나 워크플로우와 가까이 있을 수 있습니다.",
+      "comingSoon": "곧 출시",
+      "polymuxFor": "{name}용 Polymux",
+      "getNotified": "출시 알림 받기",
+      "ios": "iPhone과 iPad에 Polymux를. 이동 중에도 세션을 따라가고 에이전트 작업을 검토하세요.",
+      "android": "워크플로우를 모니터링하고 어디서나 에이전트 동작을 승인할 수 있는 네이티브 Android 컴패니언."
+    },
+    "help": {
+      "heading": "설치에 도움이 필요하신가요?",
+      "description": "각 플랫폼에 대한 검증, 업데이트, 문제 해결을 문서에서 안내합니다.",
+      "readGuide": "설치 가이드 읽기",
+      "contactSupport": "지원팀에 문의"
+    }
+  },
+  "legalDocs": {
+    "loadError": "이 문서를 불러올 수 없습니다. 나중에 다시 시도해 주세요.",
+    "documentation": {
+      "title": "문서",
+      "subtitle": "Polymux로 빌드하기 위한 가이드 및 개념."
+    },
+    "privacy": {
+      "title": "개인정보 처리방침",
+      "subtitle": "Polymux 사용 시 정보를 수집, 사용, 보호하는 방법."
+    },
+    "terms": {
+      "title": "서비스 약관",
+      "subtitle": "Polymux 제품 및 서비스 이용에 대한 규칙과 조건."
+    },
+    "about": {
+      "title": "회사 소개",
+      "subtitle": "Polymux가 구축하고 있는 것과 우리가 서비스하는 대상."
+    },
+    "apiReference": {
+      "title": "API 참조",
+      "subtitle": "개발자를 위한 HTTP 엔드포인트, 인증 및 통합 세부 정보."
+    },
+    "cookies": {
+      "title": "쿠키 정책",
+      "subtitle": "웹사이트와 서비스에서 쿠키 및 유사 기술을 사용하는 방법."
+    }
+  },
+  "bugReport": {
+    "heading": "버그 신고",
+    "titleLabel": "제목",
+    "titlePlaceholder": "문제에 대한 간단한 설명",
+    "emailPlaceholder": "your{'@'}email.com",
+    "messageLabel": "메시지",
+    "messagePlaceholder": "재현 단계, 예상한 동작, 실제로 발생한 일…",
+    "errorTitle": "제목을 입력해 주세요.",
+    "errorEmail": "유효한 이메일 주소를 입력해 주세요.",
+    "errorMessage": "버그에 대해 설명해 주세요.",
+    "errorGeneric": "문제가 발생했습니다. 다시 시도해 주세요.",
+    "success": "버그 신고가 전송되었습니다 — 감사합니다!",
+    "sending": "전송 중…",
+    "sent": "전송됨!",
+    "submit": "보고서 제출"
   },
   "betaAgreement": {
     "badge": "베타",
@@ -1177,6 +1403,20 @@
   "accountSuspendedTitle": "계정 정지됨",
   "accountSuspendedBody": "계정 접근이 일시적으로 정지되었습니다. 오류라고 생각되시면 고객지원에 문의해 주세요.",
   "accountSuspendedSignOut": "로그아웃",
+  "serverUnavailableTitle": "서버를 사용할 수 없음",
+  "serverUnavailableBody": "서버에 연결할 수 없습니다. 점검 중이거나 네트워크 문제일 수 있습니다.",
+  "unsubscribe": {
+    "processing": "처리 중…",
+    "successTitle": "구독을 해제했습니다",
+    "successBody": "{email}로 더 이상 Polymux 블로그 뉴스레터 이메일을 받지 않습니다.",
+    "resubscribe": "다시 구독",
+    "resubscribing": "다시 구독 중…",
+    "home": "홈으로 돌아가기",
+    "invalidTitle": "링크가 만료되었거나 유효하지 않습니다",
+    "invalidBody": "이 구독 해제 링크는 더 이상 유효하지 않습니다. 여전히 이메일을 받고 있다면 지원팀에 문의하세요.",
+    "errorTitle": "문제가 발생했습니다",
+    "errorBody": "지금 구독 해제를 처리할 수 없습니다. 잠시 후 다시 시도해 주세요."
+  },
   "onboarding": {
     "skip": "건너뛰기",
     "back": "뒤로",

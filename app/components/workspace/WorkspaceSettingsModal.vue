@@ -463,7 +463,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
             role="dialog"
             aria-modal="true"
-            aria-label="Workspace settings"
+            :aria-label="t('workspaceMenu.modalSubtitle')"
             @click.stop
           >
             <!-- Header -->

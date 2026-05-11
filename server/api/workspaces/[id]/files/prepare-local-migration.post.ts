@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = resolveWorkspaceId(event)
-  const body = await readBody<Body>(event).catch(() => ({}))
+  const body = await readBody<Body>(event).catch(() => ({} as Body))
   const source: 'google-drive' | 'local'
     = body?.source === 'local' ? 'local' : 'google-drive'
   const batchSize = clamp(Number(body?.batch_size) || DEFAULT_BATCH, 1, MAX_BATCH)

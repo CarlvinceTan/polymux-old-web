@@ -121,3 +121,5 @@ export function useScreencast(session: SessionHandle) {
     cleanup,
   }
 }
+
+export type ScreencastHandle = ReturnType<typeof useScreencast>

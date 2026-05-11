@@ -385,10 +385,10 @@ const availableLocales = computed(() =>
 )
 
 const helpMenuItems = computed(() => [
-  { key: 'terms', label: t('nav.termsAndConditions') },
-  { key: 'privacy', label: t('nav.privacyPolicy') },
-  { key: 'cookies', label: t('nav.cookiesPolicy') },
-  { key: 'bug', label: t('nav.reportBug') },
+  { key: 'terms', label: t('common.termsAndConditions') },
+  { key: 'privacy', label: t('common.privacyPolicy') },
+  { key: 'cookies', label: t('common.cookiesPolicy') },
+  { key: 'bug', label: t('common.reportBug') },
 ])
 
 function isActive(path: string) {
@@ -440,7 +440,7 @@ function openWorkflow(id: string) {
   navigateTo(target?.is_draft ? `/workflow/${DRAFT_WORKFLOW_ID}` : `/workflow/${id}`)
 }
 
-const activeDropdownIndex = ref<number | null>(null)
+const activeDropdownIndex = ref<string | null>(null)
 const hoveredWorkflowId = ref<string | null>(null)
 
 // Workspace dropdown state

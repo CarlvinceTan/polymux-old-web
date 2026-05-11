@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = resolveWorkspaceId(event)
-  const body = await readBody<Body>(event).catch(() => ({}))
+  const body = await readBody<Body>(event).catch(() => ({} as Body))
   const source = body?.source === 'local' ? 'local' : 'google-drive'
 
   const supabase = await serverSupabaseClient(event)
@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
     if (m.user_id === user.sub) continue
     affected.set(m.user_id, {
       user_id: m.user_id,
-      display_name: m.display_name ?? (m.email ? m.email.split('@')[0] : ''),
+      display_name: m.display_name ?? (m.email?.split('@')[0] ?? ''),
       email: m.email ?? '',
     })
   }
@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
       if (affected.has(m.user_id)) continue
       affected.set(m.user_id, {
         user_id: m.user_id,
-        display_name: m.display_name ?? (m.email ? m.email.split('@')[0] : ''),
+        display_name: m.display_name ?? (m.email?.split('@')[0] ?? ''),
         email: m.email ?? '',
       })
     }

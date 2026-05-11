@@ -1,10 +1,10 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
 import {
-  assertSessionMember,
+  assertWorkflowMember,
   resolveArtifactId,
-  resolveSessionId,
-} from '~~/server/utils/sessionAccess'
+  resolveWorkflowId,
+} from '~~/server/utils/workflowAccess'
 import {
   basenameOf,
   normalizePath,
@@ -13,7 +13,7 @@ import {
 import { resolveDriveAccess } from '~~/server/utils/driveTokens'
 import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 
-// POST /api/sessions/[id]/artifacts/[aid]/promote
+// POST /api/workflows/[id]/artifacts/[aid]/promote
 // Body: { path }
 // Returns: { storage_path, backend, file_id }
 //
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Not authenticated.' })
   }
 
-  const sessionId = resolveSessionId(event)
+  const workflowId = resolveWorkflowId(event)
   const artifactId = resolveArtifactId(event)
   const body = await readBody<Body>(event)
   const targetPath = normalizePath(body.path)
@@ -45,14 +45,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = await serverSupabaseClient(event)
-  const { workspaceId } = await assertSessionMember(supabase, sessionId, user.sub)
+  const { workspaceId } = await assertWorkflowMember(supabase, workflowId, user.sub)
   await requireWrite(supabase, workspaceId, targetPath, user.sub)
 
   const { data: artifact, error: fetchErr } = await supabase
     .from('artifacts')
     .select('id, name, mime_type, size_bytes, storage_path, content')
     .eq('id', artifactId)
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
     .single()
   if (fetchErr || !artifact) {
     throw createError({ statusCode: 404, statusMessage: 'Artifact not found.' })

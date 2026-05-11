@@ -1,11 +1,13 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~~/app/types/database.types'
 import { decryptToken, encryptToken } from '~~/server/utils/tokenCrypto'
 import { refreshAccessToken } from '~~/server/utils/googleOAuth'
 
-// Use a structural type to match what `serverSupabaseServiceRole(event)`
-// returns (a fully-typed SupabaseClient<Database, ...>) without re-importing
-// the generated Database type — keeps this util independent of the bindings
-// generation cadence.
-type AdminClient = ReturnType<typeof import('#supabase/server').serverSupabaseServiceRole>
+// ReturnType<typeof serverSupabaseServiceRole> resolves the generic to its
+// default `unknown` rather than `Database`, leaving callers stuck with a
+// `SupabaseClient<unknown, never, never, never, never>` shape. Re-typing
+// directly against Database fixes the call-site mismatch.
+type AdminClient = SupabaseClient<Database>
 
 // Decrypt + auto-refresh helper for the per-workspace Google Drive integration.
 //

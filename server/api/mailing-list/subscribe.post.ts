@@ -32,15 +32,28 @@ export default defineEventHandler(async (event) => {
   const supabase = await serverSupabaseClient(event)
   const config = useRuntimeConfig()
 
-  // Check if email already exists in mailing list
+  // Check if email already exists in mailing list. `.single()` errors when
+  // no row is found, but we ignore it on purpose — the destructure pulls
+  // only `data` and the not-found case correctly falls through to insert.
   const { data: existing } = await supabase
     .from('mailing_list')
-    .select('id, is_verified')
+    .select('id, is_verified, unsubscribed_at, unsubscribe_token')
     .eq('email', email)
     .single()
 
   if (existing) {
-    // Already subscribed - silently succeed (idempotent)
+    // Reactivate any previously-unsubscribed row so /unsubscribed's
+    // "Re-subscribe" button (and a returning visitor on the marketing form)
+    // can opt back in. Idempotent for currently-active rows.
+    if (existing.unsubscribed_at) {
+      const { error: reactivateErr } = await supabase
+        .from('mailing_list')
+        .update({ unsubscribed_at: null })
+        .eq('id', existing.id)
+      if (reactivateErr) {
+        console.error('[mailing-list/subscribe] reactivate failed', reactivateErr)
+      }
+    }
     return {
       status: 'success',
       message: 'Check your email to verify your subscription',
@@ -66,7 +79,7 @@ export default defineEventHandler(async (event) => {
     .select()
     .single()
 
-  if (insertError) {
+  if (insertError || !newSubscriber) {
     console.error('[mailing-list/subscribe] insert error:', insertError)
     throw createError({
       statusCode: 500,
@@ -78,11 +91,21 @@ export default defineEventHandler(async (event) => {
   try {
     const resend = new Resend(config.resendApiKey)
     const verificationLink = `${config.public.appUrl}/verify-email?token=${verificationToken}`
+    // Visible footer link goes through the Nuxt page (which POSTs to the
+    // API on mount). The List-Unsubscribe header points straight at the
+    // API endpoint — mailbox providers do RFC 8058 one-click via POST and
+    // don't render frontend pages from inbox-level unsubscribe buttons.
+    const unsubscribePage = `${config.public.appUrl}/unsubscribed?token=${newSubscriber.unsubscribe_token}`
+    const unsubscribeApi = `${config.public.appUrl}/api/mailing-list/unsubscribe?token=${newSubscriber.unsubscribe_token}`
 
     await resend.emails.send({
       from: 'Polymux <onboarding@resend.dev>',
       to: email,
       subject: 'Verify your subscription to the Polymux Blog',
+      headers: {
+        'List-Unsubscribe': `<${unsubscribeApi}>, <mailto:unsubscribe@polymux.io?subject=unsubscribe-${newSubscriber.unsubscribe_token}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Verify your subscription</h2>
@@ -95,6 +118,11 @@ export default defineEventHandler(async (event) => {
           <p style="color: #666; font-size: 14px;">Or copy and paste this link:</p>
           <p style="color: #0066cc; font-size: 12px; word-break: break-all;">${verificationLink}</p>
           <p style="color: #666; font-size: 12px; margin-top: 30px;">This link expires in 7 days.</p>
+          <hr style="margin-top: 32px; border: 0; border-top: 1px solid #e5e5e5;">
+          <p style="color: #999; font-size: 11px; margin-top: 16px;">
+            You're receiving this because you subscribed to the Polymux Blog.
+            <a href="${unsubscribePage}" style="color: #666; text-decoration: underline;">Unsubscribe</a>.
+          </p>
         </div>
       `,
     })

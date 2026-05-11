@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDate, today, getLocalTimeZone } from '@internationalized/date'
+import { CalendarDate, type DateValue, today, getLocalTimeZone } from '@internationalized/date'
 import { onClickOutside } from '@vueuse/core'
 import { parseCron, computeNextRuns, computePastRuns } from '~/utils/cron'
 import type { ScheduleFrequency } from '~/composables/workflows/useScheduledWorkflows'
@@ -267,7 +267,7 @@ function nextMinuteHHMM(base: Date = new Date()) {
 
 const pickerOpen = ref(false)
 const pickerRef = ref<HTMLElement | null>(null)
-const pickerDate = ref<CalendarDate | null>(today(getLocalTimeZone()))
+const pickerDate = ref<DateValue | null>(today(getLocalTimeZone()))
 const pickerTime = ref(nextMinuteHHMM())
 
 onClickOutside(pickerRef, () => { pickerOpen.value = false })
@@ -771,8 +771,14 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
                   </button>
                   <Menu :open="pickerOpen" align="left" width="w-auto">
                     <div class="px-1.5 py-1.5">
+                      <!-- v-model cast: CalendarDate is structurally identical
+                           to UCalendar's expected DateValue (CalendarDate is
+                           a member of that union) but TS can't reconcile the
+                           expanded structural form coming from
+                           @internationalized/date with reka-ui's re-export. -->
                       <UCalendar
-                        v-model="pickerDate"
+                        :model-value="(pickerDate as unknown as DateValue | undefined)"
+                        @update:model-value="(v: unknown) => pickerDate = (v ?? null) as DateValue | null"
                         size="xs"
                         :min-value="minCalendarDate"
                         :ui="{

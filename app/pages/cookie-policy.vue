@@ -1,11 +1,12 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
+const { t } = useI18n()
 </script>
 
 <template>
   <LegalDocPage
     doc-slug="cookie-policy"
-    page-title="Cookie policy"
-    page-subtitle="How we use cookies and similar technologies on our websites and services."
+    :page-title="t('legalDocs.cookies.title')"
+    :page-subtitle="t('legalDocs.cookies.subtitle')"
   />
 </template>

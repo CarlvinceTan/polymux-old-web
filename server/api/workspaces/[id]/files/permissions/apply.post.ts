@@ -110,12 +110,13 @@ export default defineEventHandler(async (event) => {
           console.error('[permissions/apply] all-members delete error', delError)
           throw createError({ statusCode: 500, statusMessage: 'Failed to update permissions.' })
         }
+        // user_id: null is the "all members" row — see permissions/index.post.ts.
         const { error } = await supabase
           .from('workspace_file_permissions')
           .insert({
             workspace_id: workspaceId,
             path,
-            user_id: null,
+            user_id: null as unknown as string,
             grant_level: grant.grant_level,
             created_by: user.sub,
           })

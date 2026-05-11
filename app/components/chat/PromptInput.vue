@@ -205,7 +205,7 @@ function onFileInputChange(e: Event) {
       </button>
     </div>
 
-    <div class="flex w-full flex-wrap items-center justify-center gap-x-8 gap-y-2 text-caption font-semibold tracking-overline text-neutral-400">
+    <div class="flex w-full flex-wrap items-center justify-center gap-x-8 gap-y-2 text-caption font-semibold tracking-overline text-secondary">
       <button type="button" class="inline-flex items-center gap-1 transition-opacity hover:opacity-70" @click="onAttachClick">
         <UIcon name="i-heroicons-paper-clip-20-solid" class="shrink-0 size-3.5" />
         <span>{{ t('common.attach').toUpperCase() }}</span>

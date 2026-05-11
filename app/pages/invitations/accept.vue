@@ -50,7 +50,7 @@ async function loadPreview() {
     return
   }
 
-  preview.value = data as Preview
+  preview.value = data as unknown as Preview
 
   if (preview.value.accepted_at) {
     status.value = 'error'

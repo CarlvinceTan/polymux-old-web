@@ -15,6 +15,7 @@ import type {
 } from '../types'
 import type { SessionHandle } from '../workflows/useWorkflowSession'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
+import { browserAgentCapFromPlan } from '~/utils/planLimits'
 
 const URL_RE = /https?:\/\/[^\s"',)}\]]+/
 
@@ -26,7 +27,8 @@ function extractUrl(text: string): string | null {
 export function useViewports(session: SessionHandle) {
   const viewports = ref<ViewportState[]>([])
   const browserMode = computed(() => viewports.value.length > 0)
-  const browserAgentCap = ref(0)
+  const { currentWorkspace } = useWorkspaces()
+  const browserAgentCap = ref(browserAgentCapFromPlan(currentWorkspace.value?.plan))
   const activeAgentId = ref<string | null>(null)
 
   let pendingCounter = 0
@@ -170,7 +172,6 @@ export function useViewports(session: SessionHandle) {
     (state) => {
       if (!state) {
         viewports.value = []
-        browserAgentCap.value = 0
         activeAgentId.value = null
         for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
         pendingUrlUpdates.clear()
@@ -354,3 +355,5 @@ export function useViewports(session: SessionHandle) {
     setViewportUrlIfEmpty,
   }
 }
+
+export type ViewportsHandle = ReturnType<typeof useViewports>

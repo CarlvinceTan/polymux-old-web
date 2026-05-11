@@ -1,4 +1,6 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~~/app/types/database.types'
 import {
   assertMembership,
   basenameOf,
@@ -41,7 +43,7 @@ interface FileMetaRow {
 }
 
 async function loadMetaByPath(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   path: string,
 ): Promise<FileMetaRow | null> {
@@ -55,7 +57,7 @@ async function loadMetaByPath(
 }
 
 async function loadSubtreeMeta(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   rootPath: string,
 ): Promise<FileMetaRow[]> {
@@ -68,7 +70,7 @@ async function loadSubtreeMeta(
 }
 
 async function copySingleFile(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   fromPath: string,
   toPath: string,
@@ -136,7 +138,7 @@ async function copySingleFile(
 }
 
 async function copyFolder(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   fromPath: string,
   toPath: string,

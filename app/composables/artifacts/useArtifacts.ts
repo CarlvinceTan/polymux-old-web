@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { ArtifactRow } from '~~/server/api/sessions/[id]/artifacts/index.get'
+import type { ArtifactRow } from '~~/server/api/workflows/[id]/artifacts/index.get'
 
 export type ArtifactType = 'image' | 'document' | 'code' | 'video' | 'audio' | 'archive' | 'other'
 
@@ -70,7 +70,7 @@ export function useArtifacts(sessionId: Ref<string>) {
     error.value = null
     try {
       const res = await $fetch<{ artifacts: ArtifactRow[] }>(
-        `/api/sessions/${sessionId.value}/artifacts`,
+        `/api/workflows/${sessionId.value}/artifacts`,
       )
       artifacts.value = res.artifacts.map(rowToArtifact)
     }
@@ -103,7 +103,7 @@ export function useArtifacts(sessionId: Ref<string>) {
       .channel(`artifacts:${sessionId.value}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'artifacts', filter: `session_id=eq.${sessionId.value}` },
+        { event: 'INSERT', schema: 'public', table: 'artifacts', filter: `workflow_id=eq.${sessionId.value}` },
         (payload) => {
           const row = payload.new as ArtifactRow
           // INSERT events from realtime omit preview_url (it's not a column).
@@ -118,7 +118,7 @@ export function useArtifacts(sessionId: Ref<string>) {
       )
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'artifacts', filter: `session_id=eq.${sessionId.value}` },
+        { event: 'DELETE', schema: 'public', table: 'artifacts', filter: `workflow_id=eq.${sessionId.value}` },
         (payload) => {
           const id = (payload.old as { id?: string }).id
           if (id) artifacts.value = artifacts.value.filter(a => a.id !== id)
@@ -140,7 +140,7 @@ export function useArtifacts(sessionId: Ref<string>) {
     if (cached && cached.expiresAt > Date.now() + 60_000) return cached.url
     try {
       const res = await $fetch<{ url: string, expires_at: string }>(
-        `/api/sessions/${sessionId.value}/artifacts/${artifactId}/download-url`,
+        `/api/workflows/${sessionId.value}/artifacts/${artifactId}/download-url`,
       )
       downloadUrls.value = {
         ...downloadUrls.value,
@@ -173,14 +173,14 @@ export function useArtifacts(sessionId: Ref<string>) {
 
   async function promote(artifactId: string, path: string): Promise<{ storage_path: string }> {
     return $fetch<{ storage_path: string }>(
-      `/api/sessions/${sessionId.value}/artifacts/${artifactId}/promote`,
+      `/api/workflows/${sessionId.value}/artifacts/${artifactId}/promote`,
       { method: 'POST', body: { path } },
     )
   }
 
   async function removeArtifact(artifactId: string): Promise<boolean> {
     try {
-      await $fetch(`/api/sessions/${sessionId.value}/artifacts/${artifactId}`, {
+      await $fetch(`/api/workflows/${sessionId.value}/artifacts/${artifactId}`, {
         method: 'DELETE',
       })
       // Optimistic local update; realtime DELETE will reconcile across tabs.

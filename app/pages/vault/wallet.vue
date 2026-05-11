@@ -776,10 +776,10 @@ const currencyLabel = computed(
                   >
                     <div class="flex items-center justify-between">
                       <span class="flex items-center gap-1.5 text-sm">
-                        <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[b.status].dot" />
+                        <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[b.status]?.dot" />
                         <span class="font-mono text-xs text-neutral-950">{{ sessionShort(b.session_id) }}</span>
                       </span>
-                      <span class="text-[10px] uppercase tracking-widest text-neutral-400">{{ STATUS_CONFIG[b.status].label }}</span>
+                      <span class="text-[10px] uppercase tracking-widest text-neutral-400">{{ STATUS_CONFIG[b.status]?.label }}</span>
                     </div>
                     <div class="h-1 overflow-hidden rounded-full bg-neutral-100">
                       <div
@@ -813,10 +813,10 @@ const currencyLabel = computed(
                           <span class="font-mono text-lg font-bold text-neutral-950">{{ sessionShort(selectedWorkflow.session_id) }}</span>
                           <span
                             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
-                            :class="STATUS_CONFIG[selectedWorkflow.status].chip"
+                            :class="STATUS_CONFIG[selectedWorkflow.status]?.chip"
                           >
-                            <span class="size-1 rounded-full" :class="STATUS_CONFIG[selectedWorkflow.status].dot" />
-                            {{ STATUS_CONFIG[selectedWorkflow.status].label }}
+                            <span class="size-1 rounded-full" :class="STATUS_CONFIG[selectedWorkflow.status]?.dot" />
+                            {{ STATUS_CONFIG[selectedWorkflow.status]?.label }}
                           </span>
                         </div>
                         <p class="mt-1 text-[11px] text-neutral-400">{{ t('vault.wallet.workflowsView.createdAt', { date: formatDate(selectedWorkflow.created_at, true) }) }}</p>
@@ -973,7 +973,7 @@ const currencyLabel = computed(
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.blockAfterHours') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.blockAfterHoursDesc') }}</span>
                     </div>
-                    <USwitch v-model="blockAfterHours" size="sm" color="black" />
+                    <USwitch v-model="blockAfterHours" size="sm" color="neutral" />
                   </div>
                 </section>
 
@@ -992,28 +992,28 @@ const currencyLabel = computed(
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.pauseOnExhaustion') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.pauseOnExhaustionDesc') }}</span>
                     </div>
-                    <USwitch v-model="pauseOnExhaustion" size="sm" color="black" />
+                    <USwitch v-model="pauseOnExhaustion" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.lowBalance') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.lowBalanceDesc') }}</span>
                     </div>
-                    <USwitch v-model="notifyLowBalance" size="sm" color="black" />
+                    <USwitch v-model="notifyLowBalance" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.overrun') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.overrunDesc') }}</span>
                     </div>
-                    <USwitch v-model="notifyOverrun" size="sm" color="black" />
+                    <USwitch v-model="notifyOverrun" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between border-t border-neutral-100 pt-4">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.approveExternal') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.approveExternalDesc') }}</span>
                     </div>
-                    <USwitch v-model="requireApprovalExternal" size="sm" color="black" />
+                    <USwitch v-model="requireApprovalExternal" size="sm" color="neutral" />
                   </div>
                 </section>
 
@@ -1176,7 +1176,7 @@ const currencyLabel = computed(
                 <span class="text-sm font-semibold text-neutral-950">{{ t('vault.wallet.autoTopUpModal.enable') }}</span>
                 <p class="text-[11px] text-neutral-500">{{ t('vault.wallet.autoTopUpModal.enableDesc') }}</p>
               </div>
-              <USwitch v-model="autoTopUpEnabled" size="sm" color="black" />
+              <USwitch v-model="autoTopUpEnabled" size="sm" color="neutral" />
             </div>
             <div
               class="grid grid-cols-2 gap-3 transition-opacity"

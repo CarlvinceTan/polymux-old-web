@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~~/app/types/database.types'
 import type { H3Event } from 'h3'
+
+type TypedSupabaseClient = SupabaseClient<Database>
 
 // Shared helpers for the /api/workspaces/[id]/files/* routes.
 //
@@ -39,7 +42,7 @@ export function sanitizeSegment(name: string): string {
 }
 
 export async function assertMembership(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   workspaceId: string,
   userId: string,
 ): Promise<string> {
@@ -56,7 +59,7 @@ export async function assertMembership(
 }
 
 export async function effectivePermission(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   workspaceId: string,
   path: string,
   userId: string,
@@ -74,7 +77,7 @@ export async function effectivePermission(
 }
 
 export async function requireRead(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   workspaceId: string,
   path: string,
   userId: string,
@@ -86,7 +89,7 @@ export async function requireRead(
 }
 
 export async function requireWrite(
-  supabase: SupabaseClient,
+  supabase: TypedSupabaseClient,
   workspaceId: string,
   path: string,
   userId: string,

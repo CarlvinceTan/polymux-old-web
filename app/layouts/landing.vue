@@ -517,14 +517,10 @@ const linkGroups = [
                             </h4>
                             <ul class="mt-4 space-y-3">
                                 <li v-for="link in group.links" :key="link.label">
-                                    <NuxtLink v-if="'to' in link" :to="link.to"
+                                    <NuxtLink :to="link.to"
                                         class="text-sm text-neutral-500 transition-colors hover:text-neutral-700">
                                         {{ link.label }}
                                     </NuxtLink>
-                                    <a v-else :href="link.href"
-                                        class="text-sm text-neutral-500 transition-colors hover:text-neutral-700">
-                                        {{ link.label }}
-                                    </a>
                                 </li>
                             </ul>
                         </div>

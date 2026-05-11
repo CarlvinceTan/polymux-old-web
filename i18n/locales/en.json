@@ -182,6 +182,7 @@
     "parallel": "Parallel",
     "untitledNode": "Untitled step",
     "untitledWorkflow": "Untitled workflow",
+    "listEmptyPlaceholder": "Open a workflow from the sidebar to get started.",
     "startNode": "Start",
     "endNode": "End",
     "save": "Save",
@@ -452,6 +453,21 @@
     "roleOwner": "Owner",
     "roleAdmin": "Admin"
   },
+  "workspaceCreate": {
+    "title": "Create workspace",
+    "subtitle": "Set up a new workspace for your team.",
+    "billingNote": "New workspaces start on {plan}. Plans and limits apply per workspace — you can upgrade each one separately from the Pricing page.",
+    "freePlanName": "Free",
+    "nameLabel": "Workspace name",
+    "namePlaceholder": "e.g. My Team",
+    "invitesLabel": "Invite people",
+    "invitesHint": "Optional — you can always add people later.",
+    "emailPlaceholder": "email{'@'}example.com",
+    "addAnother": "Add another",
+    "creating": "Creating…",
+    "submit": "Create workspace",
+    "errorFallback": "Failed to create workspace. Please try again."
+  },
   "workspaceMenu": {
     "memberCountOne": "1 member",
     "memberCountMany": "{n} members",
@@ -693,18 +709,123 @@
     "tabs": {
       "files": "Files",
       "settings": "Settings"
+    },
+    "toolbar": {
+      "back": "Go back",
+      "iconView": "Icon view",
+      "listView": "List view",
+      "newFolder": "New folder",
+      "upload": "Upload",
+      "filter": "Filter",
+      "filterFiles": "Filter files",
+      "search": "Search",
+      "searchFiles": "Search files",
+      "searchPlaceholder": "Search...",
+      "selectedCount": "{n} selected"
+    },
+    "filters": {
+      "all": "All files",
+      "images": "Images",
+      "documents": "Documents",
+      "videos": "Videos"
     }
   },
   "contact": {
-    "title": "Get in touch",
-    "subtitle": "We'd love to hear from you. Send us a message and we'll get back to you as soon as possible.",
+    "title": "Contact us",
+    "subtitle": "Send a note for sales, support, or partnerships. We read every message.",
     "titleField": "Title",
     "contentField": "Content",
-    "titlePlaceholder": "What's this about?",
-    "contentPlaceholder": "Tell us more…",
+    "titlePlaceholder": "What is this about?",
+    "emailPlaceholder": "youremail{'@'}example.com",
+    "contentPlaceholder": "How can we help?",
+    "send": "Send",
     "sending": "Sending…",
-    "success": "Your message has been sent. We'll get back to you soon!",
-    "error": "Something went wrong. Please try again later."
+    "success": "Thanks — your message was sent. We will get back to you soon.",
+    "error": "Something went wrong. Please try again in a moment.",
+    "errorTitle": "Please enter a title.",
+    "errorEmail": "Please enter a valid email address.",
+    "errorContent": "Please enter your message.",
+    "enterprisePrefill": "Interest in Enterprise Plan"
+  },
+  "forum": {
+    "pageTitle": "Forum",
+    "newPageTitle": "Start a discussion",
+    "heading": "Polymux Forum",
+    "subtitle": "Ask questions, share workflows, and connect with other teams building on Polymux.",
+    "startDiscussion": "Start a discussion",
+    "readGuidelines": "Read the guidelines",
+    "searchPlaceholder": "Search discussions...",
+    "browseCategoriesAria": "Browse categories",
+    "browseByCategoryHeading": "Browse by category",
+    "resetFilters": "Reset filters",
+    "allPosts": "All posts",
+    "sort": {
+      "latest": "Latest",
+      "top": "Top",
+      "unanswered": "Unanswered"
+    },
+    "loading": "Loading…",
+    "unableToLoad": "Unable to load discussions",
+    "discussionCountOne": "1 discussion",
+    "discussionCountMany": "{n} discussions",
+    "loadingDiscussions": "Loading discussions…",
+    "couldntLoadForum": "Couldn't load the forum. The database may still be warming up.",
+    "retry": "Retry",
+    "pinned": "Pinned",
+    "answered": "Answered",
+    "startedBy": "Started by {name}",
+    "viewCountOne": "1 view",
+    "viewCountMany": "{n} views",
+    "replyCountOne": "1 reply",
+    "replyCountMany": "{n} replies",
+    "noMatchingDiscussions": "No discussions match your filters.",
+    "noDiscussions": "No discussions yet. Be the first to start one.",
+    "clearFilters": "Clear filters",
+    "guidelinesEyebrow": "New here?",
+    "beforeYouPost": "Before you post",
+    "guidelinesSubtitle": "A few minutes of context means faster, friendlier answers from the community.",
+    "guideline1Title": "Search before you post",
+    "guideline1Desc": "Chances are someone already hit the same wall. A quick search often answers your question in seconds.",
+    "guideline2Title": "Pick the right category",
+    "guideline2Desc": "Accurate categories put your post in front of the people most likely to help. Mods nudge posts that land in the wrong spot.",
+    "guideline3Title": "Be kind, be specific",
+    "guideline3Desc": "Describe what you tried, what you expected, and what happened. Screenshots and snippets go a long way.",
+    "backToForum": "Back to forum",
+    "loadingDiscussion": "Loading discussion…",
+    "couldNotLoadDiscussion": "This discussion could not be loaded. It may have been removed.",
+    "returnToForum": "Return to the forum",
+    "repliesAria": "Replies",
+    "noReplies": "No replies yet. Be the first to respond.",
+    "yourReply": "Your reply",
+    "replyPlaceholder": "Add to the conversation…",
+    "replyCounter": "Be kind · {count}/20,000",
+    "posting": "Posting…",
+    "postReply": "Post reply",
+    "replyTooLong": "Reply is too long (max 20,000 characters).",
+    "failedToPost": "Failed to post reply.",
+    "signInToJoin": "Sign in to join the conversation.",
+    "createAccount": "Create an account",
+    "newSubtitle": "Share a question, show what you shipped, or kick off a conversation with other teams using Polymux.",
+    "categoryLegend": "Category",
+    "titleLabel": "Title",
+    "titlePlaceholder": "What's this about?",
+    "titleHint": "{n}/200 · at least 3 characters",
+    "bodyLabel": "Body",
+    "bodyPlaceholder": "Describe what you tried, what you expected, and what happened. Snippets and screenshots go a long way.",
+    "bodyHint": "{n}/20,000 · at least 10 characters",
+    "postingAs": "Posting as {who}",
+    "you": "you",
+    "publishing": "Publishing…",
+    "publish": "Publish discussion",
+    "newErrorGeneric": "Something went wrong. Please try again.",
+    "categories": {
+      "announcements": { "label": "Announcements", "description": "Product updates and community news" },
+      "help": { "label": "Help & Support", "description": "Ask questions, troubleshoot issues" },
+      "show-and-tell": { "label": "Show & Tell", "description": "Share what you built with Polymux" },
+      "feedback": { "label": "Feedback & Ideas", "description": "Shape what we build next" },
+      "workflows": { "label": "Workflows", "description": "Blueprints, templates, recipes" },
+      "agents": { "label": "Agents", "description": "Prompts, tuning, comparing runs" }
+    }
   },
   "artifacts": {
     "empty": "No artifacts yet. Files generated here disappear when the session ends — save anything you want to keep.",
@@ -1035,6 +1156,22 @@
       }
     }
   },
+  "credentialRequest": {
+    "heading": "The agent needs to sign in to {site}",
+    "useSavedLabel": "Use a saved credential",
+    "lastUsed": "last used {date} · {count} use(s)",
+    "working": "Working…",
+    "useThisCredential": "Use this credential",
+    "orSaveNew": "or save a new one",
+    "usernameLabel": "Username or email",
+    "usernamePlaceholder": "you{'@'}example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Stored in your workspace vault",
+    "saving": "Saving…",
+    "saveAndUse": "Save & use",
+    "errorReveal": "Could not retrieve the saved password.",
+    "errorSave": "Could not save the credential to the vault."
+  },
   "schedule": {
     "title": "Schedule",
     "subtitle": "Run \"{workflow}\" automatically on a recurring schedule",
@@ -1149,11 +1286,100 @@
     "multiTitleSuffix": "{n} items"
   },
   "pricing": {
+    "billingPeriod": "Billing period",
     "storage": {
       "total": "Workspace storage",
       "file": "Per-file size limit",
       "pullFolder": "Folder pull limit",
       "artifacts": "Artifact storage"
+    }
+  },
+  "bugReport": {
+    "heading": "Report a Bug",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Brief description of the issue",
+    "emailPlaceholder": "your{'@'}email.com",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Steps to reproduce, what you expected, what happened instead…",
+    "errorTitle": "Please enter a title.",
+    "errorEmail": "Please enter a valid email address.",
+    "errorMessage": "Please describe the bug.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "success": "Bug report sent — thank you!",
+    "sending": "Sending…",
+    "sent": "Sent!",
+    "submit": "Submit Report"
+  },
+  "install": {
+    "versionBadge": "Polymux for desktop · v{version}",
+    "heading": "Install Polymux",
+    "subtitle": "A quiet, native home for your AI agents. One fast, focused app — across macOS, Windows, and Linux.",
+    "downloadFallback": "Download Polymux",
+    "detectedNote": "Detected {platform} · {meta}",
+    "chooseFallback": "Choose your platform below",
+    "otherPlatformLink": "Not {platform}? See all downloads",
+    "yourComputer": "your computer",
+    "reassurance": {
+      "signed": "Signed & notarised",
+      "updates": "Auto-updates",
+      "free": "Free to download",
+      "private": "Private by default"
+    },
+    "featureLabel": "Feature",
+    "manual": {
+      "eyebrow": "Manual installation",
+      "heading": "Pick your platform",
+      "subtitle": "Every build is signed, notarised, and ships with the same features. Download the variant that fits your setup."
+    },
+    "yourSystem": "Your system",
+    "otherOptions": "Other options",
+    "platforms": {
+      "macos": { "tagline": "Universal build", "requirement": "macOS 12 Monterey or later", "downloadLabel": "Download for macOS" },
+      "windows": { "tagline": "x64 & ARM64", "requirement": "Windows 10 or later", "downloadLabel": "Download for Windows" },
+      "linux": { "tagline": "Most major distros", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Download for Linux" }
+    },
+    "mobile": {
+      "eyebrow": "On the way",
+      "heading": "Mobile apps",
+      "subtitle": "Native companion apps are in development. Check in on agents, approve actions, and stay close to your workflows from anywhere.",
+      "comingSoon": "Coming soon",
+      "polymuxFor": "Polymux for {name}",
+      "getNotified": "Get notified when it launches",
+      "ios": "Bring Polymux to iPhone and iPad. Follow sessions and review agent work on the go.",
+      "android": "A native Android companion for monitoring workflows and approving agent actions anywhere."
+    },
+    "help": {
+      "heading": "Need help installing?",
+      "description": "Our docs walk through verification, updates, and troubleshooting for every platform.",
+      "readGuide": "Read install guide",
+      "contactSupport": "Contact support"
+    }
+  },
+  "legalDocs": {
+    "loadError": "This document could not be loaded. Please try again later.",
+    "documentation": {
+      "title": "Documentation",
+      "subtitle": "Guides and concepts for building with Polymux."
+    },
+    "privacy": {
+      "title": "Privacy policy",
+      "subtitle": "How we collect, use, and protect your information when you use Polymux."
+    },
+    "terms": {
+      "title": "Terms of service",
+      "subtitle": "Rules and conditions for using Polymux products and services."
+    },
+    "about": {
+      "title": "About us",
+      "subtitle": "What Polymux is building and who we serve."
+    },
+    "apiReference": {
+      "title": "API reference",
+      "subtitle": "HTTP endpoints, auth, and integration details for developers."
+    },
+    "cookies": {
+      "title": "Cookie policy",
+      "subtitle": "How we use cookies and similar technologies on our websites and services."
     }
   },
   "betaAgreement": {
@@ -1177,6 +1403,20 @@
   "accountSuspendedTitle": "Account suspended",
   "accountSuspendedBody": "Your account access has been temporarily suspended. If you believe this is a mistake, please contact support.",
   "accountSuspendedSignOut": "Sign out",
+  "serverUnavailableTitle": "Server unavailable",
+  "serverUnavailableBody": "Unable to reach the server. This may be due to maintenance or a network issue.",
+  "unsubscribe": {
+    "processing": "Processing…",
+    "successTitle": "You've unsubscribed",
+    "successBody": "{email} will no longer receive Polymux blog newsletter emails.",
+    "resubscribe": "Re-subscribe",
+    "resubscribing": "Re-subscribing…",
+    "home": "Back to home",
+    "invalidTitle": "Link expired or invalid",
+    "invalidBody": "This unsubscribe link is no longer valid. If you're still receiving emails, please contact support.",
+    "errorTitle": "Something went wrong",
+    "errorBody": "We couldn't process your unsubscribe right now. Please try again in a moment."
+  },
   "onboarding": {
     "skip": "Skip",
     "back": "Back",

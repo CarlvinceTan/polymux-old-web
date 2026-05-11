@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 type Platform = 'macos' | 'windows' | 'linux' | 'unknown'
 
 const APP_VERSION = '1.0.0'
@@ -16,12 +18,9 @@ interface DesktopPlatform {
   id: Exclude<Platform, 'unknown'>
   name: string
   icon: string
-  tagline: string
-  requirement: string
-  primaryLabel: string
+  variants: DownloadVariant[]
   primaryHref: string
   primaryMeta: string
-  variants: DownloadVariant[]
 }
 
 const desktopPlatforms: DesktopPlatform[] = [
@@ -29,81 +28,36 @@ const desktopPlatforms: DesktopPlatform[] = [
     id: 'macos',
     name: 'macOS',
     icon: 'i-ph-apple-logo-fill',
-    tagline: 'Universal build',
-    requirement: 'macOS 12 Monterey or later',
-    primaryLabel: 'Download for macOS',
     primaryHref: `/downloads/Polymux-${APP_VERSION}-universal.dmg`,
     primaryMeta: `Universal · .dmg · v${APP_VERSION}`,
     variants: [
-      {
-        label: 'Apple Silicon',
-        meta: '.dmg · arm64',
-        href: `/downloads/Polymux-${APP_VERSION}-arm64.dmg`,
-      },
-      {
-        label: 'Intel',
-        meta: '.dmg · x64',
-        href: `/downloads/Polymux-${APP_VERSION}-x64.dmg`,
-      },
-      {
-        label: 'Homebrew',
-        meta: 'brew install --cask polymux',
-        href: 'https://brew.sh',
-      },
+      { label: 'Apple Silicon', meta: '.dmg · arm64', href: `/downloads/Polymux-${APP_VERSION}-arm64.dmg` },
+      { label: 'Intel', meta: '.dmg · x64', href: `/downloads/Polymux-${APP_VERSION}-x64.dmg` },
+      { label: 'Homebrew', meta: 'brew install --cask polymux', href: 'https://brew.sh' },
     ],
   },
   {
     id: 'windows',
     name: 'Windows',
     icon: 'i-ph-windows-logo-fill',
-    tagline: 'x64 & ARM64',
-    requirement: 'Windows 10 or later',
-    primaryLabel: 'Download for Windows',
     primaryHref: `/downloads/Polymux-Setup-${APP_VERSION}.exe`,
     primaryMeta: `Installer · .exe · v${APP_VERSION}`,
     variants: [
-      {
-        label: 'MSI installer',
-        meta: '.msi · x64',
-        href: `/downloads/Polymux-${APP_VERSION}-x64.msi`,
-      },
-      {
-        label: 'Portable (ZIP)',
-        meta: '.zip · x64',
-        href: `/downloads/Polymux-${APP_VERSION}-win-x64.zip`,
-      },
-      {
-        label: 'Winget',
-        meta: 'winget install Polymux.Polymux',
-        href: 'https://learn.microsoft.com/en-us/windows/package-manager/',
-      },
+      { label: 'MSI installer', meta: '.msi · x64', href: `/downloads/Polymux-${APP_VERSION}-x64.msi` },
+      { label: 'Portable (ZIP)', meta: '.zip · x64', href: `/downloads/Polymux-${APP_VERSION}-win-x64.zip` },
+      { label: 'Winget', meta: 'winget install Polymux.Polymux', href: 'https://learn.microsoft.com/en-us/windows/package-manager/' },
     ],
   },
   {
     id: 'linux',
     name: 'Linux',
     icon: 'i-ph-linux-logo-fill',
-    tagline: 'Most major distros',
-    requirement: 'glibc 2.31+ · x86_64 / aarch64',
-    primaryLabel: 'Download for Linux',
     primaryHref: `/downloads/Polymux-${APP_VERSION}.AppImage`,
     primaryMeta: `AppImage · x64 · v${APP_VERSION}`,
     variants: [
-      {
-        label: 'Debian / Ubuntu',
-        meta: '.deb · x64',
-        href: `/downloads/polymux_${APP_VERSION}_amd64.deb`,
-      },
-      {
-        label: 'Fedora / RHEL',
-        meta: '.rpm · x64',
-        href: `/downloads/polymux-${APP_VERSION}.x86_64.rpm`,
-      },
-      {
-        label: 'Snap',
-        meta: 'sudo snap install polymux',
-        href: 'https://snapcraft.io',
-      },
+      { label: 'Debian / Ubuntu', meta: '.deb · x64', href: `/downloads/polymux_${APP_VERSION}_amd64.deb` },
+      { label: 'Fedora / RHEL', meta: '.rpm · x64', href: `/downloads/polymux-${APP_VERSION}.x86_64.rpm` },
+      { label: 'Snap', meta: 'sudo snap install polymux', href: 'https://snapcraft.io' },
     ],
   },
 ]
@@ -129,7 +83,7 @@ const detectedPlatform = computed(() =>
 )
 
 const detectedPlatformName = computed(() =>
-  detectedPlatform.value?.name ?? 'your computer',
+  detectedPlatform.value?.name ?? t('install.yourComputer'),
 )
 
 function scrollToManual() {
@@ -141,25 +95,15 @@ function scrollToManual() {
 }
 
 const mobilePlatforms = [
-  {
-    id: 'ios',
-    name: 'iOS',
-    icon: 'i-ph-apple-logo-fill',
-    description: 'Bring Polymux to iPhone and iPad. Follow sessions and review agent work on the go.',
-  },
-  {
-    id: 'android',
-    name: 'Android',
-    icon: 'i-ph-android-logo-fill',
-    description: 'A native Android companion for monitoring workflows and approving agent actions anywhere.',
-  },
+  { id: 'ios', name: 'iOS', icon: 'i-ph-apple-logo-fill', descKey: 'install.mobile.ios' },
+  { id: 'android', name: 'Android', icon: 'i-ph-android-logo-fill', descKey: 'install.mobile.android' },
 ]
 
 const reassurance = [
-  { icon: 'i-heroicons-shield-check-20-solid', label: 'Signed & notarised' },
-  { icon: 'i-heroicons-arrow-path-20-solid', label: 'Auto-updates' },
-  { icon: 'i-heroicons-sparkles-20-solid', label: 'Free to download' },
-  { icon: 'i-heroicons-lock-closed-20-solid', label: 'Private by default' },
+  { icon: 'i-heroicons-shield-check-20-solid', key: 'install.reassurance.signed' },
+  { icon: 'i-heroicons-arrow-path-20-solid', key: 'install.reassurance.updates' },
+  { icon: 'i-heroicons-sparkles-20-solid', key: 'install.reassurance.free' },
+  { icon: 'i-heroicons-lock-closed-20-solid', key: 'install.reassurance.private' },
 ]
 </script>
 
@@ -172,16 +116,15 @@ const reassurance = [
           class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600"
         >
           <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          Polymux for desktop · v{{ APP_VERSION }}
+          {{ t('install.versionBadge', { version: APP_VERSION }) }}
         </span>
         <h1
           class="mt-6 font-serif text-[2.75rem] leading-[1.05] tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl"
         >
-          Install Polymux
+          {{ t('install.heading') }}
         </h1>
         <p class="mx-auto mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-neutral-600">
-          A quiet, native home for your AI agents. One fast, focused app —
-          across macOS, Windows, and Linux.
+          {{ t('install.subtitle') }}
         </p>
 
         <!-- Primary download CTA -->
@@ -196,10 +139,10 @@ const reassurance = [
                 class="size-5 shrink-0"
                 aria-hidden="true"
               />
-              {{ detectedPlatform.primaryLabel }}
+              {{ t(`install.platforms.${detectedPlatform.id}.downloadLabel`) }}
             </a>
             <p class="text-xs text-neutral-500">
-              Detected {{ detectedPlatformName }} · {{ detectedPlatform.primaryMeta }}
+              {{ t('install.detectedNote', { platform: detectedPlatformName, meta: detectedPlatform.primaryMeta }) }}
             </p>
           </template>
           <template v-else>
@@ -209,10 +152,10 @@ const reassurance = [
               @click="scrollToManual"
             >
               <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-5 shrink-0" />
-              Download Polymux
+              {{ t('install.downloadFallback') }}
             </button>
             <p class="text-xs text-neutral-500">
-              Choose your platform below
+              {{ t('install.chooseFallback') }}
             </p>
           </template>
 
@@ -221,7 +164,7 @@ const reassurance = [
             class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-800"
             @click="scrollToManual"
           >
-            Not {{ detectedPlatformName }}? See all downloads
+            {{ t('install.otherPlatformLink', { platform: detectedPlatformName }) }}
             <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4" />
           </button>
         </div>
@@ -230,14 +173,14 @@ const reassurance = [
         <dl class="mx-auto mt-14 grid max-w-2xl grid-cols-2 gap-y-4 text-left sm:grid-cols-4 sm:gap-y-0">
           <div
             v-for="item in reassurance"
-            :key="item.label"
+            :key="item.key"
             class="flex items-center justify-center gap-2 text-sm text-neutral-600"
           >
             <UIcon :name="item.icon" class="size-4 text-neutral-400" aria-hidden="true" />
             <dt class="sr-only">
-              Feature
+              {{ t('install.featureLabel') }}
             </dt>
-            <dd>{{ item.label }}</dd>
+            <dd>{{ t(item.key) }}</dd>
           </div>
         </dl>
       </div>
@@ -251,14 +194,13 @@ const reassurance = [
       <div class="mx-auto max-w-6xl">
         <div class="mx-auto max-w-2xl text-center">
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            Manual installation
+            {{ t('install.manual.eyebrow') }}
           </span>
           <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-            Pick your platform
+            {{ t('install.manual.heading') }}
           </h2>
           <p class="mx-auto mt-4 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-            Every build is signed, notarised, and ships with the same features.
-            Download the variant that fits your setup.
+            {{ t('install.manual.subtitle') }}
           </p>
         </div>
 
@@ -281,7 +223,7 @@ const reassurance = [
                 class="inline-flex items-center gap-1 rounded-full bg-neutral-950 px-2.5 py-1 text-xs font-medium text-white"
               >
                 <UIcon name="i-heroicons-check-20-solid" class="size-3.5" />
-                Your system
+                {{ t('install.yourSystem') }}
               </span>
             </div>
 
@@ -289,7 +231,7 @@ const reassurance = [
               {{ platform.name }}
             </h3>
             <p class="mt-1 text-sm text-neutral-500">
-              {{ platform.tagline }} · {{ platform.requirement }}
+              {{ t(`install.platforms.${platform.id}.tagline`) }} · {{ t(`install.platforms.${platform.id}.requirement`) }}
             </p>
 
             <a
@@ -297,7 +239,7 @@ const reassurance = [
               class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0" />
-              {{ platform.primaryLabel }}
+              {{ t(`install.platforms.${platform.id}.downloadLabel`) }}
             </a>
             <p class="mt-2 text-center text-xs text-neutral-500">
               {{ platform.primaryMeta }}
@@ -305,7 +247,7 @@ const reassurance = [
 
             <div class="mt-6 border-t border-neutral-200/70 pt-5">
               <p class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                Other options
+                {{ t('install.otherOptions') }}
               </p>
               <ul class="mt-3 flex flex-col gap-1">
                 <li v-for="variant in platform.variants" :key="variant.label">
@@ -340,14 +282,13 @@ const reassurance = [
       <div class="mx-auto max-w-5xl">
         <div class="mx-auto max-w-2xl text-center">
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            On the way
+            {{ t('install.mobile.eyebrow') }}
           </span>
           <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-            Mobile apps
+            {{ t('install.mobile.heading') }}
           </h2>
           <p class="mx-auto mt-4 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-            Native companion apps are in development. Check in on agents,
-            approve actions, and stay close to your workflows from anywhere.
+            {{ t('install.mobile.subtitle') }}
           </p>
         </div>
 
@@ -362,19 +303,19 @@ const reassurance = [
                 <UIcon :name="mobile.icon" class="size-6" aria-hidden="true" />
               </div>
               <span class="inline-flex items-center rounded-full bg-neutral-200/80 px-2.5 py-1 text-xs font-medium text-neutral-700">
-                Coming soon
+                {{ t('install.mobile.comingSoon') }}
               </span>
             </div>
             <h3 class="mt-6 text-lg font-semibold tracking-tight text-neutral-950">
-              Polymux for {{ mobile.name }}
+              {{ t('install.mobile.polymuxFor', { name: mobile.name }) }}
             </h3>
             <p class="mt-2 text-sm leading-relaxed text-neutral-600">
-              {{ mobile.description }}
+              {{ t(mobile.descKey) }}
             </p>
             <div class="mt-6 flex items-center gap-2 text-sm text-neutral-400">
               <UIcon name="i-heroicons-bell-alert-20-solid" class="size-4" />
               <NuxtLink to="/contact" class="underline-offset-2 hover:text-neutral-700 hover:underline">
-                Get notified when it launches
+                {{ t('install.mobile.getNotified') }}
               </NuxtLink>
             </div>
           </div>
@@ -386,11 +327,10 @@ const reassurance = [
     <section class="w-full border-t border-neutral-200 bg-white px-4 py-14 sm:px-6 lg:px-8">
       <div class="mx-auto flex max-w-4xl flex-col items-center gap-3 text-center">
         <h3 class="font-serif text-2xl tracking-tight text-neutral-950">
-          Need help installing?
+          {{ t('install.help.heading') }}
         </h3>
         <p class="max-w-md text-sm leading-relaxed text-neutral-600">
-          Our docs walk through verification, updates, and troubleshooting for
-          every platform.
+          {{ t('install.help.description') }}
         </p>
         <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
           <NuxtLink
@@ -398,13 +338,13 @@ const reassurance = [
             class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
           >
             <UIcon name="i-heroicons-book-open-20-solid" class="size-4" />
-            Read install guide
+            {{ t('install.help.readGuide') }}
           </NuxtLink>
           <NuxtLink
             to="/contact"
             class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-950"
           >
-            Contact support
+            {{ t('install.help.contactSupport') }}
             <UIcon name="i-heroicons-arrow-right-20-solid" class="size-4" />
           </NuxtLink>
         </div>

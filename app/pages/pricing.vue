@@ -218,7 +218,7 @@ async function onPurchaseNow() {
           <button
             type="button"
             class="flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
-            aria-label="Go back"
+            :aria-label="t('common.back')"
             @click="goBack"
           >
             <svg
@@ -264,7 +264,7 @@ async function onPurchaseNow() {
         <div
           class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
           role="group"
-          aria-label="Billing period"
+          :aria-label="t('pricing.billingPeriod')"
         >
           <button
             type="button"

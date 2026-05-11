@@ -484,7 +484,7 @@ function toggleSearch() {
 const isFilterOpen = ref(false)
 const filterRef = ref<HTMLElement | null>(null)
 const searchRef = ref<HTMLElement | null>(null)
-const activeFilter = ref('All files')
+const activeFilter = ref<'all' | 'images' | 'documents' | 'videos'>('all')
 
 function toggleFilter() {
   isFilterOpen.value = !isFilterOpen.value
@@ -494,8 +494,8 @@ function closeFilter() {
   isFilterOpen.value = false
 }
 
-function setFilter(label: string) {
-  activeFilter.value = label
+function setFilter(id: 'all' | 'images' | 'documents' | 'videos') {
+  activeFilter.value = id
   closeFilter()
 }
 
@@ -528,10 +528,10 @@ onUnmounted(() => {
 })
 
 const filterItems = [
-  { label: 'All files', icon: 'file' },
-  { label: 'Images', icon: 'image' },
-  { label: 'Documents', icon: 'file-text' },
-  { label: 'Videos', icon: 'video' },
+  { id: 'all' as const, icon: 'file' },
+  { id: 'images' as const, icon: 'image' },
+  { id: 'documents' as const, icon: 'file-text' },
+  { id: 'videos' as const, icon: 'video' },
 ]
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -572,11 +572,11 @@ const filteredFiles = computed(() => {
   let resultFolders = folders.value.filter(f => !f.name.startsWith('.'))
   let resultFiles = files.value.filter(f => !f.name.startsWith('.'))
 
-  if (activeFilter.value !== 'All files') {
+  if (activeFilter.value !== 'all') {
     const typeMap: Record<string, string[]> = {
-      'Images': ['image'],
-      'Documents': ['document', 'calendar', 'spreadsheet', 'presentation', 'file-text', 'file-code'],
-      'Videos': ['video'],
+      images: ['image'],
+      documents: ['document', 'calendar', 'spreadsheet', 'presentation', 'file-text', 'file-code'],
+      videos: ['video'],
     }
     const allowed = typeMap[activeFilter.value]
     if (allowed) {
@@ -675,8 +675,11 @@ function resolveNewFolderFinalName(draft: string): string {
   return nextDefaultFolderName()
 }
 
-function isPendingRow(item: { isPendingNew?: boolean; isPendingDuplicate?: boolean }): boolean {
-  return item.isPendingNew === true || item.isPendingDuplicate === true
+type MaybePendingRow = { isPendingNew?: boolean; isPendingDuplicate?: boolean }
+
+function isPendingRow<T>(item: T): item is T & ({ isPendingNew: true } | { isPendingDuplicate: true }) {
+  const r = item as MaybePendingRow
+  return r.isPendingNew === true || r.isPendingDuplicate === true
 }
 
 function toSelectedItem(item: typeof filteredFiles.value[number]): SelectedItem {
@@ -2093,7 +2096,7 @@ watch(multiDragActive, (active) => {
                 <button
                   class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   :disabled="!canGoBack"
-                  aria-label="Go back"
+                  :aria-label="t('storage.toolbar.back')"
                   @click="goBack"
                 >
                   <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2114,7 +2117,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
                       :class="viewMode === 'icon' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
-                      aria-label="Icon view"
+                      :aria-label="t('storage.toolbar.iconView')"
                       @click="viewMode = 'icon'"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2127,7 +2130,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
                       :class="viewMode === 'list' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
-                      aria-label="List view"
+                      :aria-label="t('storage.toolbar.listView')"
                       @click="viewMode = 'list'"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2145,7 +2148,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="pendingNewFolder ? 'bg-neutral-100 text-neutral-950' : ''"
-                      aria-label="New folder"
+                      :aria-label="t('storage.toolbar.newFolder')"
                       @click="startNewFolder"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2154,14 +2157,14 @@ watch(multiDragActive, (active) => {
                         <line x1="9" y1="14" x2="15" y2="14" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">New folder</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.newFolder') }}</span>
                   </div>
 
                   <div class="group/action relative">
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="isUploading ? 'opacity-50 pointer-events-none' : ''"
-                      aria-label="Upload"
+                      :aria-label="t('storage.toolbar.upload')"
                       @click="triggerUpload"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2170,7 +2173,7 @@ watch(multiDragActive, (active) => {
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Upload</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.upload') }}</span>
                   </div>
 
                   <input
@@ -2184,8 +2187,8 @@ watch(multiDragActive, (active) => {
                   <div ref="filterRef" class="group/action relative">
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
-                      :class="activeFilter !== 'All files' ? 'text-neutral-950 bg-neutral-100' : ''"
-                      aria-label="Filter files"
+                      :class="activeFilter !== 'all' ? 'text-neutral-950 bg-neutral-100' : ''"
+                      :aria-label="t('storage.toolbar.filterFiles')"
                       @click="toggleFilter"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2200,7 +2203,7 @@ watch(multiDragActive, (active) => {
                         <line x1="16" y1="18" x2="16" y2="22" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Filter</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.filter') }}</span>
 
                     <div
                       v-if="isFilterOpen"
@@ -2208,14 +2211,14 @@ watch(multiDragActive, (active) => {
                     >
                       <button
                         v-for="item in filterItems"
-                        :key="item.icon"
+                        :key="item.id"
                         class="flex w-full items-center justify-between gap-2 px-3 py-2 text-body-md hover:bg-neutral-100 transition-colors cursor-pointer"
-                        :class="activeFilter === item.label ? 'text-neutral-950 font-medium' : 'text-neutral-700'"
-                        @click="setFilter(item.label)"
+                        :class="activeFilter === item.id ? 'text-neutral-950 font-medium' : 'text-neutral-700'"
+                        @click="setFilter(item.id)"
                       >
-                        <span>{{ item.label }}</span>
+                        <span>{{ t(`storage.filters.${item.id}`) }}</span>
                         <svg
-                          v-if="activeFilter === item.label"
+                          v-if="activeFilter === item.id"
                           class="size-4 shrink-0"
                           viewBox="0 0 24 24"
                           fill="none"
@@ -2249,7 +2252,7 @@ watch(multiDragActive, (active) => {
 <button
   class="shrink-0 flex items-center justify-center size-8 rounded-lg transition-colors"
   :class="searchExpanded ? 'text-neutral-500' : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100'"
-  aria-label="Search files"
+  :aria-label="t('storage.toolbar.searchFiles')"
   @click="toggleSearch"
 >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2265,7 +2268,7 @@ watch(multiDragActive, (active) => {
                         ref="searchInputRef"
                         v-model="searchQuery"
                         type="text"
-                        placeholder="Search..."
+                        :placeholder="t('storage.toolbar.searchPlaceholder')"
                         class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
                         @focus="searchFocused = true"
                         @blur="searchFocused = false"
@@ -2273,7 +2276,7 @@ watch(multiDragActive, (active) => {
                       >
                     </div>
                   </div>
-                  <span v-if="!searchExpanded" class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Search</span>
+                  <span v-if="!searchExpanded" class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.search') }}</span>
                 </div>
               </template>
               <div v-else ref="selectionActionsRef" class="flex items-center gap-1 shrink-0">
@@ -2281,7 +2284,7 @@ watch(multiDragActive, (active) => {
                   v-if="isMultiSelection"
                   class="mr-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-700"
                 >
-                  {{ selectedItemIds.size }} selected
+                  {{ t('storage.toolbar.selectedCount', { n: selectedItemIds.size }) }}
                 </span>
                 <!-- Share -->
                 <div class="group/action relative">

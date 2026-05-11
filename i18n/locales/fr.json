@@ -182,6 +182,7 @@
     "parallel": "Parallèle",
     "untitledNode": "Étape sans titre",
     "untitledWorkflow": "Workflow sans titre",
+    "listEmptyPlaceholder": "Ouvrez un workflow depuis la barre latérale pour commencer.",
     "startNode": "Début",
     "endNode": "Fin",
     "save": "Enregistrer",
@@ -452,6 +453,21 @@
     "roleOwner": "Propriétaire",
     "roleAdmin": "Administrateur"
   },
+  "workspaceCreate": {
+    "title": "Créer un espace de travail",
+    "subtitle": "Configurez un nouvel espace de travail pour votre équipe.",
+    "billingNote": "Les nouveaux espaces de travail commencent avec {plan}. Les plans et limites s'appliquent par espace de travail — vous pouvez mettre à niveau chacun séparément depuis la page Tarifs.",
+    "freePlanName": "Free",
+    "nameLabel": "Nom de l'espace de travail",
+    "namePlaceholder": "p. ex. Mon équipe",
+    "invitesLabel": "Inviter des personnes",
+    "invitesHint": "Facultatif — vous pouvez toujours ajouter des personnes plus tard.",
+    "emailPlaceholder": "email{'@'}example.com",
+    "addAnother": "Ajouter un autre",
+    "creating": "Création…",
+    "submit": "Créer l'espace de travail",
+    "errorFallback": "Impossible de créer l'espace de travail. Veuillez réessayer."
+  },
   "workspaceMenu": {
     "memberCountOne": "1 membre",
     "memberCountMany": "{n} membres",
@@ -693,6 +709,25 @@
     "tabs": {
       "files": "Fichiers",
       "settings": "Paramètres"
+    },
+    "toolbar": {
+      "back": "Retour",
+      "iconView": "Affichage en icônes",
+      "listView": "Affichage en liste",
+      "newFolder": "Nouveau dossier",
+      "upload": "Téléverser",
+      "filter": "Filtre",
+      "filterFiles": "Filtrer les fichiers",
+      "search": "Rechercher",
+      "searchFiles": "Rechercher des fichiers",
+      "searchPlaceholder": "Rechercher...",
+      "selectedCount": "{n} sélectionnés"
+    },
+    "filters": {
+      "all": "Tous les fichiers",
+      "images": "Images",
+      "documents": "Documents",
+      "videos": "Vidéos"
     }
   },
   "contact": {
@@ -702,9 +737,95 @@
     "contentField": "Contenu",
     "titlePlaceholder": "De quoi s'agit-il ?",
     "contentPlaceholder": "Dites-nous en plus…",
+    "emailPlaceholder": "votreemail{'@'}example.com",
+    "send": "Envoyer",
     "sending": "Envoi en cours…",
     "success": "Votre message a été envoyé. Nous vous répondrons bientôt !",
-    "error": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    "error": "Une erreur s'est produite. Veuillez réessayer plus tard.",
+    "errorTitle": "Veuillez saisir un titre.",
+    "errorEmail": "Veuillez saisir une adresse e-mail valide.",
+    "errorContent": "Veuillez saisir votre message.",
+    "enterprisePrefill": "Intérêt pour le plan Entreprise"
+  },
+  "forum": {
+    "pageTitle": "Forum",
+    "newPageTitle": "Lancer une discussion",
+    "heading": "Forum Polymux",
+    "subtitle": "Posez des questions, partagez des workflows et connectez-vous avec d'autres équipes qui construisent sur Polymux.",
+    "startDiscussion": "Lancer une discussion",
+    "readGuidelines": "Lire les directives",
+    "searchPlaceholder": "Rechercher des discussions...",
+    "browseCategoriesAria": "Parcourir les catégories",
+    "browseByCategoryHeading": "Parcourir par catégorie",
+    "resetFilters": "Réinitialiser les filtres",
+    "allPosts": "Tous les posts",
+    "sort": {
+      "latest": "Récentes",
+      "top": "Populaires",
+      "unanswered": "Sans réponse"
+    },
+    "loading": "Chargement…",
+    "unableToLoad": "Impossible de charger les discussions",
+    "discussionCountOne": "1 discussion",
+    "discussionCountMany": "{n} discussions",
+    "loadingDiscussions": "Chargement des discussions…",
+    "couldntLoadForum": "Impossible de charger le forum. La base de données est peut-être encore en démarrage.",
+    "retry": "Réessayer",
+    "pinned": "Épinglé",
+    "answered": "Répondu",
+    "startedBy": "Lancé par {name}",
+    "viewCountOne": "1 vue",
+    "viewCountMany": "{n} vues",
+    "replyCountOne": "1 réponse",
+    "replyCountMany": "{n} réponses",
+    "noMatchingDiscussions": "Aucune discussion ne correspond à vos filtres.",
+    "noDiscussions": "Pas encore de discussions. Soyez le premier à en lancer une.",
+    "clearFilters": "Effacer les filtres",
+    "guidelinesEyebrow": "Nouveau ici ?",
+    "beforeYouPost": "Avant de poster",
+    "guidelinesSubtitle": "Quelques minutes de contexte signifient des réponses plus rapides et plus amicales de la communauté.",
+    "guideline1Title": "Cherchez avant de poster",
+    "guideline1Desc": "Il y a de fortes chances que quelqu'un ait déjà rencontré le même problème. Une recherche rapide répond souvent en quelques secondes.",
+    "guideline2Title": "Choisissez la bonne catégorie",
+    "guideline2Desc": "Des catégories précises mettent votre post devant les personnes les plus susceptibles d'aider. Les modérateurs déplacent les posts mal classés.",
+    "guideline3Title": "Soyez aimable et précis",
+    "guideline3Desc": "Décrivez ce que vous avez essayé, ce que vous attendiez et ce qui s'est passé. Captures d'écran et extraits aident beaucoup.",
+    "backToForum": "Retour au forum",
+    "loadingDiscussion": "Chargement de la discussion…",
+    "couldNotLoadDiscussion": "Cette discussion n'a pas pu être chargée. Elle a peut-être été supprimée.",
+    "returnToForum": "Retour au forum",
+    "repliesAria": "Réponses",
+    "noReplies": "Pas encore de réponses. Soyez le premier à répondre.",
+    "yourReply": "Votre réponse",
+    "replyPlaceholder": "Ajoutez à la conversation…",
+    "replyCounter": "Restez aimable · {count}/20 000",
+    "posting": "Publication…",
+    "postReply": "Publier la réponse",
+    "replyTooLong": "La réponse est trop longue (max. 20 000 caractères).",
+    "failedToPost": "Impossible de publier la réponse.",
+    "signInToJoin": "Connectez-vous pour rejoindre la conversation.",
+    "createAccount": "Créer un compte",
+    "newSubtitle": "Partagez une question, montrez ce que vous avez livré, ou lancez une conversation avec d'autres équipes qui utilisent Polymux.",
+    "categoryLegend": "Catégorie",
+    "titleLabel": "Titre",
+    "titlePlaceholder": "De quoi s'agit-il ?",
+    "titleHint": "{n}/200 · au moins 3 caractères",
+    "bodyLabel": "Contenu",
+    "bodyPlaceholder": "Décrivez ce que vous avez essayé, ce que vous attendiez et ce qui s'est passé. Les extraits et captures aident beaucoup.",
+    "bodyHint": "{n}/20 000 · au moins 10 caractères",
+    "postingAs": "Publier en tant que {who}",
+    "you": "vous",
+    "publishing": "Publication…",
+    "publish": "Publier la discussion",
+    "newErrorGeneric": "Une erreur s'est produite. Veuillez réessayer.",
+    "categories": {
+      "announcements": { "label": "Annonces", "description": "Mises à jour produit et actualités communautaires" },
+      "help": { "label": "Aide & Support", "description": "Posez des questions, résolvez des problèmes" },
+      "show-and-tell": { "label": "Montrez & Racontez", "description": "Partagez ce que vous avez construit avec Polymux" },
+      "feedback": { "label": "Retours & Idées", "description": "Façonnez ce que nous construirons ensuite" },
+      "workflows": { "label": "Workflows", "description": "Modèles, templates, recettes" },
+      "agents": { "label": "Agents", "description": "Prompts, réglages, comparaisons" }
+    }
   },
   "artifacts": {
     "empty": "Aucun artefact pour l'instant. Les fichiers générés ici disparaissent à la fin de la session — enregistrez ce que vous souhaitez conserver.",
@@ -1035,6 +1156,22 @@
       }
     }
   },
+  "credentialRequest": {
+    "heading": "L'agent doit se connecter à {site}",
+    "useSavedLabel": "Utiliser un identifiant enregistré",
+    "lastUsed": "dernière utilisation {date} · {count} fois",
+    "working": "Traitement…",
+    "useThisCredential": "Utiliser cet identifiant",
+    "orSaveNew": "ou en enregistrer un nouveau",
+    "usernameLabel": "Nom d'utilisateur ou e-mail",
+    "usernamePlaceholder": "vous{'@'}example.com",
+    "passwordLabel": "Mot de passe",
+    "passwordPlaceholder": "Stocké dans le coffre de votre espace de travail",
+    "saving": "Enregistrement…",
+    "saveAndUse": "Enregistrer et utiliser",
+    "errorReveal": "Impossible de récupérer le mot de passe enregistré.",
+    "errorSave": "Impossible d'enregistrer l'identifiant dans le coffre."
+  },
   "schedule": {
     "title": "Planification",
     "subtitle": "Exécuter « {workflow} » automatiquement selon un calendrier récurrent",
@@ -1149,12 +1286,101 @@
     "multiTitleSuffix": "{n} éléments"
   },
   "pricing": {
+    "billingPeriod": "Période de facturation",
     "storage": {
       "total": "Stockage de l'espace",
       "file": "Taille maximale par fichier",
       "pullFolder": "Limite de récupération de dossier",
       "artifacts": "Stockage des artefacts"
     }
+  },
+  "install": {
+    "versionBadge": "Polymux pour bureau · v{version}",
+    "heading": "Installer Polymux",
+    "subtitle": "Une maison native et discrète pour vos agents IA. Une seule application rapide et focalisée — sur macOS, Windows et Linux.",
+    "downloadFallback": "Télécharger Polymux",
+    "detectedNote": "{platform} détecté · {meta}",
+    "chooseFallback": "Choisissez votre plateforme ci-dessous",
+    "otherPlatformLink": "Pas {platform} ? Voir tous les téléchargements",
+    "yourComputer": "votre ordinateur",
+    "reassurance": {
+      "signed": "Signé & notarisé",
+      "updates": "Mises à jour automatiques",
+      "free": "Téléchargement gratuit",
+      "private": "Privé par défaut"
+    },
+    "featureLabel": "Fonctionnalité",
+    "manual": {
+      "eyebrow": "Installation manuelle",
+      "heading": "Choisissez votre plateforme",
+      "subtitle": "Chaque build est signé, notarisé et inclut les mêmes fonctionnalités. Téléchargez la variante qui correspond à votre configuration."
+    },
+    "yourSystem": "Votre système",
+    "otherOptions": "Autres options",
+    "platforms": {
+      "macos": { "tagline": "Build universel", "requirement": "macOS 12 Monterey ou ultérieur", "downloadLabel": "Télécharger pour macOS" },
+      "windows": { "tagline": "x64 & ARM64", "requirement": "Windows 10 ou ultérieur", "downloadLabel": "Télécharger pour Windows" },
+      "linux": { "tagline": "Principales distributions", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Télécharger pour Linux" }
+    },
+    "mobile": {
+      "eyebrow": "À venir",
+      "heading": "Applications mobiles",
+      "subtitle": "Des applications natives compagnons sont en développement. Surveillez les agents, approuvez les actions et restez proche de vos workflows partout.",
+      "comingSoon": "Bientôt disponible",
+      "polymuxFor": "Polymux pour {name}",
+      "getNotified": "Être averti du lancement",
+      "ios": "Apportez Polymux sur iPhone et iPad. Suivez les sessions et examinez le travail des agents en déplacement.",
+      "android": "Un compagnon natif Android pour surveiller les workflows et approuver les actions des agents, partout."
+    },
+    "help": {
+      "heading": "Besoin d'aide pour l'installation ?",
+      "description": "Notre documentation couvre la vérification, les mises à jour et le dépannage pour chaque plateforme.",
+      "readGuide": "Lire le guide d'installation",
+      "contactSupport": "Contacter le support"
+    }
+  },
+  "legalDocs": {
+    "loadError": "Ce document n'a pas pu être chargé. Veuillez réessayer plus tard.",
+    "documentation": {
+      "title": "Documentation",
+      "subtitle": "Guides et concepts pour construire avec Polymux."
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "subtitle": "Comment nous collectons, utilisons et protégeons vos informations lorsque vous utilisez Polymux."
+    },
+    "terms": {
+      "title": "Conditions d'utilisation",
+      "subtitle": "Règles et conditions d'utilisation des produits et services Polymux."
+    },
+    "about": {
+      "title": "À propos",
+      "subtitle": "Ce que Polymux construit et qui nous servons."
+    },
+    "apiReference": {
+      "title": "Référence de l'API",
+      "subtitle": "Endpoints HTTP, authentification et détails d'intégration pour les développeurs."
+    },
+    "cookies": {
+      "title": "Politique des cookies",
+      "subtitle": "Comment nous utilisons les cookies et technologies similaires sur nos sites et services."
+    }
+  },
+  "bugReport": {
+    "heading": "Signaler un bug",
+    "titleLabel": "Titre",
+    "titlePlaceholder": "Brève description du problème",
+    "emailPlaceholder": "votre{'@'}email.com",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Étapes pour reproduire, ce que vous attendiez, ce qui s'est passé…",
+    "errorTitle": "Veuillez saisir un titre.",
+    "errorEmail": "Veuillez saisir une adresse e-mail valide.",
+    "errorMessage": "Veuillez décrire le bug.",
+    "errorGeneric": "Une erreur s'est produite. Veuillez réessayer.",
+    "success": "Rapport envoyé — merci !",
+    "sending": "Envoi…",
+    "sent": "Envoyé !",
+    "submit": "Envoyer le rapport"
   },
   "betaAgreement": {
     "badge": "Bêta",
@@ -1177,6 +1403,20 @@
   "accountSuspendedTitle": "Compte suspendu",
   "accountSuspendedBody": "L'accès à votre compte a été temporairement suspendu. Si vous pensez qu'il s'agit d'une erreur, contactez le support.",
   "accountSuspendedSignOut": "Se déconnecter",
+  "serverUnavailableTitle": "Serveur indisponible",
+  "serverUnavailableBody": "Impossible d'accéder au serveur. Cela peut être dû à une maintenance ou à un problème de réseau.",
+  "unsubscribe": {
+    "processing": "Traitement en cours…",
+    "successTitle": "Vous êtes désabonné(e)",
+    "successBody": "{email} ne recevra plus les e-mails de la newsletter du blog Polymux.",
+    "resubscribe": "Se réabonner",
+    "resubscribing": "Réabonnement en cours…",
+    "home": "Retour à l'accueil",
+    "invalidTitle": "Lien expiré ou invalide",
+    "invalidBody": "Ce lien de désabonnement n'est plus valide. Si vous recevez toujours des e-mails, contactez l'assistance.",
+    "errorTitle": "Une erreur s'est produite",
+    "errorBody": "Nous n'avons pas pu traiter votre désabonnement pour le moment. Veuillez réessayer dans un instant."
+  },
   "onboarding": {
     "skip": "Passer",
     "back": "Retour",

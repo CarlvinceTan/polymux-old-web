@@ -57,12 +57,15 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, statusMessage: 'Failed to update permissions.' })
     }
 
+    // user_id: null is the "all members" row (migration permits it via the
+    // partial-unique index `idx_workspace_file_permissions_all_members`), but
+    // the regenerated types mark `user_id` as non-nullable. Cast to bypass.
     const { data, error } = await supabase
       .from('workspace_file_permissions')
       .insert({
         workspace_id: workspaceId,
         path,
-        user_id: null,
+        user_id: null as unknown as string,
         grant_level: grantLevel,
         created_by: user.sub,
       })

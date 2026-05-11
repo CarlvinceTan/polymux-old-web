@@ -24,6 +24,7 @@ const emit = defineEmits<{
   'cancel': []
 }>()
 
+const { t } = useI18n()
 const { passwords, fetchPasswords, addPassword, revealPassword } = usePasswords()
 
 // Existing-entry selection.
@@ -86,7 +87,7 @@ async function handleUseExisting() {
   try {
     const password = await revealPassword(match.id)
     if (password == null) {
-      error.value = 'Could not retrieve the saved password.'
+      error.value = t('credentialRequest.errorReveal')
       return
     }
     emit('submit', {
@@ -113,7 +114,7 @@ async function handleSaveAndUse() {
     const name = siteHost.value.split('.')[0] || siteHost.value
     const entry = await addPassword(url, u, p, name.charAt(0).toUpperCase() + name.slice(1))
     if (!entry) {
-      error.value = 'Could not save the credential to the vault.'
+      error.value = t('credentialRequest.errorSave')
       return
     }
     emit('submit', { credentialId: entry.id, username: u, password: p })
@@ -179,19 +180,22 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               <button
                 type="button"
                 class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                :aria-label="t('common.close')"
                 @click="handleCancel"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
 
-              <h2 class="text-sm font-semibold text-neutral-900 pr-8 mb-1">
-                The agent needs to sign in to <span class="text-neutral-700">{{ siteHost || props.site }}</span>
-              </h2>
+              <i18n-t keypath="credentialRequest.heading" tag="h2" class="text-sm font-semibold text-neutral-900 pr-8 mb-1">
+                <template #site>
+                  <span class="text-neutral-700">{{ siteHost || props.site }}</span>
+                </template>
+              </i18n-t>
               <p class="text-xs text-neutral-500 mb-4">{{ props.purpose }}</p>
 
               <!-- Existing matching credentials -->
               <div v-if="matching.length > 0" class="mb-4">
-                <label class="block text-xs font-medium text-neutral-500 mb-1.5">Use a saved credential</label>
+                <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('credentialRequest.useSavedLabel') }}</label>
                 <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   <button
                     v-for="entry in matching"
@@ -202,7 +206,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     @click="selectedId = entry.id"
                   >
                     <div class="text-xs font-medium text-neutral-900">{{ entry.username }}</div>
-                    <div class="text-[10px] text-neutral-500">last used {{ new Date(entry.lastUsed).toLocaleDateString() }} · {{ entry.usageCount }} use(s)</div>
+                    <div class="text-[10px] text-neutral-500">{{ t('credentialRequest.lastUsed', { date: new Date(entry.lastUsed).toLocaleDateString(), count: entry.usageCount }) }}</div>
                   </button>
                 </div>
                 <button
@@ -211,11 +215,11 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   :disabled="!selectedId || submitting"
                   @click="handleUseExisting"
                 >
-                  {{ submitting ? 'Working…' : 'Use this credential' }}
+                  {{ submitting ? t('credentialRequest.working') : t('credentialRequest.useThisCredential') }}
                 </button>
                 <div class="my-4 flex items-center gap-2">
                   <div class="h-px flex-1 bg-neutral-200" />
-                  <span class="text-[10px] uppercase tracking-wider text-neutral-400">or save a new one</span>
+                  <span class="text-[10px] uppercase tracking-wider text-neutral-400">{{ t('credentialRequest.orSaveNew') }}</span>
                   <div class="h-px flex-1 bg-neutral-200" />
                 </div>
               </div>
@@ -223,21 +227,21 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               <!-- New entry form -->
               <div class="space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-neutral-500 mb-1.5">Username or email</label>
+                  <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('credentialRequest.usernameLabel') }}</label>
                   <input
                     v-model="newUsername"
-                    :placeholder="props.suggestedUsername || 'you@example.com'"
+                    :placeholder="props.suggestedUsername || t('credentialRequest.usernamePlaceholder')"
                     class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                   >
                 </div>
 
                 <div>
-                  <label class="block text-xs font-medium text-neutral-500 mb-1.5">Password</label>
+                  <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('credentialRequest.passwordLabel') }}</label>
                   <div class="relative">
                     <input
                       v-model="newPassword"
                       :type="showNewPassword ? 'text' : 'password'"
-                      placeholder="Stored in your workspace vault"
+                      :placeholder="t('credentialRequest.passwordPlaceholder')"
                       class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 pr-10 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                     >
                     <button
@@ -262,7 +266,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 :disabled="submitting"
                 @click="handleCancel"
               >
-                Cancel
+                {{ t('common.cancel') }}
               </button>
               <button
                 type="button"
@@ -270,7 +274,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 :disabled="!newUsername.trim() || !newPassword.trim() || submitting"
                 @click="handleSaveAndUse"
               >
-                {{ submitting ? 'Saving…' : 'Save & use' }}
+                {{ submitting ? t('credentialRequest.saving') : t('credentialRequest.saveAndUse') }}
               </button>
             </div>
           </div>

@@ -182,6 +182,7 @@
     "parallel": "Parallel",
     "untitledNode": "Unbenannter Schritt",
     "untitledWorkflow": "Unbenannter Workflow",
+    "listEmptyPlaceholder": "Öffne einen Workflow in der Seitenleiste, um zu beginnen.",
     "startNode": "Start",
     "endNode": "Ende",
     "save": "Speichern",
@@ -452,6 +453,21 @@
     "roleOwner": "Inhaber",
     "roleAdmin": "Administrator"
   },
+  "workspaceCreate": {
+    "title": "Arbeitsbereich erstellen",
+    "subtitle": "Richten Sie einen neuen Arbeitsbereich für Ihr Team ein.",
+    "billingNote": "Neue Arbeitsbereiche starten mit {plan}. Pläne und Limits gelten pro Arbeitsbereich — Sie können jeden separat über die Preisseite upgraden.",
+    "freePlanName": "Free",
+    "nameLabel": "Name des Arbeitsbereichs",
+    "namePlaceholder": "z. B. Mein Team",
+    "invitesLabel": "Personen einladen",
+    "invitesHint": "Optional — Sie können später jederzeit Personen hinzufügen.",
+    "emailPlaceholder": "email{'@'}example.com",
+    "addAnother": "Weitere hinzufügen",
+    "creating": "Wird erstellt…",
+    "submit": "Arbeitsbereich erstellen",
+    "errorFallback": "Arbeitsbereich konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
+  },
   "workspaceMenu": {
     "memberCountOne": "1 Mitglied",
     "memberCountMany": "{n} Mitglieder",
@@ -693,6 +709,25 @@
     "tabs": {
       "files": "Dateien",
       "settings": "Einstellungen"
+    },
+    "toolbar": {
+      "back": "Zurück",
+      "iconView": "Symbolansicht",
+      "listView": "Listenansicht",
+      "newFolder": "Neuer Ordner",
+      "upload": "Hochladen",
+      "filter": "Filter",
+      "filterFiles": "Dateien filtern",
+      "search": "Suchen",
+      "searchFiles": "Dateien suchen",
+      "searchPlaceholder": "Suchen...",
+      "selectedCount": "{n} ausgewählt"
+    },
+    "filters": {
+      "all": "Alle Dateien",
+      "images": "Bilder",
+      "documents": "Dokumente",
+      "videos": "Videos"
     }
   },
   "contact": {
@@ -702,9 +737,95 @@
     "contentField": "Inhalt",
     "titlePlaceholder": "Worum geht es?",
     "contentPlaceholder": "Erzählen Sie uns mehr…",
+    "emailPlaceholder": "ihremail{'@'}example.com",
+    "send": "Senden",
     "sending": "Wird gesendet…",
     "success": "Ihre Nachricht wurde gesendet. Wir melden uns bald!",
-    "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut."
+    "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut.",
+    "errorTitle": "Bitte geben Sie einen Titel ein.",
+    "errorEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "errorContent": "Bitte geben Sie Ihre Nachricht ein.",
+    "enterprisePrefill": "Interesse am Enterprise-Plan"
+  },
+  "forum": {
+    "pageTitle": "Forum",
+    "newPageTitle": "Diskussion starten",
+    "heading": "Polymux Forum",
+    "subtitle": "Stellen Sie Fragen, teilen Sie Workflows und vernetzen Sie sich mit anderen Teams, die auf Polymux aufbauen.",
+    "startDiscussion": "Diskussion starten",
+    "readGuidelines": "Richtlinien lesen",
+    "searchPlaceholder": "Diskussionen durchsuchen...",
+    "browseCategoriesAria": "Kategorien durchsuchen",
+    "browseByCategoryHeading": "Nach Kategorie durchsuchen",
+    "resetFilters": "Filter zurücksetzen",
+    "allPosts": "Alle Beiträge",
+    "sort": {
+      "latest": "Neueste",
+      "top": "Top",
+      "unanswered": "Unbeantwortet"
+    },
+    "loading": "Wird geladen…",
+    "unableToLoad": "Diskussionen konnten nicht geladen werden",
+    "discussionCountOne": "1 Diskussion",
+    "discussionCountMany": "{n} Diskussionen",
+    "loadingDiscussions": "Diskussionen werden geladen…",
+    "couldntLoadForum": "Forum konnte nicht geladen werden. Die Datenbank wird möglicherweise noch aufgewärmt.",
+    "retry": "Erneut versuchen",
+    "pinned": "Angeheftet",
+    "answered": "Beantwortet",
+    "startedBy": "Von {name} gestartet",
+    "viewCountOne": "1 Aufruf",
+    "viewCountMany": "{n} Aufrufe",
+    "replyCountOne": "1 Antwort",
+    "replyCountMany": "{n} Antworten",
+    "noMatchingDiscussions": "Keine Diskussionen entsprechen Ihren Filtern.",
+    "noDiscussions": "Noch keine Diskussionen. Seien Sie der/die Erste.",
+    "clearFilters": "Filter löschen",
+    "guidelinesEyebrow": "Neu hier?",
+    "beforeYouPost": "Bevor Sie posten",
+    "guidelinesSubtitle": "Ein paar Minuten Kontext sorgen für schnellere, freundlichere Antworten aus der Community.",
+    "guideline1Title": "Suchen Sie, bevor Sie posten",
+    "guideline1Desc": "Die Chance ist groß, dass jemand bereits dasselbe Problem hatte. Eine schnelle Suche beantwortet Ihre Frage oft in Sekunden.",
+    "guideline2Title": "Wählen Sie die richtige Kategorie",
+    "guideline2Desc": "Passende Kategorien bringen Ihren Beitrag vor die Menschen, die am ehesten helfen können. Moderatoren verschieben falsch eingeordnete Beiträge.",
+    "guideline3Title": "Seien Sie freundlich und konkret",
+    "guideline3Desc": "Beschreiben Sie, was Sie versucht haben, was Sie erwartet haben und was passiert ist. Screenshots und Snippets helfen sehr.",
+    "backToForum": "Zurück zum Forum",
+    "loadingDiscussion": "Diskussion wird geladen…",
+    "couldNotLoadDiscussion": "Diese Diskussion konnte nicht geladen werden. Sie wurde möglicherweise entfernt.",
+    "returnToForum": "Zurück zum Forum",
+    "repliesAria": "Antworten",
+    "noReplies": "Noch keine Antworten. Seien Sie der/die Erste.",
+    "yourReply": "Ihre Antwort",
+    "replyPlaceholder": "Etwas zum Gespräch beitragen…",
+    "replyCounter": "Bleiben Sie freundlich · {count}/20.000",
+    "posting": "Wird gepostet…",
+    "postReply": "Antwort posten",
+    "replyTooLong": "Antwort ist zu lang (max. 20.000 Zeichen).",
+    "failedToPost": "Antwort konnte nicht gepostet werden.",
+    "signInToJoin": "Melden Sie sich an, um an der Diskussion teilzunehmen.",
+    "createAccount": "Konto erstellen",
+    "newSubtitle": "Stellen Sie eine Frage, zeigen Sie, was Sie gebaut haben, oder starten Sie ein Gespräch mit anderen Teams, die Polymux verwenden.",
+    "categoryLegend": "Kategorie",
+    "titleLabel": "Titel",
+    "titlePlaceholder": "Worum geht es?",
+    "titleHint": "{n}/200 · mindestens 3 Zeichen",
+    "bodyLabel": "Inhalt",
+    "bodyPlaceholder": "Beschreiben Sie, was Sie versucht haben, was Sie erwartet haben und was passiert ist. Snippets und Screenshots helfen sehr.",
+    "bodyHint": "{n}/20.000 · mindestens 10 Zeichen",
+    "postingAs": "Posten als {who}",
+    "you": "Sie",
+    "publishing": "Wird veröffentlicht…",
+    "publish": "Diskussion veröffentlichen",
+    "newErrorGeneric": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "categories": {
+      "announcements": { "label": "Ankündigungen", "description": "Produktupdates und Community-News" },
+      "help": { "label": "Hilfe & Support", "description": "Fragen stellen, Probleme beheben" },
+      "show-and-tell": { "label": "Vorzeigen & Erzählen", "description": "Teilen Sie, was Sie mit Polymux gebaut haben" },
+      "feedback": { "label": "Feedback & Ideen", "description": "Gestalten Sie, was wir als Nächstes bauen" },
+      "workflows": { "label": "Workflows", "description": "Vorlagen, Templates, Rezepte" },
+      "agents": { "label": "Agenten", "description": "Prompts, Tuning, Vergleichsläufe" }
+    }
   },
   "artifacts": {
     "empty": "Noch keine Artefakte. Hier erzeugte Dateien verschwinden am Ende der Sitzung — speichere alles, was du behalten möchtest.",
@@ -1035,6 +1156,22 @@
       }
     }
   },
+  "credentialRequest": {
+    "heading": "Der Agent muss sich bei {site} anmelden",
+    "useSavedLabel": "Gespeicherte Zugangsdaten verwenden",
+    "lastUsed": "zuletzt verwendet {date} · {count} Mal",
+    "working": "Wird verarbeitet…",
+    "useThisCredential": "Diese Zugangsdaten verwenden",
+    "orSaveNew": "oder neue speichern",
+    "usernameLabel": "Benutzername oder E-Mail",
+    "usernamePlaceholder": "du{'@'}example.com",
+    "passwordLabel": "Passwort",
+    "passwordPlaceholder": "Im Tresor Ihres Arbeitsbereichs gespeichert",
+    "saving": "Wird gespeichert…",
+    "saveAndUse": "Speichern & verwenden",
+    "errorReveal": "Das gespeicherte Passwort konnte nicht abgerufen werden.",
+    "errorSave": "Die Zugangsdaten konnten nicht im Tresor gespeichert werden."
+  },
   "schedule": {
     "title": "Zeitplan",
     "subtitle": "„{workflow}“ automatisch nach einem wiederkehrenden Zeitplan ausführen",
@@ -1149,12 +1286,101 @@
     "multiTitleSuffix": "{n} Elemente"
   },
   "pricing": {
+    "billingPeriod": "Abrechnungszeitraum",
     "storage": {
       "total": "Workspace-Speicher",
       "file": "Maximale Dateigröße",
       "pullFolder": "Maximaler Ordner-Pull",
       "artifacts": "Artefakt-Speicher"
     }
+  },
+  "install": {
+    "versionBadge": "Polymux für Desktop · v{version}",
+    "heading": "Polymux installieren",
+    "subtitle": "Ein ruhiges, natives Zuhause für Ihre KI-Agenten. Eine schnelle, fokussierte App — für macOS, Windows und Linux.",
+    "downloadFallback": "Polymux herunterladen",
+    "detectedNote": "{platform} erkannt · {meta}",
+    "chooseFallback": "Wählen Sie unten Ihre Plattform",
+    "otherPlatformLink": "Nicht {platform}? Alle Downloads anzeigen",
+    "yourComputer": "Ihr Computer",
+    "reassurance": {
+      "signed": "Signiert & notarisiert",
+      "updates": "Automatische Updates",
+      "free": "Kostenlos herunterladbar",
+      "private": "Standardmäßig privat"
+    },
+    "featureLabel": "Funktion",
+    "manual": {
+      "eyebrow": "Manuelle Installation",
+      "heading": "Wählen Sie Ihre Plattform",
+      "subtitle": "Jeder Build ist signiert, notarisiert und enthält die gleichen Funktionen. Laden Sie die für Ihr Setup passende Variante herunter."
+    },
+    "yourSystem": "Ihr System",
+    "otherOptions": "Weitere Optionen",
+    "platforms": {
+      "macos": { "tagline": "Universal Build", "requirement": "macOS 12 Monterey oder neuer", "downloadLabel": "Für macOS herunterladen" },
+      "windows": { "tagline": "x64 & ARM64", "requirement": "Windows 10 oder neuer", "downloadLabel": "Für Windows herunterladen" },
+      "linux": { "tagline": "Die meisten großen Distros", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Für Linux herunterladen" }
+    },
+    "mobile": {
+      "eyebrow": "In Arbeit",
+      "heading": "Mobile Apps",
+      "subtitle": "Native Companion-Apps sind in Entwicklung. Behalten Sie Agenten im Auge, genehmigen Sie Aktionen und bleiben Sie Ihren Workflows von überall aus nahe.",
+      "comingSoon": "Demnächst",
+      "polymuxFor": "Polymux für {name}",
+      "getNotified": "Benachrichtigt werden, wenn es startet",
+      "ios": "Bringen Sie Polymux auf iPhone und iPad. Verfolgen Sie Sitzungen und überprüfen Sie die Arbeit Ihrer Agenten unterwegs.",
+      "android": "Ein nativer Android-Companion zum Überwachen von Workflows und Genehmigen von Agentenaktionen — von überall."
+    },
+    "help": {
+      "heading": "Brauchen Sie Hilfe bei der Installation?",
+      "description": "Unsere Dokumentation führt Sie durch Überprüfung, Updates und Fehlerbehebung für jede Plattform.",
+      "readGuide": "Installationsanleitung lesen",
+      "contactSupport": "Support kontaktieren"
+    }
+  },
+  "legalDocs": {
+    "loadError": "Dieses Dokument konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "documentation": {
+      "title": "Dokumentation",
+      "subtitle": "Anleitungen und Konzepte für die Entwicklung mit Polymux."
+    },
+    "privacy": {
+      "title": "Datenschutzrichtlinie",
+      "subtitle": "Wie wir Ihre Daten bei der Nutzung von Polymux erfassen, verwenden und schützen."
+    },
+    "terms": {
+      "title": "Nutzungsbedingungen",
+      "subtitle": "Regeln und Bedingungen für die Nutzung von Polymux-Produkten und -Diensten."
+    },
+    "about": {
+      "title": "Über uns",
+      "subtitle": "Was Polymux entwickelt und wem wir dienen."
+    },
+    "apiReference": {
+      "title": "API-Referenz",
+      "subtitle": "HTTP-Endpunkte, Authentifizierung und Integrationsdetails für Entwickler."
+    },
+    "cookies": {
+      "title": "Cookie-Richtlinie",
+      "subtitle": "Wie wir Cookies und ähnliche Technologien auf unseren Websites und Diensten verwenden."
+    }
+  },
+  "bugReport": {
+    "heading": "Fehler melden",
+    "titleLabel": "Titel",
+    "titlePlaceholder": "Kurze Beschreibung des Problems",
+    "emailPlaceholder": "ihre{'@'}email.com",
+    "messageLabel": "Nachricht",
+    "messagePlaceholder": "Schritte zum Reproduzieren, was Sie erwartet haben, was passiert ist…",
+    "errorTitle": "Bitte geben Sie einen Titel ein.",
+    "errorEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "errorMessage": "Bitte beschreiben Sie den Fehler.",
+    "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "success": "Fehlerbericht gesendet — danke!",
+    "sending": "Wird gesendet…",
+    "sent": "Gesendet!",
+    "submit": "Bericht senden"
   },
   "betaAgreement": {
     "badge": "Beta",
@@ -1177,6 +1403,20 @@
   "accountSuspendedTitle": "Konto gesperrt",
   "accountSuspendedBody": "Dein Kontozugriff wurde vorübergehend gesperrt. Wenn dies ein Fehler ist, wende dich bitte an den Support.",
   "accountSuspendedSignOut": "Abmelden",
+  "serverUnavailableTitle": "Server nicht verfügbar",
+  "serverUnavailableBody": "Server nicht erreichbar. Dies kann an Wartungsarbeiten oder einem Netzwerkproblem liegen.",
+  "unsubscribe": {
+    "processing": "Wird bearbeitet…",
+    "successTitle": "Du wurdest abgemeldet",
+    "successBody": "{email} erhält keine E-Mails des Polymux-Blog-Newsletters mehr.",
+    "resubscribe": "Erneut abonnieren",
+    "resubscribing": "Wird erneut abonniert…",
+    "home": "Zurück zur Startseite",
+    "invalidTitle": "Link abgelaufen oder ungültig",
+    "invalidBody": "Dieser Abmeldelink ist nicht mehr gültig. Wenn du noch E-Mails erhältst, wende dich bitte an den Support.",
+    "errorTitle": "Etwas ist schiefgelaufen",
+    "errorBody": "Wir konnten deine Abmeldung gerade nicht verarbeiten. Bitte versuche es gleich noch einmal."
+  },
   "onboarding": {
     "skip": "Überspringen",
     "back": "Zurück",

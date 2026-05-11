@@ -14,15 +14,16 @@ definePageMeta({
   key: route => route.params.id as string,
 })
 
+const { t } = useI18n()
 const route = useRoute()
 const workflowId = computed(() => route.params.id as string)
 
 const headerTabs = computed(() => {
   const base = `/workflow/${workflowId.value}`
   return {
-    Agent: `${base}/agent`,
-    Schedule: `${base}/schedule`,
-    Artifacts: `${base}/artifacts`,
+    [t('workflow.tabs.agent')]: `${base}/agent`,
+    [t('workflow.tabs.schedule')]: `${base}/schedule`,
+    [t('workflow.tabs.artifacts')]: `${base}/artifacts`,
   } satisfies Record<string, string>
 })
 
@@ -66,7 +67,7 @@ const welcomeSuggestion = 'Show me something cool'
 const presetPrompt = pickWelcomePrompt()
 
 const session = useWorkflowSession(sessionId)
-const chats = useAgentChats(session, sessionId.value)
+const chats = useAgentChats(session)
 const messageFeedback = useMessageFeedback(sessionId.value)
 const vp = useViewports(session)
 const screencast = useScreencast(session)

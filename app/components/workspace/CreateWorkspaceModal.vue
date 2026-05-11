@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const isOpen = defineModel<boolean>('open', { default: false })
 
+const { t } = useI18n()
 const { createWorkspace, inviteMember } = useWorkspaces()
 
 const name = ref('')
@@ -46,7 +47,7 @@ async function handleSubmit() {
   try {
     const ws = await createWorkspace(trimmed, generateSlug(trimmed))
     if (!ws) {
-      error.value = 'Failed to create workspace. Please try again.'
+      error.value = t('workspaceCreate.errorFallback')
       return
     }
     const validInvites = invites.value.filter(i => i.email.trim())
@@ -102,7 +103,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
             role="dialog"
             aria-modal="true"
-            aria-label="Create workspace"
+            :aria-label="t('workspaceCreate.title')"
             @click.stop
           >
             <!-- Body -->
@@ -110,6 +111,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               <button
                 type="button"
                 class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                :aria-label="t('common.close')"
                 @click="handleClose"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -117,8 +119,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
               <!-- Title -->
               <div class="pr-6">
-                <h2 class="text-sm font-semibold text-neutral-900">Create Workspace</h2>
-                <p class="mt-0.5 text-xs text-neutral-400">Set up a new workspace for your team.</p>
+                <h2 class="text-sm font-semibold text-neutral-900">{{ t('workspaceCreate.title') }}</h2>
+                <p class="mt-0.5 text-xs text-neutral-400">{{ t('workspaceCreate.subtitle') }}</p>
               </div>
 
               <!-- Per-workspace billing note -->
@@ -127,17 +129,19 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 16v-4M12 8h.01" />
                 </svg>
-                <p class="text-xs leading-relaxed text-neutral-600">
-                  New workspaces start on <span class="font-medium text-neutral-800">Free</span>. Plans and limits apply per workspace — you can upgrade each one separately from the Pricing page.
-                </p>
+                <i18n-t keypath="workspaceCreate.billingNote" tag="p" class="text-xs leading-relaxed text-neutral-600">
+                  <template #plan>
+                    <span class="font-medium text-neutral-800">{{ t('workspaceCreate.freePlanName') }}</span>
+                  </template>
+                </i18n-t>
               </div>
 
               <!-- Workspace name -->
               <div>
-                <label class="block text-xs font-medium text-neutral-500 mb-1.5">Workspace name</label>
+                <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('workspaceCreate.nameLabel') }}</label>
                 <input
                   v-model="name"
-                  placeholder="e.g. My Team"
+                  :placeholder="t('workspaceCreate.namePlaceholder')"
                   autofocus
                   :maxlength="WORKSPACE_NAME_MAX_LENGTH"
                   class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
@@ -156,8 +160,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               <div>
                 <div class="flex items-center justify-between mb-3">
                   <div>
-                    <p class="text-xs font-medium text-neutral-500">Invite people</p>
-                    <p class="text-xs text-neutral-400 mt-0.5">Optional — you can always add people later.</p>
+                    <p class="text-xs font-medium text-neutral-500">{{ t('workspaceCreate.invitesLabel') }}</p>
+                    <p class="text-xs text-neutral-400 mt-0.5">{{ t('workspaceCreate.invitesHint') }}</p>
                   </div>
                 </div>
 
@@ -171,7 +175,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     <input
                       v-model="invite.email"
                       type="email"
-                      placeholder="email@example.com"
+                      :placeholder="t('workspaceCreate.emailPlaceholder')"
                       class="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white py-1.5 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                     />
 
@@ -183,7 +187,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         :class="invite.role === 'member' ? 'bg-white text-neutral-950 shadow-sm ring-1 ring-neutral-200/80' : 'text-neutral-500 hover:text-neutral-700'"
                         @click="invite.role = 'member'"
                       >
-                        Member
+                        {{ t('workspace.roleMember') }}
                       </button>
                       <button
                         type="button"
@@ -191,7 +195,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         :class="invite.role === 'admin' ? 'bg-white text-neutral-950 shadow-sm ring-1 ring-neutral-200/80' : 'text-neutral-500 hover:text-neutral-700'"
                         @click="invite.role = 'admin'"
                       >
-                        Admin
+                        {{ t('workspace.roleAdmin') }}
                       </button>
                     </div>
 
@@ -215,7 +219,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   @click="addInviteRow"
                 >
                   <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                  Add another
+                  {{ t('workspaceCreate.addAnother') }}
                 </button>
               </div>
             </div>
@@ -227,7 +231,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
                 @click="handleClose"
               >
-                Cancel
+                {{ t('common.cancel') }}
               </button>
               <button
                 type="button"
@@ -235,7 +239,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 :disabled="!nameValidation.ok || isSubmitting"
                 @click="handleSubmit"
               >
-                {{ isSubmitting ? 'Creating…' : 'Create workspace' }}
+                {{ isSubmitting ? t('workspaceCreate.creating') : t('workspaceCreate.submit') }}
               </button>
             </div>
           </div>

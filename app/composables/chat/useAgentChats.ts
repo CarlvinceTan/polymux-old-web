@@ -16,6 +16,7 @@ import type {
   TitleRequestPayload,
   TitleResponsePayload,
   SessionStatePayload,
+  StopAgentPayload,
 } from '../types'
 
 interface ChatState {
@@ -53,19 +54,23 @@ function newId(): string {
   })
 }
 
-export function useAgentChats(session: SessionHandle, _sessionId: string) {
-  // Plain `ref`, not `useState`: workflow switches remount the parent page, and
-  // an unmounted-then-remounted workflow must rehydrate from the DB rather than
-  // from a stale slot that captured a half-streamed partial before the previous
-  // WS was torn down. Sub-agent state (see `getState` below) was already a
-  // plain `ref` for the same reason; the orchestrator was the lone outlier.
-  const orchestratorState: ChatState = {
+function newChatState(): ChatState {
+  return {
     messages: ref<ChatMessage[]>([]),
     thinking: ref<ThinkingState | null>(null),
     waitingForAgent: ref(false),
     isStreaming: ref(false),
     streamingBuffer: null,
   }
+}
+
+export function useAgentChats(session: SessionHandle) {
+  // Plain `ref`, not `useState`: workflow switches remount the parent page, and
+  // an unmounted-then-remounted workflow must rehydrate from the DB rather than
+  // from a stale slot that captured a half-streamed partial before the previous
+  // WS was torn down. Sub-agent state (see `getState` below) was already a
+  // plain `ref` for the same reason; the orchestrator was the lone outlier.
+  const orchestratorState: ChatState = newChatState()
 
   const agentStates = new Map<string, ChatState>()
   const summarisedTitle = ref<string | null>(null)
@@ -74,13 +79,7 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
   function getState(chatId: string): ChatState {
     if (chatId === 'orchestrator') return orchestratorState
     if (!agentStates.has(chatId)) {
-      agentStates.set(chatId, {
-        messages: ref<ChatMessage[]>([]),
-        thinking: ref<ThinkingState | null>(null),
-        waitingForAgent: ref(false),
-        isStreaming: ref(false),
-        streamingBuffer: null,
-      })
+      agentStates.set(chatId, newChatState())
     }
     return agentStates.get(chatId)!
   }
@@ -298,24 +297,26 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     if (p.title) summarisedTitle.value = p.title
   }
 
-  session.on<AgentMessagePayload>('agent_message', handleAgentMessage)
-  session.on<AgentMessageBoundaryPayload>('agent_message_boundary', handleAgentMessageBoundary)
-  session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
-  session.on<CredentialRequestPayload>('credential_request', handleCredentialRequest)
-  session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
-  session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
-  session.on<TitleResponsePayload>('title_response', handleTitleResponse)
-  session.on<SessionStatePayload>('session_state', handleSessionState)
+  // Register handler + queue its teardown in one call so registration and
+  // cleanup stay in lockstep (no risk of adding a `session.on` and forgetting
+  // the matching `session.off` in onUnmounted).
+  const teardowns: Array<() => void> = []
+  function bind<T>(type: string, handler: (payload: T) => void) {
+    session.on<T>(type, handler)
+    teardowns.push(() => session.off(type, handler))
+  }
+
+  bind<AgentMessagePayload>('agent_message', handleAgentMessage)
+  bind<AgentMessageBoundaryPayload>('agent_message_boundary', handleAgentMessageBoundary)
+  bind<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
+  bind<CredentialRequestPayload>('credential_request', handleCredentialRequest)
+  bind<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
+  bind<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
+  bind<TitleResponsePayload>('title_response', handleTitleResponse)
+  bind<SessionStatePayload>('session_state', handleSessionState)
 
   onUnmounted(() => {
-    session.off('agent_message', handleAgentMessage)
-    session.off('agent_message_boundary', handleAgentMessageBoundary)
-    session.off('agent_thinking', handleAgentThinking)
-    session.off('credential_request', handleCredentialRequest)
-    session.off('browser_spawned', handleBrowserSpawned)
-    session.off('browser_agent_released', handleBrowserAgentReleased)
-    session.off('title_response', handleTitleResponse)
-    session.off('session_state', handleSessionState)
+    for (const teardown of teardowns) teardown()
   })
 
   /**
@@ -362,5 +363,10 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     requestTitle(text: string) {
       session.send<TitleRequestPayload>('title_request', { text })
     },
+    stopAgent(agentId: string) {
+      session.send<StopAgentPayload>('stop_agent', { agent_id: agentId })
+    },
   }
 }
+
+export type AgentChatsHandle = ReturnType<typeof useAgentChats>

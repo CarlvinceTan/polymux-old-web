@@ -12,12 +12,16 @@ const supabase = useSupabaseClient()
 // modal, comes back as an empty placeholder (truthy but with no `.id`) before
 // the auth listener fires — so we can't rely on it for self-row detection.
 // Resolve the auth user ourselves from the supabase session as a fallback.
-function hasId(u: User | null | undefined | Record<string, never>): u is User {
-  return !!u && typeof (u as User).id === 'string' && (u as User).id.length > 0
+// `useSupabaseUser` returns a decoded JwtPayload, but the rest of the code
+// expects a full User. We only ever read .id, so a structural check suffices.
+function hasId(u: unknown): u is { id: string } {
+  if (!u || typeof u !== 'object') return false
+  const id = (u as { id?: unknown }).id
+  return typeof id === 'string' && id.length > 0
 }
 
-const resolvedUser = ref<User | null>(hasId(supabaseUser.value) ? supabaseUser.value : null)
-watchEffect(() => { if (hasId(supabaseUser.value)) resolvedUser.value = supabaseUser.value })
+const resolvedUser = ref<User | null>(hasId(supabaseUser.value) ? (supabaseUser.value as unknown as User) : null)
+watchEffect(() => { if (hasId(supabaseUser.value)) resolvedUser.value = supabaseUser.value as unknown as User })
 
 async function ensureResolvedUser() {
   if (hasId(resolvedUser.value)) return
@@ -458,7 +462,7 @@ onUnmounted(() => {
             class="flex h-[560px] max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
             role="dialog"
             aria-modal="true"
-            aria-label="Manage members"
+            :aria-label="t('workspaceMenu.manageMembers')"
             @click.stop
           >
             <!-- Header -->

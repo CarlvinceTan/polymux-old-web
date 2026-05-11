@@ -9,6 +9,7 @@ import {
 
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const user = useSupabaseUser()
@@ -16,19 +17,18 @@ const { relativeTime } = useRelativeTime()
 
 const id = computed(() => String(route.params.id ?? ''))
 
-const { data, pending, error, refresh } = await useAsyncData<{
-  discussion: ForumDiscussion
-  replies: ForumReply[]
-}>(
+type DiscussionResponse = { discussion: ForumDiscussion; replies: ForumReply[] }
+
+const { data, pending, error, refresh } = await useAsyncData<DiscussionResponse>(
   () => `forum-discussion-${id.value}`,
-  () => $fetch(`/api/forum/discussions/${id.value}`),
+  () => apiFetch<DiscussionResponse>(`/api/forum/discussions/${id.value}`),
   { watch: [id] },
 )
 
 const discussion = computed<ForumDiscussion | null>(() => data.value?.discussion ?? null)
 const replies = computed<ForumReply[]>(() => data.value?.replies ?? [])
 
-useHead({ title: 'Forum' })
+useHead({ title: t('forum.pageTitle') })
 
 const category = computed(() =>
   discussion.value ? forumCategoryBySlug(discussion.value.category) : undefined,
@@ -47,7 +47,7 @@ async function submitReply() {
   const content = replyBody.value.trim()
   if (!content || !discussion.value) return
   if (content.length > 20000) {
-    replyError.value = 'Reply is too long (max 20,000 characters).'
+    replyError.value = t('forum.replyTooLong')
     return
   }
   replyError.value = ''
@@ -68,7 +68,7 @@ async function submitReply() {
       = anyErr?.data?.statusMessage
         || anyErr?.statusMessage
         || anyErr?.message
-        || 'Failed to post reply.'
+        || t('forum.failedToPost')
   }
   finally {
     replySubmitting.value = false
@@ -92,23 +92,23 @@ function goBack() {
         @click="goBack"
       >
         <UIcon name="i-heroicons-arrow-left-20-solid" class="size-4" />
-        Back to forum
+        {{ t('forum.backToForum') }}
       </button>
 
       <div v-if="pending && !discussion" class="mt-12 text-center text-sm text-neutral-500">
-        Loading discussion…
+        {{ t('forum.loadingDiscussion') }}
       </div>
 
       <div v-else-if="error || !discussion" class="mt-12 rounded-xl border border-neutral-200 bg-white p-10 text-center">
         <UIcon name="i-heroicons-exclamation-triangle-20-solid" class="mx-auto size-8 text-neutral-400" />
         <p class="mt-3 text-sm text-neutral-700">
-          This discussion could not be loaded. It may have been removed.
+          {{ t('forum.couldNotLoadDiscussion') }}
         </p>
         <NuxtLink
           to="/forum"
           class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-2"
         >
-          Return to the forum
+          {{ t('forum.returnToForum') }}
         </NuxtLink>
       </div>
 
@@ -120,7 +120,7 @@ function goBack() {
               class="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 font-medium text-white"
             >
               <UIcon name="i-heroicons-bookmark-20-solid" class="size-3" />
-              Pinned
+              {{ t('forum.pinned') }}
             </span>
             <span
               v-if="category"
@@ -130,14 +130,14 @@ function goBack() {
               ]"
             >
               <UIcon :name="category.icon" class="size-3" />
-              {{ category.label }}
+              {{ t(`forum.categories.${category.slug}.label`) }}
             </span>
             <span
               v-if="discussion.answered"
               class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-emerald-700"
             >
               <UIcon name="i-heroicons-check-circle-20-solid" class="size-3.5" />
-              Answered
+              {{ t('forum.answered') }}
             </span>
           </div>
 
@@ -159,7 +159,7 @@ function goBack() {
               <p class="text-xs text-neutral-500">
                 <time :datetime="discussion.created_at">{{ relativeTime(discussion.created_at) }}</time>
                 <span aria-hidden="true" class="mx-2 text-neutral-300">&middot;</span>
-                {{ formatForumViews(discussion.views) }} view<template v-if="discussion.views !== 1">s</template>
+                {{ discussion.views === 1 ? t('forum.viewCountOne') : t('forum.viewCountMany', { n: formatForumViews(discussion.views) }) }}
               </p>
             </div>
           </div>
@@ -169,13 +169,13 @@ function goBack() {
           </div>
         </article>
 
-        <section class="mt-10" aria-label="Replies">
+        <section class="mt-10" :aria-label="t('forum.repliesAria')">
           <h2 class="text-sm font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            {{ replies.length }} repl<template v-if="replies.length !== 1">ies</template><template v-else>y</template>
+            {{ replies.length === 1 ? t('forum.replyCountOne') : t('forum.replyCountMany', { n: replies.length }) }}
           </h2>
 
           <div v-if="!replies.length" class="mt-4 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/60 p-6 text-center text-sm text-neutral-600">
-            No replies yet. Be the first to respond.
+            {{ t('forum.noReplies') }}
           </div>
 
           <ol v-else class="mt-4 flex flex-col">
@@ -210,27 +210,27 @@ function goBack() {
         <section id="forum-reply-anchor" class="mt-10 scroll-mt-24">
           <template v-if="user">
             <h2 class="text-sm font-semibold uppercase tracking-[0.14em] text-neutral-500">
-              Your reply
+              {{ t('forum.yourReply') }}
             </h2>
             <form class="mt-3 space-y-3" novalidate @submit.prevent="submitReply">
               <textarea
                 v-model="replyBody"
                 rows="5"
                 maxlength="20000"
-                placeholder="Add to the conversation…"
+                :placeholder="t('forum.replyPlaceholder')"
                 class="w-full resize-y rounded-lg border border-neutral-200 bg-white px-4 py-3 text-base leading-relaxed text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
                 :disabled="replySubmitting"
               />
               <div class="flex items-center justify-between gap-3">
                 <p class="text-xs text-neutral-500">
-                  Be kind &middot; {{ replyBody.trim().length }}/20,000
+                  {{ t('forum.replyCounter', { count: replyBody.trim().length }) }}
                 </p>
                 <button
                   type="submit"
                   class="inline-flex min-h-10 items-center rounded-lg bg-neutral-950 px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="replySubmitting || !replyBody.trim().length"
                 >
-                  {{ replySubmitting ? 'Posting…' : 'Post reply' }}
+                  {{ replySubmitting ? t('forum.posting') : t('forum.postReply') }}
                 </button>
               </div>
               <p v-if="replyError" class="text-sm text-red-600" role="alert">
@@ -245,20 +245,20 @@ function goBack() {
           >
             <UIcon name="i-heroicons-chat-bubble-left-right-20-solid" class="mx-auto size-7 text-neutral-400" />
             <p class="mt-3 text-sm text-neutral-700">
-              Sign in to join the conversation.
+              {{ t('forum.signInToJoin') }}
             </p>
             <div class="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <NuxtLink
                 :to="signInRedirect"
                 class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-950 px-5 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
-                Sign in
+                {{ t('common.signIn') }}
               </NuxtLink>
               <NuxtLink
                 :to="{ path: '/sign-up', query: { redirect: route.fullPath } }"
                 class="text-sm text-neutral-600 underline decoration-neutral-300 underline-offset-2 transition-colors hover:text-neutral-900"
               >
-                Create an account
+                {{ t('forum.createAccount') }}
               </NuxtLink>
             </div>
           </div>

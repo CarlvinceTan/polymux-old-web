@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** Marketing home body: hero, features, pricing, reviews, CTA. Imported by `index.vue` for `/`; not a file-based route (see `nuxt.config` `pages:extend`). */
+const { t } = useI18n()
 const route = useRoute()
 
 function scrollToHash() {
@@ -283,7 +284,7 @@ const featureDemoSources: string[] = ['']
           <div
             class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
             role="group"
-            aria-label="Billing period"
+            :aria-label="t('pricing.billingPeriod')"
           >
             <button
               type="button"

@@ -65,9 +65,13 @@ export default defineEventHandler(async (event) => {
     admin,
   )
 
+  // IntegrationRow's `metadata: Record<string, unknown>` is structurally a
+  // subset of the DB column's `Json` type, but TS won't widen it implicitly
+  // (Json is a recursive union). Cast at the boundary; the runtime shape is
+  // guaranteed by the connector's buildIntegrationRow contract.
   const { error: upsertError } = await admin
     .from('workspace_integrations')
-    .upsert(row, { onConflict: 'workspace_id,provider' })
+    .upsert(row as never, { onConflict: 'workspace_id,provider' })
 
   if (upsertError) {
     console.error(`[${provider} callback] upsert failed`, upsertError)

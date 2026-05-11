@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
+import type { AgentChatsHandle } from '~/composables/chat/useAgentChats'
+import type { ViewportsHandle } from '~/composables/viewport/useViewports'
+import type { ScreencastHandle } from '~/composables/viewport/useScreencast'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
-const chats = inject<any>('chat-chats')!
+const chats = inject<AgentChatsHandle>('chat-chats')!
 const messageFeedback = inject<{
   feedback: Ref<Map<string, 'up' | 'down'>>
   setRating: (id: string, rating: 'up' | 'down' | null) => Promise<void>
 }>('chat-message-feedback')!
-const vp = inject<any>('chat-vp')!
-const screencast = inject<any>('chat-screencast')!
+const vp = inject<ViewportsHandle>('chat-vp')!
+const screencast = inject<ScreencastHandle>('chat-screencast')!
 const chatTitle = inject<Ref<string>>('chat-title')!
 const isNewChat = inject<Ref<boolean>>('chat-is-new')!
 const welcome = inject<Ref<boolean>>('chat-welcome')!

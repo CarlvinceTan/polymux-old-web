@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = resolveWorkspaceId(event)
-  const body = await readBody<Body>(event).catch(() => ({}))
+  const body = await readBody<Body>(event).catch(() => ({} as Body))
   const backend = body?.backend
   if (backend !== 'google-drive' && backend !== 'local') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid backend.' })

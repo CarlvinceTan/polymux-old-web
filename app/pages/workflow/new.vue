@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 
+const { t } = useI18n()
 const route = useRoute()
 const { draft, createDraft, markDraftCommitted, setPendingPrompt, restoreDraft } = useWorkflowList()
 
@@ -14,7 +15,7 @@ onMounted(async () => {
 
 // Single agent tab, self-referential so the header matches the style on
 // real workflow pages without advertising tabs that can't work yet.
-const headerTabs = computed(() => ({ Agent: route.path }))
+const headerTabs = computed(() => ({ [t('workflow.tabs.agent')]: route.path }))
 
 const command = ref('')
 const viewportList = ref<ViewportState[]>([])

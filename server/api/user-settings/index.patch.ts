@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
   const supabase = await serverSupabaseClient(event)
 
   const { data, error } = await supabase.rpc('upsert_user_settings', {
-    p_blog_newsletter_subscribed: body.blog_newsletter_subscribed ?? null,
-    p_settings: (body.settings as Json) ?? null,
-    p_cloaked_browser_enabled: body.cloaked_browser_enabled ?? null,
-    p_show_cursor_overlay: body.show_cursor_overlay ?? null,
+    p_blog_newsletter_subscribed: body.blog_newsletter_subscribed ?? undefined,
+    p_settings: (body.settings as Json) ?? undefined,
+    p_cloaked_browser_enabled: body.cloaked_browser_enabled ?? undefined,
+    p_show_cursor_overlay: body.show_cursor_overlay ?? undefined,
   })
 
   if (error) {

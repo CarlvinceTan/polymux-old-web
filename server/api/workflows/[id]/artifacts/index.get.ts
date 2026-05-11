@@ -1,7 +1,7 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { assertSessionMember, resolveSessionId } from '~~/server/utils/sessionAccess'
+import { assertWorkflowMember, resolveWorkflowId } from '~~/server/utils/workflowAccess'
 
-// GET /api/sessions/[id]/artifacts
+// GET /api/workflows/[id]/artifacts
 // Returns: { artifacts: ArtifactRow[] }
 //
 // Lists every artifact recorded against this session, newest first. Any
@@ -16,7 +16,7 @@ const PREVIEW_TTL_SECONDS = 60 * 60
 
 export interface ArtifactRow {
   id: string
-  session_id: string
+  workflow_id: string
   workspace_id: string
   name: string
   mime_type: string | null
@@ -38,15 +38,15 @@ export default defineEventHandler(async (event) => {
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Not authenticated.' })
   }
-  const sessionId = resolveSessionId(event)
+  const workflowId = resolveWorkflowId(event)
 
   const supabase = await serverSupabaseClient(event)
-  await assertSessionMember(supabase, sessionId, user.sub)
+  await assertWorkflowMember(supabase, workflowId, user.sub)
 
   const { data, error } = await supabase
     .from('artifacts')
-    .select('id, session_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
-    .eq('session_id', sessionId)
+    .select('id, workflow_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
+    .eq('workflow_id', workflowId)
     .order('created_at', { ascending: false })
 
   if (error) {

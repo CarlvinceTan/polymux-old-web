@@ -1,4 +1,6 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~~/app/types/database.types'
 import {
   assertMembership,
   basenameOf,
@@ -54,7 +56,7 @@ interface FileMetaRow {
 const MAX_ITEMS_PER_REQUEST = 500
 
 async function loadRow(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   path: string,
 ): Promise<FileMetaRow | null> {
@@ -68,7 +70,7 @@ async function loadRow(
 }
 
 async function loadSubtree(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient<Database>,
   workspaceId: string,
   rootPath: string,
 ): Promise<FileMetaRow[]> {

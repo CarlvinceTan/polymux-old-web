@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
 import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
-import { resolveArtifactId, resolveSessionId } from '~~/server/utils/sessionAccess'
+import { resolveArtifactId, resolveWorkflowId } from '~~/server/utils/workflowAccess'
 import {
   basenameOf,
   normalizePath,
@@ -10,11 +10,11 @@ import {
 import { resolveDriveAccess } from '~~/server/utils/driveTokens'
 import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 
-// POST /api/internal/sessions/[id]/artifacts/[aid]/promote
+// POST /api/internal/workflows/[id]/artifacts/[aid]/promote
 // Body: { user_id: string, path: string }
 // Returns: { storage_path, backend, file_id }
 //
-// Service-token-gated mirror of /api/sessions/[id]/artifacts/[aid]/promote.
+// Service-token-gated mirror of /api/workflows/[id]/artifacts/[aid]/promote.
 // The Go agent calls this when the model invokes PromoteArtifact — it acts on
 // behalf of the supplied user_id, so the same write-permission check applies.
 // Requires Google Drive to be connected for the workspace.
@@ -28,7 +28,7 @@ interface Body {
 
 export default defineEventHandler(async (event) => {
   await requirePolymuxSecret(event)
-  const sessionId = resolveSessionId(event)
+  const workflowId = resolveWorkflowId(event)
   const artifactId = resolveArtifactId(event)
   const body = await readBody<Body>(event)
 
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
     .from('artifacts')
     .select('id, name, mime_type, size_bytes, storage_path, content, workspace_id')
     .eq('id', artifactId)
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
     .single()
   if (fetchErr || !artifact) {
     throw createError({ statusCode: 404, statusMessage: 'Artifact not found.' })

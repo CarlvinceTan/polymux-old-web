@@ -1,11 +1,11 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  assertSessionMember,
+  assertWorkflowMember,
   resolveArtifactId,
-  resolveSessionId,
-} from '~~/server/utils/sessionAccess'
+  resolveWorkflowId,
+} from '~~/server/utils/workflowAccess'
 
-// DELETE /api/sessions/[id]/artifacts/[aid]
+// DELETE /api/workflows/[id]/artifacts/[aid]
 // Returns: { ok: true }
 //
 // Removes the artifact row and best-effort deletes its stored object. The
@@ -19,18 +19,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Not authenticated.' })
   }
 
-  const sessionId = resolveSessionId(event)
+  const workflowId = resolveWorkflowId(event)
   const artifactId = resolveArtifactId(event)
 
   const supabase = await serverSupabaseClient(event)
-  await assertSessionMember(supabase, sessionId, user.sub)
+  await assertWorkflowMember(supabase, workflowId, user.sub)
 
   const admin = serverSupabaseServiceRole(event)
   const { data: artifact, error: fetchErr } = await admin
     .from('artifacts')
     .select('id, storage_path')
     .eq('id', artifactId)
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
     .single()
   if (fetchErr || !artifact) {
     throw createError({ statusCode: 404, statusMessage: 'Artifact not found.' })
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     .from('artifacts')
     .delete()
     .eq('id', artifactId)
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
   if (delErr) {
     console.error('[artifacts/delete] row delete error', delErr)
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete artifact.' })

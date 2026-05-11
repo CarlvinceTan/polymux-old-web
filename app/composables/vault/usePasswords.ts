@@ -140,8 +140,8 @@ export function usePasswords() {
         p_name: name,
         p_url: url,
         p_username: username,
-        p_password: password ?? null,
-        p_is_weak: password !== undefined ? isWeakPassword(password) : null,
+        p_password: password ?? undefined,
+        p_is_weak: password !== undefined ? isWeakPassword(password) : undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)

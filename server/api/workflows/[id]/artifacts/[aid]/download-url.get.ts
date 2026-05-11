@@ -1,11 +1,11 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import {
-  assertSessionMember,
+  assertWorkflowMember,
   resolveArtifactId,
-  resolveSessionId,
-} from '~~/server/utils/sessionAccess'
+  resolveWorkflowId,
+} from '~~/server/utils/workflowAccess'
 
-// GET /api/sessions/[id]/artifacts/[aid]/download-url
+// GET /api/workflows/[id]/artifacts/[aid]/download-url
 // Returns: { url, expires_at }
 //
 // Mints a short-lived signed URL for the artifact's stored object. Inline-text
@@ -20,17 +20,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Not authenticated.' })
   }
 
-  const sessionId = resolveSessionId(event)
+  const workflowId = resolveWorkflowId(event)
   const artifactId = resolveArtifactId(event)
 
   const supabase = await serverSupabaseClient(event)
-  await assertSessionMember(supabase, sessionId, user.sub)
+  await assertWorkflowMember(supabase, workflowId, user.sub)
 
   const { data: artifact, error } = await supabase
     .from('artifacts')
     .select('id, storage_path')
     .eq('id', artifactId)
-    .eq('session_id', sessionId)
+    .eq('workflow_id', workflowId)
     .single()
   if (error || !artifact) {
     throw createError({ statusCode: 404, statusMessage: 'Artifact not found.' })

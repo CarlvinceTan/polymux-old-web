@@ -149,16 +149,6 @@ watch(displayedSteps, (steps) => {
   collapsedInitialized.value = true
 }, { immediate: true })
 
-function toggleParallelCollapse(nodeId: string) {
-  const next = new Set(collapsedParallelIds.value)
-  if (next.has(nodeId)) {
-    next.delete(nodeId)
-  } else {
-    next.add(nodeId)
-  }
-  collapsedParallelIds.value = next
-}
-
 // ── Node positions ──────────────────────────────────────────────────────────
 // Default grid from buildLayout columns/rows; user drags overlay per-node deltas
 // persisted to localStorage so the user's hand-arranged canvas survives reloads.
@@ -1292,9 +1282,6 @@ const wireGeoms = computed<WireGeom[]>(() => {
 
 // ── Actions ────────────────────────────────────────────────────────────────
 
-// visibleNodesFinal just uses visibleNodes (the hidden set is for user-deleted nodes)
-const visibleNodesFinal = computed(() => visibleNodes.value)
-
 function badgeClass(kind: string) {
   switch (kind) {
     case 'loop': return 'bg-amber-100 text-amber-800'
@@ -2101,7 +2088,7 @@ onBeforeUnmount(() => {
           inside it is treated as "on a node" by the canvas pan handler.
         -->
         <div
-          v-for="node in visibleNodesFinal"
+          v-for="node in visibleNodes"
           :key="node.id"
           data-node
           class="absolute"

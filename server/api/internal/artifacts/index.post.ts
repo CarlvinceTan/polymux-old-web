@@ -120,7 +120,7 @@ export default defineEventHandler(async (event) => {
   const { data, error } = await admin
     .from('artifacts')
     .insert({
-      session_id: sessionId,
+      workflow_id: sessionId,
       workspace_id: workspaceId,
       name,
       mime_type: mimeType,
@@ -129,7 +129,7 @@ export default defineEventHandler(async (event) => {
       content,
       created_by_agent_id: agentId,
     })
-    .select('id, session_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
+    .select('id, workflow_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
     .single()
 
   if (error || !data) {

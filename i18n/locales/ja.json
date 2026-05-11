@@ -182,6 +182,7 @@
     "parallel": "並列",
     "untitledNode": "無題のステップ",
     "untitledWorkflow": "無題のワークフロー",
+    "listEmptyPlaceholder": "サイドバーからワークフローを開いて始めましょう。",
     "startNode": "開始",
     "endNode": "終了",
     "save": "保存",
@@ -452,6 +453,21 @@
     "roleOwner": "オーナー",
     "roleAdmin": "管理者"
   },
+  "workspaceCreate": {
+    "title": "ワークスペースを作成",
+    "subtitle": "チーム用の新しいワークスペースをセットアップします。",
+    "billingNote": "新しいワークスペースは{plan}プランで開始します。プランと制限はワークスペースごとに適用されます — 料金ページからそれぞれ個別にアップグレードできます。",
+    "freePlanName": "Free",
+    "nameLabel": "ワークスペース名",
+    "namePlaceholder": "例：マイチーム",
+    "invitesLabel": "メンバーを招待",
+    "invitesHint": "任意 — 後からいつでもメンバーを追加できます。",
+    "emailPlaceholder": "email{'@'}example.com",
+    "addAnother": "別の人を追加",
+    "creating": "作成中…",
+    "submit": "ワークスペースを作成",
+    "errorFallback": "ワークスペースを作成できませんでした。もう一度お試しください。"
+  },
   "workspaceMenu": {
     "memberCountOne": "メンバー 1 人",
     "memberCountMany": "メンバー {n} 人",
@@ -693,6 +709,25 @@
     "tabs": {
       "files": "ファイル",
       "settings": "設定"
+    },
+    "toolbar": {
+      "back": "戻る",
+      "iconView": "アイコン表示",
+      "listView": "リスト表示",
+      "newFolder": "新しいフォルダ",
+      "upload": "アップロード",
+      "filter": "フィルター",
+      "filterFiles": "ファイルをフィルター",
+      "search": "検索",
+      "searchFiles": "ファイルを検索",
+      "searchPlaceholder": "検索...",
+      "selectedCount": "{n}件選択中"
+    },
+    "filters": {
+      "all": "すべてのファイル",
+      "images": "画像",
+      "documents": "ドキュメント",
+      "videos": "動画"
     }
   },
   "contact": {
@@ -702,9 +737,95 @@
     "contentField": "内容",
     "titlePlaceholder": "件名は何ですか？",
     "contentPlaceholder": "詳しく教えてください…",
+    "emailPlaceholder": "your{'@'}email.com",
+    "send": "送信",
     "sending": "送信中…",
     "success": "メッセージが送信されました。まもなくお返事いたします！",
-    "error": "問題が発生しました。後でもう一度お試しください。"
+    "error": "問題が発生しました。後でもう一度お試しください。",
+    "errorTitle": "タイトルを入力してください。",
+    "errorEmail": "有効なメールアドレスを入力してください。",
+    "errorContent": "メッセージを入力してください。",
+    "enterprisePrefill": "エンタープライズプランへの興味"
+  },
+  "forum": {
+    "pageTitle": "フォーラム",
+    "newPageTitle": "ディスカッションを開始",
+    "heading": "Polymux フォーラム",
+    "subtitle": "質問したり、ワークフローを共有したり、Polymux で構築している他のチームとつながりましょう。",
+    "startDiscussion": "ディスカッションを開始",
+    "readGuidelines": "ガイドラインを読む",
+    "searchPlaceholder": "ディスカッションを検索...",
+    "browseCategoriesAria": "カテゴリを参照",
+    "browseByCategoryHeading": "カテゴリで参照",
+    "resetFilters": "フィルターをリセット",
+    "allPosts": "すべての投稿",
+    "sort": {
+      "latest": "最新",
+      "top": "人気",
+      "unanswered": "未回答"
+    },
+    "loading": "読み込み中…",
+    "unableToLoad": "ディスカッションを読み込めません",
+    "discussionCountOne": "1 件のディスカッション",
+    "discussionCountMany": "{n} 件のディスカッション",
+    "loadingDiscussions": "ディスカッションを読み込み中…",
+    "couldntLoadForum": "フォーラムを読み込めませんでした。データベースがまだ起動中の可能性があります。",
+    "retry": "再試行",
+    "pinned": "ピン留め",
+    "answered": "回答済み",
+    "startedBy": "{name} さんが開始",
+    "viewCountOne": "1 ビュー",
+    "viewCountMany": "{n} ビュー",
+    "replyCountOne": "1 件の返信",
+    "replyCountMany": "{n} 件の返信",
+    "noMatchingDiscussions": "フィルターに一致するディスカッションはありません。",
+    "noDiscussions": "まだディスカッションはありません。最初の投稿者になりましょう。",
+    "clearFilters": "フィルターをクリア",
+    "guidelinesEyebrow": "はじめての方へ",
+    "beforeYouPost": "投稿する前に",
+    "guidelinesSubtitle": "数分の文脈があれば、コミュニティからより速く、より親切な回答が得られます。",
+    "guideline1Title": "投稿する前に検索しましょう",
+    "guideline1Desc": "誰かがすでに同じ問題に遭遇しているかもしれません。素早い検索で数秒で答えが見つかることがよくあります。",
+    "guideline2Title": "適切なカテゴリを選びましょう",
+    "guideline2Desc": "正確なカテゴリにより、最も助けてくれそうな人の目に投稿が触れます。モデレーターは間違ったカテゴリの投稿を移動します。",
+    "guideline3Title": "親切に、具体的に",
+    "guideline3Desc": "試したこと、期待したこと、実際に起きたことを書いてください。スクリーンショットやコードスニペットは大きな助けになります。",
+    "backToForum": "フォーラムへ戻る",
+    "loadingDiscussion": "ディスカッションを読み込み中…",
+    "couldNotLoadDiscussion": "このディスカッションを読み込めませんでした。削除された可能性があります。",
+    "returnToForum": "フォーラムへ戻る",
+    "repliesAria": "返信",
+    "noReplies": "まだ返信はありません。最初の返信者になりましょう。",
+    "yourReply": "あなたの返信",
+    "replyPlaceholder": "会話に追加…",
+    "replyCounter": "親切に · {count}/20,000",
+    "posting": "投稿中…",
+    "postReply": "返信を投稿",
+    "replyTooLong": "返信が長すぎます（最大 20,000 文字）。",
+    "failedToPost": "返信を投稿できませんでした。",
+    "signInToJoin": "サインインして会話に参加しましょう。",
+    "createAccount": "アカウントを作成",
+    "newSubtitle": "質問を共有したり、出荷したものを見せたり、Polymux を使う他のチームと会話を始めましょう。",
+    "categoryLegend": "カテゴリ",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "何についてですか？",
+    "titleHint": "{n}/200 · 3 文字以上",
+    "bodyLabel": "本文",
+    "bodyPlaceholder": "試したこと、期待したこと、実際に起きたことを書いてください。スニペットとスクリーンショットは大きな助けになります。",
+    "bodyHint": "{n}/20,000 · 10 文字以上",
+    "postingAs": "{who} として投稿",
+    "you": "あなた",
+    "publishing": "公開中…",
+    "publish": "ディスカッションを公開",
+    "newErrorGeneric": "問題が発生しました。もう一度お試しください。",
+    "categories": {
+      "announcements": { "label": "お知らせ", "description": "製品アップデートとコミュニティニュース" },
+      "help": { "label": "ヘルプ & サポート", "description": "質問する、問題を解決する" },
+      "show-and-tell": { "label": "ショー & テル", "description": "Polymux で作ったものを共有" },
+      "feedback": { "label": "フィードバック & アイデア", "description": "次に作るものを形作る" },
+      "workflows": { "label": "ワークフロー", "description": "ブループリント、テンプレート、レシピ" },
+      "agents": { "label": "エージェント", "description": "プロンプト、チューニング、実行比較" }
+    }
   },
   "artifacts": {
     "empty": "アーティファクトはまだありません。ここで生成されたファイルはセッション終了時に消えるので、保持したいものは保存してください。",
@@ -1035,6 +1156,22 @@
       }
     }
   },
+  "credentialRequest": {
+    "heading": "エージェントは {site} にサインインする必要があります",
+    "useSavedLabel": "保存された認証情報を使用",
+    "lastUsed": "最終使用 {date} · {count} 回",
+    "working": "処理中…",
+    "useThisCredential": "この認証情報を使用",
+    "orSaveNew": "または新しく保存",
+    "usernameLabel": "ユーザー名またはメールアドレス",
+    "usernamePlaceholder": "you{'@'}example.com",
+    "passwordLabel": "パスワード",
+    "passwordPlaceholder": "ワークスペースの保管庫に保存されます",
+    "saving": "保存中…",
+    "saveAndUse": "保存して使用",
+    "errorReveal": "保存されたパスワードを取得できませんでした。",
+    "errorSave": "認証情報を保管庫に保存できませんでした。"
+  },
   "schedule": {
     "title": "スケジュール",
     "subtitle": "「{workflow}」を繰り返しスケジュールで自動実行します",
@@ -1149,12 +1286,101 @@
     "multiTitleSuffix": "{n} 件"
   },
   "pricing": {
+    "billingPeriod": "請求期間",
     "storage": {
       "total": "ワークスペースのストレージ",
       "file": "1 ファイルあたりの上限",
       "pullFolder": "フォルダ取得サイズの上限",
       "artifacts": "アーティファクトのストレージ"
     }
+  },
+  "install": {
+    "versionBadge": "Polymux デスクトップ · v{version}",
+    "heading": "Polymux をインストール",
+    "subtitle": "AI エージェントのための静かでネイティブな拠点。macOS、Windows、Linux で動作する、ひとつの軽快で集中したアプリ。",
+    "downloadFallback": "Polymux をダウンロード",
+    "detectedNote": "{platform} を検出 · {meta}",
+    "chooseFallback": "下からプラットフォームを選択",
+    "otherPlatformLink": "{platform} ではない場合？すべてのダウンロードを見る",
+    "yourComputer": "お使いのコンピュータ",
+    "reassurance": {
+      "signed": "署名・公証済み",
+      "updates": "自動更新",
+      "free": "無料でダウンロード",
+      "private": "デフォルトでプライベート"
+    },
+    "featureLabel": "機能",
+    "manual": {
+      "eyebrow": "手動インストール",
+      "heading": "プラットフォームを選択",
+      "subtitle": "すべてのビルドは署名・公証済みで、同じ機能を備えています。お使いの環境に合うものをダウンロードしてください。"
+    },
+    "yourSystem": "お使いのシステム",
+    "otherOptions": "その他のオプション",
+    "platforms": {
+      "macos": { "tagline": "ユニバーサルビルド", "requirement": "macOS 12 Monterey 以降", "downloadLabel": "macOS 用をダウンロード" },
+      "windows": { "tagline": "x64 と ARM64", "requirement": "Windows 10 以降", "downloadLabel": "Windows 用をダウンロード" },
+      "linux": { "tagline": "主要なディストリビューション", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Linux 用をダウンロード" }
+    },
+    "mobile": {
+      "eyebrow": "開発中",
+      "heading": "モバイルアプリ",
+      "subtitle": "ネイティブのコンパニオンアプリを開発中です。エージェントをチェックし、アクションを承認し、どこからでもワークフローに近づけます。",
+      "comingSoon": "近日公開",
+      "polymuxFor": "{name} 用 Polymux",
+      "getNotified": "リリース時に通知を受け取る",
+      "ios": "iPhone と iPad に Polymux を。外出先からセッションを追跡し、エージェントの作業を確認できます。",
+      "android": "ワークフローを監視し、エージェントのアクションを承認するための Android ネイティブコンパニオン。"
+    },
+    "help": {
+      "heading": "インストールにお困りですか？",
+      "description": "私たちのドキュメントでは、各プラットフォームの検証、更新、トラブルシューティングを案内しています。",
+      "readGuide": "インストールガイドを読む",
+      "contactSupport": "サポートに連絡"
+    }
+  },
+  "legalDocs": {
+    "loadError": "このドキュメントを読み込めませんでした。後でもう一度お試しください。",
+    "documentation": {
+      "title": "ドキュメント",
+      "subtitle": "Polymux で開発するためのガイドとコンセプト。"
+    },
+    "privacy": {
+      "title": "プライバシーポリシー",
+      "subtitle": "Polymux 利用時の情報の収集、使用、保護について。"
+    },
+    "terms": {
+      "title": "利用規約",
+      "subtitle": "Polymux の製品・サービスを利用するためのルールと条件。"
+    },
+    "about": {
+      "title": "私たちについて",
+      "subtitle": "Polymux が構築しているものと、私たちが提供する相手。"
+    },
+    "apiReference": {
+      "title": "API リファレンス",
+      "subtitle": "開発者向けの HTTP エンドポイント、認証、統合の詳細。"
+    },
+    "cookies": {
+      "title": "Cookie ポリシー",
+      "subtitle": "当社のウェブサイトとサービスでの Cookie および類似技術の使用について。"
+    }
+  },
+  "bugReport": {
+    "heading": "バグを報告",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "問題の簡単な説明",
+    "emailPlaceholder": "your{'@'}email.com",
+    "messageLabel": "メッセージ",
+    "messagePlaceholder": "再現手順、期待した動作、実際に起きたこと…",
+    "errorTitle": "タイトルを入力してください。",
+    "errorEmail": "有効なメールアドレスを入力してください。",
+    "errorMessage": "バグを説明してください。",
+    "errorGeneric": "問題が発生しました。もう一度お試しください。",
+    "success": "バグレポートを送信しました — ありがとうございます！",
+    "sending": "送信中…",
+    "sent": "送信完了！",
+    "submit": "レポートを送信"
   },
   "betaAgreement": {
     "badge": "ベータ",
@@ -1177,6 +1403,20 @@
   "accountSuspendedTitle": "アカウント停止中",
   "accountSuspendedBody": "アカウントへのアクセスが一時的に停止されています。誤りだと思われる場合はサポートまでご連絡ください。",
   "accountSuspendedSignOut": "ログアウト",
+  "serverUnavailableTitle": "サーバーに接続できません",
+  "serverUnavailableBody": "サーバーに接続できません。メンテナンス中またはネットワークの問題の可能性があります。",
+  "unsubscribe": {
+    "processing": "処理中…",
+    "successTitle": "登録を解除しました",
+    "successBody": "{email} は Polymux ブログニュースレターのメールを受信しなくなります。",
+    "resubscribe": "再登録",
+    "resubscribing": "再登録中…",
+    "home": "ホームに戻る",
+    "invalidTitle": "リンクの有効期限が切れているか無効です",
+    "invalidBody": "この登録解除リンクは無効になりました。引き続きメールを受信している場合は、サポートにお問い合わせください。",
+    "errorTitle": "問題が発生しました",
+    "errorBody": "現在、登録解除を処理できません。しばらくしてからもう一度お試しください。"
+  },
   "onboarding": {
     "skip": "スキップ",
     "back": "戻る",
