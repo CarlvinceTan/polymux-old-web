@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAppToast } from '../useAppToast'
+import { useAppToast } from '../ui/useAppToast'
 
 export interface FileAttachmentState {
   id: string
@@ -10,7 +10,7 @@ export interface FileAttachmentState {
 }
 
 const maxUploadSize = ref<number | null>(null)
-let configFetched = false
+let configFetch: Promise<void> | null = null
 
 export function useAttachments() {
   const attachments = ref<FileAttachmentState[]>([])
@@ -26,34 +26,30 @@ export function useAttachments() {
     return session.access_token
   }
 
-  async function fetchUploadConfig() {
-    if (configFetched) return
-    configFetched = true
-    try {
-      const token = await getAuthToken()
-      const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
-      const res = await fetch(`${baseURL}/upload-config`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (typeof data.max_upload_size === 'number') {
-          maxUploadSize.value = data.max_upload_size
+  function fetchUploadConfig(): Promise<void> {
+    if (configFetch) return configFetch
+    configFetch = (async () => {
+      try {
+        const token = await getAuthToken()
+        const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+        const res = await fetch(`${baseURL}/upload-config`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (typeof data.max_upload_size === 'number') {
+            maxUploadSize.value = data.max_upload_size
+          }
         }
+      } catch {
+        // Silently fall back to no client-side check
       }
-    } catch {
-      // Silently fall back to no client-side check
-    }
+    })()
+    return configFetch
   }
 
-  function formatSize(bytes: number): string {
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
-    return `${bytes} B`
-  }
-
-  function addFiles(sessionId: string, files: FileList) {
-    fetchUploadConfig()
+  async function addFiles(sessionId: string, files: FileList) {
+    await fetchUploadConfig()
 
     for (const file of Array.from(files)) {
       if (maxUploadSize.value && file.size > maxUploadSize.value) {

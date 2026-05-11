@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { ChatMessageAttachment } from '~/composables/types'
+import { useAutoResizeTextarea } from '~/composables/ui/useAutoResizeTextarea'
 
 const { t } = useI18n()
 const { copy, copied } = useClipboard()
@@ -22,16 +23,15 @@ const editFileInputRef = ref<HTMLInputElement | null>(null)
 
 const { attachments: editAttachments, addFiles, removeFile, clearAll, seed } = useAttachments()
 
+const { resize: resizeEditTextarea } = useAutoResizeTextarea(editTextareaRef, editText, { maxLines: 8 })
+
 function startEdit() {
   editText.value = props.text
   seed(props.attachments ?? [])
   editing.value = true
   nextTick(() => {
-    const el = editTextareaRef.value
-    if (!el) return
-    el.style.height = '0px'
-    el.style.height = `${el.scrollHeight}px`
-    el.focus()
+    resizeEditTextarea()
+    editTextareaRef.value?.focus()
   })
 }
 
@@ -72,54 +72,6 @@ function onEditKeydown(e: KeyboardEvent) {
   e.preventDefault()
   submitEdit()
 }
-
-function autoResize(e: Event) {
-  const el = e.target as HTMLTextAreaElement
-  el.style.height = '0px'
-  el.style.height = `${el.scrollHeight}px`
-}
-
-let enterQueue: HTMLElement[] = []
-let enterFlush: ReturnType<typeof setTimeout> | undefined
-
-function onChipBeforeEnter(el: Element) {
-  ;(el as HTMLElement).style.opacity = '0'
-}
-
-function onChipEnter(el: Element, done: () => void) {
-  const htmlEl = el as HTMLElement
-  const order = enterQueue.length
-  enterQueue.push(htmlEl)
-
-  clearTimeout(enterFlush)
-  enterFlush = setTimeout(() => {
-    const batch = enterQueue
-    enterQueue = []
-    batch.forEach((item, i) => {
-      const delay = batch.length > 1 ? i * 50 : 0
-      item.style.transition = `opacity 0.15s ease ${delay}ms`
-      requestAnimationFrame(() => { item.style.opacity = '1' })
-    })
-  }, 0)
-
-  const maxDelay = (order + 1) * 50
-  setTimeout(done, 150 + maxDelay)
-}
-
-function onChipAfterEnter(el: Element) {
-  const htmlEl = el as HTMLElement
-  htmlEl.style.transition = ''
-  htmlEl.style.opacity = ''
-}
-
-function onChipBeforeLeave(el: Element) {
-  const htmlEl = el as HTMLElement
-  const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = htmlEl
-  htmlEl.style.left = `${offsetLeft}px`
-  htmlEl.style.top = `${offsetTop}px`
-  htmlEl.style.width = `${offsetWidth}px`
-  htmlEl.style.height = `${offsetHeight}px`
-}
 </script>
 
 <template>
@@ -145,17 +97,13 @@ function onChipBeforeLeave(el: Element) {
         name="message-edit"
         class="w-full resize-none bg-transparent text-sm leading-relaxed text-neutral-800 outline-none"
         @keydown="onEditKeydown"
-        @input="autoResize"
       />
       <TransitionGroup
         v-if="editAttachments.length > 0"
         tag="div"
         name="chip"
+        appear
         class="relative flex flex-wrap-reverse gap-1 pt-1.5"
-        @before-enter="onChipBeforeEnter"
-        @enter="onChipEnter"
-        @after-enter="onChipAfterEnter"
-        @before-leave="onChipBeforeLeave"
       >
         <FileAttachment
           v-for="file in editAttachments"
@@ -197,7 +145,7 @@ function onChipBeforeLeave(el: Element) {
 
     <!-- Display mode -->
     <template v-else>
-      <div class="min-w-0 rounded-[1.25rem] bg-[#f4f4f4] px-3 py-1.5">
+      <div class="min-w-0 rounded-[1.25rem] bg-[#e8e8e8] px-3 py-1.5">
         <p class="m-0 text-left text-sm leading-relaxed text-neutral-800 break-words">{{ text }}</p>
         <div
           v-if="attachments && attachments.length > 0"
@@ -220,14 +168,17 @@ function onChipBeforeLeave(el: Element) {
 </template>
 
 <style scoped>
-.chip-move {
-  transition: transform 0.2s ease;
-}
+.chip-move,
+.chip-enter-active,
 .chip-leave-active {
-  transition: opacity 0.15s ease;
-  position: absolute;
+  transition: transform 0.25s ease, opacity 0.2s ease;
 }
+.chip-enter-from,
 .chip-leave-to {
   opacity: 0;
+  transform: translateY(4px);
+}
+.chip-leave-active {
+  position: absolute;
 }
 </style>

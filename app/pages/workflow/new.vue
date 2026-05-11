@@ -52,7 +52,7 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
 
 const USER_NAME = 'Carlvince'
 const welcomeSuggestion = 'Show me something cool'
-const presetPrompt = pickRandomPresetPrompt()
+const presetPrompt = pickWelcomePrompt()
 </script>
 
 <template>
@@ -70,8 +70,6 @@ const presetPrompt = pickRandomPresetPrompt()
         :welcome-suggestion="welcomeSuggestion"
         :messages="emptyMessages"
         :session-id="sessionId"
-        :active-agent-id="null"
-        :browser-mode="false"
         :renameable="false"
         hide-view-switch
         hide-title

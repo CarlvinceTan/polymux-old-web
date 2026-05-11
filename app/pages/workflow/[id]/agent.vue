@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
-import type { SessionHandle } from '~/composables/auth/useSession'
+import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
@@ -15,7 +15,6 @@ const chatTitle = inject<Ref<string>>('chat-title')!
 const isNewChat = inject<Ref<boolean>>('chat-is-new')!
 const welcome = inject<Ref<boolean>>('chat-welcome')!
 const viewportList = inject<Ref<any>>('chat-viewport-list')!
-const browserMode = inject<Ref<boolean>>('chat-browser-mode')!
 const userName = inject<string>('chat-user-name')!
 const welcomeSuggestion = inject<string>('chat-welcome-suggestion')!
 const presetPrompt = inject<string>('chat-preset-prompt')!
@@ -23,8 +22,6 @@ const titleRequested = inject<Ref<boolean>>('chat-title-requested')!
 const viewMode = inject<Ref<ViewMode>>('chat-view-mode')!
 const armAutoSwitch = inject<() => void>('chat-arm-auto-switch')!
 const onRename = inject<(title: string) => Promise<void>>('chat-on-rename')!
-const onPromoteViewport = inject<(agentId: string) => void>('chat-on-promote-viewport')!
-const onDemoteActive = inject<() => void>('chat-on-demote-active')!
 const onCloseViewport = inject<(agentId: string) => void>('chat-on-close-viewport')!
 const onSpawnBrowserAgent = inject<() => void>('chat-on-spawn-browser-agent')!
 const session = inject<SessionHandle>('chat-session')!
@@ -80,10 +77,27 @@ function onFeedbackChange(messageId: string, rating: 'up' | 'down' | null) {
   void messageFeedback.setRating(messageId, rating)
 }
 
+// Stop a single browser agent's current work. Routes through the chat layer
+// because `stop_agent` is processed via the orchestrator's StopSubagent path
+// (cancel mid-task + release the pool slot) — same primitive the orchestrator
+// itself uses, just user-triggered from the viewport's run/stop control.
+function onStopAgent(agentId: string) {
+  chats.stopAgent(agentId)
+}
+
+// "Continue" / re-run hook for an idle viewport. No first-class server API
+// exists for resuming a sub-agent yet, so this is intentionally a no-op
+// scaffold — the Viewport's onRun prop is still wired so the play button
+// renders enabled in the UI, but the click doesn't drive any backend action
+// until a continue/resume message type lands on the protocol.
+function onRunAgent(_agentId: string) {
+  // TODO: wire to a server-side "continue agent" message when available.
+}
+
 // Pick up a draft stashed during session promotion and fire it immediately.
 // Calling onSend now pushes the optimistic user bubble into orchestrator
 // state synchronously — the welcome view goes away on the same tick the
-// page mounts. The WS frame itself is buffered inside useSession until the
+// page mounts. The WS frame itself is buffered inside useWorkflowSession until the
 // socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
   const pending = consumePendingPrompt(sessionId.value)
@@ -97,8 +111,6 @@ onMounted(() => {
     v-model:command="command"
     v-model:viewport-list="viewportList"
     v-model:view-mode="viewMode"
-    show-header-divider
-    :browser-mode="browserMode"
     :welcome="welcome"
     :chat-title="chatTitle"
     :renameable="!isNewChat"
@@ -113,16 +125,15 @@ onMounted(() => {
     :show-cursor="showCursor"
     :session-id="sessionId"
     :browser-agent-cap="vp.browserAgentCap.value"
-    :active-agent-id="vp.activeAgentId.value"
     :reconnecting="reconnecting"
     :feedback="messageFeedback.feedback.value"
     @welcome-suggestion="onSend(presetPrompt)"
     @send="onSend"
     @rename="onRename"
-    @promote-viewport="onPromoteViewport"
-    @demote-active="onDemoteActive"
     @close-viewport="onCloseViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"
+    @stop-agent="onStopAgent"
+    @run-agent="onRunAgent"
     @edit-message="onEditMessage"
     @feedback-change="onFeedbackChange"
   />

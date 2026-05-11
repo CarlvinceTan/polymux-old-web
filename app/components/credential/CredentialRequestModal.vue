@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { PasswordEntry } from '~/composables/usePasswords'
+import type { PasswordEntry } from '~/composables/vault/usePasswords'
 
 /**
  * CredentialRequestModal opens when the agent calls RequestCredential. The

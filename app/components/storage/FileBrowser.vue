@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { vDraggable } from 'vue-draggable-plus'
-import type { StorageFile, StorageFolder } from '~/composables/storage/useStorage'
-import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
-import type { FileIconName } from '~/composables/useFileIcons'
+import type { StorageFile, StorageFolder } from '~/composables/storage/useStorageFiles'
+import type { SelectedItem } from '~/types/storage'
+import type { FileIconName } from '~/composables/ui/useFileIcons'
 import type { StorageProvider } from '~/types/storage'
 import type { MigrateConfirmGroup } from '~/components/storage/MigrateConfirmModal.vue'
 
@@ -12,9 +12,9 @@ const props = withDefaults(defineProps<{
   storageName: 'Workspace',
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorageFiles()
 const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
-const { getIconForFile, getIconForFolder } = useFileIcons()
+const { getIconForFile } = useFileIcons()
 const { t, locale } = useI18n()
 const toast = useAppToast()
 
@@ -596,7 +596,7 @@ const filteredFiles = computed(() => {
   }
 
   const allItems = [
-    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFolder() as FileIconName, id: `folder-${f.name}` })),
+    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: 'folder' as FileIconName, id: `folder-${f.name}` })),
     ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt })),
   ]
 
@@ -645,7 +645,7 @@ const listItemsForView = computed(() => {
         name: '',
         path: '',
         provider: storageProvider.value,
-        icon: getIconForFolder() as FileIconName,
+        icon: 'folder' as FileIconName,
       },
       ...base,
     ]
@@ -1744,7 +1744,7 @@ async function onSortableEnd(evt: any) {
     const draggedProvider: StorageProvider = (dragged.provider as StorageProvider) ?? storageProvider.value
     const kind = dragged.kind
     const icon: FileIconName = kind === 'folder'
-      ? (getIconForFolder() as FileIconName)
+      ? ('folder' as FileIconName)
       : (getIconForFile(dragged.name) as FileIconName)
 
     const planned: PlannedMigrationItem = {
@@ -2797,7 +2797,7 @@ watch(multiDragActive, (active) => {
     />
 
     <!-- Permissions Modal -->
-    <FilePermissionsModal
+    <ManageMemberAccessModal
       v-if="isPermissionsModalOpen && selectedItemsArray.length > 0 && currentWorkspace"
       :items="selectedItemsArray"
       :workspace-id="currentWorkspace.id"

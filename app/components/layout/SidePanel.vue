@@ -385,14 +385,14 @@ const availableLocales = computed(() =>
 )
 
 const helpMenuItems = computed(() => [
-  { key: 'terms', label: computed(() => 'Terms and Conditions') },
-  { key: 'privacy', label: computed(() => 'Privacy Policy') },
-  { key: 'cookies', label: computed(() => 'Cookies Policy') },
-  { key: 'bug', label: computed(() => 'Bug Report') },
+  { key: 'terms', label: t('nav.termsAndConditions') },
+  { key: 'privacy', label: t('nav.privacyPolicy') },
+  { key: 'cookies', label: t('nav.cookiesPolicy') },
+  { key: 'bug', label: t('nav.reportBug') },
 ])
 
 function isActive(path: string) {
-  if (path === '/dashboard' || path === '/dashboard/home') {
+  if (path === '/dashboard' || path === '/dashboard/console') {
     return route.path.startsWith('/dashboard')
   }
   if (path === '/integrations/installed') {
@@ -1135,7 +1135,7 @@ onUnmounted(() => {
             class="flex w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors text-neutral-700 hover:bg-neutral-100"
             @click="selectHelpItem(item.key)"
           >
-            <span>{{ item.label.value }}</span>
+            <span>{{ item.label }}</span>
           </button>
         </div>
       </Teleport>

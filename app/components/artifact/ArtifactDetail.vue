@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SandboxArtifact } from '~/composables/chat/useArtifacts'
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 
 const props = defineProps<{
   artifact: SandboxArtifact
@@ -13,7 +13,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { formatSize } = useArtifacts(inject<Ref<string>>('workflow-id')!)
 
 const showLineNumbers = ref(true)
 

@@ -1,12 +1,12 @@
 import type { Ref } from 'vue'
-import type { SessionHandle } from '~/composables/auth/useSession'
+import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 import type { WorkflowStep } from '~/composables/workflows/useWorkflows'
 
 // Mirrors the orchestrator's in-progress workflow tree from the server's
 // `workflow_draft` event into shared state, scoped per-session so different
 // workflows in different tabs don't bleed. Bound at the page level (see
 // `pages/workflow/[id].vue`) so updates keep arriving while the user is in
-// chat or viewport view and `WorkflowDock` is unmounted.
+// chat or viewport view and `WorkflowNodeCanvas` is unmounted.
 export function useWorkflowDraft(session: SessionHandle, sessionId: Ref<string> | string) {
   const id = typeof sessionId === 'string' ? sessionId : sessionId.value
   const stepsKey = `workflow-draft-steps:${id}`

@@ -95,10 +95,6 @@ function changeLocale(code: string) {
   void setLocale(code as typeof locale.value)
 }
 
-const emailNotif = ref(true)
-const pushNotif = ref(false)
-const productUpdates = ref(true)
-const responseCompletions = ref(true)
 
 async function saveBlogSubscription(value: boolean) {
   try {
@@ -483,26 +479,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
                   <!-- Notifications -->
                   <SettingsSection :title="t('settings.notifications')">
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-envelope-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.emailNotif') }}</template>
-                      <template #trailing><SettingsToggle v-model="emailNotif" /></template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-bell-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.pushNotif') }}</template>
-                      <template #trailing><SettingsToggle v-model="pushNotif" /></template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-megaphone-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.productUpdates') }}</template>
-                      <template #trailing><SettingsToggle v-model="productUpdates" /></template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-check-badge-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.responseCompletions') }}</template>
-                      <template #trailing><SettingsToggle v-model="responseCompletions" /></template>
-                    </SettingsSectionRow>
                     <SettingsSectionRow>
                       <template #icon><UIcon name="i-heroicons-newspaper-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.blogNewsletter') }}</template>

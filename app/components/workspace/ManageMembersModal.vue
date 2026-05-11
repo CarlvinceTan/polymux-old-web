@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { User } from '@supabase/supabase-js'
-import type { WorkspaceInvitation, WorkspaceMember } from '~/composables/useWorkspaces'
+import type { WorkspaceInvitation, WorkspaceMember } from '~/composables/account/useWorkspaces'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 

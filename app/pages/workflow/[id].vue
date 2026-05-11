@@ -63,20 +63,20 @@ async function onRename(title: string) {
 const USER_NAME = 'Carlvince'
 const welcomeSuggestion = 'Show me something cool'
 
-const presetPrompt = pickRandomPresetPrompt()
+const presetPrompt = pickWelcomePrompt()
 
-const session = useSession(sessionId)
+const session = useWorkflowSession(sessionId)
 const chats = useAgentChats(session, sessionId.value)
 const messageFeedback = useMessageFeedback(sessionId.value)
 const vp = useViewports(session)
 const screencast = useScreencast(session)
 const geo = useGeolocation()
 const toast = useAppToast()
-// Single source of truth for workflow_run state across the page tree —
-// WorkflowDock injects the same instance instead of re-instantiating, so
-// each `workflow_run_*` WS event is handled exactly once. Lifted to the
-// page level so the SidePanel "running kind" watch below can distinguish
-// node-driven runs (progress arc) from chat-driven activity (spinner).
+// Owns workflow_run state at the page level so the SidePanel "running kind"
+// watch below can distinguish node-driven runs (progress arc) from
+// chat-driven activity (spinner). Each `workflow_run_*` WS event is handled
+// exactly once by this single instance; WorkflowNodeCanvas injects it for
+// its Run/Stop toggle so a second composable instance never doubles up.
 const workflowRun = useWorkflowRun(session)
 provide('workflow-run', workflowRun)
 
@@ -106,11 +106,11 @@ const workspaceId = computed(() => {
 
 // Bind workflow save/reject listeners to the page lifetime so the builder's
 // incremental SaveWorkflow events are never dropped while the user is in
-// Chat View (where `WorkflowDock` is unmounted).
+// Chat or Viewport view (where `WorkflowNodeCanvas` is unmounted).
 useWorkflowAgentEvents(session, workspaceId)
 
 // Mirror the agent's in-progress workflow tree (pre-save) into shared state
-// for WorkflowDock to render — same lifetime reasoning as above.
+// for WorkflowNodeCanvas to render — same lifetime reasoning as above.
 useWorkflowDraft(session, sessionId)
 
 session.on<ErrorPayload>('error', (p) => {
@@ -226,7 +226,7 @@ onMounted(async () => {
   // null = HTTP 403: workflow doesn't exist or RLS hides it from this user.
   // Redirect now rather than waiting for fetchSessions's watcher to fire —
   // workspace bootstrap can stretch that to several seconds, during which
-  // useSession's WebSocket would be banging out 403 reconnects.
+  // useWorkflowSession's WebSocket would be banging out 403 reconnects.
   if (orchestratorHistory === null) {
     void navigateTo('/workflow/new', { replace: true })
     return
@@ -345,7 +345,6 @@ const viewportList = computed({
   get: () => vp.viewports.value as ViewportState[],
   set: () => {},
 })
-const browserMode = computed(() => vp.browserMode.value)
 
 // ── View-mode state ─────────────────────────────────────────────────────────
 // Owned at the workflow-page level (rather than ChatLayout) so it survives
@@ -368,7 +367,7 @@ function loadViewMode(id: string): ViewMode | null {
   if (!id || id === DRAFT_WORKFLOW_ID) return null
   try {
     const raw = sessionStorage.getItem(VIEW_MODE_KEY_PREFIX + id)
-    if (raw === 'chat' || raw === 'viewport' || raw === 'workflow' || raw === 'node') return raw
+    if (raw === 'chat' || raw === 'viewport' || raw === 'flow') return raw
   } catch {}
   return null
 }
@@ -423,7 +422,6 @@ provide('chat-title', workflowTitle)
 provide('chat-is-new', isNewWorkflow)
 provide('chat-welcome', welcome)
 provide('chat-viewport-list', viewportList)
-provide('chat-browser-mode', browserMode)
 provide('chat-user-name', USER_NAME)
 provide('chat-welcome-suggestion', welcomeSuggestion)
 provide('chat-preset-prompt', presetPrompt)
@@ -431,8 +429,6 @@ provide('chat-title-requested', titleRequested)
 provide('chat-view-mode', viewMode)
 provide('chat-arm-auto-switch', armAutoSwitch)
 provide('chat-on-rename', onRename)
-provide('chat-on-promote-viewport', (agentId: string) => vp.promoteViewport(agentId))
-provide('chat-on-demote-active', () => vp.demoteActive())
 provide('chat-on-close-viewport', (agentId: string) => { vp.closeViewport(agentId); chats.drop(agentId) })
 provide('chat-on-spawn-browser-agent', () => vp.spawnBrowserAgent())
 provide('chat-message-feedback', messageFeedback)

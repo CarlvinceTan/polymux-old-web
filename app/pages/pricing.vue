@@ -54,11 +54,11 @@ const { currency, prices, detect } = useCurrency()
 
 onMounted(() => { detect() })
 
-const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean; isSpecial: boolean }[] = [
-  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false, isSpecial: false },
-  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true, isSpecial: true },
-  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false, isSpecial: false },
-  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false, isSpecial: false },
+const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
+  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
+  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true },
+  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false },
+  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false },
 ]
 
 function planPriceDisplay(key: PlanKey): {
@@ -150,7 +150,7 @@ watch(targetWorkspacePlan, (plan) => {
   selectedPlanKey.value = nextTierUp(plan)
 })
 
-function onPlanPanelSelect(key: PlanKey) {
+function onTierSelect(key: PlanKey) {
   if (key === 'enterprise') {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
   }
@@ -296,19 +296,18 @@ async function onPurchaseNow() {
       </div>
 
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <PlanPanel
+        <PricingTierCard
           v-for="plan in planMeta"
           :key="plan.key"
           :name="plan.name"
           v-bind="planPriceDisplay(plan.key)"
           :cta="plan.cta"
           :highlighted="plan.highlighted"
-          :is-special="plan.isSpecial"
           :selected="selectedPlanKey === plan.key"
           :is-current="currentUserPlan === plan.key"
           :items="planItemsForKey(plan.key)"
           :panel-id="`plan-panel-${plan.key}`"
-          @select="onPlanPanelSelect(plan.key)"
+          @select="onTierSelect(plan.key)"
         />
       </div>
       <div

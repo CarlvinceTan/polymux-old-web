@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SandboxArtifact } from '~/composables/chat/useArtifacts'
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 
 const props = defineProps<{
   artifacts: readonly SandboxArtifact[]

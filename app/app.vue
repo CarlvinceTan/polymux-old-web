@@ -1,14 +1,8 @@
 <script setup lang="ts">
 const route = useRoute()
 
-// Brand-aware SEO metadata. The same web/ codebase serves polymux.com
-// (marketing site) and dev.polymux.com (developer platform) — Google's
-// site-name feature reads og:site_name + the JSON-LD WebSite schema below
-// to render each domain with its own SERP entry.
-const requestURL = useRequestURL()
-const isDevHost = requestURL.hostname === 'dev.polymux.com'
-const siteName = isDevHost ? 'Polymux Development Platform' : 'Polymux'
-const siteUrl = isDevHost ? 'https://dev.polymux.com' : 'https://polymux.com'
+const siteName = 'Polymux'
+const siteUrl = 'https://polymux.com'
 const canonical = computed(() => {
   const path = route.fullPath === '/' ? '' : route.fullPath
   return `${siteUrl}${path}`

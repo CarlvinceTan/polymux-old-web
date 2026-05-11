@@ -143,7 +143,7 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
     function loadHistory(history: ChatMessage[]) {
       if (history.length === 0) return
       // Always replace from DB on rehydrate. Race we're closing: when a
-      // workflow remounts, useSession's WS connect runs in parallel with
+      // workflow remounts, useWorkflowSession's WS connect runs in parallel with
       // [id].vue's fetchMessages. If a live agent_thinking / agent_message
       // event lands before the DB read resolves, it appends to state.messages
       // — and the old guard (`messages.value.length !== 0` → bail) then
@@ -248,26 +248,6 @@ export function useAgentChats(session: SessionHandle, _sessionId: string) {
       step: p.step,
       totalSteps: p.total_steps,
     }
-
-    const last = state.messages.value[state.messages.value.length - 1]
-    if (last?.role === 'thinking') {
-      const updated = [...state.messages.value]
-      updated[updated.length - 1] = {
-        role: 'thinking',
-        text: p.action,
-        action: p.action,
-        detail: (last.detail ?? '') + p.detail,
-      }
-      state.messages.value = updated
-      return
-    }
-
-    state.messages.value = [...state.messages.value, {
-      role: 'thinking',
-      text: p.action,
-      action: p.action,
-      detail: p.detail,
-    }]
   }
 
   // pendingCredentialRequest is orchestrator-only — credential capture is

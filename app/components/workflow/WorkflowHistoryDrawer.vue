@@ -7,35 +7,25 @@ export interface LiveHistoryEntry {
   kind: 'agent-draft' | 'user-unsaved'
 }
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   open: boolean
   versions: WorkflowVersion[]
   currentVersionId?: string | null
   selectedVersionId?: string | null
   liveEntry?: LiveHistoryEntry | null
   loading?: boolean
-  variant?: 'drawer' | 'panel'
-}>(), {
-  variant: 'drawer',
-})
+}>()
 
 const emit = defineEmits<{
   close: []
   select: [versionId: string | null]
-  revert: [version: WorkflowVersion]
+  reset: [versionId: string]
 }>()
 
 const { t } = useI18n()
 const { relativeOrAbsoluteTime } = useRelativeTime()
-
-function impactClasses(level: string): string {
-  switch (level) {
-    case 'fundamental': return 'bg-rose-100 text-rose-700'
-    case 'significant': return 'bg-amber-100 text-amber-700'
-    case 'preference':  return 'bg-sky-100 text-sky-700'
-    default:            return 'bg-neutral-100 text-neutral-600'
-  }
-}
+const supaUser = useSupabaseUser()
+const { members } = useWorkspaces()
 
 function onRowClick(v: WorkflowVersion) {
   if (props.selectedVersionId === v.id) emit('select', null)
@@ -44,166 +34,140 @@ function onRowClick(v: WorkflowVersion) {
 
 const liveTitle = computed(() => {
   if (!props.liveEntry) return ''
-  return props.liveEntry.kind === 'agent-draft'
-    ? t('workflow.draftBadge')
-    : t('workflow.unsavedChanges')
+  // Both agent-drafts and user-unsaved local edits read as "Draft" in the
+  // history drawer — the distinction is preserved in code (kind) for future
+  // styling/affordance differences, but the label itself is unified.
+  return t('workflow.draftBadge')
 })
 
-const liveSource = computed(() =>
-  props.liveEntry?.kind === 'agent-draft' ? 'agent' : 'user',
-)
-
-// The live row is "selected" whenever the user is viewing the live state
-// (no preview version chosen). Clicking it again deselects, but since
-// selectedVersionId is already null we just keep emit'ing null — no-op.
+// "Currently viewed" = the row whose state the canvas is showing right now.
+// Priority: explicit version selection > live draft > latest saved version.
+// Drives the "Viewing" chip on that row; row backgrounds stay flat.
 const liveSelected = computed(() => !!props.liveEntry && !props.selectedVersionId)
 
-const isPanel = computed(() => props.variant === 'panel')
+function isViewedVersion(v: WorkflowVersion): boolean {
+  if (props.selectedVersionId) return v.id === props.selectedVersionId
+  if (props.liveEntry) return false
+  return v.id === props.currentVersionId
+}
+
+function userDisplayName(userId: string): string {
+  if (!userId) return ''
+  const m = members.value.find(x => x.user_id === userId)
+  if (m?.display_name) return m.display_name
+  if (m?.email) return m.email.split('@')[0] ?? ''
+  if (userId === supaUser.value?.id) {
+    const meta = supaUser.value?.user_metadata
+    return (meta?.full_name as string | undefined)
+      || (meta?.name as string | undefined)
+      || t('workflow.savedByYou')
+  }
+  return ''
+}
+
+function savedByLabel(v: WorkflowVersion): string {
+  if (v.source === 'agent') return t('workflow.savedByAgent')
+  return userDisplayName(v.created_by) || t('workflow.savedByYou')
+}
+
+const liveSavedBy = computed(() => {
+  if (props.liveEntry?.kind === 'agent-draft') return t('workflow.savedByAgent')
+  return userDisplayName(supaUser.value?.id ?? '') || t('workflow.savedByYou')
+})
 </script>
 
 <template>
-  <Transition
-    :enter-from-class="isPanel ? 'translate-x-4 opacity-0' : 'translate-x-full'"
-    :enter-to-class="isPanel ? 'translate-x-0 opacity-100' : 'translate-x-0'"
-    :leave-from-class="isPanel ? 'translate-x-0 opacity-100' : 'translate-x-0'"
-    :leave-to-class="isPanel ? 'translate-x-4 opacity-0' : 'translate-x-full'"
-    :enter-active-class="isPanel ? 'transition duration-200 ease-out' : 'transition-transform duration-200 ease-out'"
-    :leave-active-class="isPanel ? 'transition duration-150 ease-in' : 'transition-transform duration-200 ease-in'"
+  <InfoPanel
+    :open="open"
+    :title="t('workflow.historyTitle')"
+    @close="emit('close')"
   >
-    <aside
-      v-if="open"
-      class="flex min-w-0 flex-col bg-white"
-      :class="isPanel
-        ? 'absolute right-3 top-[60px] bottom-3 z-40 w-[340px] overflow-hidden rounded-xl border border-neutral-200 shadow-lg'
-        : 'absolute inset-y-0 right-0 z-10 w-80'"
-    >
-      <header
-        class="flex shrink-0 items-start justify-between gap-2 px-4 py-3"
-        :class="isPanel ? 'border-b border-neutral-200' : ''"
-      >
-        <div class="min-w-0">
-          <div
-            :class="isPanel
-              ? 'truncate text-caption font-semibold uppercase tracking-wider text-neutral-500'
-              : 'truncate text-sm font-semibold text-neutral-900'"
-          >
-            {{ t('workflow.historyTitle') }}
-          </div>
-          <p class="truncate text-[11px] text-neutral-500">
-            {{ t('workflow.historySubtitle') }}
-          </p>
-        </div>
+    <div v-if="loading" class="flex flex-1 items-center justify-center text-xs text-neutral-400">
+      {{ t('workflow.loadingHistory') }}
+    </div>
+    <div v-else-if="versions.length === 0 && !liveEntry" class="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
+      <UIcon name="i-heroicons-clock-20-solid" class="size-8 text-neutral-300" />
+      <p class="text-sm text-neutral-500">{{ t('workflow.noHistory') }}</p>
+    </div>
+    <ul v-else class="flex flex-col py-1">
+      <li v-if="liveEntry">
         <button
           type="button"
-          class="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-          :aria-label="t('workflow.close')"
-          @click="emit('close')"
+          class="flex w-full items-center gap-2.5 px-4 text-left text-[12px] transition-colors hover:bg-neutral-50"
+          @click="emit('select', null)"
         >
-          <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
+          <!-- Draft rail: dot is intentionally disconnected from the version
+               timeline below — no line segments rendered here. -->
+          <span class="relative flex h-6 w-3 shrink-0 items-center justify-center">
+            <span class="relative z-10 size-2 rounded-full bg-neutral-400" />
+          </span>
+          <span class="flex min-w-0 flex-1 items-center gap-2">
+            <span class="min-w-0 truncate text-neutral-700">{{ liveTitle }}</span>
+            <span
+              v-if="liveSelected"
+              class="shrink-0 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+            >
+              {{ t('workflow.viewing') }}
+            </span>
+          </span>
+          <span class="shrink-0 text-[11px] text-neutral-400">{{ liveSavedBy }}</span>
         </button>
-      </header>
+      </li>
 
-      <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div v-if="loading" class="flex flex-1 items-center justify-center text-xs text-neutral-400">
-          {{ t('workflow.loadingHistory') }}
-        </div>
-        <div v-else-if="versions.length === 0 && !liveEntry" class="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
-          <UIcon name="i-heroicons-clock-20-solid" class="size-8 text-neutral-300" />
-          <p class="text-sm text-neutral-500">{{ t('workflow.noHistory') }}</p>
-        </div>
-        <ul v-else class="flex flex-col">
-          <li
-            v-if="liveEntry"
-            class="border-b border-neutral-100 last:border-b-0"
+      <!-- Saved-version row: the row body and reset affordance are siblings
+           inside a wrapping flex strip so the reset button can be a real
+           `<button>` (nested buttons are invalid HTML). The strip carries the
+           hover bg + group token; the user-name span and reset icon are
+           hover-swapped via group-hover/version-row. -->
+      <li v-for="(v, idx) in versions" :key="v.id" class="group/version-row">
+        <div class="flex w-full items-center px-4 text-[12px] transition-colors hover:bg-neutral-50">
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-2.5 border-0 bg-transparent p-0 text-left text-[12px] outline-none"
+            @click="onRowClick(v)"
           >
-            <button
-              type="button"
-              class="flex w-full flex-col items-stretch gap-1 border-l-2 px-4 py-3 text-left transition-colors"
-              :class="liveSelected
-                ? 'border-amber-500 bg-amber-50/80'
-                : 'border-amber-300 bg-amber-50/40 hover:bg-amber-50/70'"
-              @click="emit('select', null)"
-            >
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-neutral-900">
-                  {{ liveTitle }}
-                </span>
-                <span
-                  class="inline-flex items-center rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600"
-                >
-                  {{ liveSource }}
-                </span>
-                <span
-                  class="ml-auto inline-flex items-center rounded-sm bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                >
-                  {{ t('workflow.liveBadge') }}
-                </span>
-              </div>
-              <p class="text-[11px] text-neutral-400">
-                {{ t('workflow.liveNow') }}
-              </p>
-            </button>
-          </li>
-
-          <li
-            v-for="v in versions"
-            :key="v.id"
-            class="border-b border-neutral-100 last:border-b-0"
-          >
-            <button
-              type="button"
-              class="flex w-full flex-col items-stretch gap-1 border-l-2 px-4 py-3 text-left transition-colors"
-              :class="[
-                v.id === selectedVersionId
-                  ? 'border-neutral-900 bg-neutral-100'
-                  : v.id === currentVersionId && !liveEntry
-                    ? 'border-emerald-500 bg-emerald-50/60 hover:bg-emerald-50'
-                    : 'border-transparent hover:bg-neutral-50',
-              ]"
-              @click="onRowClick(v)"
-            >
-              <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-neutral-900">v{{ v.version }}</span>
-                <span
-                  class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
-                  :class="impactClasses(v.impact_level)"
-                >
-                  {{ v.impact_level }}
-                </span>
-                <span
-                  class="inline-flex items-center rounded-sm bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600"
-                >
-                  {{ v.source }}
-                </span>
-                <span
-                  v-if="v.id === currentVersionId"
-                  class="ml-auto inline-flex items-center rounded-sm bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
-                >
-                  {{ t('workflow.current') }}
-                </span>
-              </div>
-              <p v-if="v.change_summary" class="text-xs text-neutral-700 line-clamp-2">
-                {{ v.change_summary }}
-              </p>
-              <p class="text-[11px] text-neutral-400">
+            <!-- Version rail: explicit h-6 drives row height so the connecting
+                 line has enough vertical room outside the dot, and adjacent
+                 rows' rails touch edge-to-edge (no button py to break them
+                 apart). The line is drawn as two halves around the dot so the
+                 first/last rows only render their inward-facing segment. -->
+            <span class="relative flex h-6 w-3 shrink-0 items-center justify-center">
+              <span
+                v-if="idx > 0"
+                class="absolute left-1/2 top-0 h-1/2 w-0.5 -translate-x-1/2 bg-neutral-300"
+              />
+              <span
+                v-if="idx < versions.length - 1"
+                class="absolute left-1/2 bottom-0 h-1/2 w-0.5 -translate-x-1/2 bg-neutral-300"
+              />
+              <span class="relative z-10 size-2 rounded-full bg-neutral-400" />
+            </span>
+            <span class="flex min-w-0 flex-1 items-center gap-2">
+              <span class="min-w-0 truncate text-neutral-700">
                 {{ relativeOrAbsoluteTime(v.created_at) }}
-              </p>
-              <div
-                v-if="v.id === selectedVersionId && v.id !== currentVersionId"
-                class="mt-1 flex justify-end"
+              </span>
+              <span
+                v-if="isViewedVersion(v)"
+                class="shrink-0 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
               >
-                <button
-                  type="button"
-                  class="rounded border border-neutral-900 bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-neutral-800"
-                  @click.stop="emit('revert', v)"
-                >
-                  {{ t('workflow.revert') }}
-                </button>
-              </div>
-            </button>
-          </li>
-        </ul>
-      </div>
-    </aside>
-  </Transition>
+                {{ t('workflow.viewing') }}
+              </span>
+            </span>
+          </button>
+          <span
+            class="shrink-0 pl-2 text-[11px] text-neutral-400 group-hover/version-row:hidden"
+          >{{ savedByLabel(v) }}</span>
+          <button
+            type="button"
+            class="hidden h-6 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent pl-2 text-neutral-400 outline-none transition-colors hover:text-neutral-900 group-hover/version-row:inline-flex"
+            :aria-label="t('workflow.resetToVersion')"
+            :title="t('workflow.resetToVersion')"
+            @click="emit('reset', v.id)"
+          >
+            <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
+          </button>
+        </div>
+      </li>
+    </ul>
+  </InfoPanel>
 </template>

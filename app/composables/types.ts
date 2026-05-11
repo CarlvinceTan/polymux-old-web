@@ -280,12 +280,8 @@ export interface ChatMessageAttachment {
 }
 
 export interface ChatMessage {
-  role: 'agent' | 'user' | 'thinking'
+  role: 'agent' | 'user'
   text: string
-  /** For thinking entries: the collapsed action summary line */
-  action?: string
-  /** For thinking entries: accumulated detail text (expandable) */
-  detail?: string
   /** For user messages: files attached when the message was sent */
   attachments?: ChatMessageAttachment[]
   /** Persisted-row id for this message (when known). User messages mint it

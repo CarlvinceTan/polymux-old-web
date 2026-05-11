@@ -96,7 +96,7 @@ function friendlyAcceptError(raw: string): string {
 }
 
 function continueToDashboard() {
-  router.replace('/dashboard/home')
+  router.replace('/dashboard/console')
 }
 
 onMounted(loadPreview)
@@ -137,7 +137,7 @@ useOnReconnect(() => {
           <button
             type="button"
             class="flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-body-md font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            @click="router.replace('/dashboard/home')"
+            @click="router.replace('/dashboard/console')"
           >
             Decline
           </button>
@@ -192,7 +192,7 @@ useOnReconnect(() => {
         <button
           type="button"
           class="w-full rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800"
-          @click="router.replace('/dashboard/home')"
+          @click="router.replace('/dashboard/console')"
         >
           Go to dashboard
         </button>

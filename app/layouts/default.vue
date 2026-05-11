@@ -29,7 +29,7 @@ const { isCollapsed } = useSidePanel()
       <slot />
     </UPage>
 
-    <ToastContainer />
+    <AppToastContainer />
     <NotificationsToast />
     <MigrationProgressToast />
   </div>

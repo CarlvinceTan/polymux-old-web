@@ -331,7 +331,7 @@ onUnmounted(() => {
                   </div>
 
                   <!-- Live migration progress -->
-                  <DriveMigrationStatus
+                  <MigrationStatusCard
                     v-if="activeMigrationState && activeMigrationState.status !== 'idle'"
                     :state="activeMigrationState"
                   />

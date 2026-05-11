@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { WorkflowStep, WorkflowWithLatest } from '~/composables/workflows/useWorkflows'
+import type { WorkflowStep, WorkflowVersion, WorkflowWithLatest } from '~/composables/workflows/useWorkflows'
 import { VersionConflictError } from '~/composables/workflows/useWorkflows'
 import type { NodeModel, WireModel } from '~/composables/workflows/useWorkflowLayout'
 import { buildLayout } from '~/composables/workflows/useWorkflowLayout'
+import type { LiveHistoryEntry } from '~/components/workflow/WorkflowHistoryDrawer.vue'
 
 const props = defineProps<{
   sessionId: string
@@ -20,7 +21,17 @@ const {
   getWorkflow,
   createVersion,
   startRun,
+  resetToVersion,
 } = useWorkflows()
+
+// Live workflow-run status — provided by pages/workflow/[id].vue so the
+// Run/Stop toggle reflects the actual in-flight run instead of just the
+// brief startRun() request window.
+const workflowRun = inject<ReturnType<typeof import('~/composables/workflows/useWorkflowRun').useWorkflowRun> | null>('workflow-run', null)
+const isRunActive = computed(() => {
+  const s = workflowRun?.runStatus.value
+  return s === 'running' || s === 'pending'
+})
 
 const workspaceId = computed(() => {
   const s = sessions.value.find(s => s.id === props.sessionId)
@@ -65,7 +76,17 @@ watch(workspaceId, () => { void loadSelected() }, { immediate: true })
 const lastSavedAt = useState<number>('workflow-last-saved-at', () => 0)
 watch(lastSavedAt, () => { void loadSelected() })
 
+// Forward-declared so `displayedSteps` (read by an `immediate: true` watch
+// during setup) can read it without hitting a temporal-dead-zone error. The
+// canonical selection state is `selectedVersionId` below; a watcher mirrors
+// the selected version's data into this ref.
+const previewedVersion = ref<WorkflowVersion | null>(null)
+
 const displayedSteps = computed<WorkflowStep[]>(() => {
+  // When the user has picked a version from history, the canvas previews
+  // that version's steps. Edits while previewing are gated behind a revert
+  // confirm — see `attemptEdit` / `confirmRevert` below.
+  if (previewedVersion.value) return previewedVersion.value.steps as WorkflowStep[]
   if (draftSteps.value.length > 0) return draftSteps.value
   return loadedSteps.value
 })
@@ -369,18 +390,28 @@ function onCanvasPointerUp(e: PointerEvent) {
 function fitToView() {
   if (!viewportEl.value) return
   const rect = viewportEl.value.getBoundingClientRect()
-  const pad = 60
+  // Reserve space for the floating overlays that sit on top of the
+  // canvas so nodes don't render underneath them: workflow title +
+  // mode switch (top), prompt input (bottom), side toolbar (left).
+  // The right edge has no overlay, just a visual gutter.
+  const padTop = 80
+  const padBottom = 120
+  const padLeft = 72
+  const padRight = 32
+  // Fit-to-view always snaps to 100% zoom — it re-centres the graph in
+  // the available (non-overlay) area without rescaling, regardless of
+  // whether the bbox would technically fit at a larger zoom.
+  scale.value = 1
+  const nodes = visibleNodes.value
+  if (nodes.length === 0) {
+    offset.value = { x: 0, y: 0 }
+    return
+  }
   // Tight bounding box of the actual visible nodes — separate from
   // canvasBounds, which includes padding and 800×600 minimums for the
   // wrapper / SVG sizing. Using the tight box here means Fit always
   // centres on the nodes themselves regardless of how small a region
   // they occupy.
-  const nodes = visibleNodes.value
-  if (nodes.length === 0) {
-    scale.value = 1
-    offset.value = { x: 0, y: 0 }
-    return
-  }
   let nMinX = Infinity
   let nMinY = Infinity
   let nMaxX = -Infinity
@@ -392,23 +423,19 @@ function fitToView() {
     if (p.x + NODE_W > nMaxX) nMaxX = p.x + NODE_W
     if (p.y + NODE_H > nMaxY) nMaxY = p.y + NODE_H
   }
-  const nW = nMaxX - nMinX
-  const nH = nMaxY - nMinY
-  const sx = (rect.width - pad * 2) / nW
-  const sy = (rect.height - pad * 2) / nH
-  const s = Math.min(1, Math.max(0.4, Math.min(sx, sy)))
-  scale.value = s
-  // Map the centre of the nodes' bbox (in workflow coords) to the centre
-  // of the viewport. The shift wrapper translates by (-canvasBounds.minX,
-  // -canvasBounds.minY) before scale/offset, so a workflow point at X
-  // renders at (X - canvasBounds.minX) * scale + offset.x in the viewport.
-  // Solve for offset such that the bbox midpoint lands at rect.width / 2.
+  // Map the centre of the nodes' bbox (in workflow coords) to the
+  // centre of the *available* (non-overlay) area, not the raw viewport.
+  // The shift wrapper translates by (-canvasBounds.minX, -canvasBounds.minY)
+  // before scale/offset, so a workflow point at X renders at
+  // (X - canvasBounds.minX) * scale + offset.x in the viewport.
   const cb = canvasBounds.value
-  const midX = nMinX + nW / 2
-  const midY = nMinY + nH / 2
+  const midX = (nMinX + nMaxX) / 2
+  const midY = (nMinY + nMaxY) / 2
+  const targetCx = (padLeft + (rect.width - padRight)) / 2
+  const targetCy = (padTop + (rect.height - padBottom)) / 2
   offset.value = {
-    x: rect.width / 2 - (midX - cb.minX) * s,
-    y: rect.height / 2 - (midY - cb.minY) * s,
+    x: targetCx - (midX - cb.minX),
+    y: targetCy - (midY - cb.minY),
   }
 }
 
@@ -547,9 +574,23 @@ const selectionDetailNode = computed<NodeModel | null>(() => {
 // element repainted under the pointer mid-frame.
 const draggingIds = ref<Set<string>>(new Set())
 
+// Node-details panel only opens for a *click* on a node, not for a grab
+// that turns into a drag. Each pointerdown resets this; the pointerup
+// handler sets it true only when no drag movement occurred. X-close clears
+// selection (which closes the panel via `selectionDetailNode`), so this
+// flag doesn't need a separate reset path.
+const showNodeDetails = ref(false)
+
 function onNodePointerDown(e: PointerEvent, node: NodeModel) {
   e.stopPropagation()
   if (e.button !== 0) return
+  // Editing the canvas while previewing a past version isn't allowed
+  // outright — bail out and prompt the user to revert to that version
+  // first. Selection state stays untouched so the modal can decide.
+  if (!attemptEdit()) return
+  // Hide the node-details panel while the pointer is down; only a true
+  // click (pointerup without drag movement) re-opens it below.
+  showNodeDetails.value = false
   if (!selected.value.has(node.id)) {
     selectNode(node.id, e.shiftKey || e.metaKey || e.ctrlKey)
   }
@@ -585,8 +626,56 @@ function onNodePointerDown(e: PointerEvent, node: NodeModel) {
       let nx = o.x + dx
       let ny = o.y + dy
       if (settings.value.snapToGrid) {
-        nx = Math.round(nx / SNAP_GRID) * SNAP_GRID
-        ny = Math.round(ny / SNAP_GRID) * SNAP_GRID
+        // The visible grid is rendered against `canvasBounds.minX/minY`
+        // (the inner content layer translates by those values before
+        // scale/offset). Snap relative to that origin so dropped nodes
+        // line up with actual grid dots rather than to a phantom grid
+        // at workflow (0, 0).
+        const cb = canvasBounds.value
+        nx = Math.round((nx - cb.minX) / SNAP_GRID) * SNAP_GRID + cb.minX
+        ny = Math.round((ny - cb.minY) / SNAP_GRID) * SNAP_GRID + cb.minY
+        // After the grid snap, also magnet onto nearby non-dragged nodes
+        // so two cards a couple of pixels apart click into alignment
+        // (left, centre, or right edge on X; top, centre, bottom on Y).
+        // Closest match wins per axis; threshold is generous because a
+        // grid snap may already have us within a few units.
+        const SNAP_NODE_THRESHOLD = 12
+        let bestDX = SNAP_NODE_THRESHOLD + 1
+        let bestDY = SNAP_NODE_THRESHOLD + 1
+        let snapX = nx
+        let snapY = ny
+        for (const other of visibleNodes.value) {
+          if (ids.includes(other.id)) continue
+          const op = nodePos(other)
+          // X candidates: left, centre, right
+          const xCandidates: Array<[number, number]> = [
+            [nx, op.x],
+            [nx + NODE_W / 2, op.x + NODE_W / 2],
+            [nx + NODE_W, op.x + NODE_W],
+          ]
+          for (const [self, target] of xCandidates) {
+            const d = Math.abs(self - target)
+            if (d < bestDX) {
+              bestDX = d
+              snapX = nx + (target - self)
+            }
+          }
+          // Y candidates: top, centre, bottom
+          const yCandidates: Array<[number, number]> = [
+            [ny, op.y],
+            [ny + NODE_H / 2, op.y + NODE_H / 2],
+            [ny + NODE_H, op.y + NODE_H],
+          ]
+          for (const [self, target] of yCandidates) {
+            const d = Math.abs(self - target)
+            if (d < bestDY) {
+              bestDY = d
+              snapY = ny + (target - self)
+            }
+          }
+        }
+        nx = snapX
+        ny = snapY
       }
       next[id] = { x: nx, y: ny }
     }
@@ -608,6 +697,9 @@ function onNodePointerDown(e: PointerEvent, node: NodeModel) {
       return o && cur && (Math.abs(o.x - cur.x) > 0.5 || Math.abs(o.y - cur.y) > 0.5)
     })
     if (moved) recordHistory()
+    // Pure click (no drag) re-opens the details panel; a drag leaves it
+    // closed so the user can keep working without the panel popping in.
+    else showNodeDetails.value = true
   }
   document.addEventListener('pointermove', onMove)
   document.addEventListener('pointerup', onUp)
@@ -644,6 +736,7 @@ function onZoneLeave(id: string) {
 let spawnCounter = 0
 
 function spawnFromPort(parent: NodeModel, side: Side) {
+  if (!attemptEdit()) return
   const pp = nodePos(parent)
   let x = pp.x
   let y = pp.y
@@ -865,16 +958,11 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
     endPort = pointOnSide(tp, targetSide)
   }
   else {
-    // Free cursor — use fluid bezier regardless of setting
-    const sourceNormal = outwardNormal(c.fromSide)
+    // Free cursor — treat the cursor as arriving opposite the source's
+    // outward normal so the preview's shape reads naturally for every
+    // wire style (especially step's orthogonal routing).
     endPort = c.currPos
-    const endNormal = { x: -sourceNormal.x, y: -sourceNormal.y }
-    const dist = Math.max(40, Math.min(180, Math.hypot(endPort.x - sourcePort.x, endPort.y - sourcePort.y) * 0.5))
-    const k1 = { x: sourcePort.x + sourceNormal.x * dist, y: sourcePort.y + sourceNormal.y * dist }
-    const k2 = { x: endPort.x + endNormal.x * dist, y: endPort.y + endNormal.y * dist }
-    return {
-      d: `M ${sourcePort.x} ${sourcePort.y} C ${k1.x} ${k1.y}, ${k2.x} ${k2.y}, ${endPort.x} ${endPort.y}`,
-    }
+    targetSide = oppositeSide(c.fromSide)
   }
   const wt = settings.value.wireType ?? 'fluid'
   return {
@@ -944,10 +1032,8 @@ function centerOf(node: NodeModel): Pt {
 // Rank the four sides of a node from "best matches the (dx, dy) direction"
 // down to "least matches it". The dominant axis (whichever delta is
 // larger) gives the primary side; the perpendicular axis gives the
-// secondary; the opposites of those round out the list. Used so a wire
-// can fall back gracefully to a perpendicular side when its first
-// choice would conflict with an opposite-direction wire on the same
-// node.
+// secondary; the opposites of those round out the list. Used as a stable
+// tiebreaker when several side pairs produce the same bend count.
 function rankSides(dx: number, dy: number): Side[] {
   const xSide: Side = dx >= 0 ? 'right' : 'left'
   const ySide: Side = dy >= 0 ? 'bottom' : 'top'
@@ -957,13 +1043,62 @@ function rankSides(dx: number, dy: number): Side[] {
   return [ySide, xSide, oppositeSide(xSide), oppositeSide(ySide)]
 }
 
-// Per-wire side assignment. Each wire picks its source-side and target-side
-// independently from its own geometry (so a node can have one wire leaving
-// the right and another leaving the bottom — whatever matches the relative
-// positions of the connected nodes best). The only constraint: on a single
-// node, no incoming wire shares a side with any outgoing wire. When the
-// natural choice would create that collision, the wire walks down its
-// ranked side list and takes the next-best side instead.
+function sideAxis(s: Side): 'h' | 'v' {
+  return (s === 'left' || s === 'right') ? 'h' : 'v'
+}
+
+// Bend count and directional feasibility for the orthogonal step route
+// between two ports. `feasible` is true when every leg of the path leaves
+// the source outward and enters the target inward — i.e. the wire does
+// not have to fold back across its own port to reach the corner.
+function pathInfo(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side,
+): { bends: number; feasible: boolean } {
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const sx = dx === 0 ? 0 : Math.sign(dx)
+  const sy = dy === 0 ? 0 : Math.sign(dy)
+  if (sideAxis(fromSide) === sideAxis(toSide)) {
+    // Same axis: 0-bend straight if collinear, else 2-bend midpoint S.
+    if (sideAxis(fromSide) === 'h') {
+      const facing = n1.x === -n2.x
+      const departOk = sx === n1.x || sx === 0
+      return { bends: p1.y === p2.y ? 0 : 2, feasible: facing && departOk }
+    }
+    const facing = n1.y === -n2.y
+    const departOk = sy === n1.y || sy === 0
+    return { bends: p1.x === p2.x ? 0 : 2, feasible: facing && departOk }
+  }
+  // Mixed axes: 1-bend L. Leg 1 lies along fromAxis, leg 2 along toAxis.
+  // Strict here — a zero-length leg means the side isn't really emitting
+  // in its outward direction (e.g. A's right port firing straight down
+  // because the target sits exactly below), which reads as the wrong side.
+  let leg1: boolean, leg2: boolean
+  if (sideAxis(fromSide) === 'h') {
+    leg1 = sx === n1.x
+    leg2 = sy === -n2.y
+  } else {
+    leg1 = sy === n1.y
+    leg2 = sx === -n2.x
+  }
+  return { bends: 1, feasible: leg1 && leg2 }
+}
+
+const ALL_SIDES: Side[] = ['right', 'bottom', 'left', 'top']
+
+// Per-wire side assignment. Picks the (fromSide, toSide) pair lexicographically:
+//   1. Prefer non-backtracking routes (legs leave the source outward and
+//      enter the target inward).
+//   2. Then minimise the number of 90° bends — 0 if the ports are collinear
+//      on a shared axis, 1 for an L-shape, 2 for a same-axis midpoint route.
+//   3. Then minimise the straight-line distance between the two ports, so
+//      the wire always lands on the side closest to the other node.
+//   4. Final tiebreaker uses rankSides so a perfectly symmetric layout
+//      prefers the side that faces the dominant axis.
+// Structural constraint: on a single node, no incoming wire shares a side
+// with any outgoing wire.
 //
 // Recomputes live as nodes move — including during an active drag — so
 // the wires re-route in real time to follow the dragged node's new
@@ -973,14 +1108,6 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const inSidesByNode = new Map<string, Set<Side>>()
   const outSidesByNode = new Map<string, Set<Side>>()
-
-  function pickSide(ranking: Side[], forbidden: Set<Side> | undefined): Side {
-    if (!forbidden) return ranking[0]!
-    for (const s of ranking) {
-      if (!forbidden.has(s)) return s
-    }
-    return ranking[0]!
-  }
 
   // Process wires in a deterministic order so the assignment is stable
   // across recomputes — straight-line (axis-aligned) connections first,
@@ -1006,19 +1133,53 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
     const a = nodeMap.get(w.fromId)
     const b = nodeMap.get(w.toId)
     if (!a || !b) continue
+    const pa = nodePos(a)
+    const pb = nodePos(b)
     const ac = centerOf(a)
     const bc = centerOf(b)
     const dx = bc.x - ac.x
     const dy = bc.y - ac.y
     const aRanking = rankSides(dx, dy)
     const bRanking = rankSides(-dx, -dy)
-    const fromSide = pickSide(aRanking, inSidesByNode.get(a.id))
-    const toSide = pickSide(bRanking, outSidesByNode.get(b.id))
+    const forbidFrom = inSidesByNode.get(a.id)
+    const forbidTo = outSidesByNode.get(b.id)
+
+    let aCandidates = ALL_SIDES.filter(s => !forbidFrom?.has(s))
+    let bCandidates = ALL_SIDES.filter(s => !forbidTo?.has(s))
+    if (aCandidates.length === 0) aCandidates = ALL_SIDES
+    if (bCandidates.length === 0) bCandidates = ALL_SIDES
+
+    let bestScore = Infinity
+    let bestFrom: Side = aCandidates[0]!
+    let bestTo: Side = bCandidates[0]!
+    for (const fromSide of aCandidates) {
+      const p1 = pointOnSide(pa, fromSide)
+      for (const toSide of bCandidates) {
+        const p2 = pointOnSide(pb, toSide)
+        const info = pathInfo(p1, p2, fromSide, toSide)
+        const ex = p2.x - p1.x
+        const ey = p2.y - p1.y
+        const dist2 = ex * ex + ey * ey
+        // Lexicographic score: feasibility ≫ bends ≫ port distance ≫ rank.
+        const score
+          = (info.feasible ? 0 : 1e15)
+            + info.bends * 1e9
+            + dist2 * 100
+            + bRanking.indexOf(toSide) * 10
+            + aRanking.indexOf(fromSide)
+        if (score < bestScore) {
+          bestScore = score
+          bestFrom = fromSide
+          bestTo = toSide
+        }
+      }
+    }
+
     if (!outSidesByNode.has(a.id)) outSidesByNode.set(a.id, new Set())
-    outSidesByNode.get(a.id)!.add(fromSide)
+    outSidesByNode.get(a.id)!.add(bestFrom)
     if (!inSidesByNode.has(b.id)) inSidesByNode.set(b.id, new Set())
-    inSidesByNode.get(b.id)!.add(toSide)
-    result.set(w.id, { fromSide, toSide })
+    inSidesByNode.get(b.id)!.add(bestTo)
+    result.set(w.id, { fromSide: bestFrom, toSide: bestTo })
   }
   return result
 })
@@ -1139,7 +1300,6 @@ function badgeClass(kind: string) {
     case 'loop': return 'bg-amber-100 text-amber-800'
     case 'parallel': return 'bg-violet-100 text-violet-800'
     case 'sequence': return 'bg-emerald-100 text-emerald-800'
-    case 'conditional': return 'bg-fuchsia-100 text-fuchsia-800'
     default: return 'bg-sky-100 text-sky-800'
   }
 }
@@ -1172,7 +1332,7 @@ async function rerunSelected() {
     session_id: props.sessionId,
     resume_from_node_id: id,
   })
-  if (!r) toast.show(t('workflow.runFailedToast'), 'error', 3000)
+  if ('error' in r) toast.show(`${t('workflow.runFailedToast')}: ${r.error}`, 'error', 5000)
 }
 
 function deleteSelected() {
@@ -1180,10 +1340,9 @@ function deleteSelected() {
   // Terminals can't be removed — the spine always needs a Start and End.
   const deletable = [...selected.value].filter(id => !isTerminalId(id))
   if (deletable.length === 0) return
-  if (!window.confirm(t('workflow.confirmDelete'))) return
-  // Delete local override entry; we don't mutate persisted workflow steps from
-  // here — those edits live in WorkflowDock. This pruned set is purely visual
-  // for the canvas session.
+  if (!attemptEdit()) return
+  // Delete local override entry; we don't mutate persisted workflow steps
+  // here. This pruned set is purely visual for the canvas session.
   const next = { ...overrides.value }
   for (const id of deletable) delete next[id]
   overrides.value = next
@@ -1240,21 +1399,170 @@ function resetLayout() {
 }
 
 // ── Save / Run / History (workflow actions) ─────────────────────────────────
-// These mirror what WorkflowDock exposes — they save / run / inspect the
-// underlying workflow on the backend rather than the canvas-local sketch
-// (extras, user wires, position overrides). The canvas Save commits the
-// current `displayedSteps` (live draft if the orchestrator has one,
-// otherwise the loaded version) as a new version; Run launches a fresh run;
-// History opens the existing version drawer.
+// Save / run / inspect the underlying workflow on the backend rather than
+// the canvas-local sketch (extras, user wires, position overrides). The
+// canvas Save commits the current `displayedSteps` (live draft if the
+// orchestrator has one, otherwise the loaded version) as a new version;
+// Run launches a fresh run; History opens the existing version drawer.
 const saving = ref(false)
 const running = ref(false)
 const historyOpen = ref(false)
 const loadingHistory = ref(false)
 const selectedVersionId = ref<string | null>(null)
 
-const canSave = computed(
-  () => !!selectedWorkflowId.value && displayedSteps.value.length > 0 && !saving.value,
-)
+// Sync `previewedVersion` (forward-declared earlier so `displayedSteps`
+// can read it during setup) from the canonical selection state. When a
+// version is picked in the history drawer, the canvas re-renders to
+// preview that version's steps; clearing the selection drops back to the
+// live draft / loaded version.
+watch([selectedVersionId, versions], ([id, vs]) => {
+  if (!id) {
+    previewedVersion.value = null
+    return
+  }
+  previewedVersion.value = vs.find(v => v.id === id) ?? null
+}, { immediate: true })
+
+const inPreviewMode = computed(() => !!previewedVersion.value)
+
+// Save is gated when there's nothing new to commit: no workflow loaded,
+// no steps, mid-save, previewing a past version, or — most subtly — the
+// currently displayed steps serialise the same as the latest saved
+// version (so a no-op save would just duplicate the head version).
+function stepsSignature(steps: WorkflowStep[] | undefined | null): string {
+  if (!steps || steps.length === 0) return '[]'
+  return JSON.stringify(steps)
+}
+
+const canSave = computed(() => {
+  if (!selectedWorkflowId.value) return false
+  if (saving.value) return false
+  if (inPreviewMode.value) return false
+  const current = displayedSteps.value
+  if (current.length === 0) return false
+  if (stepsSignature(current) === stepsSignature(loadedSteps.value)) return false
+  return true
+})
+
+// Confirm-modal state. Two flows share the same modal shell:
+//   1. Revert (existing) — the user tries to edit the canvas while
+//      previewing a past version; we surface this modal so they
+//      acknowledge that confirming will swap the live draft for the
+//      previewed version's steps. No server mutation.
+//   2. Reset (new) — the user clicks the per-row reset icon in the
+//      history drawer. Confirming hits the server to DELETE every
+//      version strictly newer than the target (destructive, hence the
+//      stronger copy) and then swaps the local draft to the target.
+// `resetTargetVersion` is non-null only for the reset flow; the modal
+// branches on it for both copy and confirm-handler dispatch.
+const revertModalOpen = ref(false)
+const resetTargetVersion = ref<WorkflowVersion | null>(null)
+const resetInFlight = ref(false)
+
+function attemptEdit(): boolean {
+  if (!inPreviewMode.value) return true
+  resetTargetVersion.value = null
+  revertModalOpen.value = true
+  return false
+}
+
+function onHistoryResetRequest(versionId: string) {
+  const v = versions.value.find(x => x.id === versionId)
+  if (!v) return
+  resetTargetVersion.value = v
+  revertModalOpen.value = true
+}
+
+// Modal title/body/confirm read from this — keeps the template branchless.
+const modalVersionForCopy = computed(() => resetTargetVersion.value ?? previewedVersion.value)
+const isResetFlow = computed(() => !!resetTargetVersion.value)
+
+function applyVersionToCanvas(v: WorkflowVersion) {
+  // Replace the live draft with the version's steps and clear canvas-local
+  // sketch state (overrides, extras, user wires) because they referenced
+  // node IDs from a different snapshot.
+  draftSteps.value = v.steps as WorkflowStep[]
+  overrides.value = {}
+  extraNodes.value = []
+  userWires.value = []
+  hidden.value = new Set()
+  selected.value = new Set()
+  selectedVersionId.value = null
+  persistOverrides()
+  persistExtras()
+  persistUserWires()
+  recordHistory()
+}
+
+async function confirmRevert() {
+  // Reset flow: delete every newer version on the server, then swap the
+  // local draft. The list filter inside resetToVersion already trimmed
+  // versions.value to <= target, so latestVersionId/Number watchers will
+  // realign on the next tick.
+  if (resetTargetVersion.value) {
+    if (!workspaceId.value || !selectedWorkflowId.value || resetInFlight.value) {
+      revertModalOpen.value = false
+      resetTargetVersion.value = null
+      return
+    }
+    resetInFlight.value = true
+    try {
+      const target = resetTargetVersion.value
+      const result = await resetToVersion(workspaceId.value, selectedWorkflowId.value, target.id)
+      if ('error' in result) {
+        toast.show(`${t('workflow.resetFailedToast')}: ${result.error}`, 'error', 5000)
+        return
+      }
+      applyVersionToCanvas(result.version)
+      // The target is now the latest saved version on the server — realign the
+      // optimistic-locking baseline so the next save passes the correct
+      // expected_version, and update `loadedSteps` so the dirty check no
+      // longer reads the canvas as having "unsaved" changes.
+      latestVersionId.value = result.version.id
+      latestVersionNumber.value = result.version.version
+      loadedSteps.value = result.version.steps as WorkflowStep[]
+      toast.show(t('workflow.resetSucceededToast'), 'info', 3000)
+    }
+    finally {
+      resetInFlight.value = false
+      revertModalOpen.value = false
+      resetTargetVersion.value = null
+    }
+    return
+  }
+
+  // Revert flow (existing): purely local — just swap to the previewed
+  // version. No server mutation; saved-version history is untouched.
+  const v = previewedVersion.value
+  if (!v) {
+    revertModalOpen.value = false
+    return
+  }
+  applyVersionToCanvas(v)
+  revertModalOpen.value = false
+}
+
+function cancelRevert() {
+  revertModalOpen.value = false
+  resetTargetVersion.value = null
+}
+
+// "Live" row shown at the top of the history drawer when the in-canvas
+// state isn't yet a saved version: either the orchestrator is producing a
+// draft for a workflow that hasn't been saved at all (agent-draft), or
+// there's a draft / local canvas edit sitting on top of an already-saved
+// workflow that the user hasn't committed yet (user-unsaved). Suppressed
+// only when the draft matches the latest saved version AND there are no
+// local edits — at that point the "current view" is exactly the saved
+// version, so the history list rings its row instead of stacking a
+// redundant draft entry.
+const liveEntry = computed<LiveHistoryEntry | null>(() => {
+  const stepsDiffer = draftSteps.value.length > 0
+    && stepsSignature(draftSteps.value) !== stepsSignature(loadedSteps.value)
+  const hasLocalEdits = hasOverrides.value
+  if (!stepsDiffer && !hasLocalEdits) return null
+  return { kind: selectedWorkflowId.value ? 'user-unsaved' : 'agent-draft' }
+})
 const canRun = computed(() => !!selectedWorkflowId.value && !running.value)
 
 async function onSave() {
@@ -1295,12 +1603,26 @@ async function onRun() {
     const r = await startRun(workspaceId.value, selectedWorkflowId.value, {
       session_id: props.sessionId,
     })
-    if (!r) toast.show(t('workflow.runFailedToast'), 'error', 4000)
+    if ('error' in r) toast.show(`${t('workflow.runFailedToast')}: ${r.error}`, 'error', 5000)
   }
   finally {
     running.value = false
   }
 }
+
+// Stub: no backend cancel API yet, so we only clear the local optimistic
+// "request in flight" flag and the run-status mirror. The actual run may
+// still finish on the server; the next workflow_run_completed event will
+// reconcile state.
+function onStop() {
+  running.value = false
+  workflowRun?.reset()
+}
+
+// Combined "is the workflow currently running?" — true during the brief
+// startRun() request window, and while the server reports an in-flight run.
+// Drives the Run button's icon and click handler in the side toolbar.
+const runActive = computed(() => running.value || isRunActive.value)
 
 function toggleHistory() {
   if (historyOpen.value) {
@@ -1308,11 +1630,23 @@ function toggleHistory() {
     selectedVersionId.value = null
     return
   }
+  // Mutually exclusive with the node-details panel: opening history closes
+  // any open node-details overlay so only one InfoPanel is ever visible.
+  if (selected.value.size > 0) selected.value = new Set()
   historyOpen.value = true
 }
 
+// And the inverse: selecting a node while the history panel is open should
+// close history so the node-details panel takes over the same slot.
+watch(selected, (cur) => {
+  if (cur.size > 0 && historyOpen.value) {
+    historyOpen.value = false
+    selectedVersionId.value = null
+  }
+})
+
 // Re-pull versions when the drawer opens, the workflow changes, or a save
-// tick lands. Mirrors the same pattern WorkflowDock uses.
+// tick lands.
 watch(
   [historyOpen, selectedWorkflowId, () => lastSavedAt.value],
   async ([open, id]) => {
@@ -1342,7 +1676,7 @@ interface CanvasSettings {
 }
 const SETTINGS_KEY = 'polymux_canvas_settings'
 const SNAP_GRID = 24
-const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: false, wireType: 'fluid' })
+const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: true, wireType: 'fluid' })
 
 if (import.meta.client) {
   try {
@@ -1351,7 +1685,7 @@ if (import.meta.client) {
       const parsed = JSON.parse(raw) as Partial<CanvasSettings>
       settings.value = {
         showGrid: parsed.showGrid ?? true,
-        snapToGrid: parsed.snapToGrid ?? false,
+        snapToGrid: parsed.snapToGrid ?? true,
         wireType: parsed.wireType ?? 'fluid',
       }
     }
@@ -1414,146 +1748,179 @@ onBeforeUnmount(() => {
 <template>
   <div class="relative flex min-h-0 w-full min-w-0 flex-1 overflow-hidden bg-neutral-50">
     <!--
-      Top toolbar — every chip is the same h-9 pill so the row reads as a
-      single rhythm. Inner controls are size-7 icon buttons or h-7 text
-      buttons that share the same vertical metrics, separators are h-3.5.
-      Left side: view + edit chips. Right side: History on its own, then a
-      separate chip with Save and Run.
+      Side toolbar — slim vertical icon-only column on the left. Single
+      merged pill: history / save / run at the top, then layout helpers,
+      zoom, undo-redo, and settings stacked beneath.
     -->
-    <div class="absolute left-3 right-3 top-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
-      <div class="flex items-center gap-1.5 pointer-events-auto">
-        <!-- Single unified toolbar chip -->
-        <div class="flex h-9 items-center gap-0.5 rounded-xl bg-white/90 backdrop-blur-md border border-neutral-200 px-1.5 shadow-sm">
-          <!-- Fit to view -->
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
-            :title="t('workflow.fitToView')"
-            @click="fitToView"
-          >
-            <UIcon name="i-heroicons-arrows-pointing-out-20-solid" class="size-3.5" />
-          </button>
-          <!-- Auto layout -->
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="!hasOverrides"
-            :title="t('workflow.resetLayoutTitle')"
-            @click="resetLayout"
-          >
-            <UIcon name="i-heroicons-sparkles-20-solid" class="size-3.5" />
-          </button>
+    <div class="absolute left-3 top-[112px] bottom-[180px] z-30 flex flex-col gap-2 pointer-events-none sm:left-4">
+      <div class="flex h-full w-10 flex-col items-center justify-between gap-0.5 overflow-hidden rounded-xl border border-neutral-200 bg-white/90 px-1 py-1.5 shadow-sm backdrop-blur-md pointer-events-auto">
+        <!-- Run / Stop — the primary action sits at the top. When idle a
+             green play icon; while running the spinner swaps to a red stop
+             on hover so the user can request a cancel. Clicking while
+             running calls onStop (currently a UI-only reset). -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:hover:text-emerald-600"
+          :class="runActive
+            ? 'text-emerald-600 hover:text-red-600'
+            : 'text-emerald-600 hover:text-emerald-500'"
+          :disabled="!runActive && !canRun"
+          @click="runActive ? onStop() : onRun()"
+        >
+          <template v-if="runActive">
+            <UIcon
+              name="i-heroicons-arrow-path-20-solid"
+              class="size-3.5 animate-spin group-hover/btn:hidden"
+            />
+            <UIcon
+              name="i-heroicons-stop-20-solid"
+              class="hidden size-3.5 group-hover/btn:block"
+            />
+          </template>
+          <UIcon v-else name="i-heroicons-play-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ runActive ? t('workflow.stop') : t('workflow.run') }}</span>
+        </button>
 
-          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
+        <!-- Save -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!canSave"
+          @click="onSave"
+        >
+          <UIcon name="i-ph-floppy-disk-fill" class="size-3.5" />
+          <span class="canvas-tooltip">{{ saving ? t('workflow.saving') : t('workflow.save') }}</span>
+        </button>
 
-          <!-- Zoom controls -->
+        <!-- History -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+          :class="historyOpen ? 'text-neutral-900' : 'text-neutral-500'"
+          @click="toggleHistory"
+        >
+          <UIcon name="i-heroicons-clock-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.historyTitle') }}</span>
+        </button>
+
+        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+
+        <!-- Undo -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!canUndo"
+          @click="undo"
+        >
+          <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.undo') }}</span>
+        </button>
+        <!-- Redo -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!canRedo"
+          @click="redo"
+        >
+          <UIcon name="i-heroicons-arrow-uturn-right-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.redo') }}</span>
+        </button>
+
+        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+
+        <!-- Fit to view -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+          @click="fitToView"
+        >
+          <UIcon name="i-heroicons-arrows-pointing-out-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.fitToView') }}</span>
+        </button>
+        <!-- Auto layout -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!hasOverrides"
+          @click="resetLayout"
+        >
+          <UIcon name="i-heroicons-sparkles-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.resetLayoutTitle') }}</span>
+        </button>
+
+        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+
+        <!-- Zoom controls -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="scale >= 2 - 0.001"
+          @click="zoomIn"
+        >
+          <UIcon name="i-heroicons-plus-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.zoomIn') }}</span>
+        </button>
+        <span class="text-center font-mono text-[10px] tabular-nums text-neutral-400">
+          {{ Math.round(scale * 100) }}%
+        </span>
+        <button
+          type="button"
+          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="scale <= 0.4 + 0.001"
+          @click="zoomOut"
+        >
+          <UIcon name="i-heroicons-minus-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.zoomOut') }}</span>
+        </button>
+
+        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+
+        <!-- Settings -->
+        <div class="relative">
           <button
+            ref="settingsButtonEl"
             type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="scale <= 0.4 + 0.001"
-            :title="t('workflow.zoomOut')"
-            @click="zoomOut"
+            class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+            :class="showSettings ? 'text-neutral-900' : 'text-neutral-500'"
+            @click="showSettings = !showSettings"
           >
-            <UIcon name="i-heroicons-minus-20-solid" class="size-3.5" />
+            <UIcon name="i-heroicons-cog-6-tooth-20-solid" class="size-3.5" />
+            <span v-if="!showSettings" class="canvas-tooltip">{{ t('workflow.canvasSettings') }}</span>
           </button>
-          <span class="min-w-[3ch] text-center font-mono text-[11px] tabular-nums text-neutral-400">
-            {{ Math.round(scale * 100) }}%
-          </span>
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="scale >= 2 - 0.001"
-            :title="t('workflow.zoomIn')"
-            @click="zoomIn"
+          <Transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="-translate-x-1 opacity-0"
+            enter-to-class="translate-x-0 opacity-100"
+            leave-active-class="transition duration-100 ease-in"
+            leave-from-class="translate-x-0 opacity-100"
+            leave-to-class="-translate-x-1 opacity-0"
           >
-            <UIcon name="i-heroicons-plus-20-solid" class="size-3.5" />
-          </button>
-
-          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
-
-          <!-- Undo -->
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="!canUndo"
-            :title="t('workflow.undo')"
-            @click="undo"
-          >
-            <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
-          </button>
-          <!-- Redo -->
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="!canRedo"
-            :title="t('workflow.redo')"
-            @click="redo"
-          >
-            <UIcon name="i-heroicons-arrow-uturn-right-20-solid" class="size-3.5" />
-          </button>
-
-          <span class="mx-0.5 h-4 w-px bg-neutral-200" />
-
-          <!-- Settings -->
-          <div class="relative">
-            <button
-              ref="settingsButtonEl"
-              type="button"
-              class="inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
-              :class="showSettings ? 'bg-neutral-100 text-neutral-900' : ''"
-              :title="t('workflow.canvasSettings')"
-              @click="showSettings = !showSettings"
+            <div
+              v-if="showSettings"
+              ref="settingsMenuEl"
+              class="absolute left-full top-0 ml-2 w-60 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
             >
-              <UIcon name="i-heroicons-cog-6-tooth-20-solid" class="size-3.5" />
-            </button>
-            <Transition
-              enter-active-class="transition duration-150 ease-out"
-              enter-from-class="-translate-y-1 opacity-0"
-              enter-to-class="translate-y-0 opacity-100"
-              leave-active-class="transition duration-100 ease-in"
-              leave-from-class="translate-y-0 opacity-100"
-              leave-to-class="-translate-y-1 opacity-0"
-            >
-              <div
-                v-if="showSettings"
-                ref="settingsMenuEl"
-                class="absolute left-0 top-full mt-2 w-60 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
-              >
-                <div class="border-b border-neutral-100 px-3 py-2 text-caption font-semibold uppercase tracking-wider text-neutral-500">
+                <div class="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wider text-neutral-500">
                   {{ t('workflow.canvasSettings') }}
                 </div>
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
+                <!-- Single click target per row: native click on the inner
+                     SettingsToggle bubbles up to the wrapper @click. We deliberately
+                     don't listen to @update:model-value on the toggle too — doing
+                     both fires the handler twice and the setting flips back. -->
+                <div
+                  class="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
                   @click="toggleShowGrid"
                 >
                   <span>{{ t('workflow.showGrid') }}</span>
-                  <span
-                    class="relative inline-flex h-4 w-7 flex-shrink-0 rounded-full transition-colors"
-                    :class="settings.showGrid ? 'bg-emerald-500' : 'bg-neutral-300'"
-                  >
-                    <span
-                      class="absolute top-0.5 size-3 rounded-full bg-white shadow-sm transition-all"
-                      :class="settings.showGrid ? 'left-3.5' : 'left-0.5'"
-                    />
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
+                  <SettingsToggle :model-value="settings.showGrid" />
+                </div>
+                <div
+                  class="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
                   @click="toggleSnapToGrid"
                 >
                   <span>{{ t('workflow.snapToGrid') }}</span>
-                  <span
-                    class="relative inline-flex h-4 w-7 flex-shrink-0 rounded-full transition-colors"
-                    :class="settings.snapToGrid ? 'bg-emerald-500' : 'bg-neutral-300'"
-                  >
-                    <span
-                      class="absolute top-0.5 size-3 rounded-full bg-white shadow-sm transition-all"
-                      :class="settings.snapToGrid ? 'left-3.5' : 'left-0.5'"
-                    />
-                  </span>
-                </button>
+                  <SettingsToggle :model-value="settings.snapToGrid" />
+                </div>
                 <div class="border-t border-neutral-100 px-3 py-2">
                   <div class="mb-1.5 text-caption font-semibold uppercase tracking-wider text-neutral-500">
                     {{ t('workflow.wireStyle') }}
@@ -1602,45 +1969,6 @@ onBeforeUnmount(() => {
               </div>
             </Transition>
           </div>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2 pointer-events-auto">
-        <!-- History — single chip-button. Hover highlights the whole chip. -->
-        <button
-          type="button"
-          class="inline-flex h-9 items-center rounded-xl border border-neutral-200 bg-white/90 px-3.5 text-caption text-neutral-600 shadow-sm backdrop-blur-md transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-          :class="historyOpen ? 'bg-neutral-100 text-neutral-900' : ''"
-          :title="t('workflow.historyTitle')"
-          @click="toggleHistory"
-        >
-          {{ t('workflow.history') }}
-        </button>
-
-        <!-- Save — single chip-button. -->
-        <button
-          type="button"
-          class="inline-flex h-9 items-center rounded-xl border border-neutral-200 bg-white/90 px-3.5 text-caption text-neutral-600 shadow-sm backdrop-blur-md transition-colors hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="!canSave"
-          :title="t('workflow.save')"
-          @click="onSave"
-        >
-          {{ saving ? t('workflow.saving') : t('workflow.save') }}
-        </button>
-
-        <!-- Run — accent-filled chip-button. Uses workflow.run (the
-             imperative verb form — "Run" / "Ausführen" / "Exécuter" —
-             matching WorkflowDock's Run button) rather than runLabel
-             which is the noun used as a status-field label. -->
-        <button
-          type="button"
-          class="inline-flex h-9 items-center rounded-xl border border-emerald-700/20 bg-emerald-600 px-3.5 text-caption font-medium text-white shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-600/60"
-          :disabled="!canRun"
-          :title="t('workflow.run')"
-          @click="onRun"
-        >
-          {{ running ? t('workflow.running') : t('workflow.run') }}
-        </button>
       </div>
     </div>
 
@@ -1650,7 +1978,7 @@ onBeforeUnmount(() => {
       class="relative h-full w-full select-none overflow-hidden"
       :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
       :style="settings.showGrid ? {
-        backgroundImage: 'radial-gradient(circle, rgb(212 212 216 / 0.6) 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(circle, rgb(188 188 195 / 0.7) 1.25px, transparent 1.25px)',
         backgroundSize: `${24 * scale}px ${24 * scale}px`,
         backgroundPosition: `${offset.x}px ${offset.y}px`,
       } : {}"
@@ -1727,16 +2055,6 @@ onBeforeUnmount(() => {
                 stroke-width="1.5"
                 stroke-linecap="round"
                 marker-end="url(#wire-arrow)"
-              />
-              <!-- Direction pulse -->
-              <path
-                :d="w.d"
-                fill="none"
-                stroke="rgb(217 119 6)"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-dasharray="42 320"
-                class="wire-pulse-anim"
               />
             </g>
             <!--
@@ -1829,24 +2147,17 @@ onBeforeUnmount(() => {
                 {{ nodeTitle(node) }}
               </span>
             </div>
-            <div v-else class="flex h-full flex-col gap-1 px-3 py-2">
-              <div class="flex items-center gap-1.5">
-                <span
-                  class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  :class="badgeClass(node.kind)"
-                >
-                  {{ node.kind }}
-                </span>
-              </div>
-              <div class="flex-1 truncate text-sm font-medium text-neutral-900">
+            <div v-else class="flex h-full flex-col items-center justify-center gap-1 px-3 py-2 text-center">
+              <span class="max-w-full truncate text-sm font-medium text-neutral-900">
                 {{ nodeTitle(node) }}
-              </div>
-              <div
-                v-if="node.step.target || node.step.value"
-                class="truncate text-[11px] text-neutral-500"
+              </span>
+              <span
+                v-if="node.kind === 'parallel' || node.kind === 'loop'"
+                class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                :class="badgeClass(node.kind)"
               >
-                {{ node.step.target ?? node.step.value }}
-              </div>
+                {{ node.kind }}
+              </span>
             </div>
           </div>
 
@@ -1959,112 +2270,84 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Right detail panel: rounded, inset from edges. -->
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-x-4 opacity-0"
-      enter-to-class="translate-x-0 opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="translate-x-0 opacity-100"
-      leave-to-class="translate-x-4 opacity-0"
+    <InfoPanel
+      :open="!!selectionDetailNode && showNodeDetails"
+      :title="selectionDetailNode ? nodeTitle(selectionDetailNode) : ''"
+      @close="selected = new Set()"
     >
-      <aside
-        v-if="selectionDetailNode"
-        class="absolute right-3 top-[60px] bottom-3 z-40 flex w-[340px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
-      >
-        <header class="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
-          <div class="min-w-0">
-            <div class="truncate text-caption font-semibold uppercase tracking-wider text-neutral-500">
-              {{ t('workflow.nodeDetails') }}
-            </div>
-            <div class="truncate pt-0.5 text-sm font-medium text-neutral-900">
-              {{ nodeTitle(selectionDetailNode) }}
-            </div>
-          </div>
-          <button
-            type="button"
-            class="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
-            :title="t('workflow.clearSelection')"
-            @click="selected = new Set()"
-          >
-            <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
-          </button>
-        </header>
-
-        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-          <div class="space-y-3">
-            <div>
-              <div class="text-caption font-semibold uppercase tracking-wider text-neutral-400">
+      <template v-if="selectionDetailNode">
+        <div class="flex-1 px-4 pt-2 pb-3">
+          <div class="space-y-5">
+            <section>
+              <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
                 {{ t('workflow.toolUse') }}
               </div>
-              <div class="mt-1.5 space-y-1.5 text-sm">
-                <div v-if="selectionDetailNode.step.action" class="flex gap-2">
-                  <span class="w-20 shrink-0 text-caption text-neutral-500">action</span>
-                  <span class="min-w-0 flex-1 break-all font-mono text-[12px] text-neutral-900">{{ selectionDetailNode.step.action }}</span>
+              <dl class="mt-2 space-y-1.5 text-sm">
+                <div v-if="selectionDetailNode.step.action" class="grid grid-cols-[64px_1fr] gap-3">
+                  <dt class="text-[11px] text-neutral-400">action</dt>
+                  <dd class="min-w-0 break-all font-mono text-[12px] text-neutral-800">{{ selectionDetailNode.step.action }}</dd>
                 </div>
-                <div v-if="selectionDetailNode.step.target" class="flex gap-2">
-                  <span class="w-20 shrink-0 text-caption text-neutral-500">target</span>
-                  <span class="min-w-0 flex-1 break-all font-mono text-[12px] text-neutral-900">{{ selectionDetailNode.step.target }}</span>
+                <div v-if="selectionDetailNode.step.target" class="grid grid-cols-[64px_1fr] gap-3">
+                  <dt class="text-[11px] text-neutral-400">target</dt>
+                  <dd class="min-w-0 break-all font-mono text-[12px] text-neutral-800">{{ selectionDetailNode.step.target }}</dd>
                 </div>
-                <div v-if="selectionDetailNode.step.value" class="flex gap-2">
-                  <span class="w-20 shrink-0 text-caption text-neutral-500">value</span>
-                  <span class="min-w-0 flex-1 break-all font-mono text-[12px] text-neutral-900">{{ selectionDetailNode.step.value }}</span>
+                <div v-if="selectionDetailNode.step.value" class="grid grid-cols-[64px_1fr] gap-3">
+                  <dt class="text-[11px] text-neutral-400">value</dt>
+                  <dd class="min-w-0 break-all font-mono text-[12px] text-neutral-800">{{ selectionDetailNode.step.value }}</dd>
                 </div>
-                <div v-if="selectionDetailNode.step.condition" class="flex gap-2">
-                  <span class="w-20 shrink-0 text-caption text-neutral-500">condition</span>
-                  <span class="min-w-0 flex-1 break-all font-mono text-[12px] text-neutral-900">{{ selectionDetailNode.step.condition }}</span>
+                <div v-if="selectionDetailNode.step.condition" class="grid grid-cols-[64px_1fr] gap-3">
+                  <dt class="text-[11px] text-neutral-400">condition</dt>
+                  <dd class="min-w-0 break-all font-mono text-[12px] text-neutral-800">{{ selectionDetailNode.step.condition }}</dd>
                 </div>
-                <div
+                <p
                   v-if="!selectionDetailNode.step.action && !selectionDetailNode.step.target && !selectionDetailNode.step.value && !selectionDetailNode.step.condition"
-                  class="text-caption text-neutral-400"
+                  class="text-[11px] text-neutral-400"
                 >
                   {{ t('workflow.noToolUse') }}
-                </div>
-              </div>
-            </div>
+                </p>
+              </dl>
+            </section>
 
-            <div v-if="(selectionDetailNode.step.children?.length ?? 0) > 0">
-              <div class="text-caption font-semibold uppercase tracking-wider text-neutral-400">
+            <section v-if="(selectionDetailNode.step.children?.length ?? 0) > 0">
+              <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
                 children · {{ selectionDetailNode.step.children!.length }}
               </div>
-              <ul class="mt-1.5 space-y-1 text-[12px] text-neutral-700">
+              <ul class="mt-2 space-y-0.5 text-[12px] text-neutral-700">
                 <li
                   v-for="(child, idx) in selectionDetailNode.step.children"
                   :key="child.id ?? idx"
-                  class="flex items-start gap-2 rounded border border-neutral-100 bg-neutral-50 px-2 py-1.5"
+                  class="min-w-0 break-words py-1 leading-snug"
                 >
-                  <span class="mt-1 size-1 shrink-0 rounded-full bg-neutral-400" />
-                  <span class="min-w-0 flex-1 break-all">
-                    {{ child.description || `${child.action ?? ''} ${child.target ?? ''}`.trim() || t('workflow.untitledNode') }}
-                  </span>
+                  {{ child.description || `${child.action ?? ''} ${child.target ?? ''}`.trim() || t('workflow.untitledNode') }}
                 </li>
               </ul>
-            </div>
+            </section>
           </div>
         </div>
+      </template>
 
-        <footer class="flex shrink-0 items-center gap-1.5 border-t border-neutral-200 px-3 py-2">
-          <button
-            type="button"
-            class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-caption font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!selectedWorkflowId"
-            @click="rerunSelected"
-          >
-            <UIcon name="i-heroicons-play-20-solid" class="size-3.5" />
-            {{ t('workflow.rerunFromHere') }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-caption font-medium text-rose-600 transition-colors hover:bg-rose-50"
-            @click="deleteSelected"
-          >
-            <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
-            {{ t('workflow.deleteNode') }}
-          </button>
-        </footer>
-      </aside>
-    </Transition>
+      <template v-if="selectionDetailNode" #footer>
+        <button
+          type="button"
+          class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-caption font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!selectedWorkflowId"
+          @click="rerunSelected"
+        >
+          <UIcon name="i-heroicons-play-20-solid" class="size-3.5" />
+          {{ t('workflow.rerunFromHere') }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-caption font-medium text-rose-600 transition-colors hover:bg-rose-50"
+          @click="deleteSelected"
+        >
+          <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
+          {{ t('workflow.deleteNode') }}
+        </button>
+      </template>
+    </InfoPanel>
 
-    <!-- Multi-select contextual action bar (mirrors FileBrowser ContextualActionBar). -->
+    <!-- Multi-select contextual action bar. -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="translate-y-4 opacity-0"
@@ -2115,35 +2398,89 @@ onBeforeUnmount(() => {
       :versions="versions"
       :current-version-id="latestVersionId"
       :selected-version-id="selectedVersionId"
+      :live-entry="liveEntry"
       :loading="loadingHistory"
-      variant="panel"
       @close="toggleHistory"
       @select="(id) => (selectedVersionId = id)"
+      @reset="onHistoryResetRequest"
     />
+
+    <!-- Revert-to-previewed-version confirm. Mounted at the canvas root so
+         it overlays the full panel (z-50) and stops pointer-events from
+         reaching the canvas underneath via the backdrop. -->
+    <Transition
+      enter-active-class="transition-opacity duration-150 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-100 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="revertModalOpen"
+        class="absolute inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-6"
+        @click.self="cancelRevert"
+      >
+        <div class="w-full max-w-sm overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+          <div class="px-5 pt-4 pb-2">
+            <div class="text-caption font-semibold uppercase tracking-wider text-neutral-500">
+              {{ isResetFlow ? t('workflow.resetTitle', { version: modalVersionForCopy?.version ?? '' }) : t('workflow.revertTitle', { version: modalVersionForCopy?.version ?? '' }) }}
+            </div>
+            <p class="mt-2 text-sm text-neutral-700">
+              {{ isResetFlow ? t('workflow.resetBody', { version: modalVersionForCopy?.version ?? '' }) : t('workflow.revertBody', { version: modalVersionForCopy?.version ?? '' }) }}
+            </p>
+          </div>
+          <div class="flex items-center justify-end gap-2 border-t border-neutral-100 bg-neutral-50/60 px-4 py-3">
+            <button
+              type="button"
+              class="rounded-md px-3 py-1.5 text-caption font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              :disabled="resetInFlight"
+              @click="cancelRevert"
+            >
+              {{ t('workflow.cancel') }}
+            </button>
+            <button
+              type="button"
+              class="rounded-md bg-neutral-900 px-3 py-1.5 text-caption font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="resetInFlight"
+              @click="confirmRevert"
+            >
+              {{ isResetFlow ? t('workflow.resetConfirm') : t('workflow.revertConfirm') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
-/*
-  Wire pulse — a single gold-coloured dash painted into the wire's own
-  stroke, sliding along it via stroke-dashoffset. Same width as the
-  wire, same path, round linecaps, so the only visual change is the
-  colour: a 42-unit segment of the wire turns amber-600 at any moment
-  and travels toward the target. Total period (42 + 320 = 362) matches
-  the keyframe range so the wraparound is invisible. 3 s linear keeps
-  the cadence calm.
-*/
-@keyframes wire-pulse-sweep {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -362; }
+/* Side-toolbar tooltip — small label that appears to the right of an icon
+   button on hover. Same shell (white, thin border, soft shadow, 11px text)
+   as the chip tooltip in StorageProviderUsageOverlay so the visual
+   language matches the rest of the app. Each consumer button supplies the
+   `group/btn relative` classes so this rule's `:hover` selector resolves. */
+.canvas-tooltip {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  z-index: 20;
+  margin-left: 0.5rem;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(229 229 229 / 0.8);
+  background-color: rgb(255 255 255);
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  line-height: 1;
+  color: rgb(82 82 82);
+  opacity: 0;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  pointer-events: none;
+  transition: opacity 100ms;
 }
-.wire-pulse-anim {
-  animation: wire-pulse-sweep 3s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wire-pulse-anim {
-    animation: none;
-    opacity: 0;
-  }
+.group\/btn:hover > .canvas-tooltip {
+  opacity: 1;
 }
 </style>

@@ -2,21 +2,7 @@
 // flag resolves false for them. Runs after the auth middleware so it only
 // fires for signed-in users; the suspended page itself and auth pages are
 // always accessible so the user can sign out or contact support.
-
-const ALWAYS_ALLOW = [
-  '/account-suspended',
-  '/sign-in',
-  '/sign-up',
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
-  '/verification-successful',
-  '/confirm',
-]
-
-function isAlwaysAllowed(path: string): boolean {
-  return ALWAYS_ALLOW.some((p) => path === p || path.startsWith(p + '/'))
-}
+import { isAlwaysAllowed } from '~/utils/routeGroups'
 
 export default defineNuxtRouteMiddleware((to) => {
   if (!import.meta.client) return

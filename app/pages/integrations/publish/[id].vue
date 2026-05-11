@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory } from '~/composables/wallet/useMarketplace'
+import type { ItemCategory } from '~/composables/integrations/useMarketplace'
 
 interface ListingDetail {
   id: string

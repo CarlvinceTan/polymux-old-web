@@ -7,6 +7,10 @@ defineProps<{
    *  thumbs-up / thumbs-down. */
   active?: boolean
 }>()
+
+const emit = defineEmits<{
+  click: []
+}>()
 </script>
 
 <template>
@@ -19,6 +23,7 @@ defineProps<{
         : 'text-neutral-400 hover:bg-neutral-200/60 hover:text-neutral-900'"
       :aria-label="label"
       :aria-pressed="active"
+      @click="emit('click')"
     >
       <UIcon :name="icon" class="size-3" />
     </button>

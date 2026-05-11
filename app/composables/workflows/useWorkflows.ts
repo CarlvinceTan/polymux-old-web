@@ -77,19 +77,6 @@ export class VersionConflictError extends Error {
   }
 }
 
-export interface CreateWorkflowInput {
-  name: string
-  description?: string
-  steps: WorkflowStep[]
-  source?: 'user' | 'agent'
-  change_summary?: string
-  impact_level?: 'trivial' | 'preference' | 'significant' | 'fundamental'
-  agent_concern?: string
-  tags?: string[]
-  locked_step_indices?: number[]
-  client_nonce?: string
-}
-
 export interface CreateVersionInput {
   steps: WorkflowStep[]
   expected_version: number
@@ -110,14 +97,8 @@ export interface StartRunInput {
 
 export function useWorkflows() {
   const workflows = useState<WorkflowWithLatest[]>('workflows', () => [])
-  const currentWorkflowId = useState<string | null>('current-workflow-id', () => null)
   const versions = useState<WorkflowVersion[]>('workflow-versions', () => [])
-  const runs = useState<WorkflowRun[]>('workflow-runs', () => [])
   const { authFetch } = useAuthFetch()
-
-  const currentWorkflow = computed(() =>
-    workflows.value.find(w => w.id === currentWorkflowId.value) ?? null,
-  )
 
   async function fetchWorkflows(workspaceID: string) {
     try {
@@ -126,22 +107,6 @@ export function useWorkflows() {
     }
     catch (err) {
       console.error('[useWorkflows] fetchWorkflows failed', err)
-    }
-  }
-
-  async function createWorkflow(workspaceID: string, input: CreateWorkflowInput): Promise<WorkflowWithLatest | null> {
-    try {
-      const wf = await authFetch<WorkflowWithLatest>(`/workspaces/${workspaceID}/workflows`, {
-        method: 'POST',
-        body: JSON.stringify(input),
-      })
-      workflows.value = [wf, ...workflows.value]
-      currentWorkflowId.value = wf.id
-      return wf
-    }
-    catch (err) {
-      console.error('[useWorkflows] createWorkflow failed', err)
-      return null
     }
   }
 
@@ -156,38 +121,6 @@ export function useWorkflows() {
     catch (err) {
       console.error('[useWorkflows] getWorkflow failed', err)
       return null
-    }
-  }
-
-  async function updateWorkflow(workspaceID: string, workflowID: string, patch: { name?: string; description?: string }): Promise<Workflow | null> {
-    try {
-      const wf = await authFetch<Workflow>(`/workspaces/${workspaceID}/workflows/${workflowID}`, {
-        method: 'PATCH',
-        body: JSON.stringify(patch),
-      })
-      const idx = workflows.value.findIndex(w => w.id === workflowID)
-      if (idx !== -1) {
-        const prev = workflows.value[idx]!
-        workflows.value[idx] = { ...prev, ...wf }
-      }
-      return wf
-    }
-    catch (err) {
-      console.error('[useWorkflows] updateWorkflow failed', err)
-      return null
-    }
-  }
-
-  async function deleteWorkflow(workspaceID: string, workflowID: string): Promise<boolean> {
-    try {
-      await authFetch(`/workspaces/${workspaceID}/workflows/${workflowID}`, { method: 'DELETE' })
-      workflows.value = workflows.value.filter(w => w.id !== workflowID)
-      if (currentWorkflowId.value === workflowID) currentWorkflowId.value = null
-      return true
-    }
-    catch (err) {
-      console.error('[useWorkflows] deleteWorkflow failed', err)
-      return false
     }
   }
 
@@ -227,63 +160,62 @@ export function useWorkflows() {
     }
   }
 
-  async function fetchRuns(workspaceID: string, workflowID: string): Promise<WorkflowRun[]> {
-    try {
-      const data = await authFetch<WorkflowRun[]>(`/workspaces/${workspaceID}/workflows/${workflowID}/runs`)
-      runs.value = data ?? []
-      return runs.value
-    }
-    catch (err) {
-      console.error('[useWorkflows] fetchRuns failed', err)
-      return []
-    }
-  }
-
-  async function startRun(workspaceID: string, workflowID: string, input: StartRunInput): Promise<WorkflowRun | null> {
+  async function startRun(workspaceID: string, workflowID: string, input: StartRunInput): Promise<{ run: WorkflowRun } | { error: string }> {
     try {
       const run = await authFetch<WorkflowRun>(`/workspaces/${workspaceID}/workflows/${workflowID}/runs`, {
         method: 'POST',
         body: JSON.stringify(input),
       })
-      runs.value = [run, ...runs.value]
-      return run
+      return { run }
     }
     catch (err) {
       console.error('[useWorkflows] startRun failed', err)
-      return null
+      // The Go handler returns {"error": "..."} for every failure mode
+      // (session not connected, no versions, decode-step failures, etc).
+      // Bubble that up so the caller can surface the specific cause instead
+      // of a generic "failed to start run" toast.
+      return { error: extractServerError(err) ?? 'Unknown error' }
     }
   }
 
-  async function getRun(workspaceID: string, workflowID: string, runID: string): Promise<WorkflowRun | null> {
+  function extractServerError(err: unknown): string | null {
+    if (!err || typeof err !== 'object') return null
+    const data = (err as { data?: unknown }).data
+    if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
+      return (data as { error: string }).error
+    }
+    const msg = (err as { message?: unknown }).message
+    return typeof msg === 'string' && msg ? msg : null
+  }
+
+  // Reset the workflow to a previously-saved version by deleting every
+  // version strictly newer than the target on the server. The chosen version
+  // becomes the new latest; the caller is responsible for re-syncing local
+  // canvas state (draft steps, overrides, etc.) to the returned version.
+  async function resetToVersion(workspaceID: string, workflowID: string, versionID: string): Promise<{ version: WorkflowVersion } | { error: string }> {
     try {
-      return await authFetch<WorkflowRun>(`/workspaces/${workspaceID}/workflows/${workflowID}/runs/${runID}`)
+      const version = await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions/${versionID}/reset`, {
+        method: 'POST',
+      })
+      // Drop any cached newer versions locally so the history drawer reflects
+      // the truncated server state without a refetch.
+      versions.value = versions.value.filter(v => v.version <= version.version)
+      return { version }
     }
     catch (err) {
-      console.error('[useWorkflows] getRun failed', err)
-      return null
+      console.error('[useWorkflows] resetToVersion failed', err)
+      return { error: extractServerError(err) ?? 'Unknown error' }
     }
-  }
-
-  function selectWorkflow(id: string | null) {
-    currentWorkflowId.value = id
   }
 
   return {
     workflows,
     versions,
-    runs,
-    currentWorkflow,
-    currentWorkflowId,
     fetchWorkflows,
-    createWorkflow,
     getWorkflow,
-    updateWorkflow,
-    deleteWorkflow,
     fetchVersions,
     createVersion,
-    fetchRuns,
     startRun,
-    getRun,
-    selectWorkflow,
+    resetToVersion,
   }
 }

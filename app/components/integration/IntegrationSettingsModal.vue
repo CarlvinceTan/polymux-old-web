@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { MarketplaceItem, ItemCategory } from '~/composables/wallet/useMarketplace'
+import type { MarketplaceItem, ItemCategory } from '~/composables/integrations/useMarketplace'
 import type { StorageProvider } from '~/types/storage'
 
 const props = defineProps<{

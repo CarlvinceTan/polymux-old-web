@@ -1,6 +1,6 @@
 import { computed, useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
 import { useAuthFetch } from '../auth/useAuthFetch'
-import { useWorkspaces } from '../useWorkspaces'
+import { useWorkspaces } from '../account/useWorkspaces'
 import type { ChatMessage, ChatMessageAttachment } from '../types'
 
 // `/workflow/new` is the URL slug for the page that hosts the in-flight draft.
@@ -19,11 +19,6 @@ export interface WorkflowSummary {
   created_at: string
   updated_at: string
   is_draft?: boolean
-  /** Legacy: URLs of browser sub-agents active when the user last left this
-   *  workflow. Deprecated in favour of the server-authored last_browser_states
-   *  column carried via session_state. Kept on the type so old API responses
-   *  still parse. */
-  last_viewport_urls?: string[]
   /** True while a browser agent is in status=running OR a scheduled run is in
    *  flight. Drives the workflow-list shimmer so users can see at a glance
    *  which workflows are actually executing on the cloud. */
@@ -369,29 +364,6 @@ export function useWorkflowList() {
     }
   }
 
-  // Persists the list of viewport URLs for `sessionId` so the UI can restore
-  // browser sub-agents to those URLs on next visit. Updates the in-memory
-  // session row optimistically so consecutive reads see the latest value.
-  async function updateSessionViewportUrls(sessionID: string, urls: string[]): Promise<void> {
-    const target = sessions.value.find(s => s.id === sessionID)
-    // Skip drafts (no DB row) and sessions that are no longer in the list:
-    // when the user deletes the active workflow from the sidebar, the page's
-    // onBeforeRouteLeave fires this save for the just-deleted id, and the
-    // backend 500s because RLS hides the soft-deleted row from the PATCH.
-    if (!target || target.is_draft) return
-    try {
-      await authFetch(`/sessions/${sessionID}/viewport-urls`, {
-        method: 'PATCH',
-        body: JSON.stringify({ urls }),
-      })
-    } catch (err) {
-      console.error('[useWorkflowList] updateSessionViewportUrls failed', err)
-      return
-    }
-    const s = realSessions.value.find(s => s.id === sessionID)
-    if (s) s.last_viewport_urls = urls
-  }
-
   // Returns null when the workflow is forbidden / gone (HTTP 403) so callers
   // can redirect away from a stale URL instead of treating it as an empty
   // history. Empty array still means "loaded, no messages yet".
@@ -451,15 +423,9 @@ export function useWorkflowList() {
         continue
       }
 
-      // Mirror the live merge in handleAgentThinking: collapse the bubble's
-      // thinking entries into one collapsible AgentAction (latest action,
-      // concatenated detail) placed before the agent reply.
-      const thinking = meta?.thinking
-      if (thinking && thinking.length > 0) {
-        const action = thinking[thinking.length - 1]?.action ?? ''
-        const detail = thinking.map(t => t.detail ?? '').join('')
-        out.push({ role: 'thinking', text: action, action, detail })
-      }
+      // Persisted `meta.thinking` is ignored: no UI consumes thinking-role
+      // entries in the messages array. The live `chat.thinking` ref drives
+      // the working indicator instead.
       out.push({
         role: 'agent',
         text: m.content,
@@ -508,6 +474,5 @@ export function useWorkflowList() {
     fetchMessages,
     setPendingPrompt,
     consumePendingPrompt,
-    updateSessionViewportUrls,
   }
 }

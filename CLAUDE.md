@@ -48,13 +48,10 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * Shorthand references:
 
-  * `workflow/orchestrator` → `app/pages/workflow/[id]/orchestrator.vue`
-  * `workflow/browser` → `app/pages/workflow/[id]/browser.vue`
+  * `workflow/agent` → `app/pages/workflow/[id]/agent.vue` (chat + viewport + flow in one ChatLayout)
+  * `workflow/schedule` → `app/pages/workflow/[id]/schedule.vue`
   * `workflow/artifacts` → `app/pages/workflow/[id]/artifacts.vue`
-  * `dashboard/home` → `app/pages/dashboard/home.vue`
-  * `dashboard/team` → `app/pages/dashboard/team.vue`
-  * `dashboard/usage` → `app/pages/dashboard/usage.vue`
-  * `dashboard/settings` → `app/pages/dashboard/settings.vue`
+  * `dashboard/console` → `app/pages/dashboard/console.vue`
   * `integrations/installed` → `app/pages/integrations/installed.vue`
   * `integrations/marketplace` → `app/pages/integrations/marketplace.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
@@ -67,10 +64,9 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `TabPanel` — scrollable tab content container
   * `PageHeader` — top navigation with tabs
   * `SidePanel` — persistent left sidebar
-  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition
+  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition (ChatLayout embeds BrowserDock and WorkflowNodeCanvas via its view-mode switcher)
   * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
   * `Menu` / `MenuItem` — anchored menu surface (opens up or down) with row items
-  * `DashboardStatCard` / `DashboardSpending` / `DashboardWelcome` / `DashboardRecentSessions` — dashboard widgets
   * `SearchModal` — global search overlay
-  * `ToastContainer` — toast notifications
+  * `AppToastContainer` — toast notifications (renders `useAppToast` queue)
 * Before creating new UI elements, check for existing implementations and align with their design and behaviour.

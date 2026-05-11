@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkspaceMember } from '~/composables/useWorkspaces'
+import type { WorkspaceMember } from '~/composables/account/useWorkspaces'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
@@ -282,7 +282,7 @@ async function handleDeleteWorkspace() {
     }
     isDeleteOpen.value = false
     isOpen.value = false
-    navigateTo('/dashboard/home')
+    navigateTo('/dashboard/console')
   }
   finally {
     isDeleting.value = false

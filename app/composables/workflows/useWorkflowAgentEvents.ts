@@ -1,11 +1,11 @@
 import type { Ref } from 'vue'
-import type { SessionHandle } from '~/composables/auth/useSession'
+import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 
 // Binds the session-level `workflow_saved` / `workflow_save_rejected` /
 // `workflow_versions_truncated` listeners to the caller's reactive scope
 // (typically the workflow page) so they fire regardless of which child view
-// is mounted. Exposes a "save tick" other components (WorkflowDock) can
-// watch to refresh their local step state.
+// is mounted. Exposes a "save tick" other components (WorkflowNodeCanvas)
+// can watch to refresh their local step state.
 export function useWorkflowAgentEvents(session: SessionHandle, workspaceId: Ref<string>) {
   const { workflows, fetchWorkflows, getWorkflow, fetchVersions } = useWorkflows()
   const { t } = useI18n()
@@ -34,7 +34,7 @@ export function useWorkflowAgentEvents(session: SessionHandle, workspaceId: Ref<
   // The in-memory draft tree refreshes automatically via the existing
   // `workflow_draft` channel (Rollback re-publishes), so we only refresh
   // persisted state here. Bumps lastSavedAt so any consumer watching for
-  // saved-workflow churn (WorkflowDock) re-renders too.
+  // saved-workflow churn (WorkflowNodeCanvas) re-renders too.
   const onVersionsTruncated = async (p: { workflow_id: string; turn_ids: string[] }) => {
     const ws = workspaceId.value
     if (!ws || !p.workflow_id) return

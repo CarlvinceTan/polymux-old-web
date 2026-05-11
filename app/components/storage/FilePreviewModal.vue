@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FileIconName } from '~/composables/useFileIcons'
+import type { FileIconName } from '~/composables/ui/useFileIcons'
 import type { StorageProvider } from '~/types/storage'
 
 const props = defineProps<{
@@ -22,7 +22,7 @@ const emit = defineEmits<{
   info: []
 }>()
 
-const { getSignedUrl, stripUserPrefix } = useStorage()
+const { getSignedUrl, stripUserPrefix } = useStorageFiles()
 
 const previewUrl = ref<string | null>(null)
 const textContent = ref<string | null>(null)

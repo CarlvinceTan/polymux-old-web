@@ -138,8 +138,6 @@ function onThumb(rating: 'up' | 'down') {
         :active="feedback === 'down'"
         @click="onThumb('down')"
       />
-      <!-- Share: hidden until the share flow is implemented. -->
-      <MessageAction v-if="false" icon="i-heroicons-arrow-up-on-square" :label="t('common.share')" />
     </div>
   </div>
 </template>

@@ -13,7 +13,7 @@ function closeProfileDropdown() {
 
 function handleLandingSettings() {
     closeProfileDropdown()
-    navigateTo('/dashboard/settings')
+    navigateTo('/dashboard/console')
 }
 
 async function handleLandingSignOut() {
@@ -468,7 +468,7 @@ const linkGroups = [
                         </NuxtLink>
 
                         <!-- Authenticated: profile row -->
-                        <NuxtLink v-if="user" to="/dashboard/settings"
+                        <NuxtLink v-if="user" to="/dashboard/console"
                             class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
                             @click="mobileOpen = false">
                             <span v-if="avatarUrl" class="size-8 shrink-0 overflow-hidden rounded-full">

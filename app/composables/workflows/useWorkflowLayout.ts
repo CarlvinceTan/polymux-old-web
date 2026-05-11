@@ -1,11 +1,9 @@
 import type { WorkflowStep } from '~/composables/workflows/useWorkflows'
 import { groupChildrenBySimilarity } from '~/composables/workflows/useParallelGrouping'
 
-// The layout-time set of kinds. The runtime data model emits 'directive',
-// 'sequence', 'loop', and 'parallel' (see
-// polymux/internal/agent/tools_orchestrator.go); 'conditional' is accepted here
-// so the renderer is ready when the orchestrator starts emitting it.
-export type LayoutNodeKind = 'directive' | 'sequence' | 'loop' | 'parallel' | 'conditional'
+// The layout-time set of kinds emitted by the runtime data model (see
+// polymux/internal/agent/tools_orchestrator.go).
+export type LayoutNodeKind = 'directive' | 'sequence' | 'loop' | 'parallel'
 
 export type DisplayState = 'active' | 'dimmed'
 
@@ -61,7 +59,7 @@ const EMPTY_FRAME: FrameResult = { height: 0, firstId: null, lastId: null }
 
 function resolveKind(step: WorkflowStep): LayoutNodeKind {
   const k = (step.kind ?? 'directive') as string
-  if (k === 'directive' || k === 'sequence' || k === 'loop' || k === 'parallel' || k === 'conditional') return k
+  if (k === 'directive' || k === 'sequence' || k === 'loop' || k === 'parallel') return k
   return 'directive'
 }
 
@@ -71,9 +69,9 @@ function nodeIdFor(step: WorkflowStep, fallback: string): string {
 
 // Deterministic wire IDs so the same logical edge keeps its identity across
 // layout passes (e.g. when expandedIds toggles). The wire animation engine
-// in WorkflowGraphWires looks up `animations.get(wire.id)` to interpolate
-// from the current visual position to the new endpoints; a sequence-based
-// id reshuffles every rebuild, so animations would snap instead of glide.
+// looks up `animations.get(wire.id)` to interpolate from the current visual
+// position to the new endpoints; a sequence-based id reshuffles every
+// rebuild, so animations would snap instead of glide.
 function wireId(fromId: string, toId: string, style: WireStyle, suffix?: string): string {
   return suffix
     ? `${style}:${fromId}->${toId}:${suffix}`
@@ -179,7 +177,7 @@ function layoutInto(
     // Only control-flow kinds dim themselves on expansion — their action
     // lives in their subnodes. A directive expanded inline (playwright
     // actions list inside the card) is still itself the active step.
-    const dimsWhenExpanded = kind === 'sequence' || kind === 'loop' || kind === 'parallel' || kind === 'conditional'
+    const dimsWhenExpanded = kind === 'sequence' || kind === 'loop' || kind === 'parallel'
 
     const nodeModel: NodeModel = {
       id,
@@ -190,9 +188,9 @@ function layoutInto(
       displayState: expanded && dimsWhenExpanded ? 'dimmed' : 'active',
     }
 
-    // Collapsed parallel/conditional nodes carry their grouped children metadata
-    // so renderers can show stacked-card summaries without expanding.
-    if (!expanded && childCount > 0 && (kind === 'parallel' || kind === 'conditional')) {
+    // Collapsed parallel nodes carry their grouped children metadata so
+    // renderers can show stacked-card summaries without expanding.
+    if (!expanded && childCount > 0 && kind === 'parallel') {
       nodeModel.collapsedGroups = groupChildrenBySimilarity(step.children ?? [])
     }
 
@@ -231,9 +229,8 @@ function expandSubtree(
   switch (kind) {
     case 'directive':
       // Directive children are playwright-level actions, rendered as an
-      // expandable details list inside the parent card (see
-      // WorkflowGraphNode). They are not separate graph nodes, so
-      // expansion adds no rows / wires here.
+      // expandable details list inside the parent card. They are not separate
+      // graph nodes, so expansion adds no rows / wires here.
       return 0
 
     case 'sequence': {
@@ -348,42 +345,5 @@ function expandSubtree(
       return maxH
     }
 
-    case 'conditional': {
-      const branchResults: FrameResult[] = []
-      let maxH = 0
-      for (let i = 0; i < children.length; i++) {
-        const branchCol = parentCol + 1 + i
-        const tag = kind === 'conditional' ? 'c' : 'p'
-        const r = layoutInto([children[i]], branchCol, parentRow + 1, expandedIds, state, `${pathPrefix}.${tag}${i}`)
-        branchResults.push(r)
-        if (r.firstId) {
-          state.wires.push({
-            id: wireId(parentId, r.firstId, 'fork-right'),
-            fromId: parentId,
-            toId: r.firstId,
-            style: 'fork-right',
-            label: kind === 'conditional' ? caseLabel(children[i], i) : undefined,
-          })
-        }
-        if (r.height > maxH) maxH = r.height
-      }
-      const branchLasts = branchResults
-        .map(r => r.lastId)
-        .filter((x): x is string => !!x)
-      if (branchLasts.length > 0) {
-        state.pending.push({
-          fromIds: branchLasts,
-          parentCol,
-          bottomRow: parentRow + 1 + maxH,
-        })
-      }
-      return maxH
-    }
   }
-}
-
-function caseLabel(step: WorkflowStep, idx: number): string {
-  const trimmed = (step.annotation ?? step.description ?? '').trim()
-  if (trimmed.length > 0) return trimmed.length > 28 ? `${trimmed.slice(0, 27)}…` : trimmed
-  return `case ${idx + 1}`
 }

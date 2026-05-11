@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
+import type { SelectedItem } from '~/types/storage'
 
 const props = defineProps<{
   item: SelectedItem
@@ -10,12 +10,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 function formatDate(iso: string): string {
   const d = new Date(iso)

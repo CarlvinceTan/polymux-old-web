@@ -1,9 +1,9 @@
 import { runsInNextDays } from '~/utils/cron'
 
 // Database-backed schedule store. The Schedule tab under /workflow/[id]
-// upserts rows here; dashboard/usage lists active rows to project recurring
-// cost. Rows are keyed by workflow_id — workflows now own all durable state
-// (see migration 20260427000000_workflow_runtime_collapse).
+// upserts rows here; dashboard/console lists active rows. Rows are keyed by
+// workflow_id — workflows now own all durable state (see migration
+// 20260427000000_workflow_runtime_collapse).
 
 export type ScheduleFrequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
 

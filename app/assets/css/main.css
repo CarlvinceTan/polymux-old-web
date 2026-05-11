@@ -105,7 +105,7 @@ body {
   --text-nav: 0.8125rem;
   --text-nav--line-height: 1.25;
 
-  --text-panel-title: 0.9375rem;
+  --text-panel-title: 1.0625rem;
   --text-panel-title--line-height: 1.375;
 
   /* Spacing scale */
@@ -208,6 +208,16 @@ body {
 /* Main surfaces: ghost border + soft lift (right-column panels, cards) */
 .ghost-panel {
   border: 1px solid rgba(198, 198, 198, 0.15);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 4px 18px rgba(26, 28, 28, 0.09);
+}
+
+/* Same soft lift as .ghost-panel but without the hairline border. Use when
+   the surface should float visually but shouldn't gain a 1px outline — e.g.
+   the viewport screenshare panel, where the bar+preview chrome is already
+   self-framing and the outer border read as a stray edge on the sides. */
+.ghost-shadow {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.05),
     0 4px 18px rgba(26, 28, 28, 0.09);

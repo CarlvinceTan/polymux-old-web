@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ItemCategory } from '~/composables/wallet/useMarketplace'
+import type { ItemCategory } from '~/composables/integrations/useMarketplace'
 
 const props = defineProps<{
   id: string

@@ -1,5 +1,5 @@
 import { onUnmounted, ref } from 'vue'
-import type { SessionHandle } from '../auth/useSession'
+import type { SessionHandle } from './useWorkflowSession'
 import type { WorkflowRunEventPayload } from '../types'
 import type { WorkflowNodeState } from './useWorkflows'
 

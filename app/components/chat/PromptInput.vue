@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { ref } from 'vue'
 import type { FileAttachmentState } from '~/composables/chat/useAttachments'
-import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/useSpeechRecognition'
-import { useAppToast } from '~/composables/useAppToast'
-import { useAgentConfig } from '~/composables/useAgentConfig'
+import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/device/useSpeechRecognition'
+import { useAppToast } from '~/composables/ui/useAppToast'
+import { useAutoResizeTextarea } from '~/composables/ui/useAutoResizeTextarea'
+import { useAgentConfig } from '~/composables/account/useAgentConfig'
 
 const { t, locale } = useI18n()
 const toast = useAppToast()
@@ -13,14 +14,12 @@ const props = withDefaults(
   defineProps<{
     hint?: string
     modelValue?: string
-    fullWidth?: boolean
     attachments?: FileAttachmentState[]
     disabled?: boolean
   }>(),
   {
     hint: undefined,
     modelValue: '',
-    fullWidth: false,
     attachments: () => [],
     disabled: false,
   },
@@ -98,48 +97,7 @@ async function onVoiceClick() {
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-/** True once content needs more than one visible line (wrap or newline). */
-const expandedPrompt = ref(false)
-
-function clampTextareaHeight() {
-  const el = textareaRef.value
-  if (!el) return
-  const lh = Number.parseFloat(getComputedStyle(el).lineHeight)
-  const linePx = Number.isFinite(lh) ? lh : props.fullWidth ? 20 : 24
-  const maxPx = linePx * 4
-
-  const isBlank = !String(inputValue.value ?? '').trim()
-  el.style.height = '0px'
-
-  if (isBlank) {
-    expandedPrompt.value = false
-    el.style.height = `${linePx}px`
-    return
-  }
-
-  const raw = el.scrollHeight
-  expandedPrompt.value = raw > linePx + 2
-  const next = Math.min(Math.max(raw, linePx), maxPx)
-  el.style.height = `${next}px`
-}
-
-watch(inputValue, async () => {
-  await nextTick()
-  clampTextareaHeight()
-})
-
-watch(
-  () => props.fullWidth,
-  async () => {
-    await nextTick()
-    clampTextareaHeight()
-  },
-)
-
-onMounted(async () => {
-  await nextTick()
-  clampTextareaHeight()
-})
+const { expanded: expandedPrompt } = useAutoResizeTextarea(textareaRef, inputValue, { maxLines: 4 })
 
 function estimateTokens(text: string): number {
   // Rough cl100k-style heuristic: 4 chars per token. Server uses real
@@ -181,11 +139,10 @@ function onFileInputChange(e: Event) {
 </script>
 
 <template>
-  <div class="flex w-full flex-col"
-    :class="[
-      props.fullWidth ? 'items-stretch gap-3.5' : 'items-center gap-5',
-      attachments && attachments.length > 0 ? 'pt-0' : 'pt-1.5',
-    ]">
+  <div
+    class="flex w-full flex-col items-stretch gap-3.5"
+    :class="attachments && attachments.length > 0 ? 'pt-0' : 'pt-1.5'"
+  >
 
     <!-- Hidden native file input (absolute so it doesn't participate in flex gap) -->
     <input
@@ -205,7 +162,6 @@ function onFileInputChange(e: Event) {
       name="chip"
       appear
       class="relative flex w-full flex-wrap-reverse gap-1.5"
-      :class="props.fullWidth ? '' : 'max-w-3xl'"
     >
       <FileAttachment
         v-for="file in attachments"
@@ -213,87 +169,64 @@ function onFileInputChange(e: Event) {
         :name="file.name"
         :status="file.status"
         :progress="file.progress"
-        :half-row="props.fullWidth"
+        half-row
         @remove="emit('remove-file', file.id)"
       />
     </TransitionGroup>
 
-    <div class="flex w-full transition-colors focus-within:outline" :class="props.fullWidth
-      ? [
-        'relative min-h-13 rounded-2xl bg-neutral-100 p-2 transition-[background-color] duration-150',
-        'focus-within:bg-neutral-50 focus-within:outline focus-within:outline-neutral-300/80 focus-within:ring-1 focus-within:ring-neutral-200/90',
-        'has-[textarea:not(:placeholder-shown)]:bg-neutral-50',
-        expandedPrompt ? 'items-start' : 'items-center',
-      ]
-      : [
-        'max-w-3xl gap-2 rounded-md bg-surface-container-low py-2.5 pl-6 pr-2.5 transition-[background-color] duration-150',
-        'focus-within:bg-neutral-50 focus-within:outline focus-within:outline-outline-variant/15',
-        'has-[textarea:not(:placeholder-shown)]:bg-neutral-50',
-        expandedPrompt ? 'items-end' : 'items-center',
-      ]
-      ">
-      <div class="flex flex-col items-center min-w-0 flex-1" :class="props.fullWidth ? 'pl-1 sm:pl-2 pr-12.25' : ''">
-        <textarea ref="textareaRef" v-model="inputValue" rows="1" name="prompt"
+    <div
+      class="relative flex w-full min-h-13 rounded-2xl bg-[#e8e8e8] p-2 transition-[background-color] duration-150 focus-within:bg-neutral-50 focus-within:outline focus-within:outline-neutral-300/80 focus-within:ring-1 focus-within:ring-neutral-200/90 has-[textarea:not(:placeholder-shown)]:bg-neutral-50"
+      :class="expandedPrompt ? 'items-start' : 'items-center'"
+    >
+      <div class="flex flex-col items-center min-w-0 flex-1 pl-1 sm:pl-2 pr-12.25">
+        <textarea
+          ref="textareaRef"
+          v-model="inputValue"
+          rows="1"
+          name="prompt"
           :disabled="props.disabled"
-          class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-          :class="props.fullWidth
-            ? 'text-body-md max-h-20'
-            : 'min-w-0 flex-1 text-body-lg max-h-24'
-            " :placeholder="resolvedHint" autocomplete="off" @keydown="onTextareaKeydown" />
+          class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 text-body-md max-h-20"
+          :placeholder="resolvedHint"
+          autocomplete="off"
+          @keydown="onTextareaKeydown"
+        />
       </div>
-      <button type="button"
-        class="flex shrink-0 items-center justify-center text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
-        :class="props.fullWidth
-          ? [
-            'absolute right-2 size-9 rounded-lg bg-neutral-950',
-            expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2',
-          ]
-          : 'btn-gradient size-10 rounded-[0.375rem]'
-          " :disabled="props.disabled" :aria-label="t('common.send')" @click="onSendClick">
-        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none"
-          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-            stroke-linejoin="round" />
+      <button
+        type="button"
+        class="absolute right-2 flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+        :class="expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2'"
+        :disabled="props.disabled"
+        :aria-label="t('common.send')"
+        @click="onSendClick"
+      >
+        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>
     </div>
 
-    <div class="flex w-full flex-wrap items-center justify-center gap-y-2 text-secondary" :class="props.fullWidth
-      ? 'gap-x-8 text-caption font-semibold tracking-overline text-neutral-400'
-      : 'gap-x-14 text-label-md font-medium tracking-wide max-w-3xl'
-      ">
-      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
-        :class="props.fullWidth ? 'gap-1' : ''" @click="onAttachClick">
-        <UIcon name="i-heroicons-paper-clip-20-solid" class="shrink-0"
-          :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? t('common.attach').toUpperCase() : t('common.attach') }}</span>
+    <div class="flex w-full flex-wrap items-center justify-center gap-x-8 gap-y-2 text-caption font-semibold tracking-overline text-neutral-400">
+      <button type="button" class="inline-flex items-center gap-1 transition-opacity hover:opacity-70" @click="onAttachClick">
+        <UIcon name="i-heroicons-paper-clip-20-solid" class="shrink-0 size-3.5" />
+        <span>{{ t('common.attach').toUpperCase() }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70"
-        :class="[
-          props.fullWidth ? 'gap-1' : '',
-          isListening ? 'text-red-500' : '',
-        ]"
+      <button
+        type="button"
+        class="inline-flex items-center gap-1 transition-opacity hover:opacity-70"
+        :class="isListening ? 'text-red-500' : ''"
         :aria-pressed="isListening"
         :aria-label="isListening ? t('chat.voiceListening') : t('common.voice')"
-        @click="onVoiceClick">
-        <span class="relative inline-flex shrink-0 items-center justify-center"
-          :class="props.fullWidth ? 'size-3.5' : 'size-4'">
-          <span v-if="isListening"
-            class="absolute inset-0 animate-ping rounded-full bg-red-500/40" aria-hidden="true" />
-          <UIcon name="i-heroicons-microphone-20-solid" class="relative shrink-0"
-            :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
+        @click="onVoiceClick"
+      >
+        <span class="relative inline-flex shrink-0 items-center justify-center size-3.5">
+          <span v-if="isListening" class="absolute inset-0 animate-ping rounded-full bg-red-500/40" aria-hidden="true" />
+          <UIcon name="i-heroicons-microphone-20-solid" class="relative shrink-0 size-3.5" />
         </span>
-        <span>{{
-          isListening
-            ? (props.fullWidth ? t('chat.voiceListening').toUpperCase() : t('chat.voiceListening'))
-            : (props.fullWidth ? t('common.voice').toUpperCase() : t('common.voice'))
-        }}</span>
+        <span>{{ (isListening ? t('chat.voiceListening') : t('common.voice')).toUpperCase() }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-1.5 transition-opacity hover:opacity-70 whitespace-nowrap"
-        :class="props.fullWidth ? 'gap-1' : ''">
-        <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0"
-          :class="props.fullWidth ? 'size-3.5' : 'size-4'" />
-        <span>{{ props.fullWidth ? t('common.settings').toUpperCase() : t('common.settings') }}</span>
+      <button type="button" class="inline-flex items-center gap-1 whitespace-nowrap transition-opacity hover:opacity-70">
+        <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0 size-3.5" />
+        <span>{{ t('common.settings').toUpperCase() }}</span>
       </button>
     </div>
   </div>

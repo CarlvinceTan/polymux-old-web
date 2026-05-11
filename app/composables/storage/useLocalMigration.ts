@@ -1,4 +1,4 @@
-import { useAppToast } from '~/composables/useAppToast'
+import { useAppToast } from '~/composables/ui/useAppToast'
 
 export type LocalMigrationDirection =
   | 'drive-to-local'
@@ -74,7 +74,7 @@ export function useLocalMigration() {
   async function runToLocal(workspaceId: string) {
     const deviceId = useDeviceId()
     if (!deviceId) throw new Error('Device id unavailable')
-    const opfs = useWorkspaceLocalFiles()
+    const opfs = useLocalFiles()
     if (!opfs.supported()) throw new Error('LOCAL_STORAGE_UNSUPPORTED')
 
     while (true) {
@@ -132,7 +132,7 @@ export function useLocalMigration() {
   async function runFromLocal(workspaceId: string) {
     const deviceId = useDeviceId()
     if (!deviceId) throw new Error('Device id unavailable')
-    const opfs = useWorkspaceLocalFiles()
+    const opfs = useLocalFiles()
     if (!opfs.supported()) throw new Error('LOCAL_STORAGE_UNSUPPORTED')
 
     while (true) {

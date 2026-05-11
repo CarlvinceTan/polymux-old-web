@@ -11,15 +11,14 @@ const props = defineProps<{
   cursorPositions?: Map<string, CursorState>
   showCursor?: boolean
   browserAgentCap?: number
-  activeAgentId: string | null
   reconnecting?: boolean
 }>()
 
 const emit = defineEmits<{
-  promoteViewport: [agentId: string]
-  demoteActive: []
   closeViewport: [agentId: string]
   spawnBrowserAgent: []
+  stopAgent: [agentId: string]
+  runAgent: [agentId: string]
 }>()
 
 const expandedAgentId = ref<string | null>(null)
@@ -32,38 +31,54 @@ const expandedFrameUrl = computed(() => {
   return vp ? props.frameUrls?.get(vp.agentId) : undefined
 })
 
-const activeViewport = computed(() => {
-  if (!props.activeAgentId) return null
-  return props.viewportList.find(v => v.agentId === props.activeAgentId) ?? null
-})
-const activeFrameUrl = computed(() => {
-  const vp = activeViewport.value
-  return vp ? props.frameUrls?.get(vp.agentId) : undefined
+// Running-kind classifier — drives the per-viewport indicator. 'workflow'
+// kicks in only while the workflow_run engine is actively executing the
+// persisted node graph; everything else (orchestrator agents working in
+// service of chat) falls through to 'chat'. Matches the SidePanel
+// running-indicator contract so the two surfaces stay visually aligned.
+const workflowRun = inject<{ runStatus: Ref<string | null> } | null>('workflow-run', null)
+const runningKind = computed<'chat' | 'workflow' | null>(() => {
+  const status = workflowRun?.runStatus.value
+  if (status === 'running' || status === 'pending') return 'workflow'
+  return 'chat'
 })
 
 const agentCount = computed(() => props.viewportList.length)
 const agentCap = computed(() => props.browserAgentCap ?? 0)
 const isAtCap = computed(() => agentCount.value >= agentCap.value && agentCap.value > 0)
 
-// Dock layout switch: 'main' keeps the legacy single-viewport-on-top + thumbnail
-// strip; 'gallery' replaces both with a scrollable grid driven by the zoom slider.
-// Local state — viewMode (chat/viewport/workflow/node) is the cross-tab persisted
-// switch and lives one level up; the gallery toggle is a viewport-only sub-mode
-// that resets on remount, which is what we want when reopening a workflow.
-const dockMode = ref<'main' | 'gallery'>('main')
+// JS-driven hover state for the zoom pill. CSS :hover bubbling proved
+// unreliable here — the bottom of the pill never lit up, likely because
+// the slider thumb's pseudo-element doesn't propagate :hover to the
+// parent consistently across browsers. Tracking via @mouseenter on the
+// outer strip is bulletproof and lets us widen the hit zone trivially.
+const zoomHovered = ref(false)
+const zoomFocused = ref(false)
+
+// Dock is gallery-only — a scrollable grid driven by the zoom slider. The
+// legacy 'main' layout (single viewport + thumbnail strip) was retired
+// because the gallery already covers both the empty/single-agent and
+// many-agent cases. Kept as a ref so existing watchers don't need rewiring,
+// but it's effectively a constant now.
+const dockMode = ref<'gallery'>('gallery')
 // Columns in gallery mode. Lower = bigger viewports = fewer per row, higher =
-// smaller and more per row. Cards drop their browser chrome (URL bar, traffic
-// lights) once the column count crosses GALLERY_BAR_THRESHOLD so a tight grid
-// still feels readable instead of squishing the bar across half-pixel widths.
+// smaller and more per row. Cards drop their browser chrome (URL bar with
+// expand + close affordances) once the column count crosses
+// GALLERY_BAR_THRESHOLD so a tight grid still feels readable instead of
+// squishing the bar across half-pixel widths.
 const GALLERY_MIN_COLS = 1
 const GALLERY_MAX_COLS = 8
-// Bar (URL + traffic lights) only stays legible when each card has the room to
-// show roughly the same chrome density as the main-mode viewport — empirically
-// that's ~1/2 of the dock width per card. Anything denser (3+ columns) falls
-// back to the bar-less thumbnail rendering even though a URL bar would still
+// The URL bar only stays legible when each card has the room to show roughly
+// the same chrome density as the main-mode viewport — empirically that's
+// ~1/2 of the dock width per card. Anything denser (3+ columns) falls back
+// to the bar-less thumbnail rendering even though a URL bar would still
 // technically fit, because the user can't usefully read it at that scale.
 const GALLERY_BAR_THRESHOLD = 2
-const galleryCols = ref(3)
+// Start zoomed out — initialize at the max column count and let the
+// effectiveMaxCols watcher clamp down to whatever the dock can fit. This
+// gives the user the most-viewports-on-screen-at-once view by default;
+// they can zoom in (fewer columns, bigger cards) via the slider.
+const galleryCols = ref(GALLERY_MAX_COLS)
 
 // Cap the slider at the smallest column count that already shows every
 // viewport on screen at once. Past that point zooming out further only
@@ -93,7 +108,7 @@ watch(galleryContainer, (el, _old, onCleanup) => {
 // (bar-less) cards are noticeably shorter, so the budget swaps based on
 // whether the bar is showing at the candidate column count.
 const COMPACT_CHROME_PX = 36
-const FULL_CHROME_PX = 90
+const FULL_CHROME_PX = 70
 const GRID_GAP_PX = 12
 const GRID_PAD_X_PX = 32
 const GRID_PAD_Y_PX = 28
@@ -159,10 +174,6 @@ watch([galleryCols, effectiveMaxCols], ([cols, max]) => {
 const showBarInGallery = computed(() => galleryCols.value <= GALLERY_BAR_THRESHOLD)
 const compactInGallery = computed(() => galleryCols.value > GALLERY_BAR_THRESHOLD)
 
-function toggleDockMode() {
-  dockMode.value = dockMode.value === 'main' ? 'gallery' : 'main'
-}
-
 const toast = useAppToast()
 
 function onSpawnOrWarn() {
@@ -173,52 +184,33 @@ function onSpawnOrWarn() {
   emit('spawnBrowserAgent')
 }
 
-function onPromote(agentId: string) {
-  emit('promoteViewport', agentId)
-}
-
 function onClose(agentId: string) {
   if (expandedAgentId.value === agentId) expandedAgentId.value = null
   emit('closeViewport', agentId)
 }
 
-function onDemoteActive() {
-  expandedAgentId.value = null
-  emit('demoteActive')
-}
-
-function onToggleExpand(agentId: string) {
+function onExpand(agentId: string) {
   expandedAgentId.value = expandedAgentId.value === agentId ? null : agentId
 }
 
-// Gallery click: promote the picked viewport and drop back to main mode so the
-// chosen one fills the dock immediately. Saves the maintainer the round-trip
-// of clicking the toggle a second time after a pick.
-function onGalleryPick(agentId: string) {
-  emit('promoteViewport', agentId)
-  dockMode.value = 'main'
+function onStop(agentId: string) {
+  emit('stopAgent', agentId)
 }
 
-function activeTrafficHandlers() {
-  return {
-    onTrafficRed: () => {
-      if (props.activeAgentId) onClose(props.activeAgentId)
-    },
-    onTrafficYellow: () => onDemoteActive(),
-    onTrafficGreen: () => {
-      if (props.activeAgentId) onToggleExpand(props.activeAgentId)
-    },
-  }
+function onRun(agentId: string) {
+  emit('runAgent', agentId)
 }
 
-function activeViewportBinds(vp: ViewportState) {
+// Per-viewport handler binding. We pre-bind agentId here so the Viewport
+// component receives stable closures via its onClose / onStop / onRun
+// props. Expansion is driven from the gallery card's own @click (clicking
+// anywhere on the panel pops the modal) rather than a dedicated icon, so
+// onExpand is not threaded through Viewport.
+function viewportHandlers(agentId: string) {
   return {
-    ...vp,
-    ...activeTrafficHandlers(),
-    frameUrl: props.frameUrls?.get(vp.agentId),
-    cursor: props.cursorPositions?.get(vp.agentId),
-    showCursor: props.showCursor,
-    reconnecting: props.reconnecting,
+    onClose: () => onClose(agentId),
+    onStop: () => onStop(agentId),
+    onRun: () => onRun(agentId),
   }
 }
 </script>
@@ -228,174 +220,45 @@ function activeViewportBinds(vp: ViewportState) {
     v-bind="$attrs"
     class="relative flex min-h-0 w-full min-w-0 flex-1 flex-col md:w-auto md:min-h-0 md:min-w-0"
   >
-    <!-- Dock-mode toggle. Sits over the viewport area's top-right corner so it
-         is always reachable in either mode but stays out of the maintainer's
-         way until they go looking for it. The slider only renders in gallery
-         mode; sharing this anchor keeps the controls grouped. -->
-    <div class="absolute right-3 top-3 z-20 flex items-center gap-2">
-      <div
-        v-if="dockMode === 'gallery' && effectiveMaxCols > GALLERY_MIN_COLS"
-        class="group/zoom flex items-center gap-2 rounded-md bg-white/95 px-2 py-1 text-neutral-700 opacity-75 shadow-sm ring-1 ring-neutral-200 backdrop-blur-sm transition-opacity hover:opacity-100 focus-within:opacity-100"
-      >
-        <UIcon name="i-heroicons-magnifying-glass-minus-20-solid" class="size-3.5" />
-        <input
-          v-model.number="sliderDrag"
-          type="range"
-          :min="GALLERY_MIN_COLS"
-          :max="effectiveMaxCols"
-          step="0.01"
-          class="dock-zoom h-1 w-24 cursor-pointer appearance-none bg-neutral-300"
-          :aria-label="t('browser.galleryZoom')"
-        >
-        <UIcon name="i-heroicons-magnifying-glass-plus-20-solid" class="size-3.5 -scale-x-100" />
-      </div>
-      <button
-        type="button"
-        class="flex cursor-pointer items-center justify-center rounded-md bg-white/95 px-1 py-1 text-neutral-700 opacity-75 shadow-sm ring-1 ring-neutral-200 backdrop-blur-sm transition-opacity hover:bg-white hover:text-neutral-900 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
-        :aria-label="dockMode === 'main' ? t('browser.galleryView') : t('browser.singleView')"
-        :title="dockMode === 'main' ? t('browser.galleryView') : t('browser.singleView')"
-        @click="toggleDockMode"
-      >
-        <UIcon
-          :name="dockMode === 'main' ? 'i-heroicons-squares-2x2-20-solid' : 'i-heroicons-rectangle-stack-20-solid'"
-          class="size-3.5"
-        />
-      </button>
-    </div>
-
-    <!-- Main mode: existing single-viewport-on-top + horizontal thumbnail strip. -->
-    <div
-      v-if="dockMode === 'main'"
-      class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-    >
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 pb-2 pt-3 @container-[size]">
-        <div class="flex min-h-0 min-w-0 flex-1 items-center justify-center">
-          <div class="mx-auto w-[min(100cqw,max(1px,calc((100cqh-5.5rem)*16/9)))] max-w-full min-w-0 shrink-0">
-            <Viewport
-              v-if="activeViewport && (activeFrameUrl || reconnecting || !activeViewport.isWorking)"
-              class="w-full min-w-0 shrink-0"
-              v-bind="activeViewportBinds(activeViewport)"
-            />
-            <div
-              v-else-if="activeViewport"
-              class="ghost-panel flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-center"
-              style="aspect-ratio: 16 / 9"
-              role="status"
-              :aria-label="t('browser.launchingAgent')"
-            >
-              <svg
-                class="mb-3 size-8 animate-spin text-neutral-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-              <p class="px-6 text-sm text-neutral-400">
-                {{ t('browser.launchingAgent') }}
-              </p>
-            </div>
-            <div
-              v-else
-              class="ghost-panel flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-center"
-              style="aspect-ratio: 16 / 9"
-            >
-              <UIcon name="i-heroicons-computer-desktop-20-solid" class="mb-3 size-8 text-neutral-300" />
-              <p class="px-6 text-sm text-neutral-400">
-                {{ t('browser.noActiveViewport') }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="h-px w-full shrink-0 bg-neutral-200/90" aria-hidden="true" />
-      <div class="w-full min-w-0 shrink-0 overflow-visible">
-        <div class="scrollbar-hide flex items-center gap-0 overflow-x-auto px-4 pb-3 pt-2">
-          <div
-            v-for="vp in viewportList"
-            :key="vp.agentId"
-            role="button"
-            tabindex="0"
-            class="group/thumb relative flex h-auto min-w-0 w-48 shrink-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent py-0.5 text-left outline-none ring-0 transition-colors focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
-            :class="vp.agentId === activeAgentId ? 'bg-neutral-950/6' : 'hover:bg-neutral-950/4'"
-            :aria-label="t('chat.showAsMainViewport', { url: vp.url })"
-            @click="onPromote(vp.agentId)"
-            @keydown.enter="onPromote(vp.agentId)"
-            @keydown.space.prevent="onPromote(vp.agentId)"
-          >
-            <div class="min-w-0 w-full max-w-full p-2">
-              <Viewport
-                v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
-                thumbnail
-                :show-action-text="false"
-                :show-bar="false"
-                :reconnecting="reconnecting"
-                class="max-w-full min-w-0 w-full select-none"
-              />
-            </div>
-            <button
-              type="button"
-              class="absolute right-2 top-2 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none text-neutral-400 opacity-0 ring-0 transition-colors hover:text-neutral-700 group-hover/thumb:opacity-100"
-              :aria-label="t('browser.closeAgent')"
-              @click.stop="onClose(vp.agentId)"
-            >
-              <UIcon name="i-heroicons-x-mark" class="size-3" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            class="group/add flex h-auto min-w-0 w-48 shrink-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 py-0.5 text-left outline-none ring-0 transition-colors focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
-            :class="isAtCap ? 'opacity-40' : ''"
-            :aria-label="t('browser.addAgent')"
-            @click="onSpawnOrWarn"
-          >
-            <div class="min-w-0 w-full max-w-full p-2 pt-2.5">
-              <div class="flex w-full max-w-full flex-none flex-col gap-1.5 overflow-visible select-none">
-                <div class="flex w-full max-w-full flex-col overflow-visible rounded-lg">
-                  <div class="flex w-full max-w-full flex-col overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-neutral-50 transition-colors group-hover/add:border-neutral-600">
-                    <div class="relative w-full overflow-hidden bg-neutral-50" style="aspect-ratio: 16 / 9">
-                      <div class="absolute inset-0 flex items-center justify-center">
-                        <UIcon name="i-heroicons-plus-20-solid" class="size-6 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="flex gap-2 items-center justify-center px-0">
-                  <div class="flex min-w-0 items-center font-mono tracking-wide gap-1 text-2xs text-neutral-500 transition-colors group-hover/add:text-neutral-600 sm:text-caption">
-                    <span class="font-bold uppercase">{{ agentCount }}</span>
-                    <span>/</span>
-                    <span class="font-bold uppercase">{{ agentCap }}</span>
-                    <span>agents</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Gallery mode: scrollable grid of every viewport, column count driven
-         by the zoom slider. Compact rendering (no traffic lights / URL bar)
+    <!-- Gallery: scrollable grid of every viewport, column count driven
+         by the zoom slider. Compact rendering (no URL bar)
          kicks in once we exceed GALLERY_BAR_THRESHOLD columns so the chrome
          doesn't get crushed at small sizes. The container ref feeds the
          ResizeObserver that recomputes effectiveMaxCols based on actual
          visible space. -->
     <div
-      v-else
       ref="galleryContainer"
-      class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+      class="scrollbar-hide flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
     >
+      <!-- Empty state: surface the add-browser-agent affordance directly so the
+           viewport layout always offers a single, obvious call to action. The
+           in-grid + tile (rendered below alongside existing viewports) is
+           reused here at a centered, bounded size so the empty state IS the
+           action rather than a passive placeholder pointing at one. -->
       <div
         v-if="viewportList.length === 0"
-        class="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center"
+        class="flex flex-1 flex-col items-center justify-center px-6 py-10"
       >
-        <UIcon name="i-heroicons-squares-2x2-20-solid" class="mb-3 size-8 text-neutral-300" />
-        <p class="text-sm text-neutral-400">{{ t('browser.noActiveViewport') }}</p>
+        <button
+          type="button"
+          class="group/add flex w-full max-w-md cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors hover:bg-neutral-950/4 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
+          :class="isAtCap ? 'opacity-40' : ''"
+          :aria-label="t('browser.addAgent')"
+          @click="onSpawnOrWarn"
+        >
+          <div class="flex w-full max-w-full flex-col overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-neutral-50">
+            <div class="relative w-full overflow-hidden bg-neutral-50" style="aspect-ratio: 16 / 9">
+              <div class="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+                <UIcon name="i-heroicons-plus-20-solid" class="size-8 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
+                <span class="text-sm text-neutral-400 transition-colors group-hover/add:text-neutral-600">{{ t('browser.addAgent') }}</span>
+                <span
+                  v-if="agentCap > 0"
+                  class="text-xs tabular-nums text-neutral-400 transition-colors group-hover/add:text-neutral-600"
+                >{{ t('browser.browsersCount', { active: agentCount, cap: agentCap }) }}</span>
+              </div>
+            </div>
+          </div>
+        </button>
       </div>
       <div
         v-else
@@ -407,22 +270,27 @@ function activeViewportBinds(vp: ViewportState) {
           :key="vp.agentId"
           role="button"
           tabindex="0"
-          class="group/gallery relative flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
-          :class="vp.agentId === activeAgentId ? 'bg-neutral-950/6' : 'hover:bg-neutral-950/4'"
-          :aria-label="t('chat.showAsMainViewport', { url: vp.url })"
-          @click="onGalleryPick(vp.agentId)"
-          @keydown.enter="onGalleryPick(vp.agentId)"
-          @keydown.space.prevent="onGalleryPick(vp.agentId)"
+          class="group/gallery relative flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg outline-none ring-0 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
+          :aria-label="t('viewport.expandPreview')"
+          @click="onExpand(vp.agentId)"
+          @keydown.enter="onExpand(vp.agentId)"
+          @keydown.space.prevent="onExpand(vp.agentId)"
         >
           <Viewport
-            v-bind="{ ...vp, frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
+            v-bind="{ ...vp, ...viewportHandlers(vp.agentId), frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
             :thumbnail="compactInGallery"
             :show-bar="showBarInGallery"
             :show-action-text="!compactInGallery"
             :reconnecting="reconnecting"
+            :running-kind="runningKind"
             class="max-w-full min-w-0 w-full select-none"
           />
+          <!-- Overlay close button — only shown in the bar-less thumbnail
+               rendering, since the in-bar X disappears with the bar. Keeps a
+               way out for users when the gallery is zoomed past the bar
+               threshold. -->
           <button
+            v-if="!showBarInGallery"
             type="button"
             class="absolute right-2 top-2 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none text-neutral-400 opacity-0 ring-0 transition-colors hover:text-neutral-700 group-hover/gallery:opacity-100"
             :aria-label="t('browser.closeAgent')"
@@ -434,19 +302,56 @@ function activeViewportBinds(vp: ViewportState) {
 
         <button
           type="button"
-          class="group/add flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 p-1.5 text-left outline-none ring-0 transition-colors focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
+          class="group/add flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors hover:bg-neutral-950/4 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
           :class="isAtCap ? 'opacity-40' : ''"
           :aria-label="t('browser.addAgent')"
           @click="onSpawnOrWarn"
         >
-          <div class="flex w-full max-w-full flex-col overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-neutral-50 transition-colors group-hover/add:border-neutral-600">
+          <div class="flex w-full max-w-full flex-col overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-neutral-50">
             <div class="relative w-full overflow-hidden bg-neutral-50" style="aspect-ratio: 16 / 9">
-              <div class="absolute inset-0 flex items-center justify-center">
+              <div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
                 <UIcon name="i-heroicons-plus-20-solid" class="size-6 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
+                <span
+                  v-if="agentCap > 0"
+                  class="text-xs tabular-nums text-neutral-400 transition-colors group-hover/add:text-neutral-600"
+                >{{ t('browser.browsersCount', { active: agentCount, cap: agentCap }) }}</span>
               </div>
             </div>
           </div>
         </button>
+      </div>
+    </div>
+
+    <!-- Gallery zoom slider — bottom-center, absolutely positioned so it
+         overlays without reserving layout space. Hover state is tracked
+         in JS on the outer strip (full-width, tall trigger zone) so we
+         don't depend on CSS :hover bubbling up through the slider thumb
+         pseudo-element. The dock parent's pb-32 keeps this clear of the
+         floating prompt input below. -->
+    <div
+      v-if="effectiveMaxCols > GALLERY_MIN_COLS"
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center pt-3 pb-2"
+    >
+      <div
+        class="pointer-events-auto flex items-center gap-2 rounded-md bg-white/95 px-2 py-1 text-neutral-700 shadow-sm ring-1 ring-neutral-200 backdrop-blur-sm transition-opacity"
+        :class="(zoomHovered || zoomFocused) ? 'opacity-100' : 'opacity-30'"
+        @mouseenter="zoomHovered = true"
+        @mouseleave="zoomHovered = false"
+        @focusin="zoomFocused = true"
+        @focusout="zoomFocused = false"
+      >
+        <UIcon name="i-heroicons-magnifying-glass-minus-20-solid" class="size-3.5" />
+        <input
+          v-model.number="sliderDrag"
+          type="range"
+          :min="GALLERY_MIN_COLS"
+          :max="effectiveMaxCols"
+          step="0.01"
+          class="dock-zoom h-1 w-24 cursor-pointer appearance-none bg-neutral-300"
+          :aria-label="t('browser.galleryZoom')"
+          @mouseup="($event.currentTarget as HTMLElement).blur()"
+        >
+        <UIcon name="i-heroicons-magnifying-glass-plus-20-solid" class="size-3.5 -scale-x-100" />
       </div>
     </div>
   </div>

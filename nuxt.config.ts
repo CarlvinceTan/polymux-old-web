@@ -37,12 +37,9 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      // The page title, brand-aware titleTemplate, og:site_name, canonical
-      // URL, and JSON-LD WebSite schema are all set in app.vue so they pick
-      // the right brand ("Polymux" vs "Polymux Development Platform") based
-      // on the request hostname. Setting a static title here would feed
-      // "Polymux" into the template on pages without a per-page useHead and
-      // render as "Polymux Polymux" in the browser tab.
+      // titleTemplate, og:site_name, canonical URL, and JSON-LD WebSite schema
+      // are set in app.vue. Setting a static title here would feed "Polymux"
+      // into the template and render as "Polymux Polymux" in the browser tab.
       meta: [{ name: "twitter:card", content: "summary_large_image" }],
       link: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -83,9 +80,18 @@ export default defineNuxtConfig({
   components: [{ path: "~/components", pathPrefix: false }],
   imports: {
     dirs: [
+      "composables/account",
+      "composables/artifacts",
       "composables/auth",
       "composables/chat",
+      "composables/device",
+      "composables/integrations",
+      "composables/misc",
+      "composables/nav-tabs",
       "composables/storage",
+      "composables/ui",
+      "composables/vault",
+      "composables/viewport",
       "composables/wallet",
       "composables/workflows",
     ],
