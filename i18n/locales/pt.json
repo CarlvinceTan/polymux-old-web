@@ -175,7 +175,8 @@
     "voiceUnsupported": "Este navegador não suporta entrada por voz. Use Chrome, Edge ou Safari.",
     "voicePermissionBlocked": "O acesso ao microfone está bloqueado. Clique no ícone à esquerda da barra de endereços do navegador para ativá-lo.",
     "voiceError": "Falha na entrada por voz. Tente novamente.",
-    "tokenCapExceeded": "Sua mensagem tem cerca de {tokens} tokens, o que excede o limite de entrada de {cap} tokens. Por favor, encurte-a."
+    "tokenCapExceeded": "Sua mensagem tem cerca de {tokens} tokens, o que excede o limite de entrada de {cap} tokens. Por favor, encurte-a.",
+    "scrollToLatest": "Ir para a mais recente"
   },
   "workflow": {
     "loop": "Loop",
@@ -1211,6 +1212,8 @@
     "lastDay": "Último",
     "noRuns": "Sem execuções nos próximos 60 dias",
     "weeklyNoDays": "Selecione ao menos um dia",
+    "noVersionShort": "Salve uma versão antes",
+    "activeNeedsVersion": "Salve uma versão do fluxo antes de ativar o agendamento. O agendador ignora fluxos sem uma versão salva.",
     "freq": {
       "none": "Nenhuma",
       "noneHint": "Apenas datas específicas",

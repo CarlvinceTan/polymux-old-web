@@ -11,7 +11,6 @@ import type {
   SpawnBrowserAgentPayload,
   CloseBrowserAgentPayload,
   StreamPriorityUpdatePayload,
-  ErrorPayload,
 } from '../types'
 import type { SessionHandle } from '../workflows/useWorkflowSession'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
@@ -30,13 +29,10 @@ export function useViewports(session: SessionHandle) {
   const { currentWorkspace } = useWorkspaces()
   const browserAgentCap = ref(browserAgentCapFromPlan(currentWorkspace.value?.plan))
   const activeAgentId = ref<string | null>(null)
-
-  let pendingCounter = 0
-  const PENDING_PREFIX = '__pending_'
-
-  function isPendingId(id: string) {
-    return id.startsWith(PENDING_PREFIX)
-  }
+  // Flips true the first time a real session_state lands. While false, the
+  // watch below ignores `state === null` so a pre-WS REST hydrate (via
+  // `hydrate()`) isn't wiped by the immediate-fire of the watch on mount.
+  let receivedAnyState = false
 
   function payloadToViewport(p: BrowserSpawnedPayload): ViewportState {
     // Map the server's lifecycle status to a viewport color:
@@ -59,7 +55,7 @@ export function useViewports(session: SessionHandle) {
     const isCompleted = status === 'completed'
     const isFailed = status === 'failed' || status === 'stopped' || status === 'interrupted'
     const action = isRunning
-      ? `TASK: ${p.task.slice(0, 40)}`
+      ? `TASK: ${(p.task ?? '').slice(0, 40)}`
       : isCompleted
         ? 'DONE'
         : isFailed
@@ -68,7 +64,7 @@ export function useViewports(session: SessionHandle) {
             ? 'READY'
             : isVisualOnly
               ? 'IDLE'
-              : `TASK: ${p.task.slice(0, 40)}`
+              : `TASK: ${(p.task ?? '').slice(0, 40)}`
     return {
       agentId: p.agent_id,
       url: p.url ?? '',
@@ -79,27 +75,6 @@ export function useViewports(session: SessionHandle) {
       isDone: isCompleted,
       isFailed,
       isVisualOnly,
-    }
-  }
-
-  // Default URL for a freshly-spawned chromium tab. Chromium opens new tabs at
-  // chrome://newtab (or about:newtab on some builds) and emits a Page.frameNavigated
-  // shortly after; we pre-fill the URL bar with this so the pending tile reads
-  // the same as the post-page_navigated steady state, instead of flashing an
-  // empty bar between click and the first navigation event landing.
-  const PENDING_URL_PLACEHOLDER = 'chrome://newtab'
-
-  function pendingViewport(): ViewportState {
-    return {
-      agentId: `${PENDING_PREFIX}${++pendingCounter}`,
-      url: PENDING_URL_PLACEHOLDER,
-      agentName: `BROWSER ${String(viewports.value.length + 1).padStart(2, '0')}`,
-      currentAction: 'SPAWNING...',
-      isLoading: true,
-      isWorking: true,
-      isDone: false,
-      isFailed: false,
-      isVisualOnly: false,
     }
   }
 
@@ -171,12 +146,19 @@ export function useViewports(session: SessionHandle) {
     () => session.sessionState.value,
     (state) => {
       if (!state) {
+        // Ignore the initial-mount null fire so a pre-WS REST hydrate isn't
+        // wiped before the socket connects. Only treat null as a real reset
+        // once we've previously seen real state (e.g. workflow id change in
+        // useWorkflowSession nukes sessionState).
+        if (!receivedAnyState) return
         viewports.value = []
         activeAgentId.value = null
         for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
         pendingUrlUpdates.clear()
+        receivedAnyState = false
         return
       }
+      receivedAnyState = true
       viewports.value = sortByLabel((state.browser_agents ?? []).map(payloadToViewport))
       browserAgentCap.value = state.browser_agent_cap ?? 0
       if (activeAgentId.value && !viewports.value.some(v => v.agentId === activeAgentId.value)) {
@@ -191,21 +173,21 @@ export function useViewports(session: SessionHandle) {
     { immediate: true },
   )
 
+  // Pre-WS hydration from the workflow row's persisted `last_browser_states`
+  // column. Called by the workflow page once the REST `/sessions` list lands
+  // so the gallery isn't empty during the WS handshake. No-op once a real
+  // session_state has been seen — the WS payload is authoritative.
+  function hydrate(states: BrowserSpawnedPayload[]) {
+    if (receivedAnyState) return
+    if (!states || states.length === 0) return
+    const visualOnly = states.map(s => ({ ...s, is_visual_only: true }))
+    viewports.value = sortByLabel(visualOnly.map(payloadToViewport))
+  }
+
   function handleBrowserSpawned(p: BrowserSpawnedPayload) {
     // eslint-disable-next-line no-console
     console.debug('[viewports] browser_spawned', { agent_id: p.agent_id, label: p.label, task: p.task?.slice(0, 60) })
-    const pendingIdx = viewports.value.findIndex(v => isPendingId(v.agentId))
-    if (pendingIdx !== -1) {
-      const next = [...viewports.value]
-      // BrowserSpawnedPayload for manually-spawned agents arrives without a
-      // URL — page_navigated lands separately a beat later. Carry over the
-      // pending tile's placeholder URL so the bar doesn't blip back to empty
-      // between spawn-confirm and the first navigation event.
-      const spawned = payloadToViewport(p)
-      if (!spawned.url && next[pendingIdx]!.url) spawned.url = next[pendingIdx]!.url
-      next[pendingIdx] = spawned
-      viewports.value = next
-    } else if (!viewports.value.some(v => v.agentId === p.agent_id)) {
+    if (!viewports.value.some(v => v.agentId === p.agent_id)) {
       viewports.value = [...viewports.value, payloadToViewport(p)]
     }
     activeAgentId.value = p.agent_id
@@ -279,28 +261,12 @@ export function useViewports(session: SessionHandle) {
     updateViewport(p.agent_id, { currentAction: p.text.toUpperCase() })
   }
 
-  function handleAgentLimitReached(p: ErrorPayload) {
-    if (p.code === 'AGENT_LIMIT_REACHED') {
-      const pendingIdx = viewports.value.findLastIndex(v => isPendingId(v.agentId))
-      if (pendingIdx !== -1) {
-        const next = [...viewports.value]
-        next.splice(pendingIdx, 1)
-        viewports.value = next
-        if (activeAgentId.value && isPendingId(activeAgentId.value)) {
-          activeAgentId.value = null
-        }
-        sendPriorityUpdate()
-      }
-    }
-  }
-
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserClosedPayload>('browser_closed', handleBrowserClosed)
   session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
   session.on<ToolDescriptorPayload>('tool_descriptor', handleToolDescriptor)
   session.on<PageNavigatedPayload>('page_navigated', handlePageNavigated)
-  session.on<ErrorPayload>('error', handleAgentLimitReached)
 
   onUnmounted(() => {
     session.off('browser_spawned', handleBrowserSpawned)
@@ -309,7 +275,6 @@ export function useViewports(session: SessionHandle) {
     session.off('agent_thinking', handleAgentThinking)
     session.off('tool_descriptor', handleToolDescriptor)
     session.off('page_navigated', handlePageNavigated)
-    session.off('error', handleAgentLimitReached)
     for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
     pendingUrlUpdates.clear()
   })
@@ -328,9 +293,7 @@ export function useViewports(session: SessionHandle) {
   }
 
   function closeViewport(agentId: string) {
-    if (!isPendingId(agentId)) {
-      session.send<CloseBrowserAgentPayload>('close_browser_agent', { agent_id: agentId })
-    }
+    session.send<CloseBrowserAgentPayload>('close_browser_agent', { agent_id: agentId })
     cancelPendingUrlUpdate(agentId)
     if (activeAgentId.value === agentId) activeAgentId.value = null
     viewports.value = viewports.value.filter(v => v.agentId !== agentId)
@@ -338,10 +301,11 @@ export function useViewports(session: SessionHandle) {
   }
 
   function spawnBrowserAgent() {
-    const pending = pendingViewport()
-    viewports.value = [...viewports.value, pending]
-    activeAgentId.value = pending.agentId
-    sendPriorityUpdate()
+    // Server-authoritative: the WS handler allocates the agent id, registers
+    // it in BrowserAgents with status=ready, persists, and fires
+    // browser_spawned. `handleBrowserSpawned` above appends the tile when
+    // that event lands. No optimistic local tile — the server is the source
+    // of truth for what exists.
     session.send<SpawnBrowserAgentPayload>('spawn_browser_agent', {})
   }
 
@@ -353,6 +317,7 @@ export function useViewports(session: SessionHandle) {
     spawnBrowserAgent,
     sendPriorityUpdate,
     setViewportUrlIfEmpty,
+    hydrate,
   }
 }
 

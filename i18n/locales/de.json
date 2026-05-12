@@ -175,7 +175,8 @@
     "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Verwende Chrome, Edge oder Safari.",
     "voicePermissionBlocked": "Der Mikrofonzugriff ist blockiert. Klicke auf das Symbol links in der Adressleiste deines Browsers, um ihn zu aktivieren.",
     "voiceError": "Spracheingabe fehlgeschlagen. Bitte erneut versuchen.",
-    "tokenCapExceeded": "Deine Nachricht hat etwa {tokens} Tokens und überschreitet das Eingabelimit von {cap} Tokens. Bitte kürze sie."
+    "tokenCapExceeded": "Deine Nachricht hat etwa {tokens} Tokens und überschreitet das Eingabelimit von {cap} Tokens. Bitte kürze sie.",
+    "scrollToLatest": "Zum neuesten Beitrag"
   },
   "workflow": {
     "loop": "Schleife",
@@ -1211,6 +1212,8 @@
     "lastDay": "Letzter",
     "noRuns": "Keine Ausführungen in den nächsten 60 Tagen",
     "weeklyNoDays": "Wähle mindestens einen Tag",
+    "noVersionShort": "Erst Version speichern",
+    "activeNeedsVersion": "Speichere zuerst eine Workflow-Version, bevor du den Zeitplan aktivierst. Der Scheduler überspringt Workflows ohne gespeicherte Version.",
     "freq": {
       "none": "Keine",
       "noneHint": "Nur bestimmte Daten",

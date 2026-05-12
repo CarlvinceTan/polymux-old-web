@@ -64,7 +64,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `TabPanel` — scrollable tab content container
   * `PageHeader` — top navigation with tabs
   * `SidePanel` — persistent left sidebar
-  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition (ChatLayout embeds BrowserDock and WorkflowNodeCanvas via its view-mode switcher)
+  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition (ChatLayout embeds ViewportGallery and WorkflowNodeCanvas via its view-mode switcher)
   * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
   * `Menu` / `MenuItem` — anchored menu surface (opens up or down) with row items
   * `SearchModal` — global search overlay

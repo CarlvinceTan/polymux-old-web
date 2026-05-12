@@ -1,7 +1,7 @@
 import { computed, useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
 import { useAuthFetch } from '../auth/useAuthFetch'
 import { useWorkspaces } from '../account/useWorkspaces'
-import type { ChatMessage, ChatMessageAttachment } from '../types'
+import type { BrowserSpawnedPayload, ChatMessage, ChatMessageAttachment } from '../types'
 
 // `/workflow/new` is the URL slug for the page that hosts the in-flight draft.
 // Drafts themselves carry real workflow uuids — server-allocated by
@@ -39,6 +39,13 @@ export interface WorkflowSummary {
    *  'workflow' classification — flipping that default is what fixed the
    *  long-standing "background chat-driven workflows show progress arc" bug. */
   running_kind?: 'chat' | 'workflow' | null
+  /** Persisted per-agent terminal state from the workflow row's
+   *  `last_browser_states` jsonb column. Used by the workflow page to pre-paint
+   *  the viewport gallery during the WS handshake — without this the gallery
+   *  briefly shows an empty state every time the page remounts, even when the
+   *  workflow has live or recently-completed browser agents. The WS
+   *  `session_state` is still authoritative once it lands. */
+  last_browser_states?: BrowserSpawnedPayload[]
 }
 
 interface StoredMessage {

@@ -175,7 +175,8 @@
     "voiceUnsupported": "La saisie vocale n'est pas prise en charge par ce navigateur. Utilisez Chrome, Edge ou Safari.",
     "voicePermissionBlocked": "L'accès au microphone est bloqué. Cliquez sur l'icône à gauche dans la barre d'adresse de votre navigateur pour l'activer.",
     "voiceError": "Échec de la saisie vocale. Veuillez réessayer.",
-    "tokenCapExceeded": "Votre message fait environ {tokens} tokens, ce qui dépasse la limite d'entrée de {cap} tokens. Veuillez le raccourcir."
+    "tokenCapExceeded": "Votre message fait environ {tokens} tokens, ce qui dépasse la limite d'entrée de {cap} tokens. Veuillez le raccourcir.",
+    "scrollToLatest": "Aller au plus récent"
   },
   "workflow": {
     "loop": "Boucle",
@@ -1211,6 +1212,8 @@
     "lastDay": "Dernier",
     "noRuns": "Aucune exécution dans les 60 prochains jours",
     "weeklyNoDays": "Sélectionnez au moins un jour",
+    "noVersionShort": "Enregistrez d'abord une version",
+    "activeNeedsVersion": "Enregistrez une version du workflow avant d'activer la planification. Le planificateur ignore les workflows sans version enregistrée.",
     "freq": {
       "none": "Aucune",
       "noneHint": "Dates spécifiques uniquement",

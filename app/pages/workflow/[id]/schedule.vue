@@ -11,6 +11,12 @@ const route = useRoute()
 const workflowId = computed(() => route.params.id as string)
 const { currentWorkspaceId } = useWorkspaces()
 const { get: getScheduledConfig, upsert: upsertSchedule, loaded: scheduleLoaded } = useScheduledWorkflows()
+const { getWorkflow } = useWorkflows()
+
+// Activation requires a committed workflow_versions row — the Go scheduler
+// silently skips fires when LatestVersionID is empty, so an "active" schedule
+// on a never-saved workflow would never run.
+const hasSavedVersion = ref(false)
 
 type Frequency = ScheduleFrequency
 
@@ -425,6 +431,10 @@ async function onSave() {
     toast.show(t('schedule.invalidCron'), 'error', 3000)
     return
   }
+  if (active.value && !hasSavedVersion.value) {
+    toast.show(t('schedule.activeNeedsVersion'), 'error', 4000)
+    return
+  }
   const saved = await upsertSchedule(workflowId.value, {
     active: active.value,
     frequency: frequency.value,
@@ -461,9 +471,16 @@ function hydrateFromStore() {
   }
 }
 
-watch([workflowId, currentWorkspaceId, scheduleLoaded], ([wfId, wsId, loaded]) => {
+watch([workflowId, currentWorkspaceId, scheduleLoaded], async ([wfId, wsId, loaded]) => {
   if (!wfId || !wsId || !loaded) return
   hydrateFromStore()
+  // Resolve hasSavedVersion AFTER hydration so the title/toggle reflect the
+  // final coerced state in a single tick — otherwise hydrateFromStore could
+  // re-set active=true after we flipped it.
+  const wf = await getWorkflow(wsId, wfId)
+  const versionPresent = !!wf?.latest_version?.id
+  hasSavedVersion.value = versionPresent
+  if (!versionPresent && active.value) active.value = false
 }, { immediate: true })
 
 const tzTriggerLabel = computed(() => {
@@ -587,14 +604,24 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
             </div>
           </div>
         </div>
+        <div
+          v-if="!hasSavedVersion"
+          class="inline-flex h-6 items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 text-caption font-medium text-amber-800"
+          :title="t('schedule.activeNeedsVersion')"
+        >
+          <UIcon name="i-heroicons-exclamation-triangle" class="size-3 shrink-0" />
+          <span class="hidden sm:inline">{{ t('schedule.noVersionShort') }}</span>
+        </div>
         <div class="inline-flex h-6 items-center gap-1 rounded-lg bg-neutral-100 p-1">
           <button
             type="button"
-            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
+            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all disabled:cursor-not-allowed disabled:opacity-50"
             :class="active
               ? 'bg-white text-neutral-900 shadow-sm'
               : 'text-neutral-500 hover:text-neutral-700'"
             :aria-label="t('schedule.activeOn')"
+            :disabled="!hasSavedVersion"
+            :title="!hasSavedVersion ? t('schedule.activeNeedsVersion') : ''"
             @click="active = true"
           >
             <UIcon name="i-heroicons-play-20-solid" class="size-3" />

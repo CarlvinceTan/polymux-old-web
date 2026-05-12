@@ -175,7 +175,8 @@
     "voiceUnsupported": "Voice input isn't supported in this browser. Try Chrome, Edge, or Safari.",
     "voicePermissionBlocked": "Microphone access is blocked. Click the icon on the left inside your browser's address bar to enable.",
     "voiceError": "Voice input failed. Please try again.",
-    "tokenCapExceeded": "Your message is about {tokens} tokens, which exceeds the {cap}-token input cap. Please shorten it."
+    "tokenCapExceeded": "Your message is about {tokens} tokens, which exceeds the {cap}-token input cap. Please shorten it.",
+    "scrollToLatest": "Scroll to latest"
   },
   "workflow": {
     "loop": "Loop",
@@ -1211,6 +1212,8 @@
     "lastDay": "Last",
     "noRuns": "No upcoming runs in the next 60 days",
     "weeklyNoDays": "Select at least one day",
+    "noVersionShort": "Save a version first",
+    "activeNeedsVersion": "Save a workflow version before enabling the schedule. The scheduler skips workflows without a saved version.",
     "freq": {
       "none": "None",
       "noneHint": "Specific dates only",

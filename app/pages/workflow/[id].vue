@@ -71,6 +71,19 @@ const chats = useAgentChats(session)
 const messageFeedback = useMessageFeedback(sessionId.value)
 const vp = useViewports(session)
 const screencast = useScreencast(session)
+
+// Pre-WS REST hydration: fill the gallery from the workflow row's persisted
+// `last_browser_states` as soon as the /sessions list lands, so the gallery
+// isn't briefly empty while the WS handshake completes. The WS `session_state`
+// will overwrite this once it arrives — useViewports.hydrate() is a no-op
+// after the first real session_state lands.
+watch(
+  () => sessions.value.find(s => s.id === sessionId.value)?.last_browser_states,
+  (states) => {
+    if (states && states.length > 0) vp.hydrate(states)
+  },
+  { immediate: true },
+)
 const geo = useGeolocation()
 const toast = useAppToast()
 // Owns workflow_run state at the page level so the SidePanel "running kind"

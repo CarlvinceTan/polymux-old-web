@@ -175,7 +175,8 @@
     "voiceUnsupported": "このブラウザは音声入力に対応していません。Chrome、Edge、または Safari をご利用ください。",
     "voicePermissionBlocked": "マイクへのアクセスがブロックされています。ブラウザのアドレスバー左側のアイコンをクリックして有効にしてください。",
     "voiceError": "音声入力に失敗しました。もう一度お試しください。",
-    "tokenCapExceeded": "メッセージは約 {tokens} トークンで、入力上限の {cap} トークンを超えています。短くしてください。"
+    "tokenCapExceeded": "メッセージは約 {tokens} トークンで、入力上限の {cap} トークンを超えています。短くしてください。",
+    "scrollToLatest": "最新メッセージへ"
   },
   "workflow": {
     "loop": "ループ",
@@ -1211,6 +1212,8 @@
     "lastDay": "末日",
     "noRuns": "今後 60 日間に実行予定はありません",
     "weeklyNoDays": "少なくとも 1 日選択してください",
+    "noVersionShort": "先にバージョンを保存",
+    "activeNeedsVersion": "スケジュールを有効化する前にワークフローのバージョンを保存してください。保存されたバージョンのないワークフローはスケジューラーから無視されます。",
     "freq": {
       "none": "なし",
       "noneHint": "指定日時のみ",

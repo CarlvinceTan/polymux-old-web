@@ -175,7 +175,8 @@
     "voiceUnsupported": "Este navegador no admite la entrada de voz. Usa Chrome, Edge o Safari.",
     "voicePermissionBlocked": "El acceso al micrófono está bloqueado. Haz clic en el icono a la izquierda de la barra de direcciones del navegador para activarlo.",
     "voiceError": "Error en la entrada de voz. Inténtalo de nuevo.",
-    "tokenCapExceeded": "Tu mensaje tiene unos {tokens} tokens, lo que supera el límite de entrada de {cap} tokens. Por favor, acórtalo."
+    "tokenCapExceeded": "Tu mensaje tiene unos {tokens} tokens, lo que supera el límite de entrada de {cap} tokens. Por favor, acórtalo.",
+    "scrollToLatest": "Ir al más reciente"
   },
   "workflow": {
     "loop": "Bucle",
@@ -1211,6 +1212,8 @@
     "lastDay": "Último",
     "noRuns": "Sin ejecuciones en los próximos 60 días",
     "weeklyNoDays": "Selecciona al menos un día",
+    "noVersionShort": "Guarda primero una versión",
+    "activeNeedsVersion": "Guarda una versión del flujo antes de activar la programación. El planificador omite los flujos sin versión guardada.",
     "freq": {
       "none": "Ninguna",
       "noneHint": "Solo fechas específicas",

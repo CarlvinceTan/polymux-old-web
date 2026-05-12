@@ -71,8 +71,13 @@ export interface CredentialProvidedPayload {
 
 export interface BrowserSpawnedPayload {
   agent_id: string
-  task: string
-  session_name: string
+  /** Initial task the agent was seeded with. Omitted by the server's
+   *  visual-only hydration path and by user-initiated spawns that arrive with
+   *  no initial task — always treat as optional. */
+  task?: string
+  /** Pool session name. Omitted on visual-only / REST-hydrated entries; only
+   *  live in-memory agents carry it. */
+  session_name?: string
   cdp_endpoint?: string
   label?: string
   /** Last-known lifecycle status. Sent on session_state re-sync (live agents

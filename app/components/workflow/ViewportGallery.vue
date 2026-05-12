@@ -55,13 +55,7 @@ const isAtCap = computed(() => agentCount.value >= agentCap.value && agentCap.va
 const zoomHovered = ref(false)
 const zoomFocused = ref(false)
 
-// Dock is gallery-only — a scrollable grid driven by the zoom slider. The
-// legacy 'main' layout (single viewport + thumbnail strip) was retired
-// because the gallery already covers both the empty/single-agent and
-// many-agent cases. Kept as a ref so existing watchers don't need rewiring,
-// but it's effectively a constant now.
-const dockMode = ref<'gallery'>('gallery')
-// Columns in gallery mode. Lower = bigger viewports = fewer per row, higher =
+// Columns in the grid. Lower = bigger viewports = fewer per row, higher =
 // smaller and more per row. Cards drop their browser chrome (URL bar with
 // expand + close affordances) once the column count crosses
 // GALLERY_BAR_THRESHOLD so a tight grid still feels readable instead of
@@ -69,13 +63,12 @@ const dockMode = ref<'gallery'>('gallery')
 const GALLERY_MIN_COLS = 1
 const GALLERY_MAX_COLS = 8
 // The URL bar only stays legible when each card has the room to show roughly
-// the same chrome density as the main-mode viewport — empirically that's
-// ~1/2 of the dock width per card. Anything denser (3+ columns) falls back
-// to the bar-less thumbnail rendering even though a URL bar would still
+// half the gallery width per card. Anything denser (3+ columns) falls back to
+// the bar-less thumbnail rendering even though a URL bar would still
 // technically fit, because the user can't usefully read it at that scale.
 const GALLERY_BAR_THRESHOLD = 2
 // Start zoomed out — initialize at the max column count and let the
-// effectiveMaxCols watcher clamp down to whatever the dock can fit. This
+// effectiveMaxCols watcher clamp down to whatever the gallery can fit. This
 // gives the user the most-viewports-on-screen-at-once view by default;
 // they can zoom in (fewer columns, bigger cards) via the slider.
 const galleryCols = ref(GALLERY_MAX_COLS)
@@ -83,19 +76,19 @@ const galleryCols = ref(GALLERY_MAX_COLS)
 // Cap the slider at the smallest column count that already shows every
 // viewport on screen at once. Past that point zooming out further only
 // shrinks the cards — they were all visible already, so there's nothing to
-// gain. The cap is recomputed when the dock resizes or the viewport list
+// gain. The cap is recomputed when the gallery resizes or the viewport list
 // changes; it can only shrink galleryCols (never expand it) so the user
 // keeps wherever they last parked the zoom when new agents arrive.
 const galleryContainer = ref<HTMLElement | null>(null)
-const dockSize = ref({ width: 0, height: 0 })
+const gallerySize = ref({ width: 0, height: 0 })
 
 watch(galleryContainer, (el, _old, onCleanup) => {
   if (!el) {
-    dockSize.value = { width: 0, height: 0 }
+    gallerySize.value = { width: 0, height: 0 }
     return
   }
   const measure = () => {
-    dockSize.value = { width: el.clientWidth, height: el.clientHeight }
+    gallerySize.value = { width: el.clientWidth, height: el.clientHeight }
   }
   measure()
   const obs = new ResizeObserver(measure)
@@ -115,7 +108,7 @@ const GRID_PAD_Y_PX = 28
 
 function gridHeightAt(cols: number): number {
   const n = props.viewportList.length
-  const w = dockSize.value.width
+  const w = gallerySize.value.width
   if (n === 0 || w <= 0 || cols <= 0) return 0
   const cardWidth = (w - GRID_PAD_X_PX - GRID_GAP_PX * (cols - 1)) / cols
   if (cardWidth <= 0) return Infinity
@@ -129,7 +122,7 @@ const effectiveMaxCols = computed(() => {
   const n = props.viewportList.length
   if (n === 0) return GALLERY_MIN_COLS
   const cap = Math.min(GALLERY_MAX_COLS, n)
-  const h = dockSize.value.height
+  const h = gallerySize.value.height
   // No measurement yet (gallery hasn't mounted): fall back to the
   // viewport-count cap so the slider is usable from the first paint.
   if (h <= 0) return cap
@@ -326,7 +319,7 @@ function viewportHandlers(agentId: string) {
          overlays without reserving layout space. Hover state is tracked
          in JS on the outer strip (full-width, tall trigger zone) so we
          don't depend on CSS :hover bubbling up through the slider thumb
-         pseudo-element. The dock parent's pb-32 keeps this clear of the
+         pseudo-element. The gallery parent's pb-32 keeps this clear of the
          floating prompt input below. -->
     <div
       v-if="effectiveMaxCols > GALLERY_MIN_COLS"
@@ -347,7 +340,7 @@ function viewportHandlers(agentId: string) {
           :min="GALLERY_MIN_COLS"
           :max="effectiveMaxCols"
           step="0.01"
-          class="dock-zoom h-1 w-24 cursor-pointer appearance-none bg-neutral-300"
+          class="gallery-zoom h-1 w-24 cursor-pointer appearance-none bg-neutral-300"
           :aria-label="t('browser.galleryZoom')"
           @mouseup="($event.currentTarget as HTMLElement).blur()"
         >
@@ -368,8 +361,8 @@ function viewportHandlers(agentId: string) {
 
 <style scoped>
 /* Native range styling: thin neutral track, square accent thumb that matches
-   the dock's mono/Zed-IDE-flavoured aesthetic instead of the chunky default. */
-.dock-zoom::-webkit-slider-thumb {
+   the gallery's mono/Zed-IDE-flavoured aesthetic instead of the chunky default. */
+.gallery-zoom::-webkit-slider-thumb {
   appearance: none;
   width: 12px;
   height: 12px;
@@ -378,7 +371,7 @@ function viewportHandlers(agentId: string) {
   cursor: pointer;
   border: 0;
 }
-.dock-zoom::-moz-range-thumb {
+.gallery-zoom::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
@@ -386,10 +379,10 @@ function viewportHandlers(agentId: string) {
   cursor: pointer;
   border: 0;
 }
-.dock-zoom:hover::-webkit-slider-thumb {
+.gallery-zoom:hover::-webkit-slider-thumb {
   background: rgb(23 23 23);
 }
-.dock-zoom:hover::-moz-range-thumb {
+.gallery-zoom:hover::-moz-range-thumb {
   background: rgb(23 23 23);
 }
 </style>

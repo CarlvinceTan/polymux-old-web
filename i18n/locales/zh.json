@@ -175,7 +175,8 @@
     "voiceUnsupported": "此浏览器不支持语音输入。请使用 Chrome、Edge 或 Safari。",
     "voicePermissionBlocked": "麦克风访问已被阻止。请点击浏览器地址栏左侧的图标以启用。",
     "voiceError": "语音输入失败。请重试。",
-    "tokenCapExceeded": "您的消息约 {tokens} 个令牌，超过了 {cap} 个令牌的输入上限。请缩短。"
+    "tokenCapExceeded": "您的消息约 {tokens} 个令牌，超过了 {cap} 个令牌的输入上限。请缩短。",
+    "scrollToLatest": "滚动到最新"
   },
   "workflow": {
     "loop": "循环",
@@ -1211,6 +1212,8 @@
     "lastDay": "最后一日",
     "noRuns": "未来 60 天内无运行计划",
     "weeklyNoDays": "请至少选择一天",
+    "noVersionShort": "请先保存版本",
+    "activeNeedsVersion": "请先保存工作流版本再启用计划。调度器会跳过没有已保存版本的工作流。",
     "freq": {
       "none": "无",
       "noneHint": "仅指定日期",

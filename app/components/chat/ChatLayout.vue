@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
+import { nextTick, ref, watch } from 'vue'
 import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 
 export type { ChatMessage, ViewportState }
@@ -77,6 +78,34 @@ function onSend(value: string) {
     .map(a => ({ id: a.id, name: a.name }))
   emit('send', value, files)
   clearAll()
+  // Jump to the bottom so the just-sent bubble (and the streaming reply) is
+  // in view regardless of where the user had scrolled. nextTick waits for
+  // the parent to append the user message and Vue to flush the DOM update.
+  nextTick(() => {
+    chatMessagesRef.value?.scrollToBottom('auto')
+  })
+}
+
+// Jump-to-latest button. ChatMessages owns the scroll viewport and reports
+// when the user has scrolled meaningfully above the bottom; we render the
+// affordance here so it can hover above the floating prompt overlay.
+type ChatMessagesExpose = { scrollToBottom: (behavior?: ScrollBehavior) => void }
+const chatMessagesRef = ref<ChatMessagesExpose | null>(null)
+const showJumpButton = ref(false)
+
+// Defensively clear the button whenever the chat view goes away. ChatMessages
+// also emits `false` on unmount, but resetting here closes the race on tab
+// switches where the new view mounts before the prior emit lands.
+watch(inChat, (next) => {
+  if (!next) showJumpButton.value = false
+})
+
+function onJumpButtonState(show: boolean) {
+  showJumpButton.value = show
+}
+
+function onJumpClick() {
+  chatMessagesRef.value?.scrollToBottom()
 }
 </script>
 
@@ -97,6 +126,7 @@ function onSend(value: string) {
         />
         <ChatMessages
           v-else
+          ref="chatMessagesRef"
           :messages="messages"
           :is-streaming="isStreaming"
           :waiting-for-agent="waitingForAgent"
@@ -105,10 +135,11 @@ function onSend(value: string) {
           :feedback="feedback"
           @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
           @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
+          @jump-button-state="onJumpButtonState"
         />
       </div>
 
-      <!-- Viewport: BrowserDock gallery only, with the same horizontal +
+      <!-- Viewport: ViewportGallery only, with the same horizontal +
            vertical constraints as the chat column so messages and viewports
            sit in the same rhythm when the user toggles between views. -->
       <div
@@ -116,7 +147,7 @@ function onSend(value: string) {
         class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
         :class="{ 'pt-16': showFloatingTop }"
       >
-        <BrowserDock
+        <ViewportGallery
           :viewport-list="viewportList"
           :frame-urls="frameUrls"
           :cursor-positions="cursorPositions"
@@ -204,9 +235,32 @@ function onSend(value: string) {
            (e.g. the gallery zoom slider sitting just above the bottom). -->
       <div class="pointer-events-none absolute inset-x-0 bottom-0 z-50">
         <div
-          class="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-3 sm:px-5 sm:pb-4"
+          class="pointer-events-auto relative mx-auto w-full max-w-3xl px-4 pb-3 sm:px-5 sm:pb-4"
           :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'"
         >
+          <!-- Jump-to-latest: floats just above the prompt input box,
+               horizontally centered. Visible only in chat view, and only
+               while ChatMessages reports the user is scrolled meaningfully
+               above the bottom of the message log. -->
+          <Transition
+            enter-active-class="transition duration-150 ease-out"
+            leave-active-class="transition duration-100 ease-in"
+            enter-from-class="opacity-0 translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-1"
+          >
+            <button
+              v-if="inChat && showJumpButton"
+              type="button"
+              class="absolute bottom-full left-1/2 mb-2 flex size-9 -translate-x-1/2 items-center justify-center rounded-full bg-white text-neutral-700 shadow-md ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 active:bg-neutral-100"
+              :aria-label="t('chat.scrollToLatest')"
+              @click="onJumpClick"
+            >
+              <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4.5" />
+            </button>
+          </Transition>
+
           <PromptInput
             v-model="command"
             :hint="t('chat.messagePlaceholder')"
