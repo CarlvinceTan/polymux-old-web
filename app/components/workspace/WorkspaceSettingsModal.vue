@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import type { WorkspaceMember } from '~/composables/account/useWorkspaces'
+import {
+  browserAgentCapFromPlan,
+  maxFileUploadBytesFromPlan,
+  maxMembersFromPlan,
+  tokenBudgetWeeklyFromPlan,
+  workflowRunsMonthlyCapFromPlan,
+} from '~/utils/planLimits'
+import { weekStartUtc } from '~/utils/weekStartUtc'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
 const user = useSupabaseUser()
+const supabase = useSupabaseClient()
 
 const {
   workspaces,
@@ -17,37 +26,28 @@ const {
   deleteWorkspace,
 } = useWorkspaces()
 
-const { sessions, fetchSessions } = useWorkflowList()
-const { wallet, fetchWallet, formatCents } = useWallet()
 const { probe: probeLocal } = useLocalFileStorage()
-const { cards: storageUsageCards, refreshDrive } = useStorageUsage()
+const { cards: storageUsageCards, refreshDrive, driveConnectionBroken } = useStorageUsage()
 const { isInstalled } = useMarketplace()
+const { resolvedOrder } = useStoragePreferences()
 
 type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
-
-interface PlanLimits {
-  seats: number | null
-  sessionsWeekly: number | null
-  storageBytes: number | null
-  fileSizeBytes: number | null
-  browserAgents: number | null
-}
-
-const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
-  free:       { seats: 3,   sessionsWeekly: 25,    storageBytes: 100 * 1024 * 1024,         fileSizeBytes: 25 * 1024 * 1024,         browserAgents: 2 },
-  pro:        { seats: 10,  sessionsWeekly: 250,   storageBytes: 5 * 1024 * 1024 * 1024,    fileSizeBytes: 250 * 1024 * 1024,        browserAgents: 8 },
-  max:        { seats: 50,  sessionsWeekly: 2_500, storageBytes: 50 * 1024 * 1024 * 1024,   fileSizeBytes: 1024 * 1024 * 1024,       browserAgents: 20 },
-  enterprise: { seats: null, sessionsWeekly: null, storageBytes: null,                      fileSizeBytes: null,                     browserAgents: null },
-}
 
 const planKey = computed<PlanKey>(() => {
   const raw = (currentWorkspace.value?.plan as string | undefined)?.toLowerCase().trim() ?? ''
   if (raw === 'pro' || raw === 'max' || raw === 'enterprise' || raw === 'free') return raw
   return 'free'
 })
+const planSlug = computed(() => currentWorkspace.value?.plan ?? null)
 const planLabel = computed(() => planKey.value.charAt(0).toUpperCase() + planKey.value.slice(1))
-const planLimits = computed(() => PLAN_LIMITS[planKey.value])
 const showUpgrade = computed(() => planKey.value !== 'enterprise')
+
+/** 0 = unlimited (enterprise). Matches Go `PlanConfig` and `planLimits.ts`. */
+const seatsCap = computed(() => maxMembersFromPlan(planSlug.value))
+const weeklyTokenCap = computed(() => tokenBudgetWeeklyFromPlan(planSlug.value))
+const workflowRunsCap = computed(() => workflowRunsMonthlyCapFromPlan(planSlug.value))
+const browserAgentsCap = computed(() => browserAgentCapFromPlan(planSlug.value))
+const maxFileBytes = computed(() => maxFileUploadBytesFromPlan(planSlug.value))
 
 const PLAN_ACCENT: Record<PlanKey, string> = {
   free: 'bg-neutral-300',
@@ -56,12 +56,6 @@ const PLAN_ACCENT: Record<PlanKey, string> = {
   enterprise: 'bg-purple-400',
 }
 const planAccentClass = computed(() => PLAN_ACCENT[planKey.value] ?? PLAN_ACCENT.free)
-
-const upgradeQuery = computed(() => {
-  const q: Record<string, string> = { current: planKey.value }
-  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
-  return q
-})
 
 const myRole = computed(() => {
   if (currentWorkspace.value?.role) return currentWorkspace.value.role
@@ -82,36 +76,77 @@ const transferDisplayMembers = computed(() => {
   return owner ? [owner, ...others] : others
 })
 
-// ---- Live clock for week boundary ----
-const now = ref(new Date())
-let nowTicker: ReturnType<typeof setInterval> | null = null
+// ---- Usage from Supabase (matches server enforcement) ----
+const tokenUsedWeekly = ref<number | null>(null)
+const workflowRunsMonth = ref<number | null>(null)
 
-function startOfWeek(date: Date): Date {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  const day = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - day)
-  return d
+type RpcSupabase = {
+  rpc: (
+    name: string,
+    args: Record<string, string>,
+  ) => Promise<{ data: unknown, error: { message: string } | null }>
 }
 
-const weekStart = computed(() => startOfWeek(now.value))
-const weekEnd = computed(() => {
-  const e = new Date(weekStart.value)
-  e.setDate(e.getDate() + 7)
-  return e
-})
-const weekStartISO = computed(() => weekStart.value.toISOString())
-const weekEndISO = computed(() => weekEnd.value.toISOString())
+async function refreshUsageFromSupabase(wsId: string) {
+  tokenUsedWeekly.value = null
+  workflowRunsMonth.value = null
 
-const sessionsThisWeek = computed(() =>
-  sessions.value.filter(s => s.created_at >= weekStartISO.value && s.created_at < weekEndISO.value).length,
-)
-const weeklyLimit = computed(() => planLimits.value.sessionsWeekly)
-const weeklyPercent = computed<number | null>(() => {
-  if (weeklyLimit.value == null) return null
-  if (weeklyLimit.value <= 0) return 0
-  return Math.min(100, Math.round((sessionsThisWeek.value / weeklyLimit.value) * 100))
+  const weekStart = weekStartUtc()
+  const sb = supabase as unknown as RpcSupabase
+
+  try {
+    const { data: tok, error: eTok } = await sb.rpc('get_workspace_token_usage', {
+      p_workspace_id: wsId,
+      p_week_start: weekStart.toISOString(),
+    })
+    if (eTok) {
+      console.warn('[WorkspaceSettingsModal] get_workspace_token_usage:', eTok.message)
+    }
+    else {
+      const raw = typeof tok === 'bigint' ? Number(tok) : Number(tok ?? 0)
+      tokenUsedWeekly.value = Number.isFinite(raw) ? raw : 0
+    }
+  }
+  catch (e) {
+    console.warn('[WorkspaceSettingsModal] token usage:', e)
+  }
+
+  try {
+    const { data: runs, error: eRuns } = await sb.rpc('count_workspace_workflow_runs_this_month', {
+      p_workspace_id: wsId,
+    })
+    if (eRuns) {
+      console.warn('[WorkspaceSettingsModal] count_workspace_workflow_runs_this_month:', eRuns.message)
+    }
+    else {
+      const raw = typeof runs === 'bigint' ? Number(runs) : Number(runs ?? 0)
+      workflowRunsMonth.value = Number.isFinite(raw) ? raw : 0
+    }
+  }
+  catch (e) {
+    console.warn('[WorkspaceSettingsModal] workflow runs count:', e)
+  }
+}
+
+const weeklyTokensPercent = computed<number | null>(() => {
+  const cap = weeklyTokenCap.value
+  const used = tokenUsedWeekly.value
+  if (cap <= 0 || used == null) return null
+  return Math.min(100, Math.round((used / cap) * 100))
 })
+
+const workflowRunsPercent = computed<number | null>(() => {
+  const cap = workflowRunsCap.value
+  const used = workflowRunsMonth.value
+  if (cap <= 0 || used == null) return null
+  return Math.min(100, Math.round((used / cap) * 100))
+})
+
+function seatsFilledPercent(): number | null {
+  const cap = seatsCap.value
+  if (cap <= 0) return null
+  return Math.min(100, Math.round((members.value.length / cap) * 100))
+}
 
 // ---- Storage probes ----
 const localProbe = ref<{ supported: boolean, usage: number, quota: number, full: boolean }>({
@@ -164,46 +199,33 @@ function formatBytes(bytes: number): string {
   return `${value >= 100 || i === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`
 }
 
-const walletCurrency = computed(() => (wallet.value?.currency ?? 'usd') as any)
-const walletBalanceText = computed(() => {
-  if (!wallet.value) return '—'
-  return formatCents(wallet.value.balance_cents, wallet.value.currency as any)
-})
+// True when the workspace has more than one member AND the user's currently-
+// resolved primary save target is `local` (browser OPFS). OPFS bytes don't
+// leave the writer's device, so teammates would get "not available here" when
+// they try to open files saved by another member. The banner self-clears
+// once the user connects Drive / enables Cloud, or reorders to deprioritise
+// `local`.
+const localPrimaryRiskyForTeam = computed(() =>
+  resolvedOrder.value[0] === 'local' && members.value.length > 1,
+)
 
 // ---- Lifecycle ----
 function loadData() {
   const wsId = currentWorkspaceId.value
   if (!wsId) return
   fetchMembers(wsId)
-  fetchSessions()
-  fetchWallet()
-  refreshDrive().catch(() => {})
+  refreshUsageFromSupabase(wsId)
+  refreshDrive(driveConnectionBroken.value).catch(() => {})
   refreshLocalProbe()
 }
 
 watch(isOpen, (open) => {
-  if (open) {
-    loadData()
-    if (!nowTicker) nowTicker = setInterval(() => { now.value = new Date() }, 60_000)
-  }
-  else if (nowTicker) {
-    clearInterval(nowTicker)
-    nowTicker = null
-  }
-})
-
-onUnmounted(() => {
-  if (nowTicker) clearInterval(nowTicker)
+  if (open) loadData()
 })
 
 function close() {
   if (isTransferring.value || isDeleting.value) return
   isOpen.value = false
-}
-
-function handleUpgrade() {
-  isOpen.value = false
-  navigateTo({ path: '/pricing', query: upgradeQuery.value })
 }
 
 // ---- Transfer ownership ----
@@ -463,21 +485,21 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
             role="dialog"
             aria-modal="true"
-            :aria-label="t('workspaceMenu.modalSubtitle')"
+            :aria-label="t('workspaceMenu.modalTitle')"
             @click.stop
           >
-            <!-- Header -->
-            <div class="relative flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3.5">
-              <h2 class="truncate text-sm font-semibold text-neutral-950">
-                {{ t('workspaceMenu.modalTitle') }}
-              </h2>
+            <div class="relative shrink-0 px-5 pt-5 pb-4">
               <button
                 type="button"
-                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
+                class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                :aria-label="t('common.close')"
                 @click="close"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
+              <div class="pr-6">
+                <h2 class="text-sm font-semibold text-neutral-900">{{ t('workspaceMenu.modalTitle') }}</h2>
+              </div>
             </div>
 
             <!-- Body -->
@@ -608,30 +630,77 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         <h3 class="mt-0.5 text-sm font-semibold text-neutral-950">{{ planLabel }}</h3>
                       </div>
                     </div>
-                    <button
+                    <PlanUpgradeButton
                       v-if="showUpgrade"
-                      type="button"
-                      class="shrink-0 rounded-md bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                      @click="handleUpgrade"
+                      :before-navigate="close"
+                    />
+                  </div>
+
+                  <div
+                    v-if="localPrimaryRiskyForTeam"
+                    class="mb-4 flex items-start gap-2.5 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200/60"
+                  >
+                    <svg
+                      class="mt-0.5 size-4 shrink-0 text-amber-600"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
                     >
-                      {{ t('common.upgrade') }}
-                    </button>
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                      <path
+                        d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                      />
+                    </svg>
+                    <p class="text-xs leading-relaxed text-amber-900">
+                      {{ t('workspaceMenu.localPrimaryTeamWarning') }}
+                    </p>
                   </div>
 
                   <div class="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
-                    <!-- Weekly sessions -->
+                    <!-- Weekly token budget (Monday UTC — same cadence as chat enforcement) -->
                     <div>
                       <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statSessions') }}
+                        {{ t('workspaceMenu.statWeeklyTokens') }}
                       </p>
                       <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ sessionsThisWeek.toLocaleString() }}</span>
-                        <span class="text-neutral-400">/ {{ weeklyLimit == null ? '∞' : weeklyLimit.toLocaleString() }}</span>
+                        <span class="font-semibold">{{ tokenUsedWeekly == null ? '—' : tokenUsedWeekly.toLocaleString() }}</span>
+                        <span class="text-neutral-400">/ {{ weeklyTokenCap <= 0 ? '∞' : weeklyTokenCap.toLocaleString() }}</span>
                       </p>
-                      <div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
+                      <div
+                        v-if="weeklyTokenCap > 0"
+                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
+                      >
                         <div
                           class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: (weeklyPercent ?? 0) + '%' }"
+                          :style="{ width: (weeklyTokensPercent ?? 0) + '%' }"
+                        />
+                      </div>
+                      <p class="mt-1.5 text-[10px] text-neutral-400">
+                        {{ t('workspaceMenu.statWeeklyTokensCaption') }}
+                      </p>
+                    </div>
+
+                    <!-- Workflow runs this calendar month (UTC) -->
+                    <div>
+                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                        {{ t('workspaceMenu.statWorkflowRuns') }}
+                      </p>
+                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
+                        <span class="font-semibold">{{ workflowRunsMonth == null ? '—' : workflowRunsMonth.toLocaleString() }}</span>
+                        <span class="text-neutral-400">/ {{ workflowRunsCap <= 0 ? '∞' : workflowRunsCap.toLocaleString() }}</span>
+                      </p>
+                      <div
+                        v-if="workflowRunsCap > 0"
+                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
+                      >
+                        <div
+                          class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
+                          :style="{ width: (workflowRunsPercent ?? 0) + '%' }"
                         />
                       </div>
                     </div>
@@ -643,27 +712,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       </p>
                       <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
                         <span class="font-semibold">{{ members.length }}</span>
-                        <span class="text-neutral-400">/ {{ planLimits.seats == null ? '∞' : planLimits.seats }}</span>
+                        <span class="text-neutral-400">/ {{ seatsCap <= 0 ? '∞' : seatsCap }}</span>
                       </p>
-                      <div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
+                      <div
+                        v-if="seatsCap > 0"
+                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
+                      >
                         <div
                           class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: (planLimits.seats ? Math.min(100, Math.round((members.length / planLimits.seats) * 100)) : 100) + '%' }"
+                          :style="{ width: (seatsFilledPercent() ?? 0) + '%' }"
                         />
                       </div>
-                    </div>
-
-                    <!-- Tokens / wallet balance -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statTokens') }}
-                      </p>
-                      <p class="mt-1 truncate font-mono text-xs font-semibold leading-none text-neutral-950">
-                        {{ walletBalanceText }}
-                      </p>
-                      <p class="mt-1.5 text-[10px] text-neutral-400">
-                        {{ t('workspaceMenu.statTokensCaption') }}
-                      </p>
                     </div>
 
                     <!-- Storage -->
@@ -694,8 +753,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         {{ t('workspaceMenu.statAgents') }}
                       </p>
                       <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
-                        <template v-if="planLimits.browserAgents == null">∞</template>
-                        <template v-else>{{ planLimits.browserAgents.toLocaleString() }}</template>
+                        {{ browserAgentsCap.toLocaleString() }}
                       </p>
                       <p class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statAgentsCaption') }}
@@ -708,8 +766,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         {{ t('workspaceMenu.statFileSize') }}
                       </p>
                       <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
-                        <template v-if="planLimits.fileSizeBytes == null">∞</template>
-                        <template v-else>{{ formatBytes(planLimits.fileSizeBytes) }}</template>
+                        {{ formatBytes(maxFileBytes) }}
                       </p>
                       <p class="mt-1.5 text-[10px] text-neutral-400">
                         {{ t('workspaceMenu.statFileSizeCaption') }}
@@ -717,6 +774,13 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </div>
                   </div>
                 </section>
+
+                <!-- BYOK / LLM Keys -->
+                <WorkspaceLLMKeysPanel
+                  :workspace-id="currentWorkspaceId"
+                  :plan="currentWorkspace?.plan ?? null"
+                  :can-manage="canManageWorkspace"
+                />
 
                 <!-- Administration -->
                 <section v-if="canTransferOwnership || canDeleteWorkspace" class="py-5">

@@ -1,17 +1,19 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
+import { b2DownloadBytes } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { notifyPermissionsChanged } from '~~/server/utils/workspace/notifyAgent'
 import {
   assertWorkflowMember,
   resolveArtifactId,
   resolveWorkflowId,
-} from '~~/server/utils/workflowAccess'
+} from '~~/server/utils/workspace/workflowAccess'
 import {
   basenameOf,
   normalizePath,
   requireWrite,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { uploadDriveFileBytes } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workflows/[id]/artifacts/[aid]/promote
 // Body: { path }
@@ -23,8 +25,6 @@ import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 //
 // Permission: caller must have `write` on the *target* path. Inline-content
 // artifacts can also be promoted; their bytes are encoded and uploaded.
-
-const ARTIFACTS_BUCKET = 'artifacts'
 
 interface Body {
   path?: unknown
@@ -78,14 +78,14 @@ export default defineEventHandler(async (event) => {
   let bytes: Buffer
   let sizeBytes = Number(artifact.size_bytes ?? 0)
   if (artifact.storage_path) {
-    const { data: blob, error: dlErr } = await admin.storage
-      .from(ARTIFACTS_BUCKET)
-      .download(artifact.storage_path as string)
-    if (dlErr || !blob) {
-      console.error('[artifacts/promote] download error', dlErr)
+    try {
+      const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
+      bytes = await b2DownloadBytes(wsKey, artifact.storage_path as string)
+    }
+    catch (err) {
+      console.error('[artifacts/promote] b2 download error', err)
       throw createError({ statusCode: 500, statusMessage: 'Failed to read artifact.' })
     }
-    bytes = Buffer.from(await blob.arrayBuffer())
     sizeBytes = bytes.byteLength
   }
   else if (typeof artifact.content === 'string') {

@@ -4,8 +4,8 @@ import {
   exchangeSlackAuthCode,
   fetchSlackIdentity,
   type SlackOAuthV2Response,
-} from '~~/server/utils/slackOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/slackOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler } from './types'
 
 export const slackConnector: ConnectorHandler = {

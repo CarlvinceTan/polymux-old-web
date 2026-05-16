@@ -5,7 +5,7 @@ import {
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/folder
 // Body: { parent, name, backend?: 'google-drive' | 'local' }

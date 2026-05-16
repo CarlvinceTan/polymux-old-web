@@ -1,14 +1,16 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
-import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
-import { resolveArtifactId, resolveWorkflowId } from '~~/server/utils/workflowAccess'
+import { b2DownloadBytes } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { notifyPermissionsChanged } from '~~/server/utils/workspace/notifyAgent'
+import { resolveArtifactId, resolveWorkflowId } from '~~/server/utils/workspace/workflowAccess'
 import {
   basenameOf,
   normalizePath,
   requireWrite,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { uploadDriveFileBytes } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/internal/workflows/[id]/artifacts/[aid]/promote
 // Body: { user_id: string, path: string }
@@ -18,8 +20,6 @@ import { uploadDriveFileBytes } from '~~/server/utils/googleOAuth'
 // The Go agent calls this when the model invokes PromoteArtifact — it acts on
 // behalf of the supplied user_id, so the same write-permission check applies.
 // Requires Google Drive to be connected for the workspace.
-
-const ARTIFACTS_BUCKET = 'artifacts'
 
 interface Body {
   user_id?: unknown
@@ -74,14 +74,14 @@ export default defineEventHandler(async (event) => {
   let bytes: Buffer
   let sizeBytes = Number(artifact.size_bytes ?? 0)
   if (artifact.storage_path) {
-    const { data: blob, error: dlErr } = await admin.storage
-      .from(ARTIFACTS_BUCKET)
-      .download(artifact.storage_path as string)
-    if (dlErr || !blob) {
-      console.error('[internal/promote] download error', dlErr)
+    try {
+      const wsKey = await ensureWorkspaceKey(admin, workspaceId, userId)
+      bytes = await b2DownloadBytes(wsKey, artifact.storage_path as string)
+    }
+    catch (err) {
+      console.error('[internal/promote] b2 download error', err)
       throw createError({ statusCode: 500, statusMessage: 'Failed to read artifact.' })
     }
-    bytes = Buffer.from(await blob.arrayBuffer())
     sizeBytes = bytes.byteLength
   }
   else if (typeof artifact.content === 'string') {

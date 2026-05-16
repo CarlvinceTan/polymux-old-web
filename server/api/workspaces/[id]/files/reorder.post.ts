@@ -4,7 +4,7 @@ import {
   normalizePath,
   requireWrite,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/reorder
 // Body: { parent: string, orderedNames: string[] }

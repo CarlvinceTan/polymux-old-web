@@ -10,6 +10,12 @@ const props = defineProps<{
   text: string
   attachments?: ChatMessageAttachment[]
   sessionId: string
+  workspaceId?: string | null
+  /**
+   * Return false to abort send and keep the composer in edit mode.
+   * Used for token / budget gates that must run before the optimistic edit applies.
+   */
+  canSubmitEdit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
 }>()
 
 const emit = defineEmits<{
@@ -40,12 +46,16 @@ function cancelEdit() {
   clearAll()
 }
 
-function submitEdit() {
+async function submitEdit() {
   const trimmed = editText.value.trim()
   const allAttachments = editAttachments.value
     .filter(a => a.status === 'done')
     .map(a => ({ id: a.id, name: a.name }))
   if (!trimmed && allAttachments.length === 0) return
+  if (props.canSubmitEdit) {
+    const ok = await props.canSubmitEdit(trimmed, allAttachments)
+    if (!ok) return
+  }
   editing.value = false
   emit('edit', trimmed, allAttachments)
   clearAll()
@@ -62,7 +72,7 @@ function onEditAttachClick() {
 function onEditFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files || input.files.length === 0) return
-  addFiles(props.sessionId, input.files)
+  addFiles(props.sessionId, input.files, props.workspaceId ?? undefined)
   input.value = ''
 }
 
@@ -70,7 +80,7 @@ function onEditKeydown(e: KeyboardEvent) {
   if (e.key !== 'Enter' || e.shiftKey) return
   if (e.isComposing) return
   e.preventDefault()
-  submitEdit()
+  void submitEdit()
 }
 </script>
 

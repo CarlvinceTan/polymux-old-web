@@ -1,26 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
+import { useIntersectionObserver } from '@vueuse/core'
 import type { ItemCategory } from '~/composables/integrations/useMarketplace'
-
-interface MyListing {
-  id: string
-  slug: string
-  name: string
-  description: string | null
-  kind: ItemCategory
-  visibility: 'private' | 'unlisted' | 'public'
-  is_first_party: boolean
-  is_verified: boolean
-  install_count: number
-  tags: string[]
-  icon_url: string | null
-  homepage_url: string | null
-  source_repo_url: string | null
-  current_version_id: string | null
-  created_at: string
-  updated_at: string
-  current_version?: { id: string, version: string, status: string, published_at: string | null } | null
-}
+import type { EditorMyListing } from '~/composables/integrations/useEditorMyListings'
+import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 
 type FilterValue = 'all' | ItemCategory
 type SortValue = 'recent' | 'nameAZ' | 'nameZA' | 'popularity'
@@ -28,13 +11,7 @@ type SortValue = 'recent' | 'nameAZ' | 'nameZA' | 'popularity'
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
 
-const { data: listings, pending, refresh } = useAsyncData<MyListing[]>(
-  'editor-my-listings',
-  async () => await $fetch<MyListing[]>('/api/marketplace/my-listings'),
-  { default: () => [] },
-)
-
-useOnReconnect(() => refresh())
+const { listings, listPending: pending, fetchListings, refreshListings } = useEditorMyListings()
 
 const publishOpen = ref(false)
 
@@ -74,8 +51,8 @@ function fuzzyMatch(text: string, query: string): boolean {
   return true
 }
 
-const filteredListings = computed<MyListing[]>(() => {
-  let list: MyListing[] = [...(listings.value ?? [])]
+const filteredListings = computed<EditorMyListing[]>(() => {
+  let list: EditorMyListing[] = [...(listings.value ?? [])]
 
   if (searchQuery.value.trim()) {
     const term = searchQuery.value
@@ -112,13 +89,26 @@ const filteredListings = computed<MyListing[]>(() => {
   return list
 })
 
+const tabPanelRef = ref<{ bodyScrollEl: HTMLElement | null } | null>(null)
+const publishScrollRoot = computed(() => tabPanelRef.value?.bodyScrollEl ?? undefined)
+
+const { visibleItems: visiblePublishListings, hasMore: publishHasMore, loadMore: loadMorePublish } = useInfiniteList(filteredListings, 18)
+const publishScrollSentinel = ref<HTMLElement | null>(null)
+useIntersectionObserver(
+  publishScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && publishHasMore.value) loadMorePublish()
+  },
+  { root: publishScrollRoot, rootMargin: '120px' },
+)
+
 function fmtKind(kind: ItemCategory): string {
   if (kind === 'integration') return t('integrations.editorNewIntegration')
   if (kind === 'workflow') return t('integrations.editorNewWorkflow')
   return t('integrations.editorNewPlugin')
 }
 
-function fmtVisibility(v: MyListing['visibility']): string {
+function fmtVisibility(v: EditorMyListing['visibility']): string {
   if (v === 'private') return t('integrations.editorVisibilityPrivate')
   if (v === 'unlisted') return t('integrations.editorVisibilityUnlisted')
   return t('integrations.editorVisibilityPublic')
@@ -135,7 +125,7 @@ function startNew() {
 }
 
 async function onPublished() {
-  await refresh()
+  await refreshListings()
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -148,6 +138,7 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
+  void fetchListings()
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -162,7 +153,7 @@ onUnmounted(() => {
       <PageHeader :tabs="headerTabs" raw-tab-labels />
     </header>
 
-    <TabPanel class="min-h-0 min-w-0 flex-1">
+    <TabPanel ref="tabPanelRef" class="min-h-0 min-w-0 flex-1">
       <template #header>
         <div class="flex items-center gap-2">
           <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
@@ -256,10 +247,13 @@ onUnmounted(() => {
       </template>
 
       <div class="relative" style="padding: 2.5rem 6rem">
-        <div v-if="pending && !listings?.length" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <p class="text-body-md font-medium text-neutral-500">
-            {{ t('common.loading') }}
-          </p>
+        <div
+          v-if="pending && !listings?.length"
+          class="min-h-[30vh]"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="sr-only">{{ t('common.loading') }}</span>
         </div>
 
         <div
@@ -268,7 +262,7 @@ onUnmounted(() => {
           style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))"
         >
           <NuxtLink
-            v-for="item in filteredListings"
+            v-for="item in visiblePublishListings"
             :key="item.id"
             :to="`/integrations/publish/${item.id}`"
             class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
@@ -328,10 +322,16 @@ onUnmounted(() => {
               </span>
             </div>
           </NuxtLink>
+          <div
+            v-if="publishHasMore"
+            ref="publishScrollSentinel"
+            class="col-span-full h-px w-full shrink-0"
+            aria-hidden="true"
+          />
         </div>
 
         <div
-          v-else-if="!listings?.length"
+          v-else-if="!listings?.length && !pending"
           class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"
         >
           <UIcon name="i-heroicons-rocket-launch-20-solid" class="mb-4 size-10 text-neutral-300" />

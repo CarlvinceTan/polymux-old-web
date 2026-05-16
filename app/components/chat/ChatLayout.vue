@@ -21,6 +21,7 @@ const props = defineProps<{
   showCursor?: boolean
   renameable?: boolean
   sessionId: string
+  workspaceId?: string | null
   isStreaming?: boolean
   waitingForAgent?: boolean
   browserAgentsActive?: boolean
@@ -29,6 +30,16 @@ const props = defineProps<{
   hideTitle?: boolean
   reconnecting?: boolean
   feedback?: Map<string, 'up' | 'down'>
+  /**
+   * When set, invoked before emitting `send`; return false (or Promise<false>)
+   * to abort (attachments stay, no toast here — caller shows its own hint).
+   */
+  beforeSendPrompt?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
+  /**
+   * When set, invoked before forwarding `edit-message`; return false to keep
+   * the user message in edit mode.
+   */
+  beforeEdit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -36,6 +47,12 @@ const { attachments, addFiles, removeFile, clearAll } = useAttachments()
 const command = defineModel<string>('command', { required: true })
 const viewportList = defineModel<ViewportState[]>('viewportList', { required: true })
 const viewMode = defineModel<ViewMode>('viewMode', { default: 'chat' })
+// Per-workflow browser-mode selection. Owned by the workflow page so it
+// persists across the chat/viewport/flow sub-tabs (see workflow/[id].vue).
+// Defaults to 'server' for fresh sessions; the page hydrates the v-model
+// from sessionStorage/localStorage and from the server's session_state
+// echo, then writes back through set_browser_mode on every change.
+const browserMode = defineModel<'server' | 'extension'>('browserMode', { default: 'server' })
 
 const emit = defineEmits<{
   send: [value: string, attachments: ChatMessageAttachment[]]
@@ -65,17 +82,21 @@ const showFloatingTop = computed(() => !props.hideTitle || showSwitch.value)
 const showWelcome = computed(() => props.welcome && inChat.value)
 
 function onAttachFiles(files: FileList) {
-  addFiles(props.sessionId, files)
+  addFiles(props.sessionId, files, props.workspaceId ?? undefined)
 }
 
 function onRemoveFile(id: string) {
   removeFile(id, props.sessionId)
 }
 
-function onSend(value: string) {
+async function onSend(value: string) {
   const files: ChatMessageAttachment[] = attachments.value
     .filter(a => a.status === 'done')
     .map(a => ({ id: a.id, name: a.name }))
+  if (props.beforeSendPrompt) {
+    const ok = await props.beforeSendPrompt(value.trim(), files)
+    if (!ok) return
+  }
   emit('send', value, files)
   clearAll()
   // Jump to the bottom so the just-sent bubble (and the streaming reply) is
@@ -84,6 +105,14 @@ function onSend(value: string) {
   nextTick(() => {
     chatMessagesRef.value?.scrollToBottom('auto')
   })
+}
+
+async function relayEdit(index: number, text: string, att: ChatMessageAttachment[]) {
+  if (props.beforeEdit) {
+    const ok = await props.beforeEdit(text, att)
+    if (!ok) return
+  }
+  emit('edit-message', index, text, att)
 }
 
 // Jump-to-latest button. ChatMessages owns the scroll viewport and reports
@@ -116,7 +145,7 @@ function onJumpClick() {
       <div
         v-if="inChat"
         class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
-        :class="{ 'pt-16': showFloatingTop }"
+        :class="{ 'pt-[75px]': showFloatingTop }"
       >
         <ChatWelcome
           v-if="showWelcome"
@@ -132,8 +161,10 @@ function onJumpClick() {
           :waiting-for-agent="waitingForAgent"
           :browser-agents-active="browserAgentsActive"
           :session-id="sessionId"
+          :workspace-id="workspaceId"
           :feedback="feedback"
-          @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
+          :before-edit-submit="beforeEdit"
+          @edit-message="relayEdit"
           @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
           @jump-button-state="onJumpButtonState"
         />
@@ -145,7 +176,7 @@ function onJumpClick() {
       <div
         v-else-if="inViewport"
         class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
-        :class="{ 'pt-16': showFloatingTop }"
+        :class="{ 'pt-[75px]': showFloatingTop }"
       >
         <ViewportGallery
           :viewport-list="viewportList"
@@ -162,12 +193,19 @@ function onJumpClick() {
         />
       </div>
 
-      <!-- Flow: canvas fills the panel; floating overlays sit on top of it. -->
-      <WorkflowNodeCanvas
-        v-else-if="inFlow"
-        :session-id="sessionId"
-        class="min-h-0 flex-1"
-      />
+      <!-- Flow: canvas fills the panel. KeepAlive keeps WorkflowNodeCanvas state
+           (viewport, dragged positions loaded from LS, undo, selection) across
+           chat/viewport toggles instead of tearing it down each time — the pane
+           is deactivated while hidden so watchers stay quiet compared to v-show.
+           Cross-tab hydration is handled in WorkflowNodeCanvas (session viewport)
+           plus page keep-alive on workflow/[id]/agent.vue. -->
+      <KeepAlive>
+        <WorkflowNodeCanvas
+          v-if="inFlow"
+          :session-id="sessionId"
+          class="min-h-0 flex-1"
+        />
+      </KeepAlive>
 
       <!-- Floating top row: title + view switcher overlay. Top/left/right
            padding match so the content sits inset by the same gutter from
@@ -263,6 +301,7 @@ function onJumpClick() {
 
           <PromptInput
             v-model="command"
+            v-model:browser-mode="browserMode"
             :hint="t('chat.messagePlaceholder')"
             :attachments="attachments"
             @send="onSend"

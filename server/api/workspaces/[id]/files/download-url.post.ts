@@ -1,10 +1,12 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { b2SignedDownloadURL, b2WorkspaceKey } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
 import {
   assertMembership,
   normalizePath,
   requireRead,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/download-url
 // Body: { path, expires_in? }
@@ -14,6 +16,8 @@ import {
 //  - 'google-drive' → URL of the same-origin streaming proxy
 //    (/files/drive-stream) which fetches the bytes from Drive using the
 //    workspace's server-side OAuth token. Tokens never reach the browser.
+//  - 'b2' → time-limited B2 download URL with auth token embedded as a
+//    query parameter so the browser fetches directly without server proxy.
 //  - 'local' → no URL; the client reads from its own OPFS if it was the
 //    creating device, otherwise shows "not available here".
 
@@ -62,6 +66,23 @@ export default defineEventHandler(async (event) => {
       device_id: row?.backend_ref ?? '',
       file_id: row?.id ?? '',
       expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    }
+  }
+
+  if (backend === 'b2') {
+    const key = b2WorkspaceKey(workspaceId, logicalPath)
+    try {
+      const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
+      const signed = await b2SignedDownloadURL(wsKey, key, expiresIn)
+      return {
+        url: signed.url,
+        backend: 'b2' as const,
+        expires_at: signed.expiresAt,
+      }
+    }
+    catch (err) {
+      console.error('[files/download-url] b2 sign error', err)
+      throw createError({ statusCode: 500, statusMessage: 'Failed to mint download URL.' })
     }
   }
 

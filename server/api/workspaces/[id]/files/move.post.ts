@@ -6,7 +6,7 @@ import {
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/move
 // Body: { from, to, kind? } where kind is 'file' (default) or 'folder'

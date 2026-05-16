@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host",
+    "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
@@ -15,6 +15,7 @@
     "@nuxt/ui": "^4.6.0",
     "@nuxtjs/i18n": "^10.2.4",
     "@nuxtjs/supabase": "^2.0.4",
+    "@tanstack/vue-query": "^5.100.10",
     "@types/node": "^25.5.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -30,6 +31,15 @@
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
-    "@iconify-json/simple-icons": "^1.2.79"
+    "@iconify-json/simple-icons": "^1.2.79",
+    "@vue/language-core": "^3.2.8"
+  },
+  "overrides": {
+    "@vercel/analytics": {
+      "vue-router": "$vue-router"
+    },
+    "@vercel/speed-insights": {
+      "vue-router": "$vue-router"
+    }
   }
 }

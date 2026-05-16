@@ -8,11 +8,20 @@ import type { MigrateConfirmGroup } from '~/components/storage/MigrateConfirmMod
 
 const props = withDefaults(defineProps<{
   storageName?: string
+  /** Open the browser at this directory on mount / when the prop changes.
+   *  Used by the storage page to honour `?path=...` deeplinks from polymux://
+   *  chips in agent replies. Empty array (default) means the workspace root. */
+  initialPath?: string[]
+  /** When set, select the file with this name once the directory finishes
+   *  loading. Cleared after a match lands or when the user navigates away. */
+  highlightFileName?: string
 }>(), {
   storageName: 'Workspace',
+  initialPath: () => [],
+  highlightFileName: undefined,
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorageFiles()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
 const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
 const { getIconForFile } = useFileIcons()
 const { t, locale } = useI18n()
@@ -61,9 +70,12 @@ const searchExpanded = ref(false)
 const searchFocused = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-const currentPath = ref<string[]>([])
-const pathHistory = ref<string[][]>([[]])
+const currentPath = ref<string[]>([...props.initialPath])
+const pathHistory = ref<string[][]>([[...props.initialPath]])
 const historyIndex = ref(0)
+// Name of the file the deeplink wants to select once the active directory's
+// listing arrives. Cleared once we find a match (or when the user navigates).
+const pendingHighlightName = ref<string | null>(props.highlightFileName ?? null)
 
 const folders = ref<StorageFolder[]>([])
 const files = ref<StorageFile[]>([])
@@ -208,6 +220,7 @@ const availableMoveProviders = computed<StorageProvider[]>(() => storageResolved
 const moveProviderLabels: Record<StorageProvider, string> = {
   'google-drive': 'Google Drive',
   'local': 'Local',
+  'b2': t('storage.settings.providerCloud'),
 }
 
 function moveProviderLabel(provider: StorageProvider): string {
@@ -417,12 +430,12 @@ async function persistOrder(orderedNames: string[]) {
   if (!ok) toast.show(t('storage.orderSaveFailed'), 'error')
 }
 
-async function refreshFiles() {
+async function refreshFiles(force = false) {
   // Snapshot the target path so a late-arriving response for the previous
   // directory can't clobber the current one when the user navigates quickly.
   const targetPath = [...currentPath.value]
   const key = pathKey(targetPath)
-  const result = await listFiles(targetPath)
+  const result = await listFiles(targetPath, force ? { force: true } : undefined)
   if (pathKey(currentPath.value) !== key) return
   folders.value = result.folders
   files.value = result.files
@@ -433,6 +446,34 @@ async function refreshFiles() {
     order: result.order ?? [],
   })
 }
+
+// Deeplink sync: when the storage page re-passes a different initialPath
+// (the user clicked another polymux:// chip in chat without remounting this
+// component), navigate to it and queue up the new highlight target. The
+// initial mount is already handled by seeding currentPath from the prop
+// above, so this watch is `not` immediate.
+watch(
+  () => props.initialPath,
+  (path) => {
+    const next = [...(path ?? [])]
+    const same = next.length === currentPath.value.length && next.every((s, i) => s === currentPath.value[i])
+    if (!same) {
+      pathHistory.value = pathHistory.value.slice(0, historyIndex.value + 1)
+      pathHistory.value.push(next)
+      historyIndex.value = pathHistory.value.length - 1
+      currentPath.value = next
+    }
+    pendingHighlightName.value = props.highlightFileName ?? null
+  },
+  { deep: true },
+)
+
+watch(
+  () => props.highlightFileName,
+  (name) => {
+    pendingHighlightName.value = name ?? null
+  },
+)
 
 // Also watch the active workspace id: `listFiles` silently returns an empty
 // directory when the workspace isn't loaded yet, and workspaces arrive
@@ -459,6 +500,7 @@ watch(
 // previous workspace never shows up in the new one.
 watch(() => currentWorkspace.value?.id, () => {
   directoryCache.clear()
+  clearStorageListCache()
 })
 
 // Refresh when a local migration finishes so provider icons reflect the
@@ -466,8 +508,12 @@ watch(() => currentWorkspace.value?.id, () => {
 const { state: localMigrationState } = useLocalMigration()
 watch(() => localMigrationState.status, (status, prev) => {
   if (prev === 'running' && (status === 'done' || status === 'failed')) {
-    refreshFiles()
+    refreshFiles(true)
   }
+})
+
+useOnReconnect(() => {
+  void refreshFiles(true)
 })
 
 function toggleSearch() {
@@ -655,7 +701,7 @@ const listItemsForView = computed(() => {
 
 /** Icon + copy centred in the whole white panel (behind the toolbar), not only below it */
 const showEmptyFolderOverlay = computed(() => {
-  if (isLoading.value && filteredFiles.value.length === 0 && !pendingNewFolder.value && !pendingDuplicate.value) return false
+  if (listingLoading.value && filteredFiles.value.length === 0 && !pendingNewFolder.value && !pendingDuplicate.value) return false
   if (storageError.value) return false
   return listItemsForView.value.length === 0
 })
@@ -755,6 +801,23 @@ function deselectItem() {
   selectedFileExtra.value = null
   isRenaming.value = false
 }
+
+// Deeplink highlight: when the storage page passes highlightFileName (set
+// from `?path=&kind=file` on the URL), wait for the file's directory to
+// finish loading and select it the moment it appears. The watch clears
+// pendingHighlightName after a successful match so subsequent navigation
+// inside the browser doesn't keep snapping the user back.
+watch(
+  [filteredFiles, pendingHighlightName],
+  ([items, name]) => {
+    if (!name) return
+    const match = items.find(i => i.kind === 'file' && i.name === name)
+    if (!match) return
+    selectItem(match)
+    pendingHighlightName.value = null
+  },
+  { immediate: true },
+)
 
 function handleItemClick(item: typeof filteredFiles.value[number]) {
   if (item.kind === 'folder') {
@@ -862,7 +925,7 @@ async function handleFileUpload(event: Event) {
 
   isUploading.value = false
   input.value = ''
-  if (stillOnTarget()) await refreshFiles()
+  if (stillOnTarget()) await refreshFiles(true)
 }
 
 function startNewFolder() {
@@ -917,7 +980,7 @@ async function commitPendingNewFolder() {
     if (persistedOrder) {
       await reorderFiles(parentJoined, persistedOrder)
     }
-    await refreshFiles()
+    await refreshFiles(true)
   })()
 }
 
@@ -978,7 +1041,7 @@ function startDuplicate() {
         if (!ok) anyFailed = true
       }
       if (anyFailed) toast.show(t('storage.orderSaveFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
     })()
     return
   }
@@ -1058,7 +1121,7 @@ async function commitPendingDuplicate() {
     if (ok) {
       pendingDuplicate.value = null
       await persistOrder(nextOrder)
-      await refreshFiles()
+      await refreshFiles(true)
     }
   } else {
     const sourceSegments = [...currentPath.value, state.sourceName]
@@ -1066,7 +1129,7 @@ async function commitPendingDuplicate() {
     if (ok) {
       pendingDuplicate.value = null
       await persistOrder(nextOrder)
-      await refreshFiles()
+      await refreshFiles(true)
     }
   }
 }
@@ -1145,11 +1208,11 @@ async function confirmRename() {
       : await renameFile(relativePath, newName)
     if (!ok) {
       toast.show(t('storage.renameFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
       return
     }
     await persistOrder(renamedOrder)
-    await refreshFiles()
+    await refreshFiles(true)
   })()
 }
 
@@ -1193,7 +1256,7 @@ async function handleDelete() {
     const allOk = results.every(Boolean)
     if (!allOk) {
       toast.show(t('storage.deleteFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
       return
     }
     if (orderChanged) await persistOrder(pruned)
@@ -1424,6 +1487,7 @@ async function confirmMigration() {
     // repopulated on next listing — and sidesteps any partial-invalidation
     // bugs.
     directoryCache.clear()
+    clearStorageListCache()
     await onComplete()
   }
 }
@@ -1465,7 +1529,7 @@ async function confirmMove() {
     destName,
     async () => {
       deselectItem()
-      await refreshFiles()
+      await refreshFiles(true)
     },
   )
 }
@@ -1730,7 +1794,7 @@ async function onSortableEnd(evt: any) {
       droppedInto.name,
       async () => {
         if (hasCrossProvider) deselectItem()
-        await refreshFiles()
+        await refreshFiles(true)
       },
     )
     return
@@ -1778,7 +1842,7 @@ async function onSortableEnd(evt: any) {
       dropTarget.name,
       async () => {
         if (isCrossProvider) deselectItem()
-        await refreshFiles()
+        await refreshFiles(true)
       },
     )
     return
@@ -1798,7 +1862,7 @@ async function onSortableEnd(evt: any) {
   const ok = await reorderFiles(parentPath, orderedNames)
   if (!ok) {
     toast.show(t('storage.orderSaveFailed'), 'error')
-    await refreshFiles()
+    await refreshFiles(true)
   }
 }
 
@@ -2418,11 +2482,14 @@ watch(multiDragActive, (active) => {
             >
               {{ folderOpMessage }}
             </p>
-            <!-- Loading state: fill area below toolbar, centred -->
-            <div v-if="isLoading && filteredFiles.length === 0 && !pendingNewFolder" class="flex min-h-0 flex-1 flex-col items-center justify-center p-4 sm:p-5">
-              <svg class="size-5 text-neutral-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
+            <!-- Initial directory fetch: reserve space only — listing uses `listingLoading`, not upload/move `isLoading`. -->
+            <div
+              v-if="listingLoading && filteredFiles.length === 0 && !pendingNewFolder"
+             class="flex min-h-[40vh] flex-1 flex-col items-center justify-center p-4 sm:p-5"
+              role="status"
+              aria-live="polite"
+            >
+              <span class="sr-only">{{ t('common.loading') }}</span>
             </div>
 
             <!-- Error state -->
@@ -2430,7 +2497,7 @@ watch(multiDragActive, (active) => {
               <p class="text-body-md text-red-500 font-medium">{{ storageError }}</p>
               <button
                 class="mt-2 text-body-md text-neutral-700 hover:text-neutral-950 font-medium underline"
-                @click="refreshFiles"
+                @click="refreshFiles(true)"
               >
                 Retry
               </button>
@@ -2859,7 +2926,7 @@ watch(multiDragActive, (active) => {
                   >
                     <svg
                       v-if="node.loadingPromise !== null"
-                      class="size-3 text-neutral-400 animate-spin"
+                      class="size-3 shrink-0 rounded-full bg-neutral-200 text-neutral-200"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"

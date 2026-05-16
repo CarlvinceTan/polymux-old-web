@@ -4,8 +4,8 @@ import {
   exchangeGitHubAuthCode,
   fetchGitHubUser,
   fetchGitHubPrimaryEmail,
-} from '~~/server/utils/githubOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/githubOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler } from './types'
 
 export const githubConnector: ConnectorHandler = {

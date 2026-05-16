@@ -1,5 +1,5 @@
 import { serverSupabaseUser, serverSupabaseClient } from '#supabase/server'
-import { isKnownProvider, isOAuthProvider } from '~~/server/utils/integrationRegistry'
+import { isKnownProvider, isOAuthProvider } from '~~/server/utils/integrations/integrationRegistry'
 
 // POST /api/workspaces/[id]/integrations
 // Admin-only. Installs a non-OAuth integration (plugin, workflow) into the

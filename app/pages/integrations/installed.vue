@@ -5,6 +5,7 @@ import type { ItemCategory, MarketplaceItem } from '~/composables/integrations/u
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
 const { installedItems, refresh, refreshCatalog } = useMarketplace()
+const { refreshDrive } = useStorageUsage()
 
 const route = useRoute()
 const router = useRouter()
@@ -15,7 +16,7 @@ const router = useRouter()
 // it.
 onMounted(async () => {
   if (route.query.connected === 'google-drive') {
-    await Promise.all([refresh(), refreshCatalog()])
+    await Promise.all([refresh(), refreshCatalog(), refreshDrive(true)])
   }
   if (route.query.migrate === '1') {
     const { migrate: _migrate, ...rest } = route.query
@@ -24,11 +25,11 @@ onMounted(async () => {
 })
 
 type FilterValue = 'all' | ItemCategory
-type SortValue = 'category' | 'popularity' | 'nameAZ' | 'nameZA'
+type SortValue = 'popularity' | 'nameAZ' | 'nameZA'
 
 const searchQuery = ref('')
 const filterBy = ref<FilterValue>('all')
-const sortBy = ref<SortValue>('category')
+const sortBy = ref<SortValue>('nameAZ')
 
 const isFilterOpen = ref(false)
 const isSortOpen = ref(false)
@@ -43,19 +44,10 @@ const filterOptions = computed<{ value: FilterValue, label: string }[]>(() => [
 ])
 
 const sortOptions = computed<{ value: SortValue, label: string }[]>(() => [
-  { value: 'category', label: t('integrations.sortCategory') },
   { value: 'popularity', label: t('integrations.sortPopularity') },
   { value: 'nameAZ', label: t('integrations.sortNameAZ') },
   { value: 'nameZA', label: t('integrations.sortNameZA') },
 ])
-
-const groupOrder: ItemCategory[] = ['integration', 'plugin', 'workflow']
-
-const groupLabels = computed<Record<ItemCategory, string>>(() => ({
-  integration: t('integrations.filterIntegrations'),
-  plugin: t('integrations.filterPlugins'),
-  workflow: t('integrations.filterWorkflows'),
-}))
 
 const filteredInstalled = computed(() => {
   let list = [...installedItems.value]
@@ -92,22 +84,9 @@ function sortItems(list: MarketplaceItem[]): MarketplaceItem[] {
     case 'nameZA':
       sorted.sort((a, b) => b.name.localeCompare(a.name))
       break
-    case 'category':
-      sorted.sort((a, b) => a.name.localeCompare(b.name))
-      break
   }
   return sorted
 }
-
-const groups = computed(() =>
-  groupOrder
-    .map(cat => ({
-      category: cat,
-      label: groupLabels.value[cat],
-      items: sortItems(filteredInstalled.value.filter(i => i.category === cat)),
-    }))
-    .filter(g => g.items.length > 0),
-)
 
 const flatItems = computed(() => sortItems(filteredInstalled.value))
 
@@ -117,6 +96,12 @@ const selectedItem = ref<MarketplaceItem | null>(null)
 function openDetail(item: MarketplaceItem) {
   selectedItem.value = item
   detailOpen.value = true
+}
+
+function goToMarketplaceTagged(tag: string) {
+  const trimmed = tag.trim().toLowerCase()
+  if (!trimmed) return
+  router.push({ path: '/integrations/marketplace', query: { tag: trimmed } })
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -255,38 +240,8 @@ onUnmounted(() => {
         </div>
 
         <template v-else>
-          <div v-if="sortBy === 'category' && groups.length" class="space-y-8">
-            <section v-for="group in groups" :key="group.category">
-              <header class="mb-3 flex items-baseline gap-2">
-                <h2 class="text-sm font-semibold tracking-tight text-neutral-950">
-                  {{ group.label }}
-                </h2>
-                <span class="text-label-md font-medium text-neutral-500">
-                  {{ group.items.length }}
-                </span>
-              </header>
-              <div
-                class="grid gap-4"
-                style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))"
-              >
-                <IntegrationCard
-                  v-for="item in group.items"
-                  :id="item.id"
-                  :key="item.id"
-                  :name="item.name"
-                  :description="item.description"
-                  :category="item.category"
-                  :author="item.author"
-                  :tags="item.tags"
-                  :popularity="item.popularity"
-                  @open="openDetail(item)"
-                />
-              </div>
-            </section>
-          </div>
-
           <div
-            v-else-if="flatItems.length"
+            v-if="flatItems.length"
             class="grid gap-4"
             style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))"
           >
@@ -301,6 +256,7 @@ onUnmounted(() => {
               :tags="item.tags"
               :popularity="item.popularity"
               @open="openDetail(item)"
+              @filter-tag="goToMarketplaceTagged"
             />
           </div>
 

@@ -1,5 +1,5 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import { forumDisplayName, forumInitials } from '~~/server/utils/forumAuthor'
+import { forumDisplayName, forumInitials } from '~~/server/utils/forum/forumAuthor'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

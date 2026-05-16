@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '#imports'
 import type { ItemCategory } from '~/composables/integrations/useMarketplace'
 
 const props = defineProps<{
@@ -11,9 +12,32 @@ const props = defineProps<{
   popularity?: number
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   open: []
+  'filter-tag': [tag: string]
 }>()
+
+const { t } = useI18n()
+
+/** Matches IntegrationPublishModal / integrations/publish/new icons */
+const typeIcon = computed(() =>
+  props.category === 'workflow'
+    ? 'i-heroicons-bolt-20-solid'
+    : props.category === 'plugin'
+      ? 'i-heroicons-cube-transparent-20-solid'
+      : 'i-heroicons-link-20-solid',
+)
+
+const typeLabel = computed(() => ({
+  integration: t('integrations.categoryConnection'),
+  workflow: t('integrations.categoryWorkflow'),
+  plugin: t('integrations.categoryPlugin'),
+}[props.category]))
+
+function onTagClick(tag: string, event: MouseEvent) {
+  event.stopPropagation()
+  emit('filter-tag', tag)
+}
 
 const downloadsLabel = computed(() => {
   const n = props.popularity ?? 0
@@ -31,9 +55,23 @@ const downloadsLabel = computed(() => {
   >
     <div class="flex items-start gap-3">
       <div class="min-w-0 flex-1">
-        <p class="truncate text-base font-semibold leading-tight text-neutral-950">
-          {{ name }}
-        </p>
+        <div class="flex min-w-0 items-center gap-2 text-base leading-tight">
+          <p class="min-w-0 truncate font-semibold text-neutral-950">
+            {{ name }}
+          </p>
+          <span
+            class="group/type-tip relative inline-flex size-[1em] shrink-0 items-center justify-center text-neutral-600"
+            :aria-label="typeLabel"
+          >
+            <UIcon :name="typeIcon" class="size-[1em] shrink-0" aria-hidden="true" />
+            <span
+              class="pointer-events-none absolute left-full top-1/2 z-20 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/type-tip:opacity-100"
+              role="tooltip"
+            >
+              {{ typeLabel }}
+            </span>
+          </span>
+        </div>
         <p class="mt-0.5 truncate text-label-md text-neutral-500">
           {{ author }}
         </p>
@@ -56,13 +94,15 @@ const downloadsLabel = computed(() => {
     </p>
 
     <div v-if="tags?.length" class="flex flex-wrap gap-1.5">
-      <span
+      <button
         v-for="tag in tags"
         :key="tag"
-        class="rounded-md bg-neutral-100 px-2 py-0.5 text-label-md font-medium text-neutral-600"
+        type="button"
+        class="rounded-md bg-neutral-100 px-2 py-0.5 text-label-md font-medium text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950"
+        @click="onTagClick(tag, $event)"
       >
         {{ tag }}
-      </span>
+      </button>
     </div>
   </button>
 </template>

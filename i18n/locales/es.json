@@ -23,7 +23,7 @@
     "settings": "Configuración",
     "upgrade": "Mejorar plan",
     "upgradePlan": "Mejorar plan",
-    "installApp": "Instalar app",
+    "installApp": "Instalar apps",
     "language": "Idioma",
     "manage": "Gestionar",
     "help": "Ayuda",
@@ -57,7 +57,16 @@
     "fileMigratedToLocalBody": "«{path}» ya no está disponible en este espacio de trabajo.",
     "fileShareReceivedTitle": "Una carpeta se compartió con tu espacio de trabajo",
     "fileShareReceivedBody": "«{path}» se compartió desde {source}.",
-    "anotherWorkspace": "otro espacio de trabajo"
+    "anotherWorkspace": "otro espacio de trabajo",
+    "maintenanceTitle": "Mantenimiento programado: {title}",
+    "maintenanceBody": "Polymux estará en mantenimiento de {startsAt} a {endsAt}.",
+    "maintenanceCancelledTitle": "Mantenimiento cancelado: {title}",
+    "maintenanceCancelledBody": "La ventana programada para {startsAt} ha sido cancelada."
+  },
+  "maintenance": {
+    "bannerScheduled": "Mantenimiento programado: «{title}» de {startsAt} a {endsAt}. El servicio puede no estar disponible brevemente.",
+    "bannerActive": "Mantenimiento en curso: «{title}». El servicio puede no estar disponible hasta {endsAt}.",
+    "bannerDismiss": "Descartar"
   },
   "auth": {
     "welcomeBack": "Bienvenido de nuevo",
@@ -176,11 +185,16 @@
     "voicePermissionBlocked": "El acceso al micrófono está bloqueado. Haz clic en el icono a la izquierda de la barra de direcciones del navegador para activarlo.",
     "voiceError": "Error en la entrada de voz. Inténtalo de nuevo.",
     "tokenCapExceeded": "Tu mensaje tiene unos {tokens} tokens, lo que supera el límite de entrada de {cap} tokens. Por favor, acórtalo.",
-    "scrollToLatest": "Ir al más reciente"
+    "weeklyTokenBudgetToastFallback": "Límite semanal de tokens alcanzado. Actualiza o reintenta el lunes UTC.",
+    "weeklyTokenBudgetTitle": "Límite semanal de tokens alcanzado",
+    "scrollToLatest": "Ir al más reciente",
+    "codeCopied": "Copiado",
+    "copyToClipboard": "Copiar al portapapeles",
+    "openFileRef": "Abrir archivo",
+    "openFolderRef": "Abrir carpeta",
+    "openArtifactRef": "Abrir artefacto"
   },
   "workflow": {
-    "loop": "Bucle",
-    "parallel": "Paralelo",
     "untitledNode": "Paso sin título",
     "untitledWorkflow": "Flujo de trabajo sin título",
     "listEmptyPlaceholder": "Abre un flujo de trabajo desde la barra lateral para comenzar.",
@@ -224,7 +238,6 @@
     "targetPlaceholder": "Destino (URL o selector)",
     "valuePlaceholder": "Valor (opcional)",
     "descriptionPlaceholder": "Descripción",
-    "conditionPlaceholder": "Condición de salida del bucle",
     "savedToast": "Flujo de trabajo guardado",
     "saveFailedToast": "No se pudo guardar el flujo de trabajo",
     "versionConflictToast": "El flujo de trabajo se actualizó en otro lugar. Última versión cargada — rehaz tus cambios.",
@@ -262,12 +275,29 @@
       "artifacts": "Artefactos"
     },
     "liveBadge": "En vivo",
-    "sequence": "Secuencia",
     "wireStyle": "Estilo de cable",
     "wireFluid": "Fluido",
     "wireLinear": "Lineal",
     "wireStep": "Escalonado",
-    "moreInstances": "más"
+    "annotationPlaceholder": "Nota opcional",
+    "resizeNode": "Redimensionar",
+    "lockNode": "Bloquear nodo",
+    "unlockNode": "Desbloquear nodo",
+    "lockedHint": "Bloqueado — el orquestador y las ediciones estructurales omitirán este nodo.",
+    "lockedToast": "El nodo está bloqueado — desbloquéalo para editar.",
+    "conflictToast": "El orquestador editó el nodo que estás editando.",
+    "discardMine": "Descartar las mías",
+    "keepMine": "Conservar las mías",
+    "moreInstances": "más",
+    "editWire": "Editar conexión",
+    "deleteWire": "Eliminar conexión",
+    "wireLabelLabel": "Conexión",
+    "wireLabelPlaceholder": "Etiqueta opcional",
+    "wireConditionLabel": "Condición",
+    "wireConditionPlaceholder": "Guardia en lenguaje natural — solo recorrer si es verdadero",
+    "wireMaxIterationsLabel": "Iter. máx.",
+    "wireMaxIterationsPlaceholder": "Limita cuántas veces se dispara esta arista (bucles)",
+    "duplicateEdgeToast": "Ya existe una conexión entre esos nodos."
   },
   "dashboard": {
     "console": "Consola",
@@ -330,7 +360,19 @@
     "agentCapReached": "Se ha alcanzado el número máximo de agentes de navegador",
     "galleryView": "Ver todas las vistas",
     "singleView": "Ver una sola vista",
-    "galleryZoom": "Tamaño de vista"
+    "galleryZoom": "Tamaño de vista",
+    "modeTitle": "Navegador",
+    "modeServer": "Servidor Polymux",
+    "modeServerHint": "Se ejecuta en nuestro Chromium alojado.",
+    "modeExtension": "Mi navegador \"Navegador local\"",
+    "modeLocalBrowser": "Navegador local",
+    "modeExtensionHint": "Usa mi Chrome local a través de la extensión.",
+    "modeStatusConnected": "Conectado",
+    "modeStatusDisconnected": "Sin emparejar",
+    "modeStatusUnavailable": "Instalar extensión",
+    "modeUnavailableHelp": "La extensión de Chrome de polymux no está instalada en este navegador.",
+    "modeNotConnectedError": "Tu extensión del navegador no está conectada. Abre la ventana emergente de la extensión polymux y haz clic en Conectar, o cambia este flujo de trabajo al modo servidor.",
+    "extensionFeatureDisabled": "El modo de navegador local está actualmente desactivado por tu organización."
   },
   "integrations": {
     "installed": "Instalados",
@@ -400,6 +442,8 @@
     "filterPlugins": "Complementos",
     "filterIntegrations": "Conexiones",
     "filterInstalled": "Instalados",
+    "tagFilterBanner": "Mostrando elementos etiquetados como \"{tag}\".",
+    "tagFilterClear": "Quitar filtro",
     "sortPopularity": "Popularidad",
     "sortNameAZ": "Nombre A-Z",
     "sortNameZA": "Nombre Z-A",
@@ -475,16 +519,16 @@
     "manageMembers": "Gestionar miembros",
     "otherWorkspaces": "Espacios de trabajo",
     "modalTitle": "Configuración del espacio",
-    "modalSubtitle": "Configuración del espacio",
     "currentPlan": "Plan actual",
     "workspaceBilling": "Facturación del espacio",
     "usage": "Uso",
-    "statSessions": "Sesiones / sem.",
+    "statWorkflowRuns": "Ejecuciones flujo (mes)",
+    "statWeeklyTokens": "Tokens semanales",
+    "statWeeklyTokensCaption": "Reinicio lunes 00:00 UTC · tope del plan",
     "statSeats": "Asientos",
-    "statTokens": "Tokens",
-    "statTokensCaption": "Saldo de la cartera",
     "statStorage": "Almacenamiento",
     "statStorageCaption": "Conecta un proveedor para hacer seguimiento",
+    "localPrimaryTeamWarning": "El almacenamiento local mantiene los archivos solo en este navegador. Otros miembros no pueden abrir los archivos guardados aquí. Conecta Google Drive o activa Cloud en la configuración de almacenamiento para compartir con el equipo.",
     "statAgents": "Agentes de navegador",
     "statAgentsCaption": "Agentes concurrentes disponibles",
     "statFileSize": "Tamaño máx. de archivo",
@@ -621,8 +665,10 @@
       "saveOrderEmpty": "Aún no hay proveedores conectados. Conecta uno en Conexiones abajo para empezar a guardar archivos.",
       "providerGoogleDrive": "Google Drive",
       "providerLocal": "Local",
+      "providerCloud": "Cloud",
       "providerGoogleDriveDesc": "Archivos guardados en la carpeta de Google Drive de tu espacio de trabajo.",
       "providerLocalDesc": "Almacenamiento en el dispositivo, solo en este navegador.",
+      "providerCloudDesc": "Almacenamiento gestionado por Polymux, compartido con todos los miembros del workspace.",
       "connectionsTitle": "Conexiones",
       "connectionsDesc": "Conecta o desconecta proveedores de almacenamiento para este espacio de trabajo.",
       "connectionDeviceCapability": "Dispositivo",
@@ -630,6 +676,7 @@
       "statusAvailable": "Disponible",
       "statusUnavailable": "No disponible",
       "statusFull": "Lleno",
+      "statusLocked": "Bloqueado",
       "moveUp": "Subir",
       "moveDown": "Bajar",
       "currentChain": "Cadena actual",
@@ -820,12 +867,30 @@
     "publish": "Publicar discusión",
     "newErrorGeneric": "Algo salió mal. Inténtalo de nuevo.",
     "categories": {
-      "announcements": { "label": "Anuncios", "description": "Actualizaciones del producto y novedades" },
-      "help": { "label": "Ayuda y soporte", "description": "Haz preguntas, resuelve problemas" },
-      "show-and-tell": { "label": "Muestra y cuenta", "description": "Comparte lo que construiste con Polymux" },
-      "feedback": { "label": "Comentarios e ideas", "description": "Da forma a lo que construimos a continuación" },
-      "workflows": { "label": "Flujos de trabajo", "description": "Plantillas, recetas, esquemas" },
-      "agents": { "label": "Agentes", "description": "Prompts, ajustes, comparativas" }
+      "announcements": {
+        "label": "Anuncios",
+        "description": "Actualizaciones del producto y novedades"
+      },
+      "help": {
+        "label": "Ayuda y soporte",
+        "description": "Haz preguntas, resuelve problemas"
+      },
+      "show-and-tell": {
+        "label": "Muestra y cuenta",
+        "description": "Comparte lo que construiste con Polymux"
+      },
+      "feedback": {
+        "label": "Comentarios e ideas",
+        "description": "Da forma a lo que construimos a continuación"
+      },
+      "workflows": {
+        "label": "Flujos de trabajo",
+        "description": "Plantillas, recetas, esquemas"
+      },
+      "agents": {
+        "label": "Agentes",
+        "description": "Prompts, ajustes, comparativas"
+      }
     }
   },
   "artifacts": {
@@ -854,7 +919,43 @@
     "deleteError": "No se pudo eliminar el artefacto."
   },
   "landing": {
-    "useNow": "Usar ahora"
+    "nav": {
+      "home": "Inicio",
+      "features": "Características",
+      "pricing": "Precios",
+      "community": "Comunidad",
+      "contactUs": "Contáctanos",
+      "installApp": "Instalar aplicación"
+    },
+    "header": {
+      "accountMenu": "Menú de cuenta",
+      "language": "Idioma",
+      "settings": "Configuración",
+      "signOut": "Cerrar sesión"
+    },
+    "footer": {
+      "tagline": "Crea, implementa y gestiona agentes de IA inteligentes que automatizan tus flujos de trabajo.",
+      "allRightsReserved": "© {year} Polymux. Todos los derechos reservados.",
+      "product": "Producto",
+      "community": "Comunidad",
+      "company": "Empresa",
+      "legal": "Legal",
+      "blog": "Blog",
+      "documentation": "Documentación",
+      "forum": "Foro",
+      "aboutUs": "Acerca de nosotros",
+      "contact": "Contáctanos",
+      "privacyPolicy": "Política de privacidad",
+      "termsOfService": "Términos de servicio",
+      "cookiePolicy": "Política de cookies",
+      "linkedIn": "LinkedIn",
+      "x": "X",
+      "instagram": "Instagram",
+      "youTube": "YouTube",
+      "facebook": "Facebook",
+      "reddit": "Reddit",
+      "discord": "Discord"
+    }
   },
   "development": {
     "hero": {
@@ -969,6 +1070,9 @@
       "nameZA": "Nombre Z-A",
       "lastUsed": "Último uso",
       "oldestFirst": "Más antiguas primero",
+      "savedBy": "Guardado por {name}",
+      "lastUsedBy": "Última utilización por {name} · {when}",
+      "unknownUser": "desconocido",
       "view": "Ver",
       "edit": "Editar",
       "empty": "Aún no hay contraseñas guardadas",
@@ -989,6 +1093,13 @@
       "copied": "¡Copiado!",
       "loading": "Cargando contraseñas…",
       "saving": "Guardando…"
+    },
+    "signIns": {
+      "sectionTitle": "Inicios de sesión guardados",
+      "sectionDescription": "Sitios donde el espacio de trabajo permanece conectado. Capturados automáticamente durante las ejecuciones del agente y precargados en cada nuevo navegador de este espacio.",
+      "savedSignIn": "Inicio de sesión guardado",
+      "updatedAgo": "Actualizado {when}",
+      "forget": "Olvidar"
     },
     "tabs": {
       "passwords": "Contraseñas",
@@ -1321,9 +1432,21 @@
     "yourSystem": "Tu sistema",
     "otherOptions": "Otras opciones",
     "platforms": {
-      "macos": { "tagline": "Compilación universal", "requirement": "macOS 12 Monterey o posterior", "downloadLabel": "Descargar para macOS" },
-      "windows": { "tagline": "x64 y ARM64", "requirement": "Windows 10 o posterior", "downloadLabel": "Descargar para Windows" },
-      "linux": { "tagline": "Las principales distribuciones", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Descargar para Linux" }
+      "macos": {
+        "tagline": "Compilación universal",
+        "requirement": "macOS 12 Monterey o posterior",
+        "downloadLabel": "Descargar para macOS"
+      },
+      "windows": {
+        "tagline": "x64 y ARM64",
+        "requirement": "Windows 10 o posterior",
+        "downloadLabel": "Descargar para Windows"
+      },
+      "linux": {
+        "tagline": "Las principales distribuciones",
+        "requirement": "glibc 2.31+ · x86_64 / aarch64",
+        "downloadLabel": "Descargar para Linux"
+      }
     },
     "mobile": {
       "eyebrow": "En camino",

@@ -23,6 +23,7 @@ const ALL_PROVIDERS: StorageProvider[] = ['google-drive', 'local']
 const providerLabel = computed<Record<StorageProvider, string>>(() => ({
   'google-drive': t('storage.settings.providerGoogleDrive'),
   'local': t('storage.settings.providerLocal'),
+  'b2': t('storage.settings.providerCloud'),
 }))
 
 const phase = ref<'idle' | 'checking' | 'choose' | 'migrating' | 'done' | 'failed'>('idle')

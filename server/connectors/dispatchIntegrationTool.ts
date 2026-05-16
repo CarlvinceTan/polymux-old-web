@@ -27,14 +27,14 @@
 // workspace's grants and runs it against a first-party connector token.
 // The third-party integration never sees the connector's bearer token.
 
-import { decryptToken } from '~~/server/utils/tokenCrypto'
-import { safeFetch, SafeFetchError } from '~~/server/utils/integrationFetch'
-import { signRequest } from '~~/server/utils/integrationSignature'
+import { decryptToken } from '~~/server/utils/security/tokenCrypto'
+import { safeFetch, SafeFetchError } from '~~/server/utils/integrations/integrationFetch'
+import { signRequest } from '~~/server/utils/integrations/integrationSignature'
 import {
   validateManifest,
   type IntegrationManifest,
   type IntegrationManifestTool,
-} from '~~/server/utils/integrationManifest'
+} from '~~/server/utils/integrations/integrationManifest'
 
 const DEFAULT_TIMEOUT_MS = 8000
 

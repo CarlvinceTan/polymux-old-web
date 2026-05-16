@@ -7,6 +7,12 @@ const props = defineProps<{
   url: string
   username: string
   lastUsed?: string
+  // Provenance, resolved to display names by the parent (passwords.vue) so
+  // this component stays purely presentational. lastUsedByName is null when
+  // the credential has never been revealed yet — the card then shows only
+  // "Saved by X" without the second line.
+  savedByName?: string
+  lastUsedByName?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -15,10 +21,32 @@ const emit = defineEmits<{
   delete: [id: string]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const imgError = ref(false)
 const isOpen = ref(false)
 const dropdownPos = ref({ top: 0, left: 0 })
+
+// Lightweight relative time formatter. The codebase has no shared
+// time-ago helper today; introducing a util for a single card site feels
+// premature, so we keep this inline. Falls back to a locale-aware absolute
+// date when the diff is past the year horizon.
+const lastUsedAgo = computed(() => {
+  if (!props.lastUsed) return ''
+  const then = new Date(props.lastUsed).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  const rtf = new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return rtf.format(-diffMin, 'minute')
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return rtf.format(-diffHr, 'hour')
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 30) return rtf.format(-diffDay, 'day')
+  const diffMo = Math.floor(diffDay / 30)
+  if (diffMo < 12) return rtf.format(-diffMo, 'month')
+  return new Date(then).toLocaleDateString(locale.value)
+})
 
 const faviconSrc = computed(() => {
   try {
@@ -84,6 +112,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       <p class="truncate font-semibold text-body-md text-neutral-950">{{ name }}</p>
       <p class="truncate text-meta text-neutral-500">{{ url }}</p>
       <p class="truncate text-meta text-neutral-400">{{ username }}</p>
+      <p v-if="savedByName" class="mt-1 truncate text-meta text-neutral-400">
+        {{ t('vault.passwords.savedBy', { name: savedByName }) }}
+      </p>
+      <p v-if="lastUsedByName && lastUsedAgo" class="truncate text-meta text-neutral-400">
+        {{ t('vault.passwords.lastUsedBy', { name: lastUsedByName, when: lastUsedAgo }) }}
+      </p>
     </div>
 
     <svg

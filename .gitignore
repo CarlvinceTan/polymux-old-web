@@ -4,6 +4,7 @@
 # Development
 .zed
 .claude
+CLAUDE.local.md
 
 # Nuxt dev/build outputs
 .output

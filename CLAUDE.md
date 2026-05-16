@@ -1,12 +1,17 @@
 ## Package Management
 
-Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do not manually edit `package.json` or `bun.lock` unless strictly necessary—request approval and provide justification before doing so.
+Use npm (`npm install`, `npm install <pkg>`, `npm uninstall <pkg>`) for all dependency changes. Do not manually edit `package.json` or `package-lock.json` unless strictly necessary—request approval and provide justification before doing so.
 
 ## Environment Variables
 
 * `web/.env` (gitignored) is the single local source of truth. All local dev reads from it. New required vars must be added to `web/.env.example` so a fresh checkout boots from a clear template.
 * Use `vercel env pull` ONLY to inspect what's currently set on Vercel — never as the runtime source. It writes to `.env.local`, which Nuxt loads after `.env` and silently overrides it. After running it, copy across whatever you needed to check, then **delete `.env.local`**.
 * When a value should also exist on Vercel (Production / Preview / Development), mirror it via the dashboard or `vercel env add` after editing `.env`. Don't round-trip through `vercel env pull`.
+
+## Test Credentials
+
+Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these for login flows and manual testing:
+- `TEST_USERNAME` / `TEST_PASSWORD`
 
 ## Project Structure
 
@@ -22,6 +27,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * All colours must be defined in `main.css`.
 * When introducing new colours, add them to `main.css` and maintain a consistent, standardised palette.
+* For visual/interaction patterns, hover states, component styling conventions, and all design decisions, consult `DESIGN.md`.
 
 ## Components
 

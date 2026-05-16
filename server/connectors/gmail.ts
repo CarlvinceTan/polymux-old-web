@@ -4,8 +4,8 @@ import {
   exchangeAuthCode,
   fetchUserInfo,
   refreshAccessToken,
-} from '~~/server/utils/googleOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/googleOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler } from './types'
 
 export const gmailConnector: ConnectorHandler = {

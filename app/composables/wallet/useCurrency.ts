@@ -1,14 +1,15 @@
-export type SupportedCurrency = 'usd' | 'eur' | 'gbp' | 'aud' | 'cad' | 'jpy' | 'brl' | 'krw'
+export type SupportedCurrency = 'usd' | 'eur' | 'gbp' | 'aud' | 'cad' | 'jpy' | 'brl' | 'krw' | 'cny'
 
-export const CURRENCY_OPTIONS: { value: SupportedCurrency; label: string }[] = [
-  { value: 'usd', label: 'USD ($)' },
-  { value: 'eur', label: 'EUR (€)' },
-  { value: 'gbp', label: 'GBP (£)' },
-  { value: 'aud', label: 'AUD (A$)' },
-  { value: 'cad', label: 'CAD (C$)' },
-  { value: 'jpy', label: 'JPY (¥)' },
-  { value: 'brl', label: 'BRL (R$)' },
-  { value: 'krw', label: 'KRW (₩)' },
+export const CURRENCY_OPTIONS: { value: SupportedCurrency; label: string; symbol: string }[] = [
+  { value: 'usd', label: 'USD ($)', symbol: '$' },
+  { value: 'eur', label: 'EUR (€)', symbol: '€' },
+  { value: 'gbp', label: 'GBP (£)', symbol: '£' },
+  { value: 'aud', label: 'AUD (A$)', symbol: 'A$' },
+  { value: 'cad', label: 'CAD (C$)', symbol: 'C$' },
+  { value: 'jpy', label: 'JPY (¥)', symbol: '¥' },
+  { value: 'brl', label: 'BRL (R$)', symbol: 'R$' },
+  { value: 'krw', label: 'KRW (₩)', symbol: '₩' },
+  { value: 'cny', label: 'CNY (元)', symbol: '元' },
 ]
 
 export interface PriceData {

@@ -6,12 +6,9 @@ import { DRAFT_WORKFLOW_ID } from '~/composables/workflows/useWorkflowList'
 const { t } = useI18n()
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
-const { sessions, draft, createDraft, restoreDraft, fetchSessions } = useWorkflowList()
+const { sessions, draft, createDraft, fetchSessions } = useWorkflowList()
 
 onMounted(async () => {
-  await fetchSessions()
-  await restoreDraft()
-
   // Per-tab memory: within the same tab, `/workflow` restores the last-viewed workflow.
   const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
   if (stored && sessions.value.some(s => s.id === stored)) {

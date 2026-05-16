@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { applyUnsubscribe } from '~~/server/utils/mailingListUnsubscribe'
+import { applyUnsubscribe } from '~~/server/utils/mailing/mailingListUnsubscribe'
 
 // POST /api/mailing-list/unsubscribe?token=<unsubscribe_token>
 //

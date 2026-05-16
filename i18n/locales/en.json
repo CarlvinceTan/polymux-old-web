@@ -23,7 +23,7 @@
     "settings": "Settings",
     "upgrade": "Upgrade",
     "upgradePlan": "Upgrade plan",
-    "installApp": "Install App",
+    "installApp": "Install Apps",
     "language": "Language",
     "manage": "Manage",
     "help": "Help",
@@ -57,7 +57,16 @@
     "fileMigratedToLocalBody": "\"{path}\" is no longer available in this workspace.",
     "fileShareReceivedTitle": "Folder shared with your workspace",
     "fileShareReceivedBody": "\"{path}\" was shared from {source}.",
-    "anotherWorkspace": "another workspace"
+    "anotherWorkspace": "another workspace",
+    "maintenanceTitle": "Scheduled maintenance: {title}",
+    "maintenanceBody": "Polymux will undergo maintenance from {startsAt} to {endsAt}.",
+    "maintenanceCancelledTitle": "Maintenance cancelled: {title}",
+    "maintenanceCancelledBody": "The window scheduled for {startsAt} has been cancelled."
+  },
+  "maintenance": {
+    "bannerScheduled": "Scheduled maintenance: \"{title}\" runs {startsAt} – {endsAt}. Service may be briefly unavailable.",
+    "bannerActive": "Maintenance in progress: \"{title}\". Service may be unavailable until {endsAt}.",
+    "bannerDismiss": "Dismiss"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -176,11 +185,16 @@
     "voicePermissionBlocked": "Microphone access is blocked. Click the icon on the left inside your browser's address bar to enable.",
     "voiceError": "Voice input failed. Please try again.",
     "tokenCapExceeded": "Your message is about {tokens} tokens, which exceeds the {cap}-token input cap. Please shorten it.",
-    "scrollToLatest": "Scroll to latest"
+    "weeklyTokenBudgetToastFallback": "Weekly Token Limit Reached. Upgrade or retry Monday UTC.",
+    "weeklyTokenBudgetTitle": "Weekly token limit reached",
+    "scrollToLatest": "Scroll to latest",
+    "codeCopied": "Copied",
+    "copyToClipboard": "Copy to clipboard",
+    "openFileRef": "Open file",
+    "openFolderRef": "Open folder",
+    "openArtifactRef": "Open artifact"
   },
   "workflow": {
-    "loop": "Loop",
-    "parallel": "Parallel",
     "untitledNode": "Untitled step",
     "untitledWorkflow": "Untitled workflow",
     "listEmptyPlaceholder": "Open a workflow from the sidebar to get started.",
@@ -224,7 +238,6 @@
     "targetPlaceholder": "Target (URL or selector)",
     "valuePlaceholder": "Value (optional)",
     "descriptionPlaceholder": "Description",
-    "conditionPlaceholder": "Loop exit condition",
     "savedToast": "Workflow saved",
     "saveFailedToast": "Failed to save workflow",
     "versionConflictToast": "Workflow was updated elsewhere. Latest version loaded — redo your edits.",
@@ -262,12 +275,29 @@
       "artifacts": "Artifacts"
     },
     "liveBadge": "Live",
-    "sequence": "Sequence",
     "wireStyle": "Wire style",
     "wireFluid": "Fluid",
     "wireLinear": "Linear",
     "wireStep": "Step",
-    "moreInstances": "more"
+    "annotationPlaceholder": "Optional note",
+    "resizeNode": "Resize",
+    "editWire": "Edit wire",
+    "deleteWire": "Delete wire",
+    "wireLabelLabel": "Wire",
+    "wireLabelPlaceholder": "Optional label",
+    "wireConditionLabel": "Condition",
+    "wireConditionPlaceholder": "Natural-language guard — only traverse if true",
+    "wireMaxIterationsLabel": "Max iter",
+    "wireMaxIterationsPlaceholder": "Bound how many times this edge fires (loops)",
+    "lockNode": "Lock node",
+    "unlockNode": "Unlock node",
+    "lockedHint": "Locked — the orchestrator and structural edits will skip this node.",
+    "lockedToast": "Node is locked — unlock it to edit.",
+    "conflictToast": "Orchestrator edited the node you're editing.",
+    "discardMine": "Discard mine",
+    "keepMine": "Keep mine",
+    "moreInstances": "more",
+    "duplicateEdgeToast": "A wire already connects those nodes."
   },
   "dashboard": {
     "console": "Console",
@@ -330,7 +360,19 @@
     "agentCapReached": "Maximum number of browser agents reached",
     "galleryView": "Show all viewports",
     "singleView": "Show one viewport",
-    "galleryZoom": "Viewport size"
+    "galleryZoom": "Viewport size",
+    "modeTitle": "Browser",
+    "modeServer": "Polymux server",
+    "modeServerHint": "Runs in our hosted Chromium.",
+    "modeExtension": "My browser \"Local Browser\"",
+    "modeLocalBrowser": "Local Browser",
+    "modeExtensionHint": "Use my local Chrome via the extension.",
+    "modeStatusConnected": "Connected",
+    "modeStatusDisconnected": "Not paired",
+    "modeStatusUnavailable": "Install extension",
+    "modeUnavailableHelp": "The polymux Chrome extension isn't installed in this browser.",
+    "modeNotConnectedError": "Your browser extension isn't connected. Open the polymux extension popup and click Connect, or switch this workflow to server mode.",
+    "extensionFeatureDisabled": "Local browser mode is currently disabled by your organisation."
   },
   "integrations": {
     "installed": "Installed",
@@ -391,6 +433,7 @@
     "editorBundleNoItems": "No items in this bundle yet.",
     "editorSearchPlaceholder": "Search your listings…",
     "editorNoResults": "No listings match your search.",
+    "editorListingNotFound": "This listing could not be found.",
     "editorSortRecent": "Recently updated",
     "searchPlaceholder": "Search marketplace…",
     "filterBy": "Filter by",
@@ -400,6 +443,8 @@
     "filterPlugins": "Plugins",
     "filterIntegrations": "Connections",
     "filterInstalled": "Installed",
+    "tagFilterBanner": "Showing listings tagged \"{tag}\".",
+    "tagFilterClear": "Clear tag",
     "sortPopularity": "Popularity",
     "sortNameAZ": "Name A-Z",
     "sortNameZA": "Name Z-A",
@@ -475,16 +520,16 @@
     "manageMembers": "Manage members",
     "otherWorkspaces": "Workspaces",
     "modalTitle": "Workspace Settings",
-    "modalSubtitle": "Workspace settings",
     "currentPlan": "Current plan",
     "workspaceBilling": "Workspace billing",
     "usage": "Usage",
-    "statSessions": "Sessions / wk",
+    "statWorkflowRuns": "Workflow runs (mo)",
+    "statWeeklyTokens": "Weekly tokens",
+    "statWeeklyTokensCaption": "Resets Monday 00:00 UTC.",
     "statSeats": "Seats",
-    "statTokens": "Tokens",
-    "statTokensCaption": "Wallet balance",
     "statStorage": "Storage",
     "statStorageCaption": "Connect a provider to track usage",
+    "localPrimaryTeamWarning": "Local storage keeps files in this browser only. Other members can't open files saved here. Connect Google Drive or enable Cloud in Storage settings to share with the team.",
     "statAgents": "Browser agents",
     "statAgentsCaption": "Concurrent agents available",
     "statFileSize": "Max file size",
@@ -621,8 +666,10 @@
       "saveOrderEmpty": "No connected providers yet. Connect one in Connections below to start saving files.",
       "providerGoogleDrive": "Google Drive",
       "providerLocal": "Local",
+      "providerCloud": "Cloud",
       "providerGoogleDriveDesc": "Files saved to your workspace's Google Drive folder.",
       "providerLocalDesc": "On-device storage in this browser only.",
+      "providerCloudDesc": "Polymux-managed storage shared with all workspace members.",
       "connectionsTitle": "Connections",
       "connectionsDesc": "Connect or disconnect storage providers for this workspace.",
       "connectionDeviceCapability": "Device",
@@ -630,6 +677,7 @@
       "statusAvailable": "Available",
       "statusUnavailable": "Unavailable",
       "statusFull": "Full",
+      "statusLocked": "Locked",
       "moveUp": "Move up",
       "moveDown": "Move down",
       "currentChain": "Current chain",
@@ -820,12 +868,30 @@
     "publish": "Publish discussion",
     "newErrorGeneric": "Something went wrong. Please try again.",
     "categories": {
-      "announcements": { "label": "Announcements", "description": "Product updates and community news" },
-      "help": { "label": "Help & Support", "description": "Ask questions, troubleshoot issues" },
-      "show-and-tell": { "label": "Show & Tell", "description": "Share what you built with Polymux" },
-      "feedback": { "label": "Feedback & Ideas", "description": "Shape what we build next" },
-      "workflows": { "label": "Workflows", "description": "Blueprints, templates, recipes" },
-      "agents": { "label": "Agents", "description": "Prompts, tuning, comparing runs" }
+      "announcements": {
+        "label": "Announcements",
+        "description": "Product updates and community news"
+      },
+      "help": {
+        "label": "Help & Support",
+        "description": "Ask questions, troubleshoot issues"
+      },
+      "show-and-tell": {
+        "label": "Show & Tell",
+        "description": "Share what you built with Polymux"
+      },
+      "feedback": {
+        "label": "Feedback & Ideas",
+        "description": "Shape what we build next"
+      },
+      "workflows": {
+        "label": "Workflows",
+        "description": "Blueprints, templates, recipes"
+      },
+      "agents": {
+        "label": "Agents",
+        "description": "Prompts, tuning, comparing runs"
+      }
     }
   },
   "artifacts": {
@@ -854,7 +920,44 @@
     "deleteError": "Couldn't delete artifact."
   },
   "landing": {
-    "useNow": "Use now"
+    "useNow": "Use now",
+    "nav": {
+      "home": "Home",
+      "features": "Features",
+      "pricing": "Pricing",
+      "community": "Community",
+      "contactUs": "Contact Us",
+      "installApp": "Install App"
+    },
+    "header": {
+      "accountMenu": "Account menu",
+      "language": "Language",
+      "settings": "Settings",
+      "signOut": "Sign out"
+    },
+    "footer": {
+      "tagline": "Build, deploy, and manage intelligent AI agents that automate your workflows.",
+      "allRightsReserved": "© {year} Polymux. All rights reserved.",
+      "product": "Product",
+      "community": "Community",
+      "company": "Company",
+      "legal": "Legal",
+      "blog": "Blog",
+      "documentation": "Documentation",
+      "forum": "Forum",
+      "aboutUs": "About us",
+      "contact": "Contact Us",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "cookiePolicy": "Cookie Policy",
+      "linkedIn": "LinkedIn",
+      "x": "X",
+      "instagram": "Instagram",
+      "youTube": "YouTube",
+      "facebook": "Facebook",
+      "reddit": "Reddit",
+      "discord": "Discord"
+    }
   },
   "development": {
     "hero": {
@@ -969,6 +1072,9 @@
       "nameZA": "Name Z-A",
       "lastUsed": "Last used",
       "oldestFirst": "Oldest first",
+      "savedBy": "Saved by {name}",
+      "lastUsedBy": "Last used by {name} · {when}",
+      "unknownUser": "unknown",
       "view": "View",
       "edit": "Edit",
       "empty": "No passwords saved yet",
@@ -989,6 +1095,13 @@
       "copied": "Copied!",
       "loading": "Loading passwords…",
       "saving": "Saving…"
+    },
+    "signIns": {
+      "sectionTitle": "Saved sign-ins",
+      "sectionDescription": "Sites the workspace stays signed into. Captured automatically during agent runs and preloaded into every new browser in this workspace.",
+      "savedSignIn": "Saved sign-in",
+      "updatedAgo": "Updated {when}",
+      "forget": "Forget"
     },
     "tabs": {
       "passwords": "Passwords",
@@ -1337,9 +1450,21 @@
     "yourSystem": "Your system",
     "otherOptions": "Other options",
     "platforms": {
-      "macos": { "tagline": "Universal build", "requirement": "macOS 12 Monterey or later", "downloadLabel": "Download for macOS" },
-      "windows": { "tagline": "x64 & ARM64", "requirement": "Windows 10 or later", "downloadLabel": "Download for Windows" },
-      "linux": { "tagline": "Most major distros", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Download for Linux" }
+      "macos": {
+        "tagline": "Universal build",
+        "requirement": "macOS 12 Monterey or later",
+        "downloadLabel": "Download for macOS"
+      },
+      "windows": {
+        "tagline": "x64 & ARM64",
+        "requirement": "Windows 10 or later",
+        "downloadLabel": "Download for Windows"
+      },
+      "linux": {
+        "tagline": "Most major distros",
+        "requirement": "glibc 2.31+ · x86_64 / aarch64",
+        "downloadLabel": "Download for Linux"
+      }
     },
     "mobile": {
       "eyebrow": "On the way",

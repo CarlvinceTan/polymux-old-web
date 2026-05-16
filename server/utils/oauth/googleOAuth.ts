@@ -98,7 +98,8 @@ export async function exchangeAuthCode(code: string, provider = 'google-drive'):
     const text = await res.text().catch(() => '')
     throw createError({
       statusCode: 502,
-      statusMessage: `Google token exchange failed: ${res.status} ${text}`.trim(),
+      statusMessage: 'Google token exchange failed',
+      message: `Google token exchange failed: ${res.status} ${text}`.trim(),
     })
   }
   return (await res.json()) as GoogleTokenResponse
@@ -121,7 +122,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<GoogleTo
     const text = await res.text().catch(() => '')
     throw createError({
       statusCode: 502,
-      statusMessage: `Google token refresh failed: ${res.status} ${text}`.trim(),
+      statusMessage: 'Google token refresh failed',
+      message: `Google token refresh failed: ${res.status} ${text}`.trim(),
     })
   }
   return (await res.json()) as GoogleTokenResponse

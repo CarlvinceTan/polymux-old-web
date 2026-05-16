@@ -19,9 +19,12 @@ const props = defineProps<{
   // closed — the user is still waiting on visible work.
   browserAgentsActive?: boolean
   sessionId: string
+  workspaceId?: string | null
   // Per-message thumbs rating from the calling user, keyed by message id.
   // Bubbles whose id is absent stay un-rated.
   feedback?: Map<string, 'up' | 'down'>
+  /** Gate edit submit (token / budget) before the parent applies the optimistic edit. */
+  beforeEditSubmit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
 }>()
 
 const emit = defineEmits<{
@@ -175,6 +178,8 @@ defineExpose({ scrollToBottom })
           :text="msg.text"
           :attachments="msg.attachments"
           :session-id="props.sessionId"
+          :workspace-id="props.workspaceId"
+          :can-submit-edit="props.beforeEditSubmit"
           @edit="(text, attachments) => emit('edit-message', i, text, attachments)"
         />
       </template>

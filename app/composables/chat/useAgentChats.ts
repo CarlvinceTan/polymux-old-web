@@ -76,6 +76,31 @@ export function useAgentChats(session: SessionHandle) {
   const summarisedTitle = ref<string | null>(null)
   const drafts = reactive<Record<string, string>>({})
 
+  /** Orchestrator-only: snapshot before optimistic user send/edit so budget errors can roll back. */
+  let orchestratorRollback: ChatMessage[] | null = null
+  /** If the last rollback was from a plain send (not edit), replay this text into the composer. */
+  let pendingOrchestratorPromptRestore: string | null = null
+
+  function clearOrchestratorSendRollback() {
+    orchestratorRollback = null
+    pendingOrchestratorPromptRestore = null
+  }
+
+  function rollbackOrchestratorAfterBudgetError(): string | null {
+    if (!orchestratorRollback) return null
+    const snap = orchestratorRollback
+    orchestratorRollback = null
+    const restoreComposer = pendingOrchestratorPromptRestore
+    pendingOrchestratorPromptRestore = null
+
+    orchestratorState.messages.value = snap
+    orchestratorState.streamingBuffer = null
+    orchestratorState.isStreaming.value = false
+    orchestratorState.thinking.value = null
+    orchestratorState.waitingForAgent.value = snap[snap.length - 1]?.role === 'user'
+    return restoreComposer
+  }
+
   function getState(chatId: string): ChatState {
     if (chatId === 'orchestrator') return orchestratorState
     if (!agentStates.has(chatId)) {
@@ -88,6 +113,11 @@ export function useAgentChats(session: SessionHandle) {
     const state = getState(chatId)
 
     function sendMessage(content: string, attachments?: ChatMessageAttachment[]) {
+      if (chatId === 'orchestrator') {
+        orchestratorRollback = [...state.messages.value]
+        pendingOrchestratorPromptRestore = content
+      }
+
       const id = newId()
       const msg: ChatMessage = { role: 'user', text: content, id }
       if (attachments?.length) msg.attachments = attachments
@@ -111,6 +141,11 @@ export function useAgentChats(session: SessionHandle) {
     function editMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
       const existing = state.messages.value[index]
       if (!existing || existing.role !== 'user') return
+
+      if (chatId === 'orchestrator') {
+        orchestratorRollback = [...state.messages.value]
+        pendingOrchestratorPromptRestore = null
+      }
 
       const atts = attachments.length > 0 ? attachments : undefined
       const id = newId()
@@ -140,6 +175,7 @@ export function useAgentChats(session: SessionHandle) {
     }
 
     function loadHistory(history: ChatMessage[]) {
+      if (chatId === 'orchestrator') clearOrchestratorSendRollback()
       if (history.length === 0) return
       // Always replace from DB on rehydrate. Race we're closing: when a
       // workflow remounts, useWorkflowSession's WS connect runs in parallel with
@@ -179,6 +215,7 @@ export function useAgentChats(session: SessionHandle) {
 
   function handleAgentMessage(p: AgentMessagePayload) {
     const chatId = p.agent_id || 'orchestrator'
+    if (chatId === 'orchestrator') clearOrchestratorSendRollback()
     const state = getState(chatId)
 
     if (p.is_partial) {
@@ -255,6 +292,7 @@ export function useAgentChats(session: SessionHandle) {
   const pendingCredentialRequest = ref<PendingCredentialRequest | null>(null)
 
   function handleCredentialRequest(p: CredentialRequestPayload) {
+    clearOrchestratorSendRollback()
     orchestratorState.waitingForAgent.value = false
     pendingCredentialRequest.value = {
       msgId: p.msg_id,
@@ -265,6 +303,7 @@ export function useAgentChats(session: SessionHandle) {
   }
 
   function handleBrowserSpawned(_p: BrowserSpawnedPayload) {
+    clearOrchestratorSendRollback()
     // Re-arm waitingForAgent — same reason as the partial / thinking paths:
     // the orchestrator is actively delegating, so the indicator should stay
     // up even if loadHistory just cleared it on rehydrate.
@@ -353,6 +392,7 @@ export function useAgentChats(session: SessionHandle) {
     drafts,
     summarisedTitle,
     pendingCredentialRequest,
+    rollbackOrchestratorAfterBudgetError,
     provideCredential,
     orchestrator: buildHandle('orchestrator'),
     get(agentId: string): ChatHandle { return buildHandle(agentId) },

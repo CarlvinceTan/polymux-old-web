@@ -6,8 +6,41 @@ const { artifacts, removeArtifact, downloadArtifact, promote } = useArtifacts(se
 
 const { t } = useI18n()
 const toast = useAppToast()
+const route = useRoute()
 
 const selectedArtifact = ref<SandboxArtifact | null>(null)
+
+// Deeplink target from polymux:// chips in agent replies. The artifact list
+// loads asynchronously, so we watch both the query and the list and pick
+// the first moment we see a match. Cleared after open so navigating back
+// to the gallery doesn't keep re-opening.
+const pendingArtifactId = ref<string | null>(null)
+
+function readArtifactQuery(): string | null {
+  const raw = route.query.artifact
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' && value ? value : null
+}
+
+watch(
+  () => route.query.artifact,
+  () => {
+    pendingArtifactId.value = readArtifactQuery()
+  },
+  { immediate: true },
+)
+
+watch(
+  [artifacts, pendingArtifactId],
+  ([list, id]) => {
+    if (!id) return
+    const match = list.find(a => a.id === id)
+    if (!match) return
+    selectedArtifact.value = match
+    pendingArtifactId.value = null
+  },
+  { immediate: true },
+)
 
 const promoteOpen = ref(false)
 const promoteTarget = ref<SandboxArtifact | null>(null)

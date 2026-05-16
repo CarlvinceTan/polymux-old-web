@@ -1,26 +1,5 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory } from '~/composables/integrations/useMarketplace'
-
-interface ListingDetail {
-  id: string
-  slug: string
-  name: string
-  description: string | null
-  kind: ItemCategory
-  visibility: 'private' | 'unlisted' | 'public'
-  is_first_party: boolean
-  is_verified: boolean
-  install_count: number
-  tags: string[]
-  icon_url: string | null
-  homepage_url: string | null
-  source_repo_url: string | null
-  current_version_id: string | null
-  created_at: string
-  updated_at: string
-  current_version?: { id: string, version: string, status: string, published_at: string | null } | null
-}
 
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
@@ -29,13 +8,22 @@ const route = useRoute()
 
 const id = computed(() => String(route.params.id))
 
-const { data: listings, refresh } = useAsyncData<ListingDetail[]>(
-  () => `editor-detail-${id.value}`,
-  async () => await $fetch<ListingDetail[]>('/api/marketplace/my-listings'),
-  { default: () => [], watch: [id] },
-)
+const { listings, loading, fetchListings, refreshListings } = useEditorMyListings()
 
 const item = computed(() => (listings.value ?? []).find(l => l.id === id.value) ?? null)
+
+/** Detail shell: spinner while resolving the current id; avoids flashes when the list is cached. */
+const detailBusy = computed(() => loading.value && item.value === null)
+
+watch(
+  id,
+  (theId) => {
+    if (!theId) return
+    if (listings.value.some(l => l.id === theId)) return
+    void fetchListings({ force: true })
+  },
+  { immediate: true },
+)
 
 const editName = ref('')
 const editDescription = ref('')
@@ -77,7 +65,7 @@ async function onSave() {
         tags,
       },
     })
-    await refresh()
+    await refreshListings()
     dirty.value = false
     toast.show(t('integrations.editorSaved'), 'info')
   }
@@ -100,7 +88,7 @@ async function onYank() {
       method: 'POST',
       body: {},
     })
-    await refresh()
+    await refreshListings()
     toast.show(t('integrations.editorYanked'), 'info')
   }
   catch (err) {
@@ -128,10 +116,22 @@ async function onYank() {
           {{ t('integrations.editorBack') }}
         </NuxtLink>
 
-        <div v-if="!item" class="flex flex-1 items-center justify-center">
+        <div v-if="detailBusy" class="flex flex-1 items-center justify-center">
           <p class="text-body-md text-neutral-500">
             {{ t('common.loading') }}
           </p>
+        </div>
+
+        <div v-else-if="!item" class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <p class="text-body-md text-neutral-500">
+            {{ t('integrations.editorListingNotFound') }}
+          </p>
+          <NuxtLink
+            to="/integrations/publish"
+            class="text-label-md font-medium text-neutral-950 underline-offset-2 hover:underline"
+          >
+            {{ t('integrations.editorBack') }}
+          </NuxtLink>
         </div>
 
         <template v-else>

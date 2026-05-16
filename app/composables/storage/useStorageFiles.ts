@@ -21,26 +21,39 @@ export interface StorageDirectory {
   order?: string[]
 }
 
-interface UploadUrlResponse {
+interface UploadUrlDriveResponse {
   url: string
-  token: string
+  token: ''
   path: string
   backend: 'google-drive'
-  method?: 'PUT' | 'POST'
+  method: 'PUT'
   expires_at: string
 }
+
+interface UploadUrlB2Response {
+  url: string
+  token: string // B2 upload authorization token, sent as the Authorization header on the POST
+  path: string
+  key: string // X-Bz-File-Name value (path under the bucket)
+  backend: 'b2'
+  method: 'POST'
+  content_type: string
+  expires_at: string
+}
+
+type UploadUrlResponse = UploadUrlDriveResponse | UploadUrlB2Response
 
 interface FinalizeUploadResponse {
   ok: true
   path: string
   size: number
-  backend: 'google-drive' | 'local'
+  backend: 'google-drive' | 'local' | 'b2'
   file_id?: string
 }
 
 interface RemoteDownloadUrlResponse {
   url: string
-  backend: 'google-drive'
+  backend: 'google-drive' | 'b2'
   expires_at: string
 }
 
@@ -53,6 +66,30 @@ interface LocalDownloadUrlResponse {
 }
 
 type DownloadUrlResponse = RemoteDownloadUrlResponse | LocalDownloadUrlResponse
+
+// B2's b2_upload_file response shape; only fields we record are listed.
+interface B2UploadResponse {
+  fileId: string
+  contentSha1: string
+  contentLength: number
+}
+
+// Hex-encoded SHA1 of an ArrayBuffer. B2 requires this in X-Bz-Content-Sha1
+// so the bucket can verify end-to-end integrity of the upload.
+async function sha1Hex(buf: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-1', buf)
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// X-Bz-File-Name encoding: every segment is percent-encoded except for the
+// path separator. Mirrors the server-side helper in
+// polymux/internal/filesystem/b2_backend.go (b2EscapeFileName) so server +
+// client keys round-trip exactly.
+function encodeB2FileName(name: string): string {
+  return name.split('/').map(encodeURIComponent).join('/')
+}
 
 function joinSegments(segments: string[]): string {
   return segments.filter(Boolean).join('/')
@@ -77,12 +114,19 @@ export function useStorageFiles() {
   const user = useSupabaseUser()
   const { currentWorkspace } = useWorkspaces()
   const { resolvedOrder } = useStoragePreferences()
+  const queryClient = useQueryClient()
 
   const provider = computed<StorageProvider>(() => resolvedOrder.value[0] ?? 'local')
 
   const isLoading = ref(false)
+  /** Directory listing fetches only — does not toggle during upload/delete. */
+  const listingLoading = ref(false)
   const error = ref<string | null>(null)
   const folderOpMessage = ref<string | null>(null)
+
+  function clearStorageListCache() {
+    queryClient.removeQueries({ queryKey: ['storage-directory'] })
+  }
 
   function authUserId(): string | null {
     const u = user.value
@@ -111,20 +155,31 @@ export function useStorageFiles() {
     return fallback
   }
 
-  async function listFiles(pathSegments: string[]): Promise<StorageDirectory> {
-    isLoading.value = true
+  async function listFiles(pathSegments: string[], opts?: { force?: boolean }): Promise<StorageDirectory> {
     error.value = null
+    const wsId = getWorkspaceId()
+    if (!authUserId() || !wsId) return { files: [], folders: [] }
+    const base = baseUrl()
+    if (!base) return { files: [], folders: [] }
+
+    const path = joinSegments(pathSegments)
+    const key = ['storage-directory', wsId, path]
+
+    listingLoading.value = true
     try {
-      const base = baseUrl()
-      if (!authUserId() || !base) return { files: [], folders: [] }
-      const path = joinSegments(pathSegments)
-      const data = await $fetch<StorageDirectory>(base, { query: { path } })
+      const data = await queryClient.fetchQuery({
+        queryKey: key,
+        queryFn: () => $fetch<StorageDirectory>(base, { query: { path } }),
+        staleTime: opts?.force ? 0 : undefined,
+      })
       return data
-    } catch (err) {
+    }
+    catch (err) {
       error.value = errorMessage(err, 'Failed to list files')
-      return { files: [], folders: [] }
-    } finally {
-      isLoading.value = false
+      return queryClient.getQueryData<StorageDirectory>(key) ?? { files: [], folders: [] }
+    }
+    finally {
+      listingLoading.value = false
     }
   }
 
@@ -187,6 +242,48 @@ export function useStorageFiles() {
           preferred_backend: preferred,
         },
       })
+
+      if (signed.backend === 'b2') {
+        // B2 upload protocol (Cloud storage): POST the file bytes directly to
+        // the bucket's upload URL. Required headers are the auth token, the
+        // URL-encoded file name, the content type, and the SHA1 — B2 rejects
+        // uploads whose Content-Sha1 doesn't match the body.
+        const buf = await file.arrayBuffer()
+        const sha1 = await sha1Hex(buf)
+        const b2Res = await fetch(signed.url, {
+          method: 'POST',
+          headers: {
+            'Authorization': signed.token,
+            'X-Bz-File-Name': encodeB2FileName(signed.key),
+            'Content-Type': signed.content_type || file.type || 'application/octet-stream',
+            'X-Bz-Content-Sha1': sha1,
+          },
+          body: buf,
+        })
+        if (!b2Res.ok) {
+          const detail = await b2Res.text().catch(() => '')
+          error.value = `Upload failed (${b2Res.status})${detail ? `: ${detail.slice(0, 200)}` : ''}`
+          return false
+        }
+        const b2Json = await b2Res.json().catch(() => null) as B2UploadResponse | null
+        if (!b2Json?.fileId) {
+          error.value = 'Upload succeeded but B2 fileId was missing.'
+          return false
+        }
+
+        await $fetch(`${base}/finalize-upload`, {
+          method: 'POST',
+          body: {
+            path,
+            size: file.size,
+            content_type: file.type,
+            backend: 'b2',
+            backend_ref: b2Json.fileId,
+            etag: b2Json.contentSha1,
+          },
+        })
+        return true
+      }
 
       // Google Drive's resumable-upload session URL doesn't send CORS headers
       // for browser origins, so we stream the bytes through the same-origin
@@ -532,8 +629,10 @@ export function useStorageFiles() {
   return {
     provider,
     isLoading,
+    listingLoading,
     error,
     folderOpMessage,
+    clearStorageListCache,
     listFiles,
     uploadFile,
     deleteFiles,

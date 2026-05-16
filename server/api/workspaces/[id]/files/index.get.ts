@@ -4,7 +4,7 @@ import {
   assertMembership,
   normalizePath,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 type Backend = 'google-drive' | 'local'
 

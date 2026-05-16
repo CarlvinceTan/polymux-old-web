@@ -33,6 +33,46 @@ export interface WorkspaceInvitation {
   accepted_by: string | null
 }
 
+// InviteError carries the structured failure shape from the Go API so the UI
+// can branch on `code === 'MEMBER_LIMIT_REACHED'` instead of parsing prose.
+// `error` always populated, other fields present only when the server
+// returned them (currently only on MEMBER_LIMIT_REACHED).
+export interface InviteError {
+  ok: false
+  error: string
+  code?: string
+  plan?: string
+  used?: number
+  cap?: number
+  members?: number
+  pending?: number
+}
+
+function parseInviteError(err: unknown): InviteError {
+  // ofetch surfaces server response bodies under `data` on the thrown
+  // FetchError. We accept anything that looks like the Go API's JSON error
+  // envelope; fall back to a generic message for transport-level failures.
+  const e = err as { data?: Partial<InviteError>; message?: string } | null
+  const data = e?.data
+  if (data && typeof data === 'object' && typeof data.error === 'string') {
+    return {
+      ok: false,
+      error: data.error,
+      code: data.code,
+      plan: data.plan,
+      used: data.used,
+      cap: data.cap,
+      members: data.members,
+      pending: data.pending,
+    }
+  }
+  return { ok: false, error: e?.message || 'Failed to send invitation.' }
+}
+
+export function isInviteError(value: WorkspaceInvitation | InviteError | null): value is InviteError {
+  return value !== null && 'ok' in value && value.ok === false
+}
+
 const STORAGE_KEY = 'polymux_current_workspace_id'
 
 export const WORKSPACE_NAME_MAX_LENGTH = 20
@@ -267,7 +307,7 @@ export function useWorkspaces() {
     }
   }
 
-  async function inviteMember(workspaceID: string, email: string, role: 'admin' | 'member' = 'member'): Promise<WorkspaceInvitation | null> {
+  async function inviteMember(workspaceID: string, email: string, role: 'admin' | 'member' = 'member'): Promise<WorkspaceInvitation | InviteError> {
     try {
       const invitation = await authFetch<WorkspaceInvitation>(`/workspaces/${workspaceID}/invitations`, {
         method: 'POST',
@@ -280,7 +320,7 @@ export function useWorkspaces() {
     }
     catch (err) {
       console.error('[useWorkspaces] inviteMember failed', err)
-      return null
+      return parseInviteError(err)
     }
   }
 

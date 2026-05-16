@@ -1,5 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { isForumCategory } from '~~/server/utils/forumAuthor'
+import { isForumCategory } from '~~/server/utils/forum/forumAuthor'
 
 const ALLOWED_SORTS = ['latest', 'top', 'unanswered'] as const
 type Sort = typeof ALLOWED_SORTS[number]

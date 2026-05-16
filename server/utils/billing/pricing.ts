@@ -1,8 +1,8 @@
-export type SupportedCurrency = 'usd' | 'eur' | 'gbp' | 'aud' | 'cad' | 'jpy' | 'brl' | 'krw'
+export type SupportedCurrency = 'usd' | 'eur' | 'gbp' | 'aud' | 'cad' | 'jpy' | 'brl' | 'krw' | 'cny'
 export type PricingPlanKey = 'pro' | 'max'
 export type PricingBillingPeriod = 'monthly' | 'annual'
 
-export const SUPPORTED_CURRENCIES: SupportedCurrency[] = ['usd', 'eur', 'gbp', 'aud', 'cad', 'jpy', 'brl', 'krw']
+export const SUPPORTED_CURRENCIES: SupportedCurrency[] = ['usd', 'eur', 'gbp', 'aud', 'cad', 'jpy', 'brl', 'krw', 'cny']
 
 export const CURRENCY_CONFIG: Record<SupportedCurrency, {
   symbol: string
@@ -17,6 +17,7 @@ export const CURRENCY_CONFIG: Record<SupportedCurrency, {
   jpy: { symbol: '¥', label: 'JPY (¥)', zeroDecimal: true },
   brl: { symbol: 'R$', label: 'BRL (R$)', zeroDecimal: false },
   krw: { symbol: '₩', label: 'KRW (₩)', zeroDecimal: true },
+  cny: { symbol: '元', label: 'CNY (元)', zeroDecimal: false },
 }
 
 /**
@@ -34,6 +35,7 @@ export const PLAN_PRICES: Record<SupportedCurrency, Record<PricingPlanKey, { mon
   jpy: { pro: { monthly: 4500, annualPerMonth: 3700 }, max: { monthly: 12000, annualPerMonth: 9900 } },
   brl: { pro: { monthly: 149, annualPerMonth: 124 }, max: { monthly: 399, annualPerMonth: 329 } },
   krw: { pro: { monthly: 39000, annualPerMonth: 32000 }, max: { monthly: 109000, annualPerMonth: 89000 } },
+  cny: { pro: { monthly: 199, annualPerMonth: 169 }, max: { monthly: 549, annualPerMonth: 469 } },
 }
 
 /**
@@ -82,6 +84,11 @@ export const STRIPE_PRICE_IDS: Record<string, string> = {
   krw_pro_annual: 'price_1TMNPaGacq7iVqJjHKTtO1R6',
   krw_max_monthly: 'price_1TMNPbGacq7iVqJjH23oWFlU',
   krw_max_annual: 'price_1TMNPcGacq7iVqJjwKdxO7Mb',
+  // CNY — create matching recurring prices in Stripe and paste IDs here for checkout.
+  // cny_pro_monthly: '',
+  // cny_pro_annual: '',
+  // cny_max_monthly: '',
+  // cny_max_annual: '',
 }
 
 export function formatPrice(amount: number, currency: SupportedCurrency): string {
@@ -93,6 +100,7 @@ export function formatPrice(amount: number, currency: SupportedCurrency): string
 }
 
 const COUNTRY_CURRENCY_MAP: Record<string, SupportedCurrency> = {
+  CN: 'cny',
   US: 'usd', UM: 'usd', PR: 'usd', GU: 'usd', VI: 'usd', AS: 'usd',
   GB: 'gbp', GG: 'gbp', JE: 'gbp', IM: 'gbp',
   AU: 'aud', NZ: 'aud', CX: 'aud', CC: 'aud', NF: 'aud',

@@ -57,7 +57,16 @@
     "fileMigratedToLocalBody": "「{path}」はこのワークスペースでは利用できなくなりました。",
     "fileShareReceivedTitle": "あなたのワークスペースにフォルダーが共有されました",
     "fileShareReceivedBody": "「{path}」が{source}から共有されました。",
-    "anotherWorkspace": "別のワークスペース"
+    "anotherWorkspace": "別のワークスペース",
+    "maintenanceTitle": "メンテナンス予定: {title}",
+    "maintenanceBody": "Polymux は {startsAt} から {endsAt} までメンテナンスを実施します。",
+    "maintenanceCancelledTitle": "メンテナンス中止: {title}",
+    "maintenanceCancelledBody": "{startsAt} に予定されていたメンテナンスは中止されました。"
+  },
+  "maintenance": {
+    "bannerScheduled": "メンテナンス予定:「{title}」{startsAt}〜{endsAt}。一時的にサービスをご利用いただけない場合があります。",
+    "bannerActive": "メンテナンス実施中:「{title}」。{endsAt} までサービスをご利用いただけない場合があります。",
+    "bannerDismiss": "閉じる"
   },
   "auth": {
     "welcomeBack": "おかえりなさい",
@@ -176,11 +185,16 @@
     "voicePermissionBlocked": "マイクへのアクセスがブロックされています。ブラウザのアドレスバー左側のアイコンをクリックして有効にしてください。",
     "voiceError": "音声入力に失敗しました。もう一度お試しください。",
     "tokenCapExceeded": "メッセージは約 {tokens} トークンで、入力上限の {cap} トークンを超えています。短くしてください。",
-    "scrollToLatest": "最新メッセージへ"
+    "weeklyTokenBudgetToastFallback": "週間のトークン上限に達しました。アップグレードするか、月曜 UTC までお待ちください。",
+    "weeklyTokenBudgetTitle": "週間トークン上限に到達",
+    "scrollToLatest": "最新メッセージへ",
+    "codeCopied": "コピー済み",
+    "copyToClipboard": "クリップボードにコピー",
+    "openFileRef": "ファイルを開く",
+    "openFolderRef": "フォルダーを開く",
+    "openArtifactRef": "アーティファクトを開く"
   },
   "workflow": {
-    "loop": "ループ",
-    "parallel": "並列",
     "untitledNode": "無題のステップ",
     "untitledWorkflow": "無題のワークフロー",
     "listEmptyPlaceholder": "サイドバーからワークフローを開いて始めましょう。",
@@ -224,7 +238,6 @@
     "targetPlaceholder": "ターゲット（URL またはセレクタ）",
     "valuePlaceholder": "値（任意）",
     "descriptionPlaceholder": "説明",
-    "conditionPlaceholder": "ループ終了条件",
     "savedToast": "ワークフローを保存しました",
     "saveFailedToast": "ワークフローの保存に失敗しました",
     "versionConflictToast": "ワークフローが他で更新されました。最新バージョンを読み込みました — 編集をやり直してください。",
@@ -262,12 +275,29 @@
       "artifacts": "アーティファクト"
     },
     "liveBadge": "ライブ",
-    "sequence": "シーケンス",
     "wireStyle": "ワイヤースタイル",
     "wireFluid": "カーブ",
     "wireLinear": "直線",
     "wireStep": "ステップ",
-    "moreInstances": "その他"
+    "annotationPlaceholder": "任意のメモ",
+    "resizeNode": "サイズ変更",
+    "lockNode": "ノードをロック",
+    "unlockNode": "ノードのロック解除",
+    "lockedHint": "ロック中 — オーケストレーターと構造編集はこのノードをスキップします。",
+    "lockedToast": "ノードはロックされています。編集するにはロックを解除してください。",
+    "conflictToast": "編集中のノードがオーケストレーターによって変更されました。",
+    "discardMine": "自分の変更を破棄",
+    "keepMine": "自分の変更を保持",
+    "moreInstances": "その他",
+    "editWire": "ワイヤを編集",
+    "deleteWire": "ワイヤを削除",
+    "wireLabelLabel": "ワイヤ",
+    "wireLabelPlaceholder": "任意のラベル",
+    "wireConditionLabel": "条件",
+    "wireConditionPlaceholder": "自然言語ガード — 真の場合のみ通過",
+    "wireMaxIterationsLabel": "最大反復",
+    "wireMaxIterationsPlaceholder": "このエッジが発火する回数を制限 (ループ)",
+    "duplicateEdgeToast": "それらのノード間にはすでに接続があります。"
   },
   "dashboard": {
     "console": "コンソール",
@@ -330,7 +360,19 @@
     "agentCapReached": "ブラウザエージェントの最大数に達しました",
     "galleryView": "すべてのビューポートを表示",
     "singleView": "単一のビューポートを表示",
-    "galleryZoom": "ビューポートのサイズ"
+    "galleryZoom": "ビューポートのサイズ",
+    "modeTitle": "ブラウザ",
+    "modeServer": "Polymux サーバー",
+    "modeServerHint": "ホストされた Chromium で実行します。",
+    "modeExtension": "マイブラウザ「ローカルブラウザ」",
+    "modeLocalBrowser": "ローカルブラウザ",
+    "modeExtensionHint": "拡張機能を介してローカルの Chrome を使用します。",
+    "modeStatusConnected": "接続済み",
+    "modeStatusDisconnected": "未ペアリング",
+    "modeStatusUnavailable": "拡張機能をインストール",
+    "modeUnavailableHelp": "このブラウザに polymux Chrome 拡張機能がインストールされていません。",
+    "modeNotConnectedError": "ブラウザ拡張機能が接続されていません。polymux 拡張機能のポップアップを開いて「接続」をクリックするか、このワークフローをサーバーモードに切り替えてください。",
+    "extensionFeatureDisabled": "ローカルブラウザモードは現在、組織によって無効化されています。"
   },
   "integrations": {
     "installed": "インストール済み",
@@ -400,6 +442,8 @@
     "filterPlugins": "プラグイン",
     "filterIntegrations": "接続",
     "filterInstalled": "インストール済み",
+    "tagFilterBanner": "タグ「{tag}」の一覧を表示しています。",
+    "tagFilterClear": "タグを解除",
     "sortPopularity": "人気順",
     "sortNameAZ": "名前 A-Z",
     "sortNameZA": "名前 Z-A",
@@ -475,16 +519,16 @@
     "manageMembers": "メンバー管理",
     "otherWorkspaces": "ワークスペース",
     "modalTitle": "ワークスペース設定",
-    "modalSubtitle": "ワークスペース設定",
     "currentPlan": "現在のプラン",
     "workspaceBilling": "ワークスペース請求",
     "usage": "使用量",
-    "statSessions": "週間セッション",
+    "statWorkflowRuns": "ワークフロー実行（今月）",
+    "statWeeklyTokens": "週次トークン",
+    "statWeeklyTokensCaption": "月曜 00:00 UTC にリセット · プラン上限",
     "statSeats": "シート",
-    "statTokens": "トークン",
-    "statTokensCaption": "ウォレット残高",
     "statStorage": "ストレージ",
     "statStorageCaption": "使用量を追跡するためにプロバイダーを接続",
+    "localPrimaryTeamWarning": "ローカルストレージはファイルをこのブラウザにのみ保存します。他のメンバーはここに保存されたファイルを開くことができません。チームと共有するには、ストレージ設定で Google ドライブを接続するかクラウドを有効にしてください。",
     "statAgents": "ブラウザエージェント",
     "statAgentsCaption": "利用可能な同時エージェント",
     "statFileSize": "最大ファイルサイズ",
@@ -621,8 +665,10 @@
       "saveOrderEmpty": "接続済みのプロバイダーがありません。下の「接続」から1つ接続してファイル保存を開始してください。",
       "providerGoogleDrive": "Google ドライブ",
       "providerLocal": "ローカル",
+      "providerCloud": "クラウド",
       "providerGoogleDriveDesc": "ワークスペースの Google ドライブフォルダに保存されるファイルです。",
       "providerLocalDesc": "このブラウザ内のみのデバイスストレージです。",
+      "providerCloudDesc": "すべてのワークスペースメンバーと共有される Polymux 管理ストレージです。",
       "connectionsTitle": "接続",
       "connectionsDesc": "このワークスペースのストレージプロバイダーを接続または切断します。",
       "connectionDeviceCapability": "デバイス",
@@ -630,6 +676,7 @@
       "statusAvailable": "利用可能",
       "statusUnavailable": "利用不可",
       "statusFull": "満杯",
+      "statusLocked": "ロック",
       "moveUp": "上へ移動",
       "moveDown": "下へ移動",
       "currentChain": "現在のチェーン",
@@ -820,12 +867,30 @@
     "publish": "ディスカッションを公開",
     "newErrorGeneric": "問題が発生しました。もう一度お試しください。",
     "categories": {
-      "announcements": { "label": "お知らせ", "description": "製品アップデートとコミュニティニュース" },
-      "help": { "label": "ヘルプ & サポート", "description": "質問する、問題を解決する" },
-      "show-and-tell": { "label": "ショー & テル", "description": "Polymux で作ったものを共有" },
-      "feedback": { "label": "フィードバック & アイデア", "description": "次に作るものを形作る" },
-      "workflows": { "label": "ワークフロー", "description": "ブループリント、テンプレート、レシピ" },
-      "agents": { "label": "エージェント", "description": "プロンプト、チューニング、実行比較" }
+      "announcements": {
+        "label": "お知らせ",
+        "description": "製品アップデートとコミュニティニュース"
+      },
+      "help": {
+        "label": "ヘルプ & サポート",
+        "description": "質問する、問題を解決する"
+      },
+      "show-and-tell": {
+        "label": "ショー & テル",
+        "description": "Polymux で作ったものを共有"
+      },
+      "feedback": {
+        "label": "フィードバック & アイデア",
+        "description": "次に作るものを形作る"
+      },
+      "workflows": {
+        "label": "ワークフロー",
+        "description": "ブループリント、テンプレート、レシピ"
+      },
+      "agents": {
+        "label": "エージェント",
+        "description": "プロンプト、チューニング、実行比較"
+      }
     }
   },
   "artifacts": {
@@ -854,7 +919,43 @@
     "deleteError": "アーティファクトを削除できませんでした。"
   },
   "landing": {
-    "useNow": "今すぐ使用"
+    "nav": {
+      "home": "ホーム",
+      "features": "機能",
+      "pricing": "料金",
+      "community": "コミュニティ",
+      "contactUs": "お問い合わせ",
+      "installApp": "アプリをインストール"
+    },
+    "header": {
+      "accountMenu": "アカウントメニュー",
+      "language": "言語",
+      "settings": "設定",
+      "signOut": "ログアウト"
+    },
+    "footer": {
+      "tagline": "インテリジェントなAIエージェントを構築、デプロイ、管理して、ワークフローを自動化します。",
+      "allRightsReserved": "© {year} Polymux. すべての権利を保有しています。",
+      "product": "製品",
+      "community": "コミュニティ",
+      "company": "企業",
+      "legal": "法律",
+      "blog": "ブログ",
+      "documentation": "ドキュメント",
+      "forum": "フォーラム",
+      "aboutUs": "について",
+      "contact": "お問い合わせ",
+      "privacyPolicy": "プライバシーポリシー",
+      "termsOfService": "利用規約",
+      "cookiePolicy": "Cookieポリシー",
+      "linkedIn": "LinkedIn",
+      "x": "X",
+      "instagram": "Instagram",
+      "youTube": "YouTube",
+      "facebook": "Facebook",
+      "reddit": "Reddit",
+      "discord": "Discord"
+    }
   },
   "development": {
     "hero": {
@@ -969,6 +1070,9 @@
       "nameZA": "名前 Z-A",
       "lastUsed": "最終使用",
       "oldestFirst": "古い順",
+      "savedBy": "{name} が保存",
+      "lastUsedBy": "{name} が使用 · {when}",
+      "unknownUser": "不明",
       "view": "表示",
       "edit": "編集",
       "empty": "パスワードはまだ保存されていません",
@@ -989,6 +1093,13 @@
       "copied": "コピーしました！",
       "loading": "パスワードを読み込み中…",
       "saving": "保存中…"
+    },
+    "signIns": {
+      "sectionTitle": "保存済みサインイン",
+      "sectionDescription": "ワークスペースがサインインしたままのサイト。エージェント実行中に自動的に取得され、このワークスペースの新しいブラウザに事前読み込みされます。",
+      "savedSignIn": "保存済みサインイン",
+      "updatedAgo": "更新 {when}",
+      "forget": "削除"
     },
     "tabs": {
       "passwords": "パスワード",
@@ -1321,9 +1432,21 @@
     "yourSystem": "お使いのシステム",
     "otherOptions": "その他のオプション",
     "platforms": {
-      "macos": { "tagline": "ユニバーサルビルド", "requirement": "macOS 12 Monterey 以降", "downloadLabel": "macOS 用をダウンロード" },
-      "windows": { "tagline": "x64 と ARM64", "requirement": "Windows 10 以降", "downloadLabel": "Windows 用をダウンロード" },
-      "linux": { "tagline": "主要なディストリビューション", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Linux 用をダウンロード" }
+      "macos": {
+        "tagline": "ユニバーサルビルド",
+        "requirement": "macOS 12 Monterey 以降",
+        "downloadLabel": "macOS 用をダウンロード"
+      },
+      "windows": {
+        "tagline": "x64 と ARM64",
+        "requirement": "Windows 10 以降",
+        "downloadLabel": "Windows 用をダウンロード"
+      },
+      "linux": {
+        "tagline": "主要なディストリビューション",
+        "requirement": "glibc 2.31+ · x86_64 / aarch64",
+        "downloadLabel": "Linux 用をダウンロード"
+      }
     },
     "mobile": {
       "eyebrow": "開発中",

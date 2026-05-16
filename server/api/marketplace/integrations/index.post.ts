@@ -1,9 +1,9 @@
 import { serverSupabaseUser, serverSupabaseServiceRole } from '#supabase/server'
 import { createHash } from 'node:crypto'
-import { fetchManifest, SafeFetchError } from '~~/server/utils/integrationFetch'
-import { validateManifest, ManifestValidationError } from '~~/server/utils/integrationManifest'
-import { generateSigningSecret } from '~~/server/utils/integrationSignature'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+import { fetchManifest, SafeFetchError } from '~~/server/utils/integrations/integrationFetch'
+import { validateManifest, ManifestValidationError } from '~~/server/utils/integrations/integrationManifest'
+import { generateSigningSecret } from '~~/server/utils/integrations/integrationSignature'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import { isConnectorId } from '~~/server/connectors/registry'
 
 // POST /api/marketplace/integrations

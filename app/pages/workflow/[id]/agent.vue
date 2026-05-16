@@ -1,4 +1,8 @@
 <script setup lang="ts">
+// Cache this page when hopping to Schedule / Artifacts so ChatLayout + WorkflowNodeCanvas
+// stay warm — flow pan/zoom, selection, collapsed parallels, undo stack survive tab swaps.
+definePageMeta({ keepalive: true })
+
 import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 import type { AgentChatsHandle } from '~/composables/chat/useAgentChats'
@@ -23,14 +27,32 @@ const welcomeSuggestion = inject<string>('chat-welcome-suggestion')!
 const presetPrompt = inject<string>('chat-preset-prompt')!
 const titleRequested = inject<Ref<boolean>>('chat-title-requested')!
 const viewMode = inject<Ref<ViewMode>>('chat-view-mode')!
+const browserMode = inject<Ref<'server' | 'extension'>>('chat-browser-mode')!
 const armAutoSwitch = inject<() => void>('chat-arm-auto-switch')!
 const onRename = inject<(title: string) => Promise<void>>('chat-on-rename')!
 const onCloseViewport = inject<(agentId: string) => void>('chat-on-close-viewport')!
 const onSpawnBrowserAgent = inject<() => void>('chat-on-spawn-browser-agent')!
 const session = inject<SessionHandle>('chat-session')!
+const workflowWorkspaceId = inject(
+  'workflow-workspace-id',
+  computed(() => ''),
+) as ComputedRef<string>
+const workspacePlan = inject(
+  'workflow-workspace-plan',
+  computed(() => null as string | null),
+) as ComputedRef<string | null>
+const budgetRestorePrompt = inject(
+  'chat-budget-restore-prompt',
+  ref<string | null>(null),
+)
 
 const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
+)
+
+const { canSendPrompt } = useChatPromptSendGuard(
+  computed(() => workflowWorkspaceId.value ?? ''),
+  computed(() => workspacePlan.value),
 )
 
 const { settings: userSettings } = useUserSettings()
@@ -56,6 +78,28 @@ const command = computed({
     chats.drafts['orchestrator'] = val
   },
 })
+
+watch(budgetRestorePrompt, (v) => {
+  if (v == null || v === '') return
+  command.value = v
+  budgetRestorePrompt.value = null
+})
+
+async function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
+  const t = text.trim()
+  if (!t) return false
+  return canSendPrompt(t)
+}
+
+async function beforeEditMessage(text: string, _attachments: ChatMessageAttachment[]) {
+  return canSendPrompt(text.trim())
+}
+
+async function onWelcomeSuggestion() {
+  const t = presetPrompt.trim()
+  if (!(await canSendPrompt(t))) return
+  onSend(presetPrompt)
+}
 
 function onSend(value: string, attachments?: ChatMessageAttachment[]) {
   const t = value.trim()
@@ -103,9 +147,13 @@ function onRunAgent(_agentId: string) {
 // page mounts. The WS frame itself is buffered inside useWorkflowSession until the
 // socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
-  const pending = consumePendingPrompt(sessionId.value)
-  if (!pending) return
-  onSend(pending.text, pending.attachments)
+  void (async () => {
+    const pending = consumePendingPrompt(sessionId.value)
+    if (!pending) return
+    const trimmed = pending.text.trim()
+    if (!(await canSendPrompt(trimmed))) return
+    onSend(pending.text, pending.attachments)
+  })()
 })
 </script>
 
@@ -114,6 +162,7 @@ onMounted(() => {
     v-model:command="command"
     v-model:viewport-list="viewportList"
     v-model:view-mode="viewMode"
+    v-model:browser-mode="browserMode"
     :welcome="welcome"
     :chat-title="chatTitle"
     :renameable="!isNewChat"
@@ -127,10 +176,13 @@ onMounted(() => {
     :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
     :show-cursor="showCursor"
     :session-id="sessionId"
+    :workspace-id="workflowWorkspaceId"
     :browser-agent-cap="vp.browserAgentCap.value"
     :reconnecting="reconnecting"
     :feedback="messageFeedback.feedback.value"
-    @welcome-suggestion="onSend(presetPrompt)"
+    :before-send-prompt="beforeSendPrompt"
+    :before-edit="beforeEditMessage"
+    @welcome-suggestion="onWelcomeSuggestion"
     @send="onSend"
     @rename="onRename"
     @close-viewport="onCloseViewport"

@@ -937,6 +937,45 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenance_windows: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          starts_at: string
+          ends_at: string
+          created_by: string | null
+          created_at: string
+          cancelled_at: string | null
+          initial_email_sent_at: string | null
+          cancellation_email_sent_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string
+          starts_at: string
+          ends_at: string
+          created_by?: string | null
+          created_at?: string
+          cancelled_at?: string | null
+          initial_email_sent_at?: string | null
+          cancellation_email_sent_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string
+          starts_at?: string
+          ends_at?: string
+          created_by?: string | null
+          created_at?: string
+          cancelled_at?: string | null
+          initial_email_sent_at?: string | null
+          cancellation_email_sent_at?: string | null
+        }
+        Relationships: []
+      }
       message_feedback: {
         Row: {
           created_at: string
@@ -1526,6 +1565,56 @@ export type Database = {
           },
         ]
       }
+      workspace_browser_states: {
+        Row: {
+          id: string
+          workspace_id: string
+          origin: string
+          vault_secret_id: string
+          fingerprint_seed: string | null
+          last_seen_at: string
+          captured_by: string | null
+          last_used_by: string | null
+          last_used_at: string | null
+          use_count: number
+          enabled: boolean
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          origin: string
+          vault_secret_id: string
+          fingerprint_seed?: string | null
+          last_seen_at: string
+          captured_by?: string | null
+          last_used_by?: string | null
+          last_used_at?: string | null
+          use_count?: number
+          enabled?: boolean
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          origin?: string
+          vault_secret_id?: string
+          fingerprint_seed?: string | null
+          last_seen_at?: string
+          captured_by?: string | null
+          last_used_by?: string | null
+          last_used_at?: string | null
+          use_count?: number
+          enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_browser_states_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_file_permissions: {
         Row: {
           created_at: string
@@ -1779,6 +1868,50 @@ export type Database = {
           },
         ]
       }
+      workspace_llm_keys: {
+        Row: {
+          api_key_enc: string
+          created_at: string
+          created_by: string
+          id: string
+          last_four: string
+          last_used_at: string | null
+          provider: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          api_key_enc: string
+          created_at?: string
+          created_by: string
+          id?: string
+          last_four: string
+          last_used_at?: string | null
+          provider: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          api_key_enc?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          last_four?: string
+          last_used_at?: string | null
+          provider?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_llm_keys_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           invited_by: string | null
@@ -1999,6 +2132,10 @@ export type Database = {
       }
       delete_workspace_password: {
         Args: { p_password_id: string }
+        Returns: undefined
+      }
+      delete_workspace_browser_origin: {
+        Args: { p_origin: string; p_workspace_id: string }
         Returns: undefined
       }
       effective_file_permission: {

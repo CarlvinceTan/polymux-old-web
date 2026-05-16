@@ -14,8 +14,11 @@ const {
 
 const open = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
+const menuRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
 
-onClickOutside(containerRef, () => { open.value = false })
+onClickOutside(containerRef, () => { open.value = false }, {
+  ignore: [computed(() => menuRef.value?.dropdownRef)],
+})
 
 function toggle() {
   open.value = !open.value
@@ -43,6 +46,15 @@ function titleFor(n: typeof notifications.value[number]): string {
   if (n.type === 'file_share_received') {
     return t('notifications.fileShareReceivedTitle')
   }
+  if (n.type === 'maintenance_window_scheduled' || n.type === 'maintenance_window_cancelled') {
+    const titleMeta = typeof n.metadata?.title === 'string' ? n.metadata.title : ''
+    // Fall back to the server-written title if the trigger didn't embed one
+    // in metadata — keeps older rows readable after this client deploys.
+    const titleStr = titleMeta || n.title.replace(/^Scheduled maintenance:\s*|^Maintenance cancelled:\s*/, '')
+    return n.type === 'maintenance_window_scheduled'
+      ? t('notifications.maintenanceTitle', { title: titleStr })
+      : t('notifications.maintenanceCancelledTitle', { title: titleStr })
+  }
   return n.title
 }
 function descriptionFor(n: typeof notifications.value[number]): string | null {
@@ -59,7 +71,27 @@ function descriptionFor(n: typeof notifications.value[number]): string | null {
       : t('notifications.anotherWorkspace')
     return t('notifications.fileShareReceivedBody', { path, source })
   }
+  if (n.type === 'maintenance_window_scheduled' || n.type === 'maintenance_window_cancelled') {
+    const startsAtRaw = typeof n.metadata?.starts_at === 'string' ? n.metadata.starts_at : ''
+    const endsAtRaw = typeof n.metadata?.ends_at === 'string' ? n.metadata.ends_at : ''
+    const startsAt = formatMaintenanceTime(startsAtRaw) || startsAtRaw
+    const endsAt = formatMaintenanceTime(endsAtRaw) || endsAtRaw
+    return n.type === 'maintenance_window_scheduled'
+      ? t('notifications.maintenanceBody', { startsAt, endsAt })
+      : t('notifications.maintenanceCancelledBody', { startsAt })
+  }
   return n.description
+}
+
+function formatMaintenanceTime(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
+  } catch {
+    return d.toISOString()
+  }
 }
 
 watch(user, (u) => {
@@ -76,7 +108,7 @@ watch(user, (u) => {
   <div ref="containerRef" class="relative">
     <button
       type="button"
-      class="relative flex size-9 items-center justify-center rounded-lg text-neutral-500 outline-none transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+      class="relative flex size-9 items-center justify-center rounded-lg text-neutral-500 outline-none transition-colors hover:text-neutral-950"
       :aria-label="t('notifications.title')"
       @click="toggle"
     >
@@ -100,7 +132,8 @@ watch(user, (u) => {
       />
     </button>
 
-    <Menu :open="open" align="right" width="w-80">
+    <div class="sm:-mr-4">
+      <Menu ref="menuRef" :open="open" align="right" width="w-96">
       <div class="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
         <span class="text-sm font-semibold text-neutral-950">{{ t('notifications.title') }}</span>
         <button
@@ -115,7 +148,7 @@ watch(user, (u) => {
       <div v-if="!hasNotifications" class="px-3 py-6 text-center text-xs text-neutral-400">
         {{ t('notifications.empty') }}
       </div>
-      <ul v-else class="max-h-80 overflow-y-auto py-1">
+      <ul v-else class="max-h-96 overflow-y-auto py-1">
         <li
           v-for="n in notifications"
           :key="n.id"
@@ -127,5 +160,6 @@ watch(user, (u) => {
         </li>
       </ul>
     </Menu>
+    </div>
   </div>
 </template>

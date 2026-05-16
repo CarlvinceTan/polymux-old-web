@@ -4,6 +4,31 @@ import type { ItemCategory, MarketplaceItem } from '~/composables/integrations/u
 
 const { t } = useI18n()
 const { headerTabs } = useIntegrationsNavTabs()
+const route = useRoute()
+const router = useRouter()
+
+function normalizeTagQuery(raw: unknown): string | null {
+  const s = Array.isArray(raw) ? raw[0] : raw
+  if (typeof s !== 'string' || !s.trim()) return null
+  return s.trim().toLowerCase()
+}
+
+const activeTagFilter = computed(() => normalizeTagQuery(route.query.tag))
+
+function itemMatchesTagFilter(item: MarketplaceItem, tagNorm: string): boolean {
+  return (item.tags ?? []).some(tag => tag.toLowerCase() === tagNorm)
+}
+
+function setTagFilter(tag: string) {
+  const trimmed = tag.trim().toLowerCase()
+  if (!trimmed) return
+  router.replace({ query: { ...route.query, tag: trimmed } })
+}
+
+function clearTagFilter() {
+  const { tag: _omit, ...rest } = route.query
+  router.replace({ query: rest })
+}
 
 type FilterValue = 'all' | ItemCategory | 'installed'
 type SortValue = 'popularity' | 'nameAZ' | 'nameZA' | 'installedFirst' | 'category'
@@ -58,6 +83,11 @@ const filteredItems = computed<MarketplaceItem[]>(() => {
   }
   else if (filterBy.value !== 'all') {
     list = list.filter(i => i.category === filterBy.value)
+  }
+
+  const tagNorm = activeTagFilter.value
+  if (tagNorm) {
+    list = list.filter(i => itemMatchesTagFilter(i, tagNorm))
   }
 
   // Unless the user explicitly chose "Installed first", push installed items
@@ -150,6 +180,7 @@ onUnmounted(() => {
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
       <template #header>
+        <div>
         <div class="flex items-center gap-2">
           <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
             <div class="flex size-8 shrink-0 items-center justify-center text-neutral-400">
@@ -225,6 +256,20 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <div
+          v-if="activeTagFilter"
+          class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/80 px-3 py-2 text-body-md text-neutral-700"
+        >
+          <span>{{ t('integrations.tagFilterBanner', { tag: activeTagFilter }) }}</span>
+          <button
+            type="button"
+            class="rounded-md bg-white px-2 py-1 text-label-md font-semibold text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100"
+            @click="clearTagFilter"
+          >
+            {{ t('integrations.tagFilterClear') }}
+          </button>
+        </div>
+        </div>
       </template>
 
       <div class="relative" style="padding: 2.5rem 6rem 0">
@@ -244,6 +289,7 @@ onUnmounted(() => {
             :tags="item.tags"
             :popularity="item.popularity"
             @open="openDetail(item)"
+            @filter-tag="setTagFilter"
           />
         </div>
 

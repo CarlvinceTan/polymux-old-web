@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
 
   // workflow_schedules isn't in the generated Supabase types yet (new table).
   // Cast through unknown to keep the runtime path clean — same pattern as
-  // server/utils/driveTokens.ts.
+  // server/utils/oauth/driveTokens.ts.
   const admin = supabase as unknown as {
     from: (table: string) => {
       upsert: (row: unknown, opts: { onConflict: string }) => {

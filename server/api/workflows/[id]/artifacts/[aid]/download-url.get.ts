@@ -1,18 +1,18 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { b2SignedDownloadURL } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
 import {
   assertWorkflowMember,
   resolveArtifactId,
   resolveWorkflowId,
-} from '~~/server/utils/workflowAccess'
+} from '~~/server/utils/workspace/workflowAccess'
 
 // GET /api/workflows/[id]/artifacts/[aid]/download-url
 // Returns: { url, expires_at }
 //
-// Mints a short-lived signed URL for the artifact's stored object. Inline-text
-// artifacts (where `content` is set and `storage_path` is null) get a 404 —
-// the client already has the body.
-
-const ARTIFACTS_BUCKET = 'artifacts'
+// Mints a short-lived B2 signed download URL for the artifact's stored
+// object. Inline-text artifacts (where `content` is set and `storage_path`
+// is null) get a 404 — the client already has the body.
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: artifact, error } = await supabase
     .from('artifacts')
-    .select('id, storage_path')
+    .select('id, storage_path, workspace_id')
     .eq('id', artifactId)
     .eq('workflow_id', workflowId)
     .single()
@@ -42,18 +42,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const storagePath = artifact.storage_path as string
+  const workspaceId = artifact.workspace_id as string
   const expiresIn = 60 * 60 // 1h, matches §16.11 leakage cap.
-  const admin = serverSupabaseServiceRole(event)
-  const { data: signed, error: signErr } = await admin.storage
-    .from(ARTIFACTS_BUCKET)
-    .createSignedUrl(artifact.storage_path as string, expiresIn)
-  if (signErr || !signed) {
-    console.error('[artifacts/download-url] sign error', signErr)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to mint download URL.' })
-  }
 
-  return {
-    url: signed.signedUrl,
-    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+  try {
+    const admin = serverSupabaseServiceRole(event)
+    const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
+    return await b2SignedDownloadURL(wsKey, storagePath, expiresIn)
+  }
+  catch (err) {
+    console.error('[artifacts/download-url] b2 sign error', err)
+    throw createError({ statusCode: 500, statusMessage: 'Failed to mint download URL.' })
   }
 })

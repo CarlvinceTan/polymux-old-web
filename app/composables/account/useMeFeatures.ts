@@ -3,13 +3,20 @@
 // composable so a future swap to a different flag backend touches one file.
 //
 // Behaviour:
+// - `ready`: feature flags have finished resolving for this session, or PostHog
+//   is not configured (fail-open). Middleware and FeatureGate use this to avoid
+//   acting on stale "unknown" state.
 // - isEnabled(key) defaults to `true` until PostHog has reported a flag list,
-//   to avoid a flash-of-unauthorized state on first paint.
+//   to avoid a flash-of-unauthorized inside callers that ignore `ready`.
 // - When `posthog-js` is not initialised (POSTHOG_PUBLIC_KEY missing), every
 //   flag resolves enabled — dev environments aren't gated.
-// - The plugin dispatches `posthog:flags-changed` on the window when PostHog
-//   recomputes flags; this composable listens to that and refreshes its
-//   reactive snapshot.
+// - isExtensionModeGloballyAllowed() matches the API's PostHog snapshot for
+//   `extension_mode`: off until flags are ready when PostHog is configured,
+//   unknown/false ⇒ off, no PostHog public key ⇒ on (fail-open for local dev).
+
+//
+// Server-only keys: the polymux binary evaluates PostHog flags such as
+// `plan_limits` (upstream RPM) and `extension_mode` without using this module.
 
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
 
@@ -54,7 +61,15 @@ export function useMeFeatures() {
     syncFromWindow()
   }
 
-  const ready = computed(() => state.value.ready)
+  const ready = computed(() => {
+    if (!import.meta.client) return true
+    const nuxtApp = useNuxtApp()
+    const ph = (nuxtApp.$posthog ?? null) as
+      | { isFeatureEnabled?: (k: string) => boolean | undefined }
+      | null
+    if (!ph || typeof ph.isFeatureEnabled !== 'function') return true
+    return state.value.ready
+  })
 
   function isEnabled(key: string): boolean {
     if (!import.meta.client) return true
@@ -82,5 +97,18 @@ export function useMeFeatures() {
     }
   }
 
-  return { ready, isEnabled, refresh }
+  function isExtensionModeGloballyAllowed(): boolean {
+    if (!import.meta.client) return true
+    const nuxtApp = useNuxtApp()
+    const ph = (nuxtApp.$posthog ?? null) as
+      | { isFeatureEnabled?: (k: string) => boolean | undefined }
+      | null
+    if (!ph || typeof ph.isFeatureEnabled !== 'function') {
+      return true
+    }
+    if (!state.value.ready) return false
+    return ph.isFeatureEnabled('extension_mode') === true
+  }
+
+  return { ready, isEnabled, refresh, isExtensionModeGloballyAllowed }
 }

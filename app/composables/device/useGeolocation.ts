@@ -9,7 +9,7 @@ export interface GeolocationCoords {
 }
 
 export interface UseGeolocationOptions {
-  // Pass `false` from passive consumers (e.g. SettingsModal) that only render
+  // Pass `false` from passive consumers (e.g. UserSettingsModal) that only render
   // permission/toggle UI. The native `watchPosition` only runs while at least
   // one active consumer is mounted, so unrelated pages don't trigger
   // CoreLocation requests just because the global SidePanel mounted them.

@@ -1,4 +1,5 @@
-import { computed, useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
+import { computed, watch } from 'vue'
+import { useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
 import { useAuthFetch } from '../auth/useAuthFetch'
 import { useWorkspaces } from '../account/useWorkspaces'
 import type { BrowserSpawnedPayload, ChatMessage, ChatMessageAttachment } from '../types'
@@ -62,8 +63,34 @@ export interface PendingDraftPrompt {
   attachments?: ChatMessageAttachment[]
 }
 
-function draftStorageKey(workspaceID: string): string {
-  return `polymux_draft_workflow:${workspaceID}`
+/** Serialized concurrent tab-wide draft creation — shared across composable callsites. */
+let draftCreationInFlight: Promise<WorkflowSummary | null> | null = null
+
+function draftStorageKey(workspaceId: string): string {
+  return `polymux_chat_draft:${workspaceId}`
+}
+
+function readStoredDraftId(workspaceId: string): string | null {
+  if (!import.meta.client) return null
+  try {
+    return sessionStorage.getItem(draftStorageKey(workspaceId))
+  } catch {
+    return null
+  }
+}
+
+function writeStoredDraftId(workspaceId: string, draftId: string) {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.setItem(draftStorageKey(workspaceId), draftId)
+  } catch {}
+}
+
+function clearStoredDraftId(workspaceId: string) {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.removeItem(draftStorageKey(workspaceId))
+  } catch {}
 }
 
 function pendingPromptKey(sessionID: string): string {
@@ -71,17 +98,9 @@ function pendingPromptKey(sessionID: string): string {
 }
 
 export function useWorkflowList() {
-  const realSessions = useState<WorkflowSummary[]>('chat-sessions', () => [])
   const draft = useState<WorkflowSummary | null>('chat-draft-session', () => null)
-  // Becomes true once fetchSessions has completed at least once for the
-  // current workspace. Lets pages distinguish "still loading" from
-  // "loaded, list is empty" so they can validate stale URLs (e.g. a
-  // /workflow/{id} that points at a deleted session) without false positives.
   const sessionsLoaded = useState<boolean>('chat-sessions-loaded', () => false)
-  // Per-workspace last-fetch timestamp. Suppresses the redundant network
-  // round-trip when multiple consumers (SidePanel, dashboard, etc.) call
-  // fetchSessions on mount within a short window.
-  const sessionsFetchedAt = useState<Record<string, number>>('chat-sessions-fetched-at', () => ({}))
+  const workflowEnsureWatchInstalled = useState<boolean>('workflow-ensure-watch-installed', () => false)
   // Per-session running indicator overrides keyed by session id. Owned by the
   // workflow page's runningKind watch — for the focused workflow it has
   // earlier, finer-grained signals than the server (orchestrator streaming /
@@ -89,30 +108,45 @@ export function useWorkflowList() {
   // server's Session.RunningKind catches because it only tracks activeRuns
   // and agent statuses). The map sticks until the page explicitly clears
   // the entry (kind === null on unmount / chat idle).
-  //
-  // For BACKGROUND rows (workflows the user isn't currently focused on),
-  // the override is absent and the row falls back to the server-authored
-  // running_kind on the WorkflowSummary returned by /sessions — the Go
-  // server now persists running_kind alongside is_running, so background
-  // chat-driven activity is correctly rendered as a chat spinner instead
-  // of being misrepresented as a workflow_run progress arc.
   const runningOverrides = useState<Record<string, { is_running: boolean; running_kind: 'chat' | 'workflow' | null }>>('chat-running-overrides', () => ({}))
   const { authFetch } = useAuthFetch()
 
   const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
   const currentUser = useSupabaseUser()
+  const queryClient = useQueryClient()
 
-  // Hide other members' in-progress "New Workflow" rows (briefly present during
-  // another user's first-prompt commit). The caller's own drafts live purely
-  // on the client (with a real uuid) and never appear in this list.
-  // If we don't yet know who the caller is (the supabase user ref can be
-  // momentarily null right after auth/HMR), skip the filter — otherwise we'd
-  // mistakenly drop the caller's own "New Workflow" rows and the sidebar entry
-  // would briefly disappear while the backend title is still generating.
   function visibleReal(all: WorkflowSummary[]): WorkflowSummary[] {
     const me = currentUser.value?.id
     if (!me) return all
     return all.filter(s => s.title !== 'New Workflow' || s.user_id === me)
+  }
+
+  const query = useQuery({
+    queryKey: computed(() => ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']),
+    queryFn: async () => {
+      const wsId = currentWorkspaceId.value
+      const path = wsId ? `/sessions?workspace_id=${wsId}` : '/sessions'
+      const data = await authFetch<WorkflowSummary[]>(path)
+      sessionsLoaded.value = true
+      return visibleReal(data ?? [])
+    },
+  })
+
+  const realSessions = computed(() => query.data.value ?? [])
+
+  /** GET /draft-sessions/{id} → 204 when the server draft registry still holds this id. */
+  async function validateDraftSession(id: string): Promise<boolean> {
+    try {
+      await authFetch(`/draft-sessions/${encodeURIComponent(id)}`)
+      return true
+    }
+    catch (err) {
+      const e = err as { status?: number; statusCode?: number }
+      const code = e.status ?? e.statusCode ?? 0
+      if (code === 404) return false
+      console.warn('[useWorkflowList] validateDraftSession failed', err)
+      return false
+    }
   }
 
   const sessions = computed<WorkflowSummary[]>(() => {
@@ -120,130 +154,125 @@ export function useWorkflowList() {
     return draft.value ? [draft.value, ...real] : real
   })
 
-  // Stale-while-revalidate window for the session list. Multiple consumers
-  // (SidePanel + dashboard) call fetchSessions on mount; without this they'd
-  // each issue a round-trip on every navigation.
-  const SESSIONS_STALE_MS = 30_000
-
   async function fetchSessions(opts?: { force?: boolean }) {
-    const wsId = currentWorkspaceId.value
-    const cacheKey = wsId ?? '_no_workspace_'
-    if (!opts?.force) {
-      const last = sessionsFetchedAt.value[cacheKey] ?? 0
-      if (Date.now() - last < SESSIONS_STALE_MS) return
-    }
-    try {
-      const path = wsId ? `/sessions?workspace_id=${wsId}` : '/sessions'
-      const data = await authFetch<WorkflowSummary[]>(path)
-      realSessions.value = visibleReal(data ?? [])
-      sessionsFetchedAt.value = { ...sessionsFetchedAt.value, [cacheKey]: Date.now() }
-    } catch (err) {
-      console.error('[useWorkflowList] fetchSessions failed', err)
-    } finally {
-      sessionsLoaded.value = true
-    }
-  }
-
-  function persistDraft(d: WorkflowSummary | null) {
-    if (!import.meta.client) return
-    const wsId = currentWorkspaceId.value
-    if (!wsId) return
-    const key = draftStorageKey(wsId)
-    if (d) {
-      try { sessionStorage.setItem(key, JSON.stringify(d)) } catch {}
+    const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+    if (opts?.force) {
+      await queryClient.invalidateQueries({ queryKey: key })
     } else {
-      try { sessionStorage.removeItem(key) } catch {}
-    }
-  }
-
-  async function restoreDraft() {
-    if (!import.meta.client) return
-    const wsId = currentWorkspaceId.value
-    if (!wsId) return  // workspace not loaded yet — leave draft untouched
-    // If a draft already exists for this workspace in memory, keep it (avoid
-    // clobbering a freshly-created draft whose persist hasn't been read back).
-    if (draft.value && draft.value.workspace_id === wsId) return
-
-    let stored: WorkflowSummary | null = null
-    try {
-      const raw = sessionStorage.getItem(draftStorageKey(wsId))
-      stored = raw ? (JSON.parse(raw) as WorkflowSummary) : null
-    } catch {
-      stored = null
-    }
-    if (!stored) {
-      draft.value = null
-      return
-    }
-
-    // Drafts live in the backend's in-memory registry — server restarts and
-    // the idle sweep both wipe them, so a sessionStorage entry can outlive
-    // the registry record. Verify the id is still valid before reusing it,
-    // otherwise we'd send the user into a WS reconnect loop on an unknown id.
-    try {
-      await authFetch(`/draft-sessions/${stored.id}`, { method: 'GET' })
-      draft.value = stored
-    } catch {
-      try { sessionStorage.removeItem(draftStorageKey(wsId)) } catch {}
-      draft.value = null
+      await queryClient.fetchQuery({ queryKey: key })
     }
   }
 
   // createDraft asks the backend to allocate a uuid for an unpersisted "New
-  // Workflow" sandbox. Idempotent within a tab: if a draft already exists in
-  // memory or sessionStorage, we reuse it — otherwise the user would lose
-  // already-uploaded files when they navigate away and back within the tab.
+  // Workflow" sandbox. Idempotent within a tab: existing memory draft wins,
+  // otherwise we restore from sessionStorage when GET /draft-sessions/{id}
+  // succeeds, matching the server's draft registry across reloads.
   async function createDraft(): Promise<WorkflowSummary | null> {
     if (draft.value) return draft.value
-    // Workspace bootstrap (SidePanel.bootstrapData) may still be in flight on
-    // post-login navigation — localStorage has no cached workspace id and
-    // /workflow/new mounts in parallel with fetchWorkspaces. Wait for the id
-    // before erroring so the draft creation isn't lost to that race.
-    const wsId = currentWorkspaceId.value ?? await waitForWorkspace()
-    if (!wsId) {
-      console.error('[useWorkflowList] createDraft: no workspace')
-      return null
-    }
-    // After the wait, try the sessionStorage restore again — if the page
-    // called restoreDraft() before the workspace was loaded, that call was a
-    // no-op and we'd otherwise create a duplicate draft alongside the stored one.
-    if (!draft.value) await restoreDraft()
-    if (draft.value) return draft.value
-    const me = currentUser.value?.id ?? ''
-    try {
-      const res = await authFetch<{ id: string }>('/draft-sessions', {
-        method: 'POST',
-        body: JSON.stringify({ workspace_id: wsId }),
-      })
-      if (!res?.id) {
-        console.error('[useWorkflowList] createDraft: no id in response')
+    if (draftCreationInFlight) return draftCreationInFlight
+
+    draftCreationInFlight = (async (): Promise<WorkflowSummary | null> => {
+      try {
+        const wsId = currentWorkspaceId.value ?? await waitForWorkspace()
+        if (!wsId) {
+          console.error('[useWorkflowList] createDraft: no workspace')
+          return null
+        }
+        if (draft.value) return draft.value
+
+        const me = currentUser.value?.id ?? ''
+
+        const storedId = readStoredDraftId(wsId)
+        if (storedId) {
+          const alive = await validateDraftSession(storedId)
+          if (alive) {
+            const now = new Date().toISOString()
+            const d: WorkflowSummary = {
+              id: storedId,
+              title: 'New Workflow',
+              user_id: me,
+              workspace_id: wsId,
+              created_at: now,
+              updated_at: now,
+              is_draft: true,
+            }
+            draft.value = d
+            return d
+          }
+          clearStoredDraftId(wsId)
+        }
+
+        if (draft.value) return draft.value
+
+        const res = await authFetch<{ id: string }>('/draft-sessions', {
+          method: 'POST',
+          body: JSON.stringify({ workspace_id: wsId }),
+        })
+        if (!res?.id) {
+          console.error('[useWorkflowList] createDraft: no id in response')
+          return null
+        }
+        writeStoredDraftId(wsId, res.id)
+        const now = new Date().toISOString()
+        const d: WorkflowSummary = {
+          id: res.id,
+          title: 'New Workflow',
+          user_id: me,
+          workspace_id: wsId,
+          created_at: now,
+          updated_at: now,
+          is_draft: true,
+        }
+        draft.value = d
+        return d
+      }
+      catch (err) {
+        console.error('[useWorkflowList] createDraft failed', err)
         return null
       }
-      const now = new Date().toISOString()
-      const d: WorkflowSummary = {
-        id: res.id,
-        title: 'New Workflow',
-        user_id: me,
-        workspace_id: wsId,
-        created_at: now,
-        updated_at: now,
-        is_draft: true,
+      finally {
+        draftCreationInFlight = null
       }
-      draft.value = d
-      persistDraft(d)
-      return d
-    } catch (err) {
-      console.error('[useWorkflowList] createDraft failed', err)
-      return null
-    }
+    })()
+
+    return draftCreationInFlight
   }
 
   function dropDraft() {
+    const wsId = draft.value?.workspace_id
     draft.value = null
-    persistDraft(null)
+    if (wsId) clearStoredDraftId(wsId)
   }
 
-  // markDraftCommitted moves the in-memory draft into the realSessions list
+  /** `/sessions` omits unpersisted drafts; keep at least one sidebar row after reload or workspace fetch. */
+  async function ensureAtLeastOneWorkflow() {
+    if (!import.meta.client) return
+    if (!sessionsLoaded.value || query.isError.value) return
+    const wsId = currentWorkspaceId.value
+    if (!wsId || draft.value || realSessions.value.length > 0) return
+    await createDraft()
+  }
+
+  if (import.meta.client && !workflowEnsureWatchInstalled.value) {
+    workflowEnsureWatchInstalled.value = true
+    watch(
+      () => ({
+        loaded: sessionsLoaded.value,
+        fetching: query.isFetching.value,
+        err: query.isError.value,
+        ws: currentWorkspaceId.value,
+        empty: realSessions.value.length === 0,
+        hasDraft: !!draft.value,
+      }),
+      async (s) => {
+        if (!s.loaded || s.fetching || s.err || !s.ws || !s.empty || s.hasDraft) return
+        await createDraft()
+      },
+      { flush: 'post' },
+    )
+  }
+
+  // markDraftCommitted moves the in-memory draft into the query cache
   // without re-fetching. Called by the new-workflow page right after it sends
   // the first prompt: the backend creates the workflows row synchronously
   // (handleUserMessage → CreateSession with the draft uuid) before persisting
@@ -253,7 +282,11 @@ export function useWorkflowList() {
     const d = draft.value
     if (!d) return null
     const promoted: WorkflowSummary = { ...d, is_draft: false }
-    realSessions.value = [promoted, ...realSessions.value.filter(x => x.id !== promoted.id)]
+    const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+    queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) => {
+      const arr = old ?? []
+      return [promoted, ...arr.filter(x => x.id !== promoted.id)]
+    })
     dropDraft()
     return promoted
   }
@@ -263,25 +296,26 @@ export function useWorkflowList() {
     if (target?.is_draft) return
     const trimmed = title.trim()
     if (!trimmed) return
+
+    const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+
+    // Snapshot for rollback
+    const previous = queryClient.getQueryData<WorkflowSummary[]>(key)
+
+    queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) => {
+      const arr = [...(old ?? [])]
+      const idx = arr.findIndex(s => s.id === id)
+      if (idx !== -1) arr[idx] = { ...arr[idx]!, title: trimmed }
+      return arr
+    })
+
     try {
       await authFetch(`/sessions/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ title: trimmed }),
       })
-      // Replace the array entry (and reassign the ref) rather than mutating
-      // `s.title` in place. Some downstream computeds — notably the session
-      // page's `workflowTitle` and SidePanel's `displaySessions` watcher —
-      // miss array-element property mutations but pick up reference swaps.
-      const idx = realSessions.value.findIndex(s => s.id === id)
-      if (idx !== -1) {
-        const next = [...realSessions.value]
-        next[idx] = { ...next[idx]!, title: trimmed }
-        realSessions.value = next
-      }
     } catch (err) {
-      // 404 = the row was deleted (e.g. deleteSessionIfEmpty fired on route
-      // leave) or RLS-hidden. Title renames are best-effort — a stale title
-      // arriving over the WS shouldn't surface as an error.
+      if (previous) queryClient.setQueryData(key, previous)
       const e = err as { status?: number }
       if (e?.status === 404) return
       console.error('[useWorkflowList] renameSession failed', err)
@@ -291,17 +325,9 @@ export function useWorkflowList() {
   // Records the workflow page's authoritative view of what's driving the
   // current session — chat-building vs. workflow_run-executing — into the
   // override map the SidePanel merges over server data. Stays decoupled from
-  // `realSessions` on purpose: `fetchSessions` and `markDraftCommitted` both
+  // the query cache on purpose: `fetchSessions` and `markDraftCommitted` both
   // rebuild rows without `running_kind`, so writing here would be wiped on
   // the next refresh.
-  //
-  // Pass a non-null `kind` to assert "this row is running, with this engine."
-  // Pass `null` to release the override entirely so the SidePanel falls back
-  // to server data — that's the right behaviour both when the local view
-  // observes idle (no chat / no workflow_run / no sessionState.is_running)
-  // and on page unmount, when we've lost the signals to keep it accurate.
-  // Keeping a stale `is_running=false` override would otherwise mask a real
-  // cloud-side run that started after we stopped watching.
   function setSessionRunning(id: string, kind: 'chat' | 'workflow' | null) {
     if (!id) return
     if (kind == null) {
@@ -325,8 +351,6 @@ export function useWorkflowList() {
       try {
         await authFetch(`/draft-sessions/${id}`, { method: 'DELETE' })
       } catch (err) {
-        // Best-effort: server may have already swept the draft. UI proceeds
-        // either way so the user can re-create.
         console.warn('[useWorkflowList] cancel draft failed (continuing)', err)
       }
       dropDraft()
@@ -334,7 +358,10 @@ export function useWorkflowList() {
     }
     try {
       await authFetch(`/sessions/${id}`, { method: 'DELETE' })
-      realSessions.value = realSessions.value.filter(s => s.id !== id)
+      const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+      queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) =>
+        (old ?? []).filter(s => s.id !== id),
+      )
     } catch (err) {
       console.error('[useWorkflowList] deleteSession failed', err)
     }
@@ -345,8 +372,6 @@ export function useWorkflowList() {
   async function deleteSessionIfEmpty(id: string) {
     const target = sessions.value.find(s => s.id === id)
     if (target?.is_draft) {
-      // Drafts are already covered by deleteSession's draft branch + the
-      // server's idle sweep — no fire-and-forget DELETE here.
       dropDraft()
       return
     }
@@ -364,7 +389,10 @@ export function useWorkflowList() {
           'Content-Type': 'application/json',
         },
       })
-      realSessions.value = realSessions.value.filter(s => s.id !== id)
+      const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+      queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) =>
+        (old ?? []).filter(s => s.id !== id),
+      )
     }
     catch (err) {
       console.error('[useWorkflowList] deleteSessionIfEmpty failed', err)
@@ -374,12 +402,6 @@ export function useWorkflowList() {
   // Returns null when the workflow is forbidden / gone (HTTP 403) so callers
   // can redirect away from a stale URL instead of treating it as an empty
   // history. Empty array still means "loaded, no messages yet".
-  //
-  // Transient errors (network blip, 5xx, gateway timeout) trigger a single
-  // retry with a short delay before giving up. Without the retry, a remount
-  // mid-turn that lost the GET to a transient hiccup would silently return []
-  // — loadHistory would then short-circuit, and the user would only see the
-  // live in-progress partials with all prior turns missing from the panel.
   async function fetchMessages(sessionId: string, agentId?: string): Promise<ChatMessage[] | null> {
     const target = sessions.value.find(s => s.id === sessionId)
     if (target?.is_draft) return []
@@ -430,9 +452,6 @@ export function useWorkflowList() {
         continue
       }
 
-      // Persisted `meta.thinking` is ignored: no UI consumes thinking-role
-      // entries in the messages array. The live `chat.thinking` ref drives
-      // the working indicator instead.
       out.push({
         role: 'agent',
         text: m.content,
@@ -473,7 +492,6 @@ export function useWorkflowList() {
     createDraft,
     dropDraft,
     markDraftCommitted,
-    restoreDraft,
     renameSession,
     setSessionRunning,
     deleteSession,
@@ -481,5 +499,6 @@ export function useWorkflowList() {
     fetchMessages,
     setPendingPrompt,
     consumePendingPrompt,
+    ensureAtLeastOneWorkflow,
   }
 }

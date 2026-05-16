@@ -1,7 +1,7 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { deleteDriveFile } from '~~/server/utils/googleOAuth'
+import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { deleteDriveFile } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workspaces/[id]/files/finalize-local-migration
 // Body: { source: 'google-drive', device_id: string, items: [{ file_id }] }

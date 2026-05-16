@@ -1,5 +1,5 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/migrate-folder-backends
 // Body: { source: Backend, target: Backend, device_id?: string }

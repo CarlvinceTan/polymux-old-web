@@ -1,17 +1,41 @@
-export type WorkflowStepKind = 'directive' | 'sequence' | 'loop' | 'parallel'
+// Canvas-coord top-left + box size carried inline on each node so the
+// rendered layout follows the saved workflow across devices, sessions, and
+// version switches. Both are optional; absent means "auto-layout fills in".
+export interface NodePosition { x: number, y: number }
+export interface NodeSize { w: number, h: number }
 
-export interface WorkflowStep {
-  id?: string
-  kind?: WorkflowStepKind
+export type WireSide = 'left' | 'right' | 'top' | 'bottom'
+
+export interface WorkflowNode {
+  id: string
+  description?: string
   action?: string
   target?: string
   value?: string
-  description?: string
   annotation?: string
+  // Presentation-only fields. The executor and orchestrator ignore them;
+  // the canvas reads them when rendering and writes them back on user
+  // drag / resize gestures.
+  position?: NodePosition
+  size?: NodeSize
+}
+
+export interface WorkflowWire {
+  id: string
+  from_id: string
+  to_id: string
+  label?: string
   condition?: string
   max_iterations?: number
-  shared_context_keys?: string[]
-  children?: WorkflowStep[]
+  // Presentation-only: which port side the wire visually attaches to on
+  // each end. Empty / absent means "auto-pick at render time".
+  from_side?: WireSide
+  to_side?: WireSide
+}
+
+export interface WorkflowGraph {
+  nodes: WorkflowNode[]
+  wires: WorkflowWire[]
 }
 
 export interface Workflow {
@@ -28,13 +52,16 @@ export interface WorkflowVersion {
   id: string
   workflow_id: string
   version: number
-  steps: WorkflowStep[]
+  // Persisted column is named `steps` for migration continuity; the payload
+  // is the full `{nodes, edges}` graph.
+  steps: WorkflowGraph
   source: 'user' | 'agent' | string
   change_summary?: string
   impact_level: 'trivial' | 'preference' | 'significant' | 'fundamental' | string
   agent_concern?: string
   tags: string[]
-  locked_step_indices: number[]
+  // Node ids the user has pinned from orchestrator edits.
+  locked_node_ids?: string[]
   client_nonce?: string
   created_by: string
   created_at: string
@@ -78,14 +105,14 @@ export class VersionConflictError extends Error {
 }
 
 export interface CreateVersionInput {
-  steps: WorkflowStep[]
+  steps: WorkflowGraph
   expected_version: number
   source?: 'user' | 'agent'
   change_summary?: string
   impact_level?: 'trivial' | 'preference' | 'significant' | 'fundamental'
   agent_concern?: string
   tags?: string[]
-  locked_step_indices?: number[]
+  locked_node_ids?: string[]
   client_nonce?: string
 }
 
@@ -136,8 +163,9 @@ export function useWorkflows() {
     }
   }
 
-  // createVersion throws VersionConflictError on 409 so the caller can re-pull the
-  // latest version and re-display a merge/conflict UI. All other failures resolve null.
+  // createVersion throws VersionConflictError on 409 so the caller can re-pull
+  // the latest version and re-display a merge/conflict UI. All other failures
+  // resolve null.
   async function createVersion(workspaceID: string, workflowID: string, input: CreateVersionInput): Promise<WorkflowVersion | null> {
     try {
       const v = await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`, {
@@ -170,10 +198,6 @@ export function useWorkflows() {
     }
     catch (err) {
       console.error('[useWorkflows] startRun failed', err)
-      // The Go handler returns {"error": "..."} for every failure mode
-      // (session not connected, no versions, decode-step failures, etc).
-      // Bubble that up so the caller can surface the specific cause instead
-      // of a generic "failed to start run" toast.
       return { error: extractServerError(err) ?? 'Unknown error' }
     }
   }
@@ -189,16 +213,12 @@ export function useWorkflows() {
   }
 
   // Reset the workflow to a previously-saved version by deleting every
-  // version strictly newer than the target on the server. The chosen version
-  // becomes the new latest; the caller is responsible for re-syncing local
-  // canvas state (draft steps, overrides, etc.) to the returned version.
+  // version strictly newer than the target on the server.
   async function resetToVersion(workspaceID: string, workflowID: string, versionID: string): Promise<{ version: WorkflowVersion } | { error: string }> {
     try {
       const version = await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions/${versionID}/reset`, {
         method: 'POST',
       })
-      // Drop any cached newer versions locally so the history drawer reflects
-      // the truncated server state without a refetch.
       versions.value = versions.value.filter(v => v.version <= version.version)
       return { version }
     }

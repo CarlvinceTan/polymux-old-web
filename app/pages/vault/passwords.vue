@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
+import { useIntersectionObserver } from '@vueuse/core'
+import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 
 const { t } = useI18n()
 
@@ -12,6 +14,36 @@ const {
   addPassword,
   deletePassword,
 } = usePasswords()
+
+const {
+  signIns,
+  loading: signInsLoading,
+  fetchSignIns,
+  forgetOrigin,
+} = useSignIns()
+
+// Resolve created_by / last_used_by UUIDs to display names. Members are
+// fetched on mount alongside passwords; both states are workspace-scoped via
+// useState so a navigation back to this page reuses the cache.
+const { currentWorkspace, members, fetchMembers } = useWorkspaces()
+
+const tabPanelRef = ref<{ bodyScrollEl: HTMLElement | null } | null>(null)
+
+const memberLookup = computed(() => {
+  const map = new Map<string, { name: string; email: string }>()
+  for (const m of members.value) {
+    map.set(m.user_id, {
+      name: m.display_name?.trim() || m.email || m.user_id.slice(0, 8),
+      email: m.email ?? '',
+    })
+  }
+  return map
+})
+
+function nameFor(userId: string | null | undefined): string {
+  if (!userId) return t('vault.passwords.unknownUser')
+  return memberLookup.value.get(userId)?.name ?? t('vault.passwords.unknownUser')
+}
 
 const searchQuery = ref('')
 const filterBy = ref('all')
@@ -101,6 +133,35 @@ const filteredPasswords = computed(() => {
   return result
 })
 
+const { visibleItems: visiblePasswords, hasMore: passwordsHasMore, loadMore: loadMorePasswords } = useInfiniteList(filteredPasswords, 24)
+
+const { visibleItems: visibleSignIns, hasMore: signInsHasMore, loadMore: loadMoreSignIns } = useInfiniteList(computed(() => signIns.value), 20)
+
+const passwordsScrollSentinel = ref<HTMLElement | null>(null)
+const signInsScrollSentinel = ref<HTMLElement | null>(null)
+
+const tabBodyEl = computed(() => tabPanelRef.value?.bodyScrollEl ?? undefined)
+
+useIntersectionObserver(
+  passwordsScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && passwordsHasMore.value) loadMorePasswords()
+  },
+  { root: tabBodyEl, rootMargin: '120px' },
+)
+
+useIntersectionObserver(
+  signInsScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && signInsHasMore.value) loadMoreSignIns()
+  },
+  { root: tabBodyEl, rootMargin: '120px' },
+)
+
+const passwordListPlaceholder = computed(
+  () => filteredPasswords.value.length === 0,
+)
+
 async function handleAdd(entry: { name: string; url: string; username: string; password: string }) {
   await addPassword(entry.url, entry.username, entry.password, entry.name)
 }
@@ -128,12 +189,24 @@ function handleFilterClickOutside(event: MouseEvent) {
   }
 }
 
+async function handleForgetSignIn(origin: string) {
+  await forgetOrigin(origin)
+}
+
+async function loadAll(wsId: string, opts?: { force?: boolean }) {
+  await fetchPasswords(opts)
+  void Promise.all([fetchSignIns(opts), fetchMembers(wsId)])
+}
+
 onMounted(() => {
   document.addEventListener('click', handleFilterClickOutside)
-  fetchPasswords()
 })
 
-useOnReconnect(fetchPasswords)
+useOnReconnect(() => {
+  if (currentWorkspace.value?.id) {
+    loadAll(currentWorkspace.value.id, { force: true })
+  }
+})
 
 onUnmounted(() => {
   document.removeEventListener('click', handleFilterClickOutside)
@@ -147,7 +220,7 @@ onUnmounted(() => {
       <PageHeader :tabs="headerTabs" raw-tab-labels />
     </header>
 
-    <TabPanel class="min-h-0 min-w-0 flex-1">
+    <TabPanel ref="tabPanelRef" class="min-h-0 min-w-0 flex-1">
       <template #header>
         <div class="flex items-center gap-2">
           <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
@@ -237,42 +310,96 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <div class="relative" style="padding: 2.5rem 6rem">
-        <div v-if="loading" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <p class="text-body-md font-medium text-neutral-500">{{ t('vault.passwords.loading') }}</p>
-        </div>
-
+      <!-- Single root so TabPanel body flex-1/min-h-0 applies; nested flex-1 centers placeholders in the scroll viewport. -->
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <div
-          v-else-if="filteredPasswords.length > 0"
-          class="grid gap-4"
-          style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))"
+          class="relative flex min-h-0 min-w-0 flex-1 flex-col px-24 py-10"
+          :class="{ 'justify-center': passwordListPlaceholder }"
         >
-          <PasswordCard
-            v-for="pw in filteredPasswords"
-            :key="pw.id"
-            :id="pw.id"
-            :name="pw.name"
-            :url="pw.url"
-            :username="pw.username"
-            :last-used="pw.lastUsed"
-            @view="handleView"
-            @edit="handleEdit"
-            @delete="handleDelete"
-          />
+          <div
+            v-if="filteredPasswords.length > 0"
+            class="grid gap-4"
+            style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))"
+          >
+            <PasswordCard
+              v-for="pw in visiblePasswords"
+              :key="pw.id"
+              :id="pw.id"
+              :name="pw.name"
+              :url="pw.url"
+              :username="pw.username"
+              :last-used="pw.lastUsed"
+              :saved-by-name="nameFor(pw.createdBy)"
+              :last-used-by-name="pw.lastUsedBy ? nameFor(pw.lastUsedBy) : null"
+              @view="handleView"
+              @edit="handleEdit"
+              @delete="handleDelete"
+            />
+            <div
+              v-if="passwordsHasMore"
+              ref="passwordsScrollSentinel"
+              class="col-span-full h-px w-full shrink-0"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div
+            v-else-if="passwords.length === 0 && signIns.length === 0 && !loading && !signInsLoading"
+            class="flex w-full flex-col items-center px-4 text-center"
+          >
+            <div class="flex max-w-sm flex-col items-center gap-3">
+              <svg class="size-10 shrink-0 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="7.5" cy="15.5" r="5.5" />
+                <path d="m21 2-9.6 9.6" />
+                <path d="m15.5 7.5 3 3L22 7l-3-3" />
+              </svg>
+              <p class="text-body-md font-medium text-neutral-500">{{ t('vault.passwords.empty') }}</p>
+            </div>
+          </div>
+
+          <p
+            v-else-if="passwords.length > 0 && filteredPasswords.length === 0"
+            class="w-full px-4 text-center text-body-md text-neutral-500"
+          >
+            {{ t('vault.passwords.noResults') }}
+          </p>
         </div>
 
-        <div v-else-if="passwords.length === 0" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <svg class="mb-4 size-10 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="7.5" cy="15.5" r="5.5" />
-            <path d="m21 2-9.6 9.6" />
-            <path d="m15.5 7.5 3 3L22 7l-3-3" />
-          </svg>
-          <p class="text-body-md font-medium text-neutral-500">{{ t('vault.passwords.empty') }}</p>
+        <!--
+          Saved sign-ins — cookies + localStorage captured by the agent during a
+          prior workflow run. Listed alongside passwords because they're the same
+          thing to a member: a way the workspace stays signed into a site. The
+          capture path is fully server-side, so this section is read+forget only.
+        -->
+        <div v-if="!signInsLoading && signIns.length > 0" class="shrink-0 px-24 pb-10 pt-0">
+          <h2 class="mb-3 text-body-lg font-semibold text-neutral-950">
+            {{ t('vault.signIns.sectionTitle') }}
+          </h2>
+          <p class="mb-5 text-meta text-neutral-500">
+            {{ t('vault.signIns.sectionDescription') }}
+          </p>
+          <div
+            class="grid gap-4"
+            style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))"
+          >
+            <SignInCard
+              v-for="si in visibleSignIns"
+              :key="si.origin"
+              :origin="si.origin"
+              :last-seen-at="si.lastSeenAt"
+              :last-used-at="si.lastUsedAt"
+              :saved-by-name="si.capturedBy ? nameFor(si.capturedBy) : nameFor(null)"
+              :last-used-by-name="si.lastUsedBy ? nameFor(si.lastUsedBy) : null"
+              @forget="handleForgetSignIn"
+            />
+            <div
+              v-if="signInsHasMore"
+              ref="signInsScrollSentinel"
+              class="col-span-full h-px w-full shrink-0"
+              aria-hidden="true"
+            />
+          </div>
         </div>
-
-        <p v-else class="py-12 text-center text-body-md text-neutral-500">
-          {{ t('vault.passwords.noResults') }}
-        </p>
       </div>
     </TabPanel>
 

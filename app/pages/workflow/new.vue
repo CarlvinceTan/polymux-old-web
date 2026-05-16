@@ -3,14 +3,38 @@ import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/compos
 
 const { t } = useI18n()
 const route = useRoute()
-const { draft, createDraft, markDraftCommitted, setPendingPrompt, restoreDraft } = useWorkflowList()
+const { draft, createDraft, markDraftCommitted, setPendingPrompt } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
+const BROWSER_MODE_KEY_PREFIX = 'polymux_workflow_browsermode:'
+
+type BrowserMode = 'server' | 'extension'
+function isBrowserMode(v: unknown): v is BrowserMode {
+  return v === 'server' || v === 'extension'
+}
+const browserMode = ref<BrowserMode>('server')
 
 onMounted(async () => {
-  restoreDraft()
   if (!draft.value) await createDraft()
   sessionStorage.setItem(TAB_LAST_WORKFLOW_KEY, 'new')
+  const id = draft.value?.id
+  if (id) {
+    try {
+      const raw = sessionStorage.getItem(BROWSER_MODE_KEY_PREFIX + id)
+      browserMode.value = isBrowserMode(raw) ? raw : 'server'
+    } catch {
+      browserMode.value = 'server'
+    }
+  }
+})
+
+watch(browserMode, (mode) => {
+  if (!import.meta.client) return
+  const id = draft.value?.id
+  if (!id) return
+  try {
+    sessionStorage.setItem(BROWSER_MODE_KEY_PREFIX + id, mode)
+  } catch {}
 })
 
 // Single agent tab, self-referential so the header matches the style on
@@ -21,6 +45,25 @@ const command = ref('')
 const viewportList = ref<ViewportState[]>([])
 const emptyMessages: ChatMessage[] = []
 
+const USER_NAME = 'Carlvince'
+const welcomeSuggestion = 'Show me something cool'
+const presetPrompt = pickWelcomePrompt()
+
+const { currentWorkspaceId, currentWorkspace } = useWorkspaces()
+const guardWorkspaceId = computed(() => currentWorkspaceId.value ?? '')
+const guardWorkspacePlan = computed(() => currentWorkspace.value?.plan ?? null)
+const { canSendPrompt } = useChatPromptSendGuard(guardWorkspaceId, guardWorkspacePlan)
+
+async function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
+  const t = text.trim()
+  if (!t) return false
+  return canSendPrompt(t)
+}
+
+async function onWelcomeSuggestion() {
+  if (!(await canSendPrompt(presetPrompt.trim()))) return
+  await onSend(presetPrompt, [])
+}
 // Backend allocates the draft uuid and returns it from POST /draft-sessions.
 // File uploads in <ChatLayout> POST to /sessions/{this id}/files; the server
 // accepts those for draft ids via the relaxed validation path. The agent
@@ -50,10 +93,6 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
     isSending.value = false
   }
 }
-
-const USER_NAME = 'Carlvince'
-const welcomeSuggestion = 'Show me something cool'
-const presetPrompt = pickWelcomePrompt()
 </script>
 
 <template>
@@ -65,16 +104,19 @@ const presetPrompt = pickWelcomePrompt()
       <ChatLayout
         v-model:command="command"
         v-model:viewport-list="viewportList"
+        v-model:browser-mode="browserMode"
         :welcome="true"
         :chat-title="'New Workflow'"
         :user-name="USER_NAME"
         :welcome-suggestion="welcomeSuggestion"
         :messages="emptyMessages"
         :session-id="sessionId"
+        :workspace-id="currentWorkspaceId"
         :renameable="false"
         hide-view-switch
         hide-title
-        @welcome-suggestion="onSend(presetPrompt, [])"
+        :before-send-prompt="beforeSendPrompt"
+        @welcome-suggestion="onWelcomeSuggestion"
         @send="onSend"
       />
     </div>

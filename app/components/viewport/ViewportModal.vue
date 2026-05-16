@@ -96,19 +96,24 @@ onBeforeUnmount(() => {
               </svg>
             </div>
           </div>
-          <svg
+          <div
             v-else
-            class="size-10 animate-spin text-white/70"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            role="status"
-            :aria-label="t('viewport.reconnecting')"
+            class="relative flex items-center justify-center rounded-lg bg-white"
+            style="aspect-ratio: 16 / 9; width: min(90vw, calc(85vh * 16 / 9));"
           >
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
+            <svg
+              class="size-10 animate-spin text-neutral-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              role="status"
+              :aria-label="t('viewport.reconnecting')"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          </div>
         </div>
       </div>
     </Transition>

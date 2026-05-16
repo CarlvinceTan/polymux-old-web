@@ -10,26 +10,15 @@
 // a closed extension service worker all surface as a console warn and a
 // no-op — the user can still hand-pair via the popup's Advanced section.
 
+import type { PolymuxExtensionAck } from '~/types/chrome-runtime'
+
 interface PairResponse {
   code: string
   expires_at: string
   server_url: string
 }
 
-interface ExtensionAck { ok: boolean; error?: string; result?: { state?: string } }
-
-declare global {
-  interface Window {
-    chrome?: {
-      runtime?: {
-        sendMessage?: (extensionId: string, message: unknown, callback?: (response: ExtensionAck) => void) => void
-        lastError?: { message?: string }
-      }
-    }
-  }
-}
-
-function sendToExtension(extensionId: string, message: unknown): Promise<ExtensionAck> {
+function sendToExtension(extensionId: string, message: unknown): Promise<PolymuxExtensionAck> {
   return new Promise((resolve, reject) => {
     const chrome = window.chrome
     if (!chrome?.runtime?.sendMessage) {
@@ -37,7 +26,7 @@ function sendToExtension(extensionId: string, message: unknown): Promise<Extensi
       return
     }
     try {
-      chrome.runtime.sendMessage(extensionId, message, (response) => {
+      chrome.runtime.sendMessage(extensionId, message, (response: PolymuxExtensionAck) => {
         const lastErr = chrome.runtime?.lastError
         if (lastErr) {
           reject(new Error(lastErr.message ?? 'extension unreachable'))
@@ -67,6 +56,9 @@ export default defineNuxtPlugin(async () => {
     if (inflight) return inflight
     inflight = (async () => {
       try {
+        const { isExtensionModeGloballyAllowed } = useMeFeatures()
+        if (!isExtensionModeGloballyAllowed()) return
+
         // Probe the extension first. If it's not installed or not on this
         // build's externally_connectable list, sendMessage will throw and
         // we should bail before burning a pairing code.
@@ -75,7 +67,7 @@ export default defineNuxtPlugin(async () => {
           console.warn('[polymux] extension ping failed', ping.error)
           return
         }
-        if (ping.result?.state === 'connected') return
+        if (ping.result && ping.result['state'] === 'connected') return
 
         const { data: { session } } = await supabase.auth.getSession()
         const token = session?.access_token

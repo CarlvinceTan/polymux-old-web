@@ -79,6 +79,12 @@ export default defineNuxtConfig({
   },
   components: [{ path: "~/components", pathPrefix: false }],
   imports: {
+    presets: [
+      {
+        from: '@tanstack/vue-query',
+        imports: ['useQuery', 'useQueryClient', 'useMutation'],
+      },
+    ],
     dirs: [
       "composables/account",
       "composables/artifacts",
@@ -132,13 +138,15 @@ export default defineNuxtConfig({
   vite: {
     optimizeDeps: {
       include: [
+        "@internationalized/date",
         "@vue/devtools-core",
         "@vue/devtools-kit",
-        "marked",
-        "vue-draggable-plus",
-        "posthog-js",
-        "dompurify",
         "@vueuse/core",
+        "dompurify",
+        "marked",
+        "posthog-js",
+        "@tanstack/vue-query",
+        "vue-draggable-plus",
       ],
     },
     build: {

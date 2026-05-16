@@ -12,10 +12,7 @@ const { relativeTime } = useRelativeTime()
 
 async function loadAll(opts?: { force?: boolean }) {
   if (!currentWorkspaceId.value) await waitForWorkspace()
-  await Promise.all([
-    fetchSessions(opts),
-    fetchSchedules(opts?.force),
-  ])
+  await fetchSchedules(opts?.force)
 }
 
 onMounted(() => loadAll())

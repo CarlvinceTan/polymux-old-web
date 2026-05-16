@@ -2,6 +2,11 @@
 import type { ViewportState, UserLocationPayload, ErrorPayload } from '~/composables/types'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 import { DRAFT_WORKFLOW_ID } from '~/composables/workflows/useWorkflowList'
+import {
+  clearStickyOverBudget,
+  invalidateUsageCache,
+  markStickyOverBudget,
+} from '~/composables/chat/useChatPromptSendGuard'
 
 // Re-mount the page when the workflow id changes. `useAgentChats` keys its
 // `useState` by the sessionId captured at construction, so reusing the layout
@@ -29,7 +34,7 @@ const headerTabs = computed(() => {
 
 const sessionId = computed(() => route.params.id as string)
 
-const { sessions, sessionsLoaded, fetchSessions, renameSession, fetchMessages, deleteSessionIfEmpty, setSessionRunning } = useWorkflowList()
+const { sessions, sessionsLoaded, renameSession, fetchMessages, deleteSessionIfEmpty, setSessionRunning } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
@@ -37,10 +42,6 @@ const isNewWorkflow = computed(() => {
   const s = sessions.value.find(s => s.id === sessionId.value)
   return !s || s.title === 'New Workflow'
 })
-
-if (sessions.value.length === 0) {
-  fetchSessions()
-}
 
 // Stale-URL guard: after sign-in (or workspace switch) the URL may point at a
 // session that was deleted, lives in another workspace, or never existed.
@@ -70,7 +71,36 @@ const session = useWorkflowSession(sessionId)
 const chats = useAgentChats(session)
 const messageFeedback = useMessageFeedback(sessionId.value)
 const vp = useViewports(session)
-const screencast = useScreencast(session)
+const wsScreencast = useScreencast(session)
+const runtimeConfig = useRuntimeConfig()
+const extensionId = computed<string>(() => (runtimeConfig.public.extensionId as string | undefined) ?? '')
+const extScreencast = useExtensionScreencast(session, extensionId)
+
+// Mode-agnostic façade for downstream consumers (ViewportGallery / Viewport):
+// in server mode wsScreencast carries frames over the session WS binary
+// channel and extScreencast contributes nothing; in extension mode the
+// reverse holds. Either way, agent ids are unique across both paths so the
+// merge never collides on a single id. cursorPositions only flow through
+// the WS path (the server emits cursor events from midas; the extension
+// runtime doesn't surface them yet) so we forward that ref directly.
+const mergedFrameUrls = computed(() => {
+  const ws = wsScreencast.frameUrls.value
+  const ext = extScreencast.frameUrls.value
+  if (ext.size === 0) return ws
+  if (ws.size === 0) return ext
+  const merged = new Map<string, string>()
+  for (const [k, v] of ws.entries()) merged.set(k, v)
+  for (const [k, v] of ext.entries()) merged.set(k, v)
+  return merged
+})
+const screencast = {
+  frameUrls: readonly(mergedFrameUrls),
+  cursorPositions: wsScreencast.cursorPositions,
+  cleanup: () => {
+    wsScreencast.cleanup()
+    extScreencast.cleanup()
+  },
+}
 
 // Pre-WS REST hydration: fill the gallery from the workflow row's persisted
 // `last_browser_states` as soon as the /sessions list lands, so the gallery
@@ -118,6 +148,20 @@ const workspaceId = computed(() => {
   return s?.workspace_id ?? currentWorkspace.value?.id ?? ''
 })
 
+const workspacePlan = computed(() => currentWorkspace.value?.plan ?? null)
+
+/** Replay prompt text after a TOKEN_BUDGET_ERROR rolls back an optimistic send. */
+const chatBudgetRestorePrompt = ref<string | null>(null)
+/**
+ * Server-supplied "weekly cap reached" copy. Non-null ⇒ a blocking modal is
+ * rendered over the workflow UI; clearing it (via the modal's dismiss button)
+ * also clears the sticky over-budget flag so the user can attempt to retry.
+ */
+const budgetExceededMessage = ref<string | null>(null)
+function dismissBudgetModal() {
+  budgetExceededMessage.value = null
+  clearStickyOverBudget(workspaceId.value || undefined)
+}
 // Bind workflow save/reject listeners to the page lifetime so the builder's
 // incremental SaveWorkflow events are never dropped while the user is in
 // Chat or Viewport view (where `WorkflowNodeCanvas` is unmounted).
@@ -134,6 +178,27 @@ session.on<ErrorPayload>('error', (p) => {
       'warning',
       8000,
     )
+  }
+  if (p.code === 'TOKEN_BUDGET_EXCEEDED') {
+    // Invalidate the cached usage so the next send re-fetches from Supabase
+    // rather than trusting the optimistic increment from the prior attempt.
+    invalidateUsageCache(workspaceId.value || undefined)
+    // Sticky-block every subsequent send: Supabase's flushed floor lags the
+    // server's in-memory counter by ~5 s, so a fresh RPC may still report
+    // "OK" right after the server has rejected. The flag stays set until the
+    // user dismisses the budget modal (which calls clearStickyOverBudget).
+    markStickyOverBudget(workspaceId.value || undefined)
+    const replay = chats.rollbackOrchestratorAfterBudgetError()
+    if (replay) chatBudgetRestorePrompt.value = replay
+    budgetExceededMessage.value = p.message || t('chat.weeklyTokenBudgetToastFallback')
+    return
+  }
+  // Extension mode was selected for this workflow but no paired Chrome is
+  // available to host the new sub-agent. Surface a hint to either pair via
+  // the popup or fall back to server mode — we don't auto-fall-back per the
+  // manual-only design.
+  if (p.code === 'EXTENSION_NOT_CONNECTED') {
+    toast.show(t('browser.modeNotConnectedError'), 'warning', 10000)
   }
 })
 
@@ -413,6 +478,124 @@ watch(sessionId, (id) => {
   autoSwitchArmed.value = false
 })
 
+// ── Browser-mode state ──────────────────────────────────────────────────────
+// Same lifetime as viewMode — owned by the workflow page so it survives the
+// Agent / Schedule / Artifacts swap. Per-workflow hint lives in sessionStorage
+// (matches viewMode).
+//
+// Persistence layers, in order of authority:
+//   1. The workflow row's `last_browser_mode` column — the cross-device,
+//      cross-tab truth. session_ws hydrates the in-memory session from this
+//      on first connect, then writes back to it on every set_browser_mode.
+//      session_state.browser_mode is the wire surface; our reconciler below
+//      adopts it without exception.
+//   2. sessionStorage (per-workflow) — pre-WS hint so the picker shows the
+//      right radio before the first session_state arrives. Overwritten by
+//      the wire value once it lands. If absent, the UI defaults to Polymux
+//      Server (`server`).
+//
+// Scheduled / unattended runs ignore the column and stay on 'server'
+// because they have no live client to drive the user's local Chrome.
+type BrowserMode = 'server' | 'extension'
+const BROWSER_MODE_KEY_PREFIX = 'polymux_workflow_browsermode:'
+
+function isBrowserMode(v: unknown): v is BrowserMode {
+  return v === 'server' || v === 'extension'
+}
+
+function loadBrowserMode(id: string): BrowserMode | null {
+  if (!import.meta.client) return null
+  if (!id || id === DRAFT_WORKFLOW_ID) return null
+  try {
+    const raw = sessionStorage.getItem(BROWSER_MODE_KEY_PREFIX + id)
+    return isBrowserMode(raw) ? raw : null
+  } catch {
+    return null
+  }
+}
+
+function saveBrowserMode(id: string, mode: BrowserMode) {
+  if (!import.meta.client) return
+  if (!id || id === DRAFT_WORKFLOW_ID) return
+  try {
+    sessionStorage.setItem(BROWSER_MODE_KEY_PREFIX + id, mode)
+  } catch {}
+}
+
+const browserMode = ref<BrowserMode>('server')
+// Skip the next send_browser_mode after a sessionState-driven reconciliation
+// so the server's echo doesn't get re-echoed back at it as a fresh write.
+let suppressNextBrowserModeSend = false
+// Block client→server writes until the first session_state echo arrives.
+// Without this, mount-time hydration from sessionStorage would race the
+// server's DB hydration: a tab opened with stale 'server' sessionStorage
+// could overwrite a DB-canonical 'extension' value chosen in another tab.
+// After the first echo the server has confirmed its current view, the
+// reconciler has adopted it, and any subsequent change is a deliberate
+// user toggle worth persisting.
+let browserModeReady = false
+
+onMounted(() => {
+  browserMode.value = loadBrowserMode(sessionId.value) ?? 'server'
+})
+
+watch(browserMode, (mode) => {
+  saveBrowserMode(sessionId.value, mode)
+  if (suppressNextBrowserModeSend) {
+    suppressNextBrowserModeSend = false
+    return
+  }
+  if (!browserModeReady) {
+    // Mount-time hydration. The server is about to echo its own value; if
+    // it matches ours the reconciler will simply flip browserModeReady.
+    // If it disagrees the reconciler adopts the server value — either way
+    // the user's first deliberate toggle (post-ready) is what actually
+    // writes to the DB.
+    return
+  }
+  // useWorkflowSession buffers sends until the socket reaches OPEN, so this
+  // is safe to call even when the WS is still connecting on first mount.
+  session.send('set_browser_mode', { mode })
+})
+
+watch(sessionId, (id) => {
+  const next = loadBrowserMode(id) ?? 'server'
+  if (next !== browserMode.value) {
+    browserMode.value = next
+  }
+})
+
+// Reconcile with the server's echo on every session_state. The server
+// canonicalises mode (unknown strings collapse to 'server') so its echo is
+// Server is canonical now that the workflow row carries `last_browser_mode`:
+// session_ws hydrates the in-memory mode from the DB on first connect, so the
+// first session_state echo IS the cross-device truth. We always adopt it,
+// overriding any stale local sessionStorage value. This means a fresh page
+// can briefly mismatch the cross-device choice (sessionStorage gets a default
+// 'server' until the first echo arrives) — but a one-frame mismatch is
+// invisible to the user because the picker UI gates its enabled state on the
+// extension status, not on browserMode.
+//
+// Subsequent echoes also adopt the server value: tab A toggles, server
+// broadcasts session_state to tab A and tab B, tab B's local ref flips
+// without requiring it to send anything. suppressNextBrowserModeSend gates
+// the immediate downstream send-out so we don't loop the adoption back into
+// another set_browser_mode write.
+watch(
+  () => session.sessionState.value?.browser_mode,
+  (serverMode) => {
+    if (!serverMode || !isBrowserMode(serverMode)) return
+    if (serverMode !== browserMode.value) {
+      suppressNextBrowserModeSend = true
+      browserMode.value = serverMode
+    }
+    // Unblock the watcher-driven write path now that we know what the
+    // server thinks. Done after the adoption so the suppress flag covers
+    // the immediate downstream watch fire.
+    browserModeReady = true
+  },
+)
+
 watch(() => vp.viewports.value.length, (len, prev) => {
   if (!autoSwitchArmed.value) return
   if (len <= (prev ?? 0)) return
@@ -428,6 +611,9 @@ function armAutoSwitch() {
 }
 
 provide('workflow-id', sessionId)
+provide('workflow-workspace-id', workspaceId)
+provide('workflow-workspace-plan', workspacePlan)
+provide('chat-budget-restore-prompt', chatBudgetRestorePrompt)
 provide('chat-chats', chats)
 provide('chat-vp', vp)
 provide('chat-screencast', screencast)
@@ -441,6 +627,7 @@ provide('chat-welcome-suggestion', welcomeSuggestion)
 provide('chat-preset-prompt', presetPrompt)
 provide('chat-title-requested', titleRequested)
 provide('chat-view-mode', viewMode)
+provide('chat-browser-mode', browserMode)
 provide('chat-arm-auto-switch', armAutoSwitch)
 provide('chat-on-rename', onRename)
 provide('chat-on-close-viewport', (agentId: string) => { vp.closeViewport(agentId); chats.drop(agentId) })
@@ -455,11 +642,26 @@ provide('chat-message-feedback', messageFeedback)
       <PageHeader :tabs="headerTabs" />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+      <!-- Key by workflow id only so Agent / Schedule / Artifacts swaps (and query
+           changes such as artifact deeplinks) don't destroy sibling pages outright.
+           The agent tab opts into keep-alive to preserve flow-canvas UI state between
+           those visits — see workflow/[id]/agent.vue. -->
       <NuxtPage
-        :key="route.fullPath"
+        :key="workflowId"
         class="min-h-0 min-w-0 flex-1"
       />
     </div>
+
+    <!-- Weekly token budget modal: shown after the server rejects a send
+         with TOKEN_BUDGET_EXCEEDED. Blocks further sends (sticky cap) until
+         the user dismisses it, so the spinner can't keep firing against a
+         workspace that's already out of tokens. -->
+    <BudgetExceededModal
+      v-if="budgetExceededMessage"
+      :open="true"
+      :message="budgetExceededMessage"
+      @dismiss="dismissBudgetModal"
+    />
 
     <!-- Credential picker: opens whenever the orchestrator fires
          RequestCredential. Lives at the workflow page level so the modal

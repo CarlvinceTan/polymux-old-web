@@ -1,5 +1,7 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { assertWorkflowMember, resolveWorkflowId } from '~~/server/utils/workflowAccess'
+import { b2SignedDownloadURL } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { assertWorkflowMember, resolveWorkflowId } from '~~/server/utils/workspace/workflowAccess'
 
 // GET /api/workflows/[id]/artifacts
 // Returns: { artifacts: ArtifactRow[] }
@@ -11,7 +13,6 @@ import { assertWorkflowMember, resolveWorkflowId } from '~~/server/utils/workflo
 // the gallery can render thumbnails inline without N+1 round-trips. Other
 // types (and downloads) mint URLs lazily via the dedicated download-url route.
 
-const ARTIFACTS_BUCKET = 'artifacts'
 const PREVIEW_TTL_SECONDS = 60 * 60
 
 export interface ArtifactRow {
@@ -58,18 +59,29 @@ export default defineEventHandler(async (event) => {
   const previewable = rows.filter(r => r.storage_path && isPreviewable(r.mime_type))
   const previewMap = new Map<string, string>()
   if (previewable.length > 0) {
+    // All artifacts in a workflow share one workspace_id, so we resolve the
+    // workspace's B2 sub-key once and reuse it for every preview URL.
+    const workspaceId = previewable[0]!.workspace_id
     const admin = serverSupabaseServiceRole(event)
-    const { data: signed, error: signErr } = await admin.storage
-      .from(ARTIFACTS_BUCKET)
-      .createSignedUrls(previewable.map(r => r.storage_path as string), PREVIEW_TTL_SECONDS)
-    if (signErr) {
-      console.error('[artifacts/list] preview sign error', signErr)
-      // Non-fatal — gallery falls back to placeholder icons.
-    } else {
+    try {
+      const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
+      // B2's get_download_authorization is per-prefix; with the prefix set to
+      // the exact file key it effectively mints a single-file URL. We Promise-
+      // allSettled so one bad row doesn't fail the whole listing — the affected
+      // tile falls back to the placeholder icon.
+      const results = await Promise.allSettled(
+        previewable.map(r => b2SignedDownloadURL(wsKey, r.storage_path as string, PREVIEW_TTL_SECONDS)),
+      )
       for (let i = 0; i < previewable.length; i++) {
-        const url = signed?.[i]?.signedUrl
-        if (url) previewMap.set(previewable[i]!.id, url)
+        const res = results[i]
+        if (res?.status === 'fulfilled') previewMap.set(previewable[i]!.id, res.value.url)
+        else if (res?.status === 'rejected') {
+          console.warn('[artifacts/list] b2 preview sign failed', res.reason)
+        }
       }
+    }
+    catch (err) {
+      console.warn('[artifacts/list] failed to resolve workspace b2 key; previews disabled', err)
     }
   }
 

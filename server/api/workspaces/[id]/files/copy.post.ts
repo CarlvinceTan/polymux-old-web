@@ -10,9 +10,9 @@ import {
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { copyDriveFile } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { copyDriveFile } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workspaces/[id]/files/copy
 // Body: { from, to, kind? }  — kind: 'file' | 'folder' (default 'file')

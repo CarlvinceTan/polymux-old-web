@@ -1,5 +1,5 @@
 import { serverSupabaseUser, serverSupabaseClient, serverSupabaseServiceRole } from '#supabase/server'
-import { validateManifest } from '~~/server/utils/integrationManifest'
+import { validateManifest } from '~~/server/utils/integrations/integrationManifest'
 import { isConnectorId } from '~~/server/connectors/registry'
 
 // POST /api/workspaces/[id]/integrations/install

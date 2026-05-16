@@ -6,6 +6,13 @@ export interface PasswordEntry {
   lastUsed: string
   usageCount: number
   weak: boolean
+  // Provenance — surfaced on the card so workspace members can see at a
+  // glance who added this credential and who used it most recently. UUIDs;
+  // the UI resolves them to display names via useWorkspaces().members and
+  // falls back to "unknown" when the user has left the workspace.
+  createdBy: string
+  lastUsedBy: string | null
+  createdAt: string
 }
 
 interface WorkspacePasswordRow {
@@ -19,6 +26,7 @@ interface WorkspacePasswordRow {
   is_weak: boolean
   usage_count: number
   last_used_at: string | null
+  last_used_by: string | null
   created_at: string
   updated_at: string
 }
@@ -32,6 +40,9 @@ function toEntry(row: WorkspacePasswordRow): PasswordEntry {
     lastUsed: row.last_used_at ?? row.created_at,
     usageCount: row.usage_count,
     weak: row.is_weak,
+    createdBy: row.created_by,
+    lastUsedBy: row.last_used_by,
+    createdAt: row.created_at,
   }
 }
 
@@ -45,31 +56,38 @@ export function isWeakPassword(password: string): boolean {
 
 export function usePasswords() {
   const supabase = useSupabaseClient()
+  const user = useSupabaseUser()
   const { currentWorkspace } = useWorkspaces()
+  const queryClient = useQueryClient()
 
-  const passwords = useState<PasswordEntry[]>('workspace-passwords', () => [])
-  const loading = ref(false)
+  const wsId = computed(() => currentWorkspace.value?.id)
   const error = ref<string | null>(null)
 
-  async function fetchPasswords() {
-    const wsId = currentWorkspace.value?.id
-    if (!wsId) return
-    loading.value = true
-    error.value = null
-    try {
+  const query = useQuery({
+    queryKey: computed(() => ['workspace-passwords', wsId.value]),
+    queryFn: async () => {
+      const id = wsId.value
+      if (!id) return []
+      error.value = null
       const { data, error: err } = await supabase
         .from('workspace_passwords')
         .select('*')
-        .eq('workspace_id', wsId)
+        .eq('workspace_id', id)
         .order('created_at', { ascending: false })
       if (err) throw err
-      passwords.value = (data as WorkspacePasswordRow[]).map(toEntry)
-    }
-    catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to load passwords'
-    }
-    finally {
-      loading.value = false
+      return (data as WorkspacePasswordRow[]).map(toEntry)
+    },
+    enabled: computed(() => !!wsId.value),
+  })
+
+  const passwords = computed(() => query.data.value ?? [])
+  const loading = computed(() => query.isLoading.value)
+
+  async function fetchPasswords(opts?: { force?: boolean }) {
+    if (opts?.force) {
+      await queryClient.invalidateQueries({ queryKey: ['workspace-passwords', wsId.value] })
+    } else {
+      await queryClient.fetchQuery({ queryKey: ['workspace-passwords', wsId.value] })
     }
   }
 
@@ -79,12 +97,12 @@ export function usePasswords() {
     password: string,
     name: string,
   ): Promise<PasswordEntry | null> {
-    const wsId = currentWorkspace.value?.id
-    if (!wsId) return null
+    const id = wsId.value
+    if (!id) return null
     error.value = null
     try {
       const { data, error: err } = await supabase.rpc('create_workspace_password', {
-        p_workspace_id: wsId,
+        p_workspace_id: id,
         p_name: name,
         p_url: url,
         p_username: username,
@@ -93,7 +111,9 @@ export function usePasswords() {
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
-      passwords.value.unshift(entry)
+      queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) =>
+        [entry, ...(old ?? [])],
+      )
       return entry
     }
     catch (e: unknown) {
@@ -102,21 +122,33 @@ export function usePasswords() {
     }
   }
 
-  async function revealPassword(id: string): Promise<string | null> {
+  async function revealPassword(pwdId: string): Promise<string | null> {
     error.value = null
     try {
       const { data, error: err } = await supabase.rpc('get_workspace_password_secret', {
-        p_password_id: id,
+        p_password_id: pwdId,
       })
       if (err) throw err
-      // Update local usage stats
-      const idx = passwords.value.findIndex(p => p.id === id)
-      if (idx !== -1) {
-        passwords.value[idx] = {
-          ...passwords.value[idx]!,
-          usageCount: (passwords.value[idx]!.usageCount ?? 0) + 1,
-          lastUsed: new Date().toISOString(),
-        }
+      let userId: string | undefined = user.value?.id
+      if (!userId) {
+        const { data: authData } = await supabase.auth.getUser()
+        userId = authData?.user?.id
+      }
+      const id = wsId.value
+      if (id) {
+        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) => {
+          const arr = [...(old ?? [])]
+          const idx = arr.findIndex(p => p.id === pwdId)
+          if (idx !== -1) {
+            arr[idx] = {
+              ...arr[idx]!,
+              usageCount: (arr[idx]!.usageCount ?? 0) + 1,
+              lastUsed: new Date().toISOString(),
+              lastUsedBy: userId ?? arr[idx]!.lastUsedBy,
+            }
+          }
+          return arr
+        })
       }
       return data as string
     }
@@ -127,7 +159,7 @@ export function usePasswords() {
   }
 
   async function updatePassword(
-    id: string,
+    pwdId: string,
     name: string,
     url: string,
     username: string,
@@ -136,7 +168,7 @@ export function usePasswords() {
     error.value = null
     try {
       const { data, error: err } = await supabase.rpc('update_workspace_password', {
-        p_password_id: id,
+        p_password_id: pwdId,
         p_name: name,
         p_url: url,
         p_username: username,
@@ -145,8 +177,15 @@ export function usePasswords() {
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
-      const idx = passwords.value.findIndex(p => p.id === id)
-      if (idx !== -1) passwords.value[idx] = entry
+      const id = wsId.value
+      if (id) {
+        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) => {
+          const arr = [...(old ?? [])]
+          const idx = arr.findIndex(p => p.id === pwdId)
+          if (idx !== -1) arr[idx] = entry
+          return arr
+        })
+      }
       return entry
     }
     catch (e: unknown) {
@@ -155,14 +194,19 @@ export function usePasswords() {
     }
   }
 
-  async function deletePassword(id: string): Promise<boolean> {
+  async function deletePassword(pwdId: string): Promise<boolean> {
     error.value = null
     try {
       const { error: err } = await supabase.rpc('delete_workspace_password', {
-        p_password_id: id,
+        p_password_id: pwdId,
       })
       if (err) throw err
-      passwords.value = passwords.value.filter(p => p.id !== id)
+      const id = wsId.value
+      if (id) {
+        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) =>
+          (old ?? []).filter(p => p.id !== pwdId),
+        )
+      }
       return true
     }
     catch (e: unknown) {

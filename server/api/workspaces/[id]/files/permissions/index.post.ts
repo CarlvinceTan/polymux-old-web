@@ -1,10 +1,10 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import { notifyPermissionsChanged } from '~~/server/utils/notifyAgent'
+import { notifyPermissionsChanged } from '~~/server/utils/workspace/notifyAgent'
 import {
   assertMembership,
   normalizePath,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/permissions
 // Body: { path, user_id|null, grant_level }

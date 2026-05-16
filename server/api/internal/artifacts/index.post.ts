@@ -1,6 +1,9 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
-import { artifactCap } from '~~/server/utils/planLimits'
+import { b2DeleteByKey } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { artifactCap } from '~~/server/utils/billing/planLimits'
+import { planLimitsEnforce } from '~~/server/utils/billing/planLimitsEnforce'
 
 // POST /api/internal/artifacts
 // Body: {
@@ -100,14 +103,23 @@ export default defineEventHandler(async (event) => {
     if (Number.isFinite(n) && n > 0) usage += Math.floor(n)
   }
 
-  if (cap > 0 && usage + sizeBytes > cap) {
+  if (planLimitsEnforce() && cap > 0 && usage + sizeBytes > cap) {
     console.warn('[internal/artifacts] cap rejection', {
       workspaceId, plan, usage, size: sizeBytes, cap,
     })
     if (storagePath) {
-      const { error: removeErr } = await admin.storage.from('artifacts').remove([storagePath])
-      if (removeErr) {
-        console.error('[internal/artifacts] cleanup after cap rejection failed', removeErr)
+      // Agent uploaded the bytes to B2 right before this row insert. Clean up
+      // the orphan so the user isn't billed for bytes we just refused to
+      // record. Non-fatal: a cleanup-job sweep catches leftovers either way.
+      // The empty actorUserId is fine here because the workspace already
+      // exists (we just queried for it), so ensureWorkspaceKey's owner
+      // lookup will populate connected_by from workspaces.created_by.
+      try {
+        const wsKey = await ensureWorkspaceKey(admin, workspaceId, '')
+        await b2DeleteByKey(wsKey, storagePath)
+      }
+      catch (err) {
+        console.error('[internal/artifacts] cleanup after cap rejection failed', err)
       }
     }
     throw createError({

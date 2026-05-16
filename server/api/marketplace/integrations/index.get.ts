@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
     sourceRepoUrl: row.source_repo_url,
     githubUrl: row.source_repo_url,
     iconUrl: row.icon_url,
-    tags: row.tags ?? [],
+    tags: (row.tags?.length ? row.tags : ['General']),
     popularity: row.install_count ?? 0,
     currentVersion: row.current_version?.version ?? null,
     requiresOauth: isConnectorId(row.slug),

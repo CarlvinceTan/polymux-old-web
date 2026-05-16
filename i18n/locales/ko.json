@@ -57,7 +57,16 @@
     "fileMigratedToLocalBody": "'{path}'은(는) 이 워크스페이스에서 더 이상 사용할 수 없습니다.",
     "fileShareReceivedTitle": "워크스페이스에 폴더가 공유되었습니다",
     "fileShareReceivedBody": "'{path}'이(가) {source}에서 공유되었습니다.",
-    "anotherWorkspace": "다른 워크스페이스"
+    "anotherWorkspace": "다른 워크스페이스",
+    "maintenanceTitle": "예정된 점검: {title}",
+    "maintenanceBody": "Polymux는 {startsAt}부터 {endsAt}까지 점검을 진행합니다.",
+    "maintenanceCancelledTitle": "점검 취소: {title}",
+    "maintenanceCancelledBody": "{startsAt}로 예정된 점검 일정이 취소되었습니다."
+  },
+  "maintenance": {
+    "bannerScheduled": "예정된 점검: '{title}' {startsAt} – {endsAt}. 서비스가 일시적으로 중단될 수 있습니다.",
+    "bannerActive": "점검 진행 중: '{title}'. {endsAt}까지 서비스가 중단될 수 있습니다.",
+    "bannerDismiss": "닫기"
   },
   "auth": {
     "welcomeBack": "다시 오신 것을 환영합니다",
@@ -176,11 +185,16 @@
     "voicePermissionBlocked": "마이크 접근이 차단되었습니다. 브라우저 주소창 왼쪽의 아이콘을 클릭하여 활성화하세요.",
     "voiceError": "음성 입력에 실패했습니다. 다시 시도해 주세요.",
     "tokenCapExceeded": "메시지가 약 {tokens}개 토큰으로, 입력 한도 {cap}개 토큰을 초과합니다. 줄여 주세요.",
-    "scrollToLatest": "최신 메시지로 이동"
+    "weeklyTokenBudgetToastFallback": "주간 토큰 한도에 도달했습니다. 업그레이드하거나 월요일 UTC 이후 재시도하세요.",
+    "weeklyTokenBudgetTitle": "주간 토큰 한도 도달",
+    "scrollToLatest": "최신 메시지로 이동",
+    "codeCopied": "복사됨",
+    "copyToClipboard": "클립보드에 복사",
+    "openFileRef": "파일 열기",
+    "openFolderRef": "폴더 열기",
+    "openArtifactRef": "아티팩트 열기"
   },
   "workflow": {
-    "loop": "반복",
-    "parallel": "병렬",
     "untitledNode": "제목 없는 단계",
     "untitledWorkflow": "제목 없는 워크플로",
     "listEmptyPlaceholder": "시작하려면 사이드바에서 워크플로를 열어주세요.",
@@ -224,7 +238,6 @@
     "targetPlaceholder": "대상 (URL 또는 선택자)",
     "valuePlaceholder": "값 (선택사항)",
     "descriptionPlaceholder": "설명",
-    "conditionPlaceholder": "반복 종료 조건",
     "savedToast": "워크플로가 저장되었습니다",
     "saveFailedToast": "워크플로 저장에 실패했습니다",
     "versionConflictToast": "워크플로가 다른 곳에서 업데이트되었습니다. 최신 버전을 불러왔습니다 — 편집을 다시 하세요.",
@@ -262,12 +275,29 @@
       "artifacts": "아티팩트"
     },
     "liveBadge": "라이브",
-    "sequence": "시퀀스",
     "wireStyle": "와이어 스타일",
     "wireFluid": "유체",
     "wireLinear": "직선",
     "wireStep": "계단",
-    "moreInstances": "더 보기"
+    "annotationPlaceholder": "선택적 메모",
+    "resizeNode": "크기 조정",
+    "lockNode": "노드 잠금",
+    "unlockNode": "노드 잠금 해제",
+    "lockedHint": "잠김 — 오케스트레이터와 구조 편집이 이 노드를 건너뜁니다.",
+    "lockedToast": "노드가 잠겨 있습니다. 편집하려면 잠금을 해제하세요.",
+    "conflictToast": "편집 중인 노드를 오케스트레이터가 수정했습니다.",
+    "discardMine": "내 변경 폐기",
+    "keepMine": "내 변경 유지",
+    "moreInstances": "더 보기",
+    "editWire": "와이어 편집",
+    "deleteWire": "와이어 삭제",
+    "wireLabelLabel": "와이어",
+    "wireLabelPlaceholder": "선택 레이블",
+    "wireConditionLabel": "조건",
+    "wireConditionPlaceholder": "자연어 가드 — true일 때만 이동",
+    "wireMaxIterationsLabel": "최대 반복",
+    "wireMaxIterationsPlaceholder": "이 간선이 몇 번까지 점화할지 (루프)",
+    "duplicateEdgeToast": "두 노드 사이에 이미 와이어가 연결되어 있습니다."
   },
   "dashboard": {
     "console": "콘솔",
@@ -330,7 +360,19 @@
     "agentCapReached": "최대 브라우저 에이전트 수에 도달했습니다",
     "galleryView": "모든 뷰포트 보기",
     "singleView": "단일 뷰포트 보기",
-    "galleryZoom": "뷰포트 크기"
+    "galleryZoom": "뷰포트 크기",
+    "modeTitle": "브라우저",
+    "modeServer": "Polymux 서버",
+    "modeServerHint": "호스팅된 Chromium에서 실행됩니다.",
+    "modeExtension": "내 브라우저 \"로컬 브라우저\"",
+    "modeLocalBrowser": "로컬 브라우저",
+    "modeExtensionHint": "확장 프로그램을 통해 로컬 Chrome을 사용합니다.",
+    "modeStatusConnected": "연결됨",
+    "modeStatusDisconnected": "페어링되지 않음",
+    "modeStatusUnavailable": "확장 프로그램 설치",
+    "modeUnavailableHelp": "이 브라우저에 polymux Chrome 확장 프로그램이 설치되어 있지 않습니다.",
+    "modeNotConnectedError": "브라우저 확장 프로그램이 연결되어 있지 않습니다. polymux 확장 프로그램 팝업을 열고 '연결'을 클릭하거나 이 워크플로를 서버 모드로 전환하세요.",
+    "extensionFeatureDisabled": "로컬 브라우저 모드는 현재 조직에서 비활성화되어 있습니다."
   },
   "integrations": {
     "installed": "설치됨",
@@ -400,6 +442,8 @@
     "filterPlugins": "플러그인",
     "filterIntegrations": "연결",
     "filterInstalled": "설치됨",
+    "tagFilterBanner": "\"{tag}\" 태그가 있는 항목만 표시합니다.",
+    "tagFilterClear": "태그 필터 지우기",
     "sortPopularity": "인기순",
     "sortNameAZ": "이름 A-Z",
     "sortNameZA": "이름 Z-A",
@@ -475,16 +519,16 @@
     "manageMembers": "멤버 관리",
     "otherWorkspaces": "워크스페이스",
     "modalTitle": "워크스페이스 설정",
-    "modalSubtitle": "워크스페이스 설정",
     "currentPlan": "현재 플랜",
     "workspaceBilling": "워크스페이스 청구",
     "usage": "사용량",
-    "statSessions": "주간 세션",
+    "statWorkflowRuns": "워크플로 실행(이번 달)",
+    "statWeeklyTokens": "주간 토큰",
+    "statWeeklyTokensCaption": "월요일 00:00 UTC에 초기화 · 플랜 상한",
     "statSeats": "시트",
-    "statTokens": "토큰",
-    "statTokensCaption": "지갑 잔액",
     "statStorage": "저장소",
     "statStorageCaption": "사용량 추적을 위해 공급자 연결",
+    "localPrimaryTeamWarning": "로컬 저장소는 파일을 이 브라우저에만 보관합니다. 다른 멤버는 여기에 저장된 파일을 열 수 없습니다. 팀과 공유하려면 저장소 설정에서 Google 드라이브를 연결하거나 클라우드를 활성화하세요.",
     "statAgents": "브라우저 에이전트",
     "statAgentsCaption": "동시 사용 가능한 에이전트",
     "statFileSize": "최대 파일 크기",
@@ -621,8 +665,10 @@
       "saveOrderEmpty": "연결된 제공자가 없습니다. 아래 연결에서 하나를 연결하여 파일 저장을 시작하세요.",
       "providerGoogleDrive": "Google 드라이브",
       "providerLocal": "로컬",
+      "providerCloud": "클라우드",
       "providerGoogleDriveDesc": "워크스페이스의 Google 드라이브 폴더에 저장된 파일입니다.",
       "providerLocalDesc": "이 브라우저에만 저장되는 기기 저장소입니다.",
+      "providerCloudDesc": "모든 워크스페이스 멤버와 공유되는 Polymux 관리 저장소입니다.",
       "connectionsTitle": "연결",
       "connectionsDesc": "이 워크스페이스의 저장 제공자를 연결하거나 연결을 해제합니다.",
       "connectionDeviceCapability": "기기",
@@ -630,6 +676,7 @@
       "statusAvailable": "사용 가능",
       "statusUnavailable": "사용 불가",
       "statusFull": "가득 참",
+      "statusLocked": "잠김",
       "moveUp": "위로 이동",
       "moveDown": "아래로 이동",
       "currentChain": "현재 체인",
@@ -820,12 +867,30 @@
     "publish": "토론 게시",
     "newErrorGeneric": "문제가 발생했습니다. 다시 시도해 주세요.",
     "categories": {
-      "announcements": { "label": "공지사항", "description": "제품 업데이트 및 커뮤니티 소식" },
-      "help": { "label": "도움말 & 지원", "description": "질문하고 문제 해결" },
-      "show-and-tell": { "label": "보여주기 & 들려주기", "description": "Polymux로 만든 것을 공유" },
-      "feedback": { "label": "피드백 & 아이디어", "description": "다음에 만들 것을 함께 정해요" },
-      "workflows": { "label": "워크플로우", "description": "블루프린트, 템플릿, 레시피" },
-      "agents": { "label": "에이전트", "description": "프롬프트, 튜닝, 실행 비교" }
+      "announcements": {
+        "label": "공지사항",
+        "description": "제품 업데이트 및 커뮤니티 소식"
+      },
+      "help": {
+        "label": "도움말 & 지원",
+        "description": "질문하고 문제 해결"
+      },
+      "show-and-tell": {
+        "label": "보여주기 & 들려주기",
+        "description": "Polymux로 만든 것을 공유"
+      },
+      "feedback": {
+        "label": "피드백 & 아이디어",
+        "description": "다음에 만들 것을 함께 정해요"
+      },
+      "workflows": {
+        "label": "워크플로우",
+        "description": "블루프린트, 템플릿, 레시피"
+      },
+      "agents": {
+        "label": "에이전트",
+        "description": "프롬프트, 튜닝, 실행 비교"
+      }
     }
   },
   "artifacts": {
@@ -854,7 +919,43 @@
     "deleteError": "아티팩트를 삭제할 수 없습니다."
   },
   "landing": {
-    "useNow": "지금 사용하기"
+    "nav": {
+      "home": "홈",
+      "features": "기능",
+      "pricing": "가격",
+      "community": "커뮤니티",
+      "contactUs": "문의하기",
+      "installApp": "앱 설치"
+    },
+    "header": {
+      "accountMenu": "계정 메뉴",
+      "language": "언어",
+      "settings": "설정",
+      "signOut": "로그아웃"
+    },
+    "footer": {
+      "tagline": "지능형 AI 에이전트를 구축, 배포 및 관리하여 워크플로우를 자동화하세요.",
+      "allRightsReserved": "© {year} Polymux. 모든 권리 보유.",
+      "product": "제품",
+      "community": "커뮤니티",
+      "company": "회사",
+      "legal": "법률",
+      "blog": "블로그",
+      "documentation": "문서",
+      "forum": "포럼",
+      "aboutUs": "소개",
+      "contact": "문의하기",
+      "privacyPolicy": "개인정보 보호정책",
+      "termsOfService": "이용약관",
+      "cookiePolicy": "쿠키 정책",
+      "linkedIn": "LinkedIn",
+      "x": "X",
+      "instagram": "Instagram",
+      "youTube": "YouTube",
+      "facebook": "Facebook",
+      "reddit": "Reddit",
+      "discord": "Discord"
+    }
   },
   "development": {
     "hero": {
@@ -969,6 +1070,9 @@
       "nameZA": "이름 Z-A",
       "lastUsed": "최근 사용",
       "oldestFirst": "오래된 순",
+      "savedBy": "{name}이(가) 저장함",
+      "lastUsedBy": "{name}이(가) 마지막 사용 · {when}",
+      "unknownUser": "알 수 없음",
       "view": "보기",
       "edit": "편집",
       "empty": "아직 저장된 비밀번호가 없습니다",
@@ -989,6 +1093,13 @@
       "copied": "복사됨!",
       "loading": "비밀번호 불러오는 중…",
       "saving": "저장 중…"
+    },
+    "signIns": {
+      "sectionTitle": "저장된 로그인",
+      "sectionDescription": "워크스페이스가 로그인된 상태로 유지되는 사이트입니다. 에이전트 실행 중에 자동으로 캡처되어 이 워크스페이스의 모든 새 브라우저에 미리 로드됩니다.",
+      "savedSignIn": "저장된 로그인",
+      "updatedAgo": "업데이트 {when}",
+      "forget": "삭제"
     },
     "tabs": {
       "passwords": "비밀번호",
@@ -1321,9 +1432,21 @@
     "yourSystem": "사용 중인 시스템",
     "otherOptions": "다른 옵션",
     "platforms": {
-      "macos": { "tagline": "유니버설 빌드", "requirement": "macOS 12 Monterey 이상", "downloadLabel": "macOS용 다운로드" },
-      "windows": { "tagline": "x64 및 ARM64", "requirement": "Windows 10 이상", "downloadLabel": "Windows용 다운로드" },
-      "linux": { "tagline": "주요 배포판", "requirement": "glibc 2.31+ · x86_64 / aarch64", "downloadLabel": "Linux용 다운로드" }
+      "macos": {
+        "tagline": "유니버설 빌드",
+        "requirement": "macOS 12 Monterey 이상",
+        "downloadLabel": "macOS용 다운로드"
+      },
+      "windows": {
+        "tagline": "x64 및 ARM64",
+        "requirement": "Windows 10 이상",
+        "downloadLabel": "Windows용 다운로드"
+      },
+      "linux": {
+        "tagline": "주요 배포판",
+        "requirement": "glibc 2.31+ · x86_64 / aarch64",
+        "downloadLabel": "Linux용 다운로드"
+      }
     },
     "mobile": {
       "eyebrow": "준비 중",

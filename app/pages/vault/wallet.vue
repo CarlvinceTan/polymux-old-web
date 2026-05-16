@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useWallet, CREDIT_PACKS } from '~/composables/wallet/useWallet'
 import { CURRENCY_OPTIONS, type SupportedCurrency } from '~/composables/wallet/useCurrency'
-import { onClickOutside, useLocalStorage } from '@vueuse/core'
+import { onClickOutside, useIntersectionObserver, useLocalStorage } from '@vueuse/core'
+import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 
 const { t } = useI18n()
 const { headerTabs } = useVaultNavTabs()
@@ -33,22 +34,18 @@ watch(wallet, (w) => {
   }
 }, { immediate: true })
 
-function loadWallet(opts?: { force?: boolean }) {
-  fetchWallet(opts)
-  fetchTransactions(opts)
-  fetchBudgets(undefined, opts)
+function refreshAll() {
+  fetchWallet({ force: true })
+  fetchTransactions({ force: true })
+  fetchBudgets(undefined, { force: true })
 }
 
-onMounted(() => loadWallet())
 // Reconnect: ignore the in-memory freshness window — the network was just
 // down, so the cache may not reflect server state.
-useOnReconnect(() => loadWallet({ force: true }))
+useOnReconnect(() => refreshAll())
 
 watch(topUpSuccess, (v) => {
-  if (v) {
-    fetchWallet({ force: true })
-    fetchTransactions({ force: true })
-  }
+  if (v) refreshAll()
 })
 
 // ---- Inner tab navigation ----
@@ -278,6 +275,29 @@ const filteredTransactions = computed(() => {
   })
 })
 
+const walletTabPanelRef = ref<{ bodyScrollEl: HTMLElement | null } | null>(null)
+const walletScrollRoot = computed(() => walletTabPanelRef.value?.bodyScrollEl ?? undefined)
+
+const { visibleItems: visibleWorkflowRows, hasMore: workflowHasMore, loadMore: loadMoreWorkflow } = useInfiniteList(workflowBreakdown, 15)
+const workflowScrollSentinel = ref<HTMLElement | null>(null)
+useIntersectionObserver(
+  workflowScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && workflowHasMore.value) loadMoreWorkflow()
+  },
+  { root: walletScrollRoot, rootMargin: '100px' },
+)
+
+const { visibleItems: visibleFilteredTx, hasMore: txHasMore, loadMore: loadMoreTx } = useInfiniteList(filteredTransactions, 45)
+const txScrollSentinel = ref<HTMLElement | null>(null)
+useIntersectionObserver(
+  txScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && txHasMore.value) loadMoreTx()
+  },
+  { root: walletScrollRoot, rootMargin: '120px' },
+)
+
 // ---- Policies (remaining — auto top-up now promoted to a top-level button) ----
 const defaultWorkflowBudget = useLocalStorage('wallet:default_session_budget', 5, { initOnMounted: true })
 const defaultOperationMax = useLocalStorage('wallet:default_operation_max', 0.5, { initOnMounted: true })
@@ -378,7 +398,7 @@ const currencyLabel = computed(
       <PageHeader :tabs="headerTabs" raw-tab-labels />
     </header>
 
-    <TabPanel class="min-h-0 min-w-0 flex-1">
+    <TabPanel ref="walletTabPanelRef" class="min-h-0 min-w-0 flex-1">
       <div class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
@@ -430,7 +450,7 @@ const currencyLabel = computed(
                   <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.overview.availableBalance') }}</span>
                   <div class="mt-1 flex items-baseline gap-3">
                     <span class="font-mono text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
-                      {{ loading && !wallet ? '…' : balanceDisplay }}
+                      {{ balanceDisplay }}
                     </span>
                     <div ref="currencyDropdownRef" class="relative">
                       <button
@@ -608,16 +628,13 @@ const currencyLabel = computed(
                   </div>
                 </header>
 
-                <div v-if="loading && !workflowBreakdown.length" class="flex items-center justify-center py-10 text-sm text-neutral-400">
-                  {{ t('vault.wallet.spendingByWorkflow.loading') }}
-                </div>
-                <div v-else-if="workflowBreakdown.length === 0" class="flex flex-col items-center justify-center gap-2 py-12 text-neutral-400">
+                <div v-if="workflowBreakdown.length === 0" class="flex flex-col items-center justify-center gap-2 py-12 text-neutral-400">
                   <UIcon name="i-heroicons-chart-bar" class="size-6 text-neutral-300" />
                   <span class="text-sm">{{ t('vault.wallet.spendingByWorkflow.empty') }}</span>
                 </div>
                 <div v-else>
                   <button
-                    v-for="w in workflowBreakdown"
+                    v-for="w in visibleWorkflowRows"
                     :key="w.sessionId"
                     class="grid w-full grid-cols-[minmax(0,160px)_1fr_auto] items-center gap-4 border-b border-neutral-50 px-5 py-3 text-left last:border-0 transition-colors hover:bg-neutral-50/70 sm:px-6"
                     @click="openWorkflow(w.sessionId)"
@@ -650,6 +667,12 @@ const currencyLabel = computed(
                       </span>
                     </div>
                   </button>
+                  <div
+                    v-if="workflowHasMore"
+                    ref="workflowScrollSentinel"
+                    class="h-2 w-full shrink-0"
+                    aria-hidden="true"
+                  />
                 </div>
               </section>
             </div>
@@ -682,7 +705,7 @@ const currencyLabel = computed(
                   </option>
                 </select>
                 <span class="ml-auto text-xs text-neutral-500">
-                  {{ t('vault.wallet.txTable.countSummary', { shown: filteredTransactions.length, total: transactions.length }) }}
+                  {{ t('vault.wallet.txTable.countSummary', { shown: visibleFilteredTx.length, total: filteredTransactions.length }) }}
                 </span>
               </div>
 
@@ -700,51 +723,54 @@ const currencyLabel = computed(
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-if="loading && !transactions.length">
-                        <td colspan="6" class="px-5 py-10 text-center text-sm text-neutral-400">{{ t('vault.wallet.txTable.loading') }}</td>
-                      </tr>
-                      <tr v-else-if="filteredTransactions.length === 0">
+                      <tr v-if="filteredTransactions.length === 0">
                         <td colspan="6" class="px-5 py-10 text-center text-sm text-neutral-400">
                           {{ t('vault.wallet.txTable.empty') }}
                         </td>
                       </tr>
-                      <tr
-                        v-for="tx in filteredTransactions"
-                        v-else
-                        :key="tx.id"
-                        class="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60"
-                      >
-                        <td class="px-5 py-3 align-middle">
-                          <span
-                            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
-                            :class="[TX_TYPE_CONFIG[tx.type]?.bg, TX_TYPE_CONFIG[tx.type]?.text, TX_TYPE_CONFIG[tx.type]?.ring]"
-                          >
-                            <span>{{ TX_TYPE_CONFIG[tx.type]?.icon }}</span>
-                            {{ TX_TYPE_CONFIG[tx.type]?.label }}
-                          </span>
-                        </td>
-                        <td class="px-5 py-3 align-middle text-sm text-neutral-800">{{ tx.description || '—' }}</td>
-                        <td class="px-5 py-3 align-middle text-sm">
-                          <button
-                            v-if="tx.session_id"
-                            class="font-mono text-xs text-neutral-950 hover:underline"
-                            @click="openWorkflow(tx.session_id!)"
-                          >
-                            {{ sessionShort(tx.session_id) }}
-                          </button>
-                          <span v-else class="text-xs text-neutral-400">{{ t('vault.wallet.txTable.workspaceTag') }}</span>
-                        </td>
-                        <td class="px-5 py-3 align-middle text-sm text-neutral-500">{{ formatDate(tx.created_at, true) }}</td>
-                        <td
-                          class="px-5 py-3 text-right align-middle font-mono text-sm font-semibold"
-                          :class="tx.amount_cents >= 0 ? 'text-green-600' : 'text-neutral-900'"
+                      <template v-else>
+                        <tr
+                          v-for="tx in visibleFilteredTx"
+                          :key="tx.id"
+                          class="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60"
                         >
-                          {{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents), topUpCurrency) }}
-                        </td>
-                        <td class="px-5 py-3 text-right align-middle font-mono text-xs text-neutral-500">
-                          {{ formatCents(tx.balance_after_cents, topUpCurrency) }}
-                        </td>
-                      </tr>
+                          <td class="px-5 py-3 align-middle">
+                            <span
+                              class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
+                              :class="[TX_TYPE_CONFIG[tx.type]?.bg, TX_TYPE_CONFIG[tx.type]?.text, TX_TYPE_CONFIG[tx.type]?.ring]"
+                            >
+                              <span>{{ TX_TYPE_CONFIG[tx.type]?.icon }}</span>
+                              {{ TX_TYPE_CONFIG[tx.type]?.label }}
+                            </span>
+                          </td>
+                          <td class="px-5 py-3 align-middle text-sm text-neutral-800">{{ tx.description || '—' }}</td>
+                          <td class="px-5 py-3 align-middle text-sm">
+                            <button
+                              v-if="tx.session_id"
+                              class="font-mono text-xs text-neutral-950 hover:underline"
+                              @click="openWorkflow(tx.session_id!)"
+                            >
+                              {{ sessionShort(tx.session_id) }}
+                            </button>
+                            <span v-else class="text-xs text-neutral-400">{{ t('vault.wallet.txTable.workspaceTag') }}</span>
+                          </td>
+                          <td class="px-5 py-3 align-middle text-sm text-neutral-500">{{ formatDate(tx.created_at, true) }}</td>
+                          <td
+                            class="px-5 py-3 text-right align-middle font-mono text-sm font-semibold"
+                            :class="tx.amount_cents >= 0 ? 'text-green-600' : 'text-neutral-900'"
+                          >
+                            {{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents), topUpCurrency) }}
+                          </td>
+                          <td class="px-5 py-3 text-right align-middle font-mono text-xs text-neutral-500">
+                            {{ formatCents(tx.balance_after_cents, topUpCurrency) }}
+                          </td>
+                        </tr>
+                        <tr v-if="txHasMore" aria-hidden="true">
+                          <td colspan="6" class="h-2 p-0">
+                            <div ref="txScrollSentinel" class="h-1" />
+                          </td>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>

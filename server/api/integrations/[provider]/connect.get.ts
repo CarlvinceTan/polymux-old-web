@@ -1,5 +1,5 @@
 import { serverSupabaseUser, serverSupabaseClient } from '#supabase/server'
-import { issueOAuthState, STATE_COOKIE } from '~~/server/utils/oauthState'
+import { issueOAuthState, STATE_COOKIE } from '~~/server/utils/oauth/oauthState'
 import { getConnector } from '~~/server/connectors/registry'
 
 // GET /api/integrations/[provider]/connect?workspace_id=...&migrate=1

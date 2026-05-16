@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { verifyOAuthState, STATE_COOKIE } from '~~/server/utils/oauthState'
+import { verifyOAuthState, STATE_COOKIE } from '~~/server/utils/oauth/oauthState'
 import { getConnector } from '~~/server/connectors/registry'
 
 // GET /api/integrations/[provider]/callback?code=...&state=...

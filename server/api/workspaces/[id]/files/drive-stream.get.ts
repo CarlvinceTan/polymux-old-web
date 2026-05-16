@@ -5,9 +5,9 @@ import {
   normalizePath,
   requireRead,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { quotaUserHeader } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { quotaUserHeader } from '~~/server/utils/oauth/googleOAuth'
 
 const DRIVE_FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files'
 

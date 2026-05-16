@@ -9,7 +9,9 @@ const props = withDefaults(defineProps<{
 const { cards, refresh } = useStorageUsage()
 
 onMounted(() => {
-  refresh().catch(() => {})
+  const run = () => refresh().catch(() => {})
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2_000 })
+  else setTimeout(run, 0)
 })
 
 const visibleCards = computed(() =>

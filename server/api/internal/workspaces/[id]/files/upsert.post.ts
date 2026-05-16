@@ -1,6 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
-import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/internal/workspaces/[id]/files/upsert
 // Body: {
@@ -14,9 +14,9 @@ import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspaceFile
 //   created_by?: string (user UUID — workspace owner for autonomous runs)
 // }
 //
-// Called by Go after a successful PushFile / PushFolder upload so the metadata
-// index reflects the new state. Kind is always 'file' here — folders are
-// implicit in the path segments.
+// Called by Go after a successful WriteFile upload so the metadata index
+// reflects the new state. Kind is always 'file' here — folders are implicit
+// in the path segments.
 
 interface Body {
   path?: unknown
@@ -29,7 +29,7 @@ interface Body {
   created_by?: unknown
 }
 
-const ALLOWED_BACKENDS = new Set(['google-drive', 'local'])
+const ALLOWED_BACKENDS = new Set(['google-drive', 'local', 'b2'])
 
 export default defineEventHandler(async (event) => {
   await requirePolymuxSecret(event)

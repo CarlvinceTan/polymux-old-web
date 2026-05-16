@@ -4,11 +4,10 @@ import type { FileAttachmentState } from '~/composables/chat/useAttachments'
 import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/device/useSpeechRecognition'
 import { useAppToast } from '~/composables/ui/useAppToast'
 import { useAutoResizeTextarea } from '~/composables/ui/useAutoResizeTextarea'
-import { useAgentConfig } from '~/composables/account/useAgentConfig'
 
 const { t, locale } = useI18n()
 const toast = useAppToast()
-const { inputTokenCap } = useAgentConfig()
+const { isExtensionModeGloballyAllowed } = useMeFeatures()
 
 const props = withDefaults(
   defineProps<{
@@ -16,26 +15,42 @@ const props = withDefaults(
     modelValue?: string
     attachments?: FileAttachmentState[]
     disabled?: boolean
+    browserMode?: 'server' | 'extension'
   }>(),
   {
     hint: undefined,
     modelValue: '',
     attachments: () => [],
     disabled: false,
+    browserMode: 'server',
   },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'update:browserMode': [value: 'server' | 'extension']
   send: [value: string]
   'attach-files': [files: FileList]
   'remove-file': [id: string]
 }>()
 
+const browserModeProxy = computed({
+  get: () => props.browserMode,
+  set: (v) => emit('update:browserMode', v),
+})
+
 const inputValue = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 })
+
+// Don't auto-flip extension → server when the global flag is off: the user
+// still sees the settings menu (just disabled) so silently rewriting their
+// selection would mask the explanation BrowserModeMenu surfaces in the
+// disabled state. Backwards: the existing workflow row may have
+// `last_browser_mode=extension` from before the flag was toggled off; the
+// server still routes those to 'server' on the wire, so leaving the local
+// ref alone is just cosmetic.
 
 const localeToBcp47: Record<string, string> = {
   en: 'en-US', ko: 'ko-KR', zh: 'zh-CN', ja: 'ja-JP',
@@ -99,22 +114,9 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const { expanded: expandedPrompt } = useAutoResizeTextarea(textareaRef, inputValue, { maxLines: 4 })
 
-function estimateTokens(text: string): number {
-  // Rough cl100k-style heuristic: 4 chars per token. Server uses real
-  // tiktoken; this is just enough to flag obviously oversized pastes
-  // before we round-trip.
-  return Math.ceil(text.length / 4)
-}
+const hasDraftText = computed(() => String(props.modelValue ?? '').length > 0)
 
 function onSendClick() {
-  const cap = inputTokenCap.value
-  if (cap && cap > 0) {
-    const estimated = estimateTokens(String(inputValue.value ?? ''))
-    if (estimated > cap) {
-      toast.show(t('chat.tokenCapExceeded', { tokens: estimated, cap }), 'warning')
-      return
-    }
-  }
   emit('send', inputValue.value)
 }
 
@@ -175,8 +177,11 @@ function onFileInputChange(e: Event) {
     </TransitionGroup>
 
     <div
-      class="relative flex w-full min-h-13 rounded-2xl bg-[#e8e8e8] p-2 transition-[background-color] duration-150 focus-within:bg-neutral-50 focus-within:outline focus-within:outline-neutral-300/80 focus-within:ring-1 focus-within:ring-neutral-200/90 has-[textarea:not(:placeholder-shown)]:bg-neutral-50"
-      :class="expandedPrompt ? 'items-start' : 'items-center'"
+      class="prompt-shell relative flex w-full min-h-13 rounded-2xl bg-[#e8e8e8] p-2 transition-[background-color] duration-150"
+      :class="[
+        expandedPrompt ? 'items-start' : 'items-center',
+        hasDraftText && 'prompt-shell--raised',
+      ]"
     >
       <div class="flex flex-col items-center min-w-0 flex-1 pl-1 sm:pl-2 pr-12.25">
         <textarea
@@ -224,15 +229,22 @@ function onFileInputChange(e: Event) {
         </span>
         <span>{{ (isListening ? t('chat.voiceListening') : t('common.voice')).toUpperCase() }}</span>
       </button>
-      <button type="button" class="inline-flex items-center gap-1 whitespace-nowrap transition-opacity hover:opacity-70">
-        <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0 size-3.5" />
-        <span>{{ t('common.settings').toUpperCase() }}</span>
-      </button>
+      <BrowserModeMenu
+        v-model="browserModeProxy"
+        :feature-enabled="isExtensionModeGloballyAllowed()"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
+@reference "../../assets/css/main.css";
+
+.prompt-shell:focus-within,
+.prompt-shell.prompt-shell--raised {
+  @apply bg-neutral-50 outline outline-neutral-300/80 ring-1 ring-neutral-200/90;
+}
+
 .chip-move,
 .chip-enter-active,
 .chip-leave-active {

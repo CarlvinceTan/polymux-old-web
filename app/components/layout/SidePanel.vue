@@ -20,20 +20,7 @@ const {
   fetchMembers: fetchWorkspaceMembers,
 } = useWorkspaces()
 
-type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
-
-const planKey = computed<PlanKey>(() => {
-  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
-  const normalised = raw.toLowerCase().trim()
-  if (['pro', 'max', 'enterprise'].includes(normalised)) return normalised as PlanKey
-  return 'free'
-})
-
-const upgradeQuery = computed(() => {
-  const q: Record<string, string> = { current: planKey.value }
-  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
-  return q
-})
+const { navigateToPricing } = usePlanUpgradeNavigation()
 
 const {
   sessions,
@@ -42,7 +29,7 @@ const {
   runningOverrides,
   fetchSessions,
   createDraft,
-  restoreDraft,
+  ensureAtLeastOneWorkflow,
   renameSession,
   deleteSession,
 } = useWorkflowList()
@@ -283,12 +270,7 @@ const draggableOptions = {
   onEnd: onDragEnd,
 }
 
-async function ensureAtLeastOneWorkflow() {
-  if (!currentWorkspaceId.value) return
-  if (sessions.value.length === 0) {
-    await createDraft()
-  }
-}
+const bootstrapping = ref(true)
 
 async function bootstrapData() {
   // For returning users currentWorkspaceId hydrates from localStorage, so the
@@ -297,15 +279,19 @@ async function bootstrapData() {
   // resets it and the watch on currentWorkspaceId re-fetches sessions for the
   // new id. First-time users have no cached id and would otherwise issue an
   // unfiltered /sessions request, so wait for the workspace list in that case.
-  if (currentWorkspaceId.value) {
-    await Promise.all([fetchWorkspaces(), fetchSessions()])
+  try {
+    if (currentWorkspaceId.value) {
+      await Promise.all([fetchWorkspaces(), fetchSessions()])
+    }
+    else {
+      await fetchWorkspaces()
+      await fetchSessions()
+    }
   }
-  else {
-    await fetchWorkspaces()
-    await fetchSessions()
+  finally {
+    await ensureAtLeastOneWorkflow()
+    bootstrapping.value = false
   }
-  await restoreDraft()
-  await ensureAtLeastOneWorkflow()
 }
 
 // Initial data fetch
@@ -319,12 +305,7 @@ onMounted(async () => {
 // state.
 useOnReconnect(bootstrapData)
 
-// Re-fetch sessions when workspace changes
-watch(currentWorkspaceId, async () => {
-  await fetchSessions()
-  await restoreDraft()
-  await ensureAtLeastOneWorkflow()
-})
+
 
 // User data
 const userEmail = computed(() => user.value?.email ?? 'user@example.com')
@@ -459,9 +440,10 @@ const memberCountText = computed(() => {
   return count === 1 ? t('workspaceMenu.memberCountOne') : t('workspaceMenu.memberCountMany', { n: count })
 })
 
-watch(currentWorkspaceId, async (id) => {
-  if (id) await fetchWorkspaceMembers(id)
-}, { immediate: true })
+// Member data is only visible inside the workspace dropdown — defer the
+// fetch to when the dropdown actually opens (handled by the
+// isWorkspaceDropdownOpen watcher below) to avoid a blocking request
+// during bootstrap.
 
 watch(isWorkspaceDropdownOpen, async (open) => {
   if (open && currentWorkspaceId.value) {
@@ -670,7 +652,7 @@ function handleInstallApp() {
 
 function handleUpgradePlan() {
   closeProfileDropdown()
-  navigateTo({ path: '/pricing', query: upgradeQuery.value })
+  void navigateToPricing()
 }
 
 async function handleLogout() {
@@ -745,7 +727,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Workspace Dropdown -->
-        <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
+        <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen" width="w-full">
           <!-- Current workspace header -->
           <div class="min-w-0 px-3 pb-2 pt-1.5">
             <p class="truncate text-sm font-semibold text-neutral-950">
@@ -907,7 +889,16 @@ onUnmounted(() => {
       <div class="mt-6 flex flex-col flex-1 min-h-0 relative">
         <h3 class="mb-2 pl-2.5 text-meta font-semibold uppercase tracking-wide text-neutral-500 shrink-0">{{ t('nav.workflows') }}
         </h3>
+
+        <!-- Skeleton rows while bootstrapping -->
+        <ul v-if="bootstrapping" class="flex flex-col gap-0.5 flex-1 overflow-hidden pb-4" aria-busy="true">
+          <li v-for="n in 5" :key="n" class="flex items-center rounded-md py-1.5 pl-2.5 pr-2">
+            <span class="h-3.5 rounded bg-neutral-200 animate-pulse" :style="{ width: `${50 + (n * 13) % 40}%` }" />
+          </li>
+        </ul>
+
         <TransitionGroup
+          v-else
           v-draggable="[displaySessions, draggableOptions]"
           tag="ul"
           name="wf"
@@ -1094,53 +1085,8 @@ onUnmounted(() => {
             </p>
           </div>
         </button>
-      </div>
 
-      <!-- Language submenu panel — teleported to body to escape overflow-hidden -->
-      <Teleport to="body">
-        <div
-          v-if="isProfileDropdownOpen && isLanguageOpen"
-          ref="languagePanelRef"
-          class="fixed w-44 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
-          :style="languagePanelStyle"
-        >
-          <button
-            v-for="loc in availableLocales"
-            :key="loc.code"
-            type="button"
-            class="flex w-full items-center justify-between px-3 py-1.5 text-sm cursor-pointer transition-colors hover:bg-neutral-100"
-            :class="locale === loc.code ? 'font-medium text-neutral-950' : 'text-neutral-700'"
-            @click="selectLocale(loc.code)"
-          >
-            <span>{{ loc.name }}</span>
-            <svg v-if="locale === loc.code" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 shrink-0 text-neutral-950" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </Teleport>
-
-      <!-- Help submenu panel — teleported to body to escape overflow-hidden -->
-      <Teleport to="body">
-        <div
-          v-if="isProfileDropdownOpen && isHelpOpen"
-          ref="helpPanelRef"
-          class="fixed w-52 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
-          :style="helpPanelStyle"
-        >
-          <button
-            v-for="item in helpMenuItems"
-            :key="item.key"
-            type="button"
-            class="flex w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors text-neutral-700 hover:bg-neutral-100"
-            @click="selectHelpItem(item.key)"
-          >
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-      </Teleport>
-
-      <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above">
+        <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above" width="w-full">
         <div class="px-3 py-1.5 text-xs text-neutral-500 truncate">
           {{ userEmail }}
         </div>
@@ -1211,10 +1157,55 @@ onUnmounted(() => {
             </template>
           </MenuItem>
       </Menu>
+      </div>
+
+      <!-- Language submenu panel — teleported to body to escape overflow-hidden -->
+      <Teleport to="body">
+        <div
+          v-if="isProfileDropdownOpen && isLanguageOpen"
+          ref="languagePanelRef"
+          class="fixed w-44 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          :style="languagePanelStyle"
+        >
+          <button
+            v-for="loc in availableLocales"
+            :key="loc.code"
+            type="button"
+            class="flex w-full items-center justify-between px-3 py-1.5 text-sm cursor-pointer transition-colors hover:bg-neutral-100"
+            :class="locale === loc.code ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+            @click="selectLocale(loc.code)"
+          >
+            <span>{{ loc.name }}</span>
+            <svg v-if="locale === loc.code" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 shrink-0 text-neutral-950" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </Teleport>
+
+      <!-- Help submenu panel — teleported to body to escape overflow-hidden -->
+      <Teleport to="body">
+        <div
+          v-if="isProfileDropdownOpen && isHelpOpen"
+          ref="helpPanelRef"
+          class="fixed w-52 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          :style="helpPanelStyle"
+        >
+          <button
+            v-for="item in helpMenuItems"
+            :key="item.key"
+            type="button"
+            class="flex w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors text-neutral-700 hover:bg-neutral-100"
+            @click="selectHelpItem(item.key)"
+          >
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </Teleport>
     </div>
 
     <SearchModal v-model:open="isSearchOpen" />
-    <SettingsModal v-model:open="isSettingsModalOpen" />
+    <UserSettingsModal v-model:open="isSettingsModalOpen" />
     <BugReportModal v-model:open="isBugReportOpen" />
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
     <WorkspaceSettingsModal v-model:open="isWorkspaceSettingsOpen" />

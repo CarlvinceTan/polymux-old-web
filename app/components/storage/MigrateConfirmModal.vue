@@ -19,6 +19,8 @@ export interface MigrateConfirmGroup {
   items: MigrateConfirmItem[]
 }
 
+const { t } = useI18n()
+
 const props = defineProps<{
   groups: MigrateConfirmGroup[]
   targetProvider: StorageProvider
@@ -31,13 +33,14 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const providerLabels: Record<StorageProvider, string> = {
+const providerLabels = computed<Record<StorageProvider, string>>(() => ({
   'google-drive': 'Google Drive',
   'local': 'This device',
-}
+  'b2': t('storage.settings.providerCloud'),
+}))
 
 function providerLabel(p: StorageProvider): string {
-  return providerLabels[p]
+  return providerLabels.value[p]
 }
 
 const totalItems = computed(() =>

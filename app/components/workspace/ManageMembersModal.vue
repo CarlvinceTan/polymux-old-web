@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { User } from '@supabase/supabase-js'
 import type { WorkspaceInvitation, WorkspaceMember } from '~/composables/account/useWorkspaces'
+import { isInviteError } from '~/composables/account/useWorkspaces'
+
+const toast = useAppToast()
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
@@ -238,11 +241,29 @@ async function handleSendInvitations() {
   isInviting.value = true
   try {
     const emails = inviteEmails.value.split(',').map(e => e.trim()).filter(Boolean)
+    let limitHit = false
     for (const email of emails) {
-      const inv = await inviteMember(currentWorkspace.value.id, email, inviteRole.value)
-      if (inv) await sendInvitationEmail(inv)
+      const result = await inviteMember(currentWorkspace.value.id, email, inviteRole.value)
+      if (isInviteError(result)) {
+        if (result.code === 'MEMBER_LIMIT_REACHED') {
+          // Stop the loop — every subsequent invite in this batch would fail
+          // the same cap, so the user only needs the message once.
+          limitHit = true
+          const cap = result.cap ?? 0
+          const planLabel = result.plan ? result.plan.charAt(0).toUpperCase() + result.plan.slice(1) : 'current'
+          toast.show(
+            `Workspace member limit reached for your ${planLabel} plan (${cap} seats). Upgrade to invite more.`,
+            'warning',
+            10000,
+          )
+          break
+        }
+        toast.show(result.error, 'error', 8000)
+        continue
+      }
+      await sendInvitationEmail(result)
     }
-    isInviteOpen.value = false
+    if (!limitHit) isInviteOpen.value = false
   }
   finally {
     isInviting.value = false
@@ -465,20 +486,22 @@ onUnmounted(() => {
             :aria-label="t('workspaceMenu.manageMembers')"
             @click.stop
           >
-            <!-- Header -->
-            <div class="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3.5">
-              <h2 class="text-sm font-semibold text-neutral-950">{{ t('workspaceMenu.manageMembers') }}</h2>
+            <div class="relative shrink-0 px-5 pt-5 pb-4">
               <button
                 type="button"
-                class="p-1 text-neutral-400 transition-colors hover:text-neutral-950"
+                class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                :aria-label="t('common.close')"
                 @click="close"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
+              <div class="pr-6">
+                <h2 class="text-sm font-semibold text-neutral-900">{{ t('workspaceMenu.manageMembers') }}</h2>
+              </div>
             </div>
 
             <!-- Toolbar -->
-            <div class="flex items-center gap-2 px-5 pb-2 pt-3">
+            <div class="flex items-center gap-2 px-5 pb-2 pt-2">
               <div class="flex h-6 min-w-0 flex-1 items-center rounded-md border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
                 <div class="flex size-6 shrink-0 items-center justify-center text-neutral-400">
                   <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>

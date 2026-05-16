@@ -105,15 +105,6 @@ async function saveBlogSubscription(value: boolean) {
   }
 }
 
-async function saveCloakedBrowser(value: boolean) {
-  try {
-    await useUserSettings().saveSettings({ cloaked_browser_enabled: value })
-  }
-  catch (e) {
-    console.error('[settings] Error saving cloaked browser preference:', e)
-  }
-}
-
 async function saveShowCursorOverlay(value: boolean) {
   try {
     await useUserSettings().saveSettings({ show_cursor_overlay: value })
@@ -126,9 +117,10 @@ async function saveShowCursorOverlay(value: boolean) {
 const { currency, setCurrency, currencyOptions, detect: detectCurrency } = useCurrency()
 const geo = useGeolocation({ active: false })
 
+/** Empty when permission is granted — no explanatory subtitle needed. */
 const locationPermissionHint = computed(() => {
   switch (geo.permissionState.value) {
-    case 'granted': return t('settings.locationGranted')
+    case 'granted': return ''
     case 'denied': return t('settings.locationDenied')
     case 'unsupported': return t('settings.locationUnsupported')
     default: return t('settings.locationPrompt')
@@ -444,23 +436,12 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                           <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
                         </template>
                       </SettingsSectionRow>
-                      <p class="px-5 pb-3 text-label-md text-neutral-400">{{ locationPermissionHint }}</p>
-                    </div>
-                    <div>
-                      <SettingsSectionRow>
-                        <template #icon>
-                          <UIcon name="i-heroicons-shield-check-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                        </template>
-                        <template #label>{{ t('settings.cloakedBrowser') }}</template>
-                        <template #trailing>
-                          <SettingsToggle
-                            :model-value="userSettings.cloaked_browser_enabled"
-                            :disabled="blogSubscriptionSaving"
-                            @update:model-value="saveCloakedBrowser"
-                          />
-                        </template>
-                      </SettingsSectionRow>
-                      <p class="px-5 pb-3 text-label-md text-neutral-400">{{ t('settings.cloakedBrowserHint') }}</p>
+                      <p
+                        v-if="locationPermissionHint"
+                        class="px-5 pb-3 text-label-md text-neutral-400"
+                      >
+                        {{ locationPermissionHint }}
+                      </p>
                     </div>
                     <!--
                       "Display cursor" toggle (settings.showCursor / settings.showCursorHint) is

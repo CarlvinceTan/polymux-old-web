@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/app/types/database.types'
-import { decryptToken, encryptToken } from '~~/server/utils/tokenCrypto'
-import { refreshAccessToken } from '~~/server/utils/googleOAuth'
+import { decryptToken, encryptToken } from '~~/server/utils/security/tokenCrypto'
+import { refreshAccessToken } from '~~/server/utils/oauth/googleOAuth'
 
 // ReturnType<typeof serverSupabaseServiceRole> resolves the generic to its
 // default `unknown` rather than `Database`, leaving callers stuck with a
@@ -51,19 +51,21 @@ export async function resolveDriveAccess(
 
   if (error) {
     console.error('[driveTokens] read failed', error)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to read Drive integration.' })
+    throw createError({ statusCode: 500, statusMessage: 'Drive integration read failed', message: 'Failed to read Drive integration.' })
   }
   const row = data as unknown as IntegrationRow | null
   if (!row) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'CONNECTION_BROKEN: workspace is not connected to Google Drive.',
+      statusMessage: 'CONNECTION_BROKEN',
+      message: 'CONNECTION_BROKEN: workspace is not connected to Google Drive.',
     })
   }
   if (!row.access_token_enc || !row.root_folder_id || !row.root_folder_name) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'CONNECTION_BROKEN: Drive connection is missing tokens or root folder.',
+      statusMessage: 'CONNECTION_BROKEN',
+      message: 'CONNECTION_BROKEN: Drive connection is missing tokens or root folder.',
     })
   }
 
@@ -82,7 +84,8 @@ export async function resolveDriveAccess(
   if (!row.refresh_token_enc) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'CONNECTION_BROKEN: Drive refresh token missing — reconnect required.',
+      statusMessage: 'CONNECTION_BROKEN',
+      message: 'CONNECTION_BROKEN: Drive refresh token missing — reconnect required.',
     })
   }
 
@@ -93,7 +96,8 @@ export async function resolveDriveAccess(
     console.error('[driveTokens] refresh failed', err)
     throw createError({
       statusCode: 409,
-      statusMessage: 'CONNECTION_BROKEN: Drive refresh failed — reconnect required.',
+      statusMessage: 'CONNECTION_BROKEN',
+      message: 'CONNECTION_BROKEN: Drive refresh failed — reconnect required.',
     })
   }
 

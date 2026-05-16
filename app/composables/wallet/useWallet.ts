@@ -43,170 +43,175 @@ export const CREDIT_PACKS = [
 export type TransactionType = Transaction['type']
 export type BudgetStatus = SessionBudget['status']
 
-// Stale-while-revalidate windows. Pages call fetchWallet/fetchTransactions/
-// fetchBudgets in onMounted so revisits would otherwise refetch on every
-// navigation. Suppressing within this window keeps the dashboard snappy on
-// repeat opens; mutations (top-up, budget changes) call with `force: true`
-// to bypass the cache.
-const WALLET_STALE_MS = 30_000
-const TRANSACTIONS_STALE_MS = 30_000
-const BUDGETS_STALE_MS = 30_000
-
 export function useWallet() {
   const { authFetch } = useAuthFetch()
   const { currentWorkspaceId } = useWorkspaces()
-  const wallet = useState<Wallet | null>('wallet', () => null)
-  const transactions = useState<Transaction[]>('wallet-transactions', () => [])
-  const budgets = useState<SessionBudget[]>('wallet-budgets', () => [])
-  const loading = useState('wallet-loading', () => false)
+  const queryClient = useQueryClient()
 
-  // Per-resource fetch timestamps keyed by workspace id. Workspace switches
-  // invalidate by virtue of the key changing, so the next caller fetches.
-  const walletFetchedAt = useState<Record<string, number>>('wallet-fetched-at', () => ({}))
-  const transactionsFetchedAt = useState<Record<string, number>>('wallet-transactions-fetched-at', () => ({}))
-  const budgetsFetchedAt = useState<Record<string, number>>('wallet-budgets-fetched-at', () => ({}))
+  const wsId = computed(() => currentWorkspaceId.value)
+
+  const walletQuery = useQuery({
+    queryKey: computed(() => ['wallet', wsId.value]),
+    queryFn: async () => {
+      const id = wsId.value
+      if (!id) return null
+      try {
+        return await authFetch<Wallet>(`/workspaces/${id}/wallet`)
+      } catch {
+        return null
+      }
+    },
+    enabled: computed(() => !!wsId.value),
+  })
+
+  const transactionsQuery = useQuery({
+    queryKey: computed(() => ['wallet-transactions', wsId.value]),
+    queryFn: async () => {
+      const id = wsId.value
+      if (!id) return []
+      try {
+        return await authFetch<Transaction[]>(`/workspaces/${id}/wallet/transactions`)
+      } catch {
+        return []
+      }
+    },
+    enabled: computed(() => !!wsId.value),
+  })
+
+  const budgetsQuery = useQuery({
+    queryKey: computed(() => ['wallet-budgets', wsId.value]),
+    queryFn: async () => {
+      const id = wsId.value
+      if (!id) return []
+      try {
+        return await authFetch<SessionBudget[]>(`/workspaces/${id}/wallet/budgets`)
+      } catch {
+        return []
+      }
+    },
+    enabled: computed(() => !!wsId.value),
+  })
+
+  const wallet = computed(() => walletQuery.data.value ?? null)
+  const transactions = computed(() => transactionsQuery.data.value ?? [])
+  const budgets = computed(() => budgetsQuery.data.value ?? [])
+
+  const loading = computed(() =>
+    walletQuery.isFetching.value ||
+    transactionsQuery.isFetching.value ||
+    budgetsQuery.isFetching.value,
+  )
 
   async function fetchWallet(opts?: { force?: boolean }) {
-    const wsId = currentWorkspaceId.value
-    if (!wsId) return
-    if (!opts?.force) {
-      const last = walletFetchedAt.value[wsId] ?? 0
-      if (Date.now() - last < WALLET_STALE_MS) return
-    }
-    loading.value = true
-    try {
-      wallet.value = await authFetch<Wallet>(`/workspaces/${wsId}/wallet`)
-      walletFetchedAt.value = { ...walletFetchedAt.value, [wsId]: Date.now() }
-    }
-    catch {
-      wallet.value = null
-    }
-    finally {
-      loading.value = false
+    const id = wsId.value
+    if (!id) return
+    if (opts?.force) {
+      await queryClient.invalidateQueries({ queryKey: ['wallet', id] })
+    } else {
+      await queryClient.fetchQuery({ queryKey: ['wallet', id] })
     }
   }
 
   async function fetchTransactions(params?: { type?: TransactionType; sessionId?: string; force?: boolean }) {
-    const wsId = currentWorkspaceId.value
-    if (!wsId) return
-    // Filtered queries always hit the network — caching them per filter combo
-    // would need a richer key, and they're only used by the wallet/usage pages
-    // where freshness matters more than skip-on-revisit.
+    const id = wsId.value
+    if (!id) return
     const isFiltered = !!(params?.type || params?.sessionId)
-    if (!isFiltered && !params?.force) {
-      const last = transactionsFetchedAt.value[wsId] ?? 0
-      if (Date.now() - last < TRANSACTIONS_STALE_MS) return
-    }
-    loading.value = true
-    try {
-      const query = new URLSearchParams()
-      if (params?.type) query.set('type', params.type)
-      if (params?.sessionId) query.set('session_id', params.sessionId)
-      const qs = query.toString()
-      const path = `/workspaces/${wsId}/wallet/transactions${qs ? `?${qs}` : ''}`
-      transactions.value = await authFetch<Transaction[]>(path)
-      if (!isFiltered) {
-        transactionsFetchedAt.value = { ...transactionsFetchedAt.value, [wsId]: Date.now() }
+    if (isFiltered) {
+      // Filtered queries are one-off fetches — write into the unfiltered cache
+      // slot so the caller's reactive `transactions` ref updates.
+      try {
+        const query = new URLSearchParams()
+        if (params?.type) query.set('type', params.type)
+        if (params?.sessionId) query.set('session_id', params.sessionId)
+        const qs = query.toString()
+        const path = `/workspaces/${id}/wallet/transactions${qs ? `?${qs}` : ''}`
+        const data = await authFetch<Transaction[]>(path)
+        queryClient.setQueryData(['wallet-transactions', id], data)
+      } catch {
+        // leave existing cache intact
       }
+      return
     }
-    catch {
-      transactions.value = []
-    }
-    finally {
-      loading.value = false
+    if (params?.force) {
+      await queryClient.invalidateQueries({ queryKey: ['wallet-transactions', id] })
+    } else {
+      await queryClient.fetchQuery({ queryKey: ['wallet-transactions', id] })
     }
   }
 
   async function fetchBudgets(status?: BudgetStatus, opts?: { force?: boolean }) {
-    const wsId = currentWorkspaceId.value
-    if (!wsId) return
-    if (!status && !opts?.force) {
-      const last = budgetsFetchedAt.value[wsId] ?? 0
-      if (Date.now() - last < BUDGETS_STALE_MS) return
-    }
-    loading.value = true
-    try {
-      const qs = status ? `?status=${status}` : ''
-      budgets.value = await authFetch<SessionBudget[]>(`/workspaces/${wsId}/wallet/budgets${qs}`)
-      if (!status) {
-        budgetsFetchedAt.value = { ...budgetsFetchedAt.value, [wsId]: Date.now() }
+    const id = wsId.value
+    if (!id) return
+    if (status) {
+      // Filtered queries are one-off fetches
+      try {
+        const qs = `?status=${status}`
+        const data = await authFetch<SessionBudget[]>(`/workspaces/${id}/wallet/budgets${qs}`)
+        queryClient.setQueryData(['wallet-budgets', id], data)
+      } catch {
+        // leave existing cache intact
       }
+      return
     }
-    catch {
-      budgets.value = []
-    }
-    finally {
-      loading.value = false
+    if (opts?.force) {
+      await queryClient.invalidateQueries({ queryKey: ['wallet-budgets', id] })
+    } else {
+      await queryClient.fetchQuery({ queryKey: ['wallet-budgets', id] })
     }
   }
 
   async function allocateBudget(sessionId: string, allocatedCents: number) {
-    if (!currentWorkspaceId.value) return null
-    loading.value = true
+    if (!wsId.value) return null
     try {
-      const budget = await authFetch<SessionBudget>(`/workspaces/${currentWorkspaceId.value}/wallet/budgets`, {
+      const budget = await authFetch<SessionBudget>(`/workspaces/${wsId.value}/wallet/budgets`, {
         method: 'POST',
         body: JSON.stringify({ session_id: sessionId, allocated_cents: allocatedCents }),
       })
       await Promise.all([
-        fetchWallet({ force: true }),
-        fetchTransactions({ force: true }),
-        fetchBudgets(undefined, { force: true }),
+        queryClient.invalidateQueries({ queryKey: ['wallet', wsId.value] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet-transactions', wsId.value] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet-budgets', wsId.value] }),
       ])
       return budget
-    }
-    catch {
+    } catch {
       return null
-    }
-    finally {
-      loading.value = false
     }
   }
 
   async function updateBudgetStatus(sessionId: string, status: BudgetStatus, workspaceId?: string) {
-    loading.value = true
     try {
-      const wsId = workspaceId ?? currentWorkspaceId.value
-      const qs = wsId ? `?workspace_id=${wsId}` : ''
+      const id = workspaceId ?? wsId.value
+      const qs = id ? `?workspace_id=${id}` : ''
       const budget = await authFetch<SessionBudget>(`/sessions/${sessionId}/budget${qs}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       })
       await Promise.all([
-        fetchWallet({ force: true }),
-        fetchTransactions({ force: true }),
-        fetchBudgets(undefined, { force: true }),
+        queryClient.invalidateQueries({ queryKey: ['wallet', wsId.value] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet-transactions', wsId.value] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet-budgets', wsId.value] }),
       ])
       return budget
-    }
-    catch {
+    } catch {
       return null
-    }
-    finally {
-      loading.value = false
     }
   }
 
   async function getSessionBudget(sessionId: string) {
-    loading.value = true
     try {
       return await authFetch<SessionBudget>(`/sessions/${sessionId}/budget`)
-    }
-    catch {
+    } catch {
       return null
-    }
-    finally {
-      loading.value = false
     }
   }
 
   async function topUp(amountCents: number, currency: SupportedCurrency = 'usd') {
-    if (!currentWorkspaceId.value) return null
+    if (!wsId.value) return null
     try {
       const result = await $fetch<{ url: string }>('/api/stripe/wallet-topup', {
         method: 'POST',
         body: JSON.stringify({
-          workspaceId: currentWorkspaceId.value,
+          workspaceId: wsId.value,
           amountCents,
           currency,
         }),

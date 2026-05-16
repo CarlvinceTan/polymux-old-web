@@ -1,6 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requirePolymuxSecret } from '~~/server/utils/internalAuth'
-import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/internal/workspaces/[id]/files/delete
 // Body: { paths: string[] }  (one or many)

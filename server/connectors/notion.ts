@@ -2,8 +2,8 @@ import {
   buildNotionAuthUrl,
   exchangeNotionAuthCode,
   type NotionTokenResponse,
-} from '~~/server/utils/notionOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/notionOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler } from './types'
 
 export const notionConnector: ConnectorHandler = {

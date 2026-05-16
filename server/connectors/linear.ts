@@ -3,8 +3,8 @@ import {
   buildLinearAuthUrl,
   exchangeLinearAuthCode,
   fetchLinearViewer,
-} from '~~/server/utils/linearOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/linearOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler } from './types'
 
 export const linearConnector: ConnectorHandler = {

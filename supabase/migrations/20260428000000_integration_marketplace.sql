@@ -1,7 +1,7 @@
 -- Integration marketplace catalog.
 --
 -- Replaces the hardcoded `INTEGRATION_REGISTRY` map (`server/utils/
--- integrationRegistry.ts`) with a DB-backed catalog of installable items.
+-- integrations/integrationRegistry.ts`) with a DB-backed catalog of installable items.
 -- Three kinds live in the same table, distinguished by `kind`:
 --   - 'integration'  : code-based. First-party rows execute in-tree
 --                      (`server/connectors/*`); third-party rows resolve to

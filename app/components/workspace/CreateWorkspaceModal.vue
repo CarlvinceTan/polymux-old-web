@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { isInviteError } from '~/composables/account/useWorkspaces'
+
 const isOpen = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
+const toast = useAppToast()
 const { createWorkspace, inviteMember } = useWorkspaces()
 
 const name = ref('')
@@ -51,7 +54,18 @@ async function handleSubmit() {
       return
     }
     const validInvites = invites.value.filter(i => i.email.trim())
-    await Promise.all(validInvites.map(i => inviteMember(ws.id, i.email.trim(), i.role)))
+    const results = await Promise.all(validInvites.map(i => inviteMember(ws.id, i.email.trim(), i.role)))
+    // Surface a single toast if any invite failed; the workspace itself was
+    // created, so we still close the modal rather than blocking on it.
+    const limitErr = results.find(r => isInviteError(r) && r.code === 'MEMBER_LIMIT_REACHED')
+    if (limitErr && isInviteError(limitErr)) {
+      const cap = limitErr.cap ?? 0
+      toast.show(
+        `Workspace member limit reached (${cap} seats). Upgrade to invite more.`,
+        'warning',
+        10000,
+      )
+    }
     handleClose()
   }
   finally {

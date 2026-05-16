@@ -1,17 +1,17 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { b2DeleteByKey } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
 import {
   assertWorkflowMember,
   resolveArtifactId,
   resolveWorkflowId,
-} from '~~/server/utils/workflowAccess'
+} from '~~/server/utils/workspace/workflowAccess'
 
 // DELETE /api/workflows/[id]/artifacts/[aid]
 // Returns: { ok: true }
 //
-// Removes the artifact row and best-effort deletes its stored object. The
-// 24h cleanup job catches any orphaned objects on failure (PLAN §5.6).
-
-const ARTIFACTS_BUCKET = 'artifacts'
+// Removes the artifact row and best-effort deletes its stored B2 object.
+// The 24h cleanup job catches any orphaned objects on failure (PLAN §5.6).
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const admin = serverSupabaseServiceRole(event)
   const { data: artifact, error: fetchErr } = await admin
     .from('artifacts')
-    .select('id, storage_path')
+    .select('id, storage_path, workspace_id')
     .eq('id', artifactId)
     .eq('workflow_id', workflowId)
     .single()
@@ -37,12 +37,13 @@ export default defineEventHandler(async (event) => {
   }
 
   if (artifact.storage_path) {
-    const { error: rmErr } = await admin.storage
-      .from(ARTIFACTS_BUCKET)
-      .remove([artifact.storage_path as string])
-    if (rmErr) {
-      // Non-fatal — the cleanup job will pick it up. Logging only.
-      console.warn('[artifacts/delete] storage remove failed', rmErr)
+    try {
+      const wsKey = await ensureWorkspaceKey(admin, artifact.workspace_id as string, user.sub)
+      await b2DeleteByKey(wsKey, artifact.storage_path as string)
+    }
+    catch (err) {
+      // Non-fatal — the cleanup job will pick orphans up. Logging only.
+      console.warn('[artifacts/delete] b2 remove failed', err)
     }
   }
 

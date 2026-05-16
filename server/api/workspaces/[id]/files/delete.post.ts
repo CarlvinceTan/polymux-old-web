@@ -5,9 +5,9 @@ import {
   parentOf,
   requireWrite,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { deleteDriveFile } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { deleteDriveFile } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workspaces/[id]/files/delete
 // Body: { paths: [...], kind? }  — kind: 'file' | 'folder' (default 'file')

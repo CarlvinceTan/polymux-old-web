@@ -18,7 +18,7 @@
 // authorize this action, the upstream scope the connector token must have,
 // and the executor that actually performs the call.
 
-import { decryptToken } from '~~/server/utils/tokenCrypto'
+import { decryptToken } from '~~/server/utils/security/tokenCrypto'
 
 export interface ActionContext {
   /** The first-party connector's decrypted upstream access token. */

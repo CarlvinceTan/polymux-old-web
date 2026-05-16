@@ -128,6 +128,11 @@ export interface SessionStatePayload {
    *  scheduled cron), 'chat' = orchestrator/agent activity in service of a
    *  chat turn. Empty/undefined when nothing is running. */
   running_kind?: 'chat' | 'workflow' | ''
+  /** Per-session browser routing: 'server' (hosted Chromium) or 'extension'
+   *  (user's paired MV3 Chrome). Echoed back on every session_state so the
+   *  client can hydrate its picker on reconnect; the server canonicalises
+   *  the value, treating any unknown string as 'server'. */
+  browser_mode?: 'server' | 'extension'
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -208,6 +213,24 @@ export interface ToolDescriptorPayload {
 export interface PageNavigatedPayload {
   agent_id: string
   url: string
+}
+
+/**
+ * ExtensionReadyPayload is emitted by the server in two cases:
+ *   - On session_state when the per-session browser mode is 'extension' and
+ *     a paired extension is active (extension_id only, no port_token).
+ *   - After a successful spawn in extension mode (carries session_name +
+ *     port_token + TTL so the frontend can open a scoped screencast port).
+ *
+ * Port-token frames are single-use credentials for chrome.runtime.connect
+ * to the user's extension; we trade them for a 'screencast' port that
+ * carries JPEG frames as base64 strings.
+ */
+export interface ExtensionReadyPayload {
+  extension_id: string
+  session_name?: string
+  port_token?: string
+  ttl_seconds?: number
 }
 
 /**

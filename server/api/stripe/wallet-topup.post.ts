@@ -1,5 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { serverSupabaseUser } from '#supabase/server'
+import { isValidCurrency } from '~~/server/utils/billing/pricing'
+import { useStripe } from '~~/server/utils/billing/stripe'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -21,8 +23,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'workspace_id is required.' })
   }
 
-  const supportedCurrencies = ['usd', 'eur', 'gbp', 'aud', 'cad', 'jpy', 'brl', 'krw']
-  if (!supportedCurrencies.includes(currency)) {
+  if (!isValidCurrency(currency)) {
     throw createError({ statusCode: 400, statusMessage: 'Unsupported currency.' })
   }
 

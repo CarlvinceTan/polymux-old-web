@@ -10,7 +10,7 @@ export interface FileAttachmentState {
 }
 
 const maxUploadSize = ref<number | null>(null)
-let configFetch: Promise<void> | null = null
+const configFetchCache = new Map<string, Promise<void>>()
 
 export function useAttachments() {
   const attachments = ref<FileAttachmentState[]>([])
@@ -26,13 +26,16 @@ export function useAttachments() {
     return session.access_token
   }
 
-  function fetchUploadConfig(): Promise<void> {
-    if (configFetch) return configFetch
-    configFetch = (async () => {
+  function fetchUploadConfig(workspaceId?: string): Promise<void> {
+    const key = workspaceId ?? '_default'
+    const existing = configFetchCache.get(key)
+    if (existing) return existing
+    const p = (async () => {
       try {
         const token = await getAuthToken()
         const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
-        const res = await fetch(`${baseURL}/upload-config`, {
+        const params = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
+        const res = await fetch(`${baseURL}/upload-config${params}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (res.ok) {
@@ -45,11 +48,12 @@ export function useAttachments() {
         // Silently fall back to no client-side check
       }
     })()
-    return configFetch
+    configFetchCache.set(key, p)
+    return p
   }
 
-  async function addFiles(sessionId: string, files: FileList) {
-    await fetchUploadConfig()
+  async function addFiles(sessionId: string, files: FileList, workspaceId?: string) {
+    await fetchUploadConfig(workspaceId)
 
     for (const file of Array.from(files)) {
       if (maxUploadSize.value && file.size > maxUploadSize.value) {

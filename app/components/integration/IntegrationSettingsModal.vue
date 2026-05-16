@@ -28,7 +28,7 @@ const pendingDisconnectProvider = ref<StorageProvider | null>(null)
 const categoryLabel = computed<Record<ItemCategory, string>>(() => ({
   workflow: t('integrations.categoryWorkflow'),
   plugin: t('integrations.categoryPlugin'),
-  integration: t('integrations.categoryIntegration'),
+  integration: t('integrations.categoryConnection'),
 }))
 
 const icon = computed(() =>

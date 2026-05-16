@@ -1,4 +1,6 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { useStripe, isValidPlan, isValidPeriod } from '~~/server/utils/billing/stripe'
+import { isValidCurrency, getStripePriceId } from '~~/server/utils/billing/pricing'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
