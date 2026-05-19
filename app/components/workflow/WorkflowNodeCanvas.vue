@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { WorkflowGraph, WorkflowNode, WorkflowVersion, WorkflowWire, WorkflowWithLatest } from '~/composables/workflows/useWorkflows'
 import { VersionConflictError } from '~/composables/workflows/useWorkflows'
-import type { NodeModel, WireModel } from '~/composables/workflows/useWorkflowLayout'
+import type { NodeModel, WireModel, WireStyle } from '~/composables/workflows/useWorkflowLayout'
 import { buildLayout } from '~/composables/workflows/useWorkflowLayout'
 import type { WorkflowOp } from '~/composables/workflows/useWorkflowMutations'
 import { applyOp, findNodeById, findWireById, idsTouchedByOp } from '~/composables/workflows/useWorkflowMutations'
+import { useEmbeddedWorkflowCache } from '~/composables/workflows/useEmbeddedWorkflow'
 import type { LiveHistoryEntry } from '~/components/workflow/WorkflowHistoryDrawer.vue'
 
 const props = defineProps<{
@@ -410,9 +411,26 @@ interface FlatWire {
   toPos?: Pt
   fromSide?: Side
   toSide?: Side
+  // Layout-classified style (forward vs back-wire) + persisted control
+  // flow metadata, surfaced here so the renderer can style back-wires
+  // distinctly and place the loop / conditional pill without re-looking-
+  // up the source wire on every render. User-extra wires (no layout
+  // entry) default to forward + no condition / iteration cap.
+  style?: WireStyle
+  condition?: string
+  maxIterations?: number
+  label?: string
 }
 const allWires = computed<FlatWire[]>(() => [
-  ...layout.value.wires.map(w => ({ id: w.id, fromId: w.fromId, toId: w.toId })),
+  ...layout.value.wires.map(w => ({
+    id: w.id,
+    fromId: w.fromId,
+    toId: w.toId,
+    style: w.style,
+    condition: w.condition,
+    maxIterations: w.maxIterations,
+    label: w.label,
+  })),
   ...userWires.value.map(w => ({
     id: w.id,
     fromId: w.fromId,
@@ -1463,8 +1481,8 @@ function isSelected(id: string) { return selected.value.has(id) }
 
 // ── Inline rename ───────────────────────────────────────────────────────────
 // Double-clicking a node title swaps the label for an autofocused input —
-// mirrors the SidePanel.vue rename pattern. Commits write to `description`
-// (which `nodeTitle()` already prefers over action/target).
+// mirrors the SidePanel.vue rename pattern. Commits write to `title` (the
+// top field on the new node model — see workflow_graph.go).
 const renamingNodeId = ref<string | null>(null)
 const renamingValue = ref('')
 // Auto-grow during rename: enabled only when the existing description fits
@@ -1486,10 +1504,11 @@ function measureRenameText(text: string): number {
 
 function startRename(node: NodeModel) {
   if (node.terminal) return
+  if (isEmbedNode(node)) return
   if (isLockedNode(node.id)) return
   if (!attemptEdit()) return
   renamingNodeId.value = node.id
-  const initialText = node.node.description ?? nodeTitle(node)
+  const initialText = node.node.title ?? nodeTitle(node)
   renamingValue.value = initialText
   // Determine whether the current text fits, gating auto-grow on that.
   nextTick(() => {
@@ -1534,9 +1553,9 @@ function commitRename(nodeId: string) {
   // resize already calls this in its own onUp; rename needs to mirror so
   // the new width survives a reload.
   persistSizes()
-  // Empty rename is a no-op rather than wiping the description out.
+  // Empty rename is a no-op rather than wiping the title out.
   if (trimmed.length === 0) return
-  onNodePatch(nodeId, { description: trimmed })
+  onNodePatch(nodeId, { title: trimmed })
 }
 
 function cancelRename() {
@@ -1554,6 +1573,7 @@ function onResizePointerDown(e: PointerEvent, node: NodeModel) {
   e.preventDefault()
   if (e.button !== 0) return
   if (node.terminal) return
+  if (isEmbedNode(node)) return
   if (isLockedNode(node.id)) return
   if (!attemptEdit()) return
   const startSize = nodeSize(node)
@@ -1642,6 +1662,136 @@ const selectedWire = computed(() => {
   if (!selectedWireId.value) return null
   if (!selectedWireId.value.startsWith('wire:')) return null
   return findWireById(displayedGraph.value, selectedWireId.value.slice('wire:'.length))
+})
+
+// loopBodyNodeIds is the set of nodes the currently-selected back-wire
+// would iterate over: every node reachable forward from the wire's
+// to-end that can also reach the wire's from-end through forward edges.
+// Used to render a soft highlight rectangle around the loop body so the
+// user sees at a glance which nodes get repeated when the wire fires.
+// Empty when nothing's selected, the selection is multi, or the selected
+// wire is forward (no loop body to highlight).
+const loopBodyNodeIds = computed<Set<string>>(() => {
+  const empty = new Set<string>()
+  if (selectedWireIds.value.size > 1) return empty
+  const w = selectedWire.value
+  if (!w) return empty
+  if (!w.from_id || !w.to_id) return empty
+  const iter = w.max_iterations ?? 0
+  if (iter <= 0) return empty
+  // Forward adjacency — skip wires that themselves carry a max_iterations
+  // cap, since those break the static layering / cycle invariant.
+  const forward = new Map<string, string[]>()
+  const reverse = new Map<string, string[]>()
+  for (const edge of displayedGraph.value.wires) {
+    if ((edge.max_iterations ?? 0) > 0) continue
+    if (!edge.from_id || !edge.to_id) continue
+    if (!forward.has(edge.from_id)) forward.set(edge.from_id, [])
+    forward.get(edge.from_id)!.push(edge.to_id)
+    if (!reverse.has(edge.to_id)) reverse.set(edge.to_id, [])
+    reverse.get(edge.to_id)!.push(edge.from_id)
+  }
+  const bfs = (start: string, adj: Map<string, string[]>): Set<string> => {
+    const seen = new Set<string>([start])
+    const frontier: string[] = [start]
+    while (frontier.length > 0) {
+      const cur = frontier.shift()!
+      for (const next of adj.get(cur) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next)
+          frontier.push(next)
+        }
+      }
+    }
+    return seen
+  }
+  const fromTo = bfs(w.to_id, forward)
+  const toFrom = bfs(w.from_id, reverse)
+  const body = new Set<string>()
+  for (const id of fromTo) if (toFrom.has(id)) body.add(id)
+  // The two endpoints of the back-wire are always part of the loop body
+  // (the from-node sits at the bottom of the loop; the to-node at the
+  // top), even when the static forward graph hasn't connected them.
+  body.add(w.from_id)
+  body.add(w.to_id)
+  return body
+})
+
+// Embedded-workflow lookup: shared session cache so a graph with many
+// embeds pointing at the same workflow id pays exactly one fetch. The
+// canvas template reads `embedLookup(id)?.name` for the card label and
+// `embedLookup(id)?.latest_version?.steps` for the mini-canvas in the
+// InfoPanel — both reactively backfill when the fetch resolves.
+const embedCache = useEmbeddedWorkflowCache()
+
+// isEmbedNode is the canonical "this node delegates to another workflow"
+// predicate. Used everywhere a render branch / affordance differs for
+// embeds: the card layout, port suppression, rename gating, and the
+// InfoPanel form switch.
+function isEmbedNode(node: NodeModel): boolean {
+  const ref = node.node.workflow_ref
+  return typeof ref === 'string' && ref.trim() !== ''
+}
+
+function embedRefId(node: NodeModel): string {
+  const ref = node.node.workflow_ref
+  return typeof ref === 'string' ? ref.trim() : ''
+}
+
+function embedDisplayName(node: NodeModel): string {
+  const id = embedRefId(node)
+  if (!id) return ''
+  const resolved = embedCache.lookup(id)
+  if (resolved?.name) return resolved.name
+  // Show a truncated UUID so the card isn't blank while the fetch is in
+  // flight or when the referenced workflow has been deleted.
+  return id.length > 12 ? id.slice(0, 12) + '…' : id
+}
+
+function embedResolved(node: NodeModel): WorkflowWithLatest | null {
+  const id = embedRefId(node)
+  if (!id) return null
+  return embedCache.lookup(id)
+}
+
+// Pre-warm the cache when the graph mounts or its embed set changes so
+// the first render after open isn't all skeletons.
+watchEffect(() => {
+  const refs: string[] = []
+  for (const n of displayedGraph.value.nodes) {
+    const r = typeof n.workflow_ref === 'string' ? n.workflow_ref.trim() : ''
+    if (r) refs.push(r)
+  }
+  if (refs.length > 0) embedCache.request(refs)
+})
+
+// loopBodyBounds computes the bounding rectangle of the loop-body nodes
+// in canvas coordinates so the renderer can draw a soft tinted rect
+// behind those nodes. Padded so the highlight bleeds slightly past the
+// node cards. Returns null when there's no loop body to bound.
+const LOOP_BODY_PAD = 28
+const loopBodyBounds = computed<{ x: number, y: number, w: number, h: number } | null>(() => {
+  const ids = loopBodyNodeIds.value
+  if (ids.size === 0) return null
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let hits = 0
+  for (const node of allNodes.value) {
+    if (!ids.has(node.id)) continue
+    const p = nodePos(node)
+    const s = nodeSize(node)
+    if (p.x < minX) minX = p.x
+    if (p.y < minY) minY = p.y
+    if (p.x + s.w > maxX) maxX = p.x + s.w
+    if (p.y + s.h > maxY) maxY = p.y + s.h
+    hits++
+  }
+  if (hits === 0) return null
+  return {
+    x: minX - LOOP_BODY_PAD,
+    y: minY - LOOP_BODY_PAD,
+    w: (maxX - minX) + LOOP_BODY_PAD * 2,
+    h: (maxY - minY) + LOOP_BODY_PAD * 2,
+  }
 })
 
 function selectWire(wireId: string) {
@@ -2074,7 +2224,7 @@ const wireBodyDragGeom = computed<{ d: string } | null>(() => {
       { x: drag.origToPos.x + drag.delta.x, y: drag.origToPos.y + drag.delta.y },
       toSide,
     )
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
   // Exclude both anchor nodes (and any node the wire has snapped to
   // mid-drag) from obstacles so the preview doesn't self-collide with
   // its own endpoint cards.
@@ -2665,7 +2815,7 @@ const placingWireGeom = computed<{ d: string } | null>(() => {
   const head = state.snap
     ? { pos: wireDrawnEndPtFromSnap(state.snap.pt, state.snap.side), side: state.snap.side }
     : { pos: state.cursor, side: oppositeSide(fromSide) }
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
   // Exclude the tail node and any node the head has snapped to so the
   // preview doesn't try to route around its own endpoint cards.
   const obstacles = obstaclesExcept(state.tail.nodeId, state.snap?.nodeId)
@@ -3008,7 +3158,7 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
     endPort = c.currPos
     targetSide = oppositeSide(c.fromSide)
   }
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
   // Exclude the source node and any node the cursor has snapped to so
   // the rubber-band doesn't try to route around its own endpoint cards.
   const obstacles = obstaclesExcept(c.fromId, c.targetId)
@@ -3189,7 +3339,7 @@ const endpointDragWireGeom = computed<{ d: string } | null>(() => {
   // Shorten the fixed end so the rubber-band visually stops in the
   // anchor-circle gap, matching the resting wire's shortened endpoints.
   const fixedDrawn = wireDrawnEndPt(drag.fixedPt, drag.fixedSide)
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
   // Exclude the fixed-end node and any node the dragged end has snapped
   // to so the preview doesn't try to route around its own endpoint cards.
   const obstacles = obstaclesExcept(drag.fixedNodeId, drag.targetId)
@@ -3473,7 +3623,7 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const inSidesByNode = new Map<string, Set<Side>>()
   const outSidesByNode = new Map<string, Set<Side>>()
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
 
   // Precompute every node's bbox so the per-side-pair scoring loop can
   // ask "does this route cross any unrelated node?" without re-deriving
@@ -3643,6 +3793,13 @@ interface WireGeom {
   p2: Pt
   fromSide: Side
   toSide: Side
+  // Layout-classified style + persisted control-flow metadata, used for
+  // back-wire stroke styling and the loop / conditional pill rendered
+  // mid-wire. Undefined for synthetic spine wires and detached drafts.
+  style?: WireStyle
+  condition?: string
+  maxIterations?: number
+  label?: string
 }
 
 // Waypoint list for a wire — the polyline approximation used for bbox /
@@ -4264,7 +4421,8 @@ function routedWirePath(
     planOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
     ?? aStarOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
   if (wrapPts) return roundedPolylinePath(wrapPts)
-  return buildWirePath(p1, p2, fromSide, toSide, wireType, obstacles)
+  const fallbackType = wireType === 'linear' ? 'linear' : 'step'
+  return buildWirePath(p1, p2, fromSide, toSide, fallbackType, obstacles)
 }
 
 function buildWirePath(
@@ -4389,7 +4547,7 @@ const wireGeoms = computed<WireGeom[]>(() => {
   for (const id of [...stableWireSides.keys()]) {
     if (!liveWireIds.has(id)) stableWireSides.delete(id)
   }
-  const wt = settings.value.wireType ?? 'fluid'
+  const wt = settings.value.wireType ?? 'step'
   const ZERO_SIZE: Size = { w: 0, h: 0 }
   for (const w of allWires.value) {
     const a = nodeMap.get(w.fromId)
@@ -4521,9 +4679,14 @@ const wireGeoms = computed<WireGeom[]>(() => {
     const wireObstacles = allObstacles
       .filter(o => o.id !== w.fromId && o.id !== w.toId)
       .map(o => o.rect)
+    // Fallback when both orthogonal planners fail (very-tight layouts):
+    // Lark-style clean orthogonal staircase, not a curvy bezier. `linear`
+    // is the one wire style that should still render as a straight chord
+    // since the user picked it on purpose.
+    const fallbackType: WireType = wt === 'linear' ? 'linear' : 'step'
     const d = wrapPts
       ? roundedPolylinePath(wrapPts)
-      : buildWirePath(p1Drawn, p2Drawn, fromSide, toSide, wt, wireObstacles)
+      : buildWirePath(p1Drawn, p2Drawn, fromSide, toSide, fallbackType, wireObstacles)
     out.push({
       id: w.id,
       d,
@@ -4537,6 +4700,10 @@ const wireGeoms = computed<WireGeom[]>(() => {
       p2,
       fromSide,
       toSide,
+      style: w.style,
+      condition: w.condition,
+      maxIterations: w.maxIterations,
+      label: w.label,
     })
   }
   return out
@@ -4548,9 +4715,8 @@ function nodeTitle(n: NodeModel) {
   const s = n.node
   if (n.terminal === 'start') return t('workflow.startNode')
   if (n.terminal === 'end') return t('workflow.endNode')
-  if (s.description) return s.description
-  if (s.action && s.target) return `${s.action} → ${s.target}`
-  if (s.action) return s.action
+  if (s.title) return s.title
+  if (s.actions && s.actions.length > 0 && s.actions[0]) return s.actions[0]
   return t('workflow.untitledNode')
 }
 
@@ -4635,6 +4801,74 @@ const hidden = ref<Set<string>>(new Set())
 
 const visibleNodes = computed(() => allNodes.value.filter(n => !hidden.value.has(n.id)))
 const visibleWires = computed(() => wireGeoms.value.filter(w => !hidden.value.has(w.fromId) && !hidden.value.has(w.toId)))
+
+// isWireSelected returns true when a wire is in either the single- or
+// multi-select set, mirroring the inline check used by the main path's
+// stroke ternary. Centralised so the pill / hit-zone overlay use the
+// same definition.
+function isWireSelected(w: WireGeom): boolean {
+  return w.clickable && (selectedWireId.value === w.id || selectedWireIds.value.has(w.id))
+}
+
+// wireStroke / wireStrokeWidth pick the visual styling for a wire's
+// main path based on (back-wire vs forward) × (selected vs not).
+// Back-wires read in the loop palette so loops are obvious at a glance
+// without the user having to inspect each wire's max_iterations field.
+function wireStroke(w: WireGeom): string {
+  const sel = isWireSelected(w)
+  if (w.style === 'back-wire') {
+    return sel ? 'var(--color-loop-wire-strong)' : 'var(--color-loop-wire)'
+  }
+  return sel ? 'rgb(23 23 23)' : 'rgb(163 163 163)'
+}
+
+function wireStrokeWidth(w: WireGeom): string {
+  return isWireSelected(w) ? '2' : '1.5'
+}
+
+// wireDasharray returns a dasharray for back-wires only when selected, so
+// the selected loop reads "iterative" — forward wires stay solid.
+function wireDasharray(w: WireGeom): string | undefined {
+  if (w.style !== 'back-wire') return undefined
+  return isWireSelected(w) ? '6 4' : undefined
+}
+
+// hasWirePill returns true when a wire carries either an iteration cap
+// or a non-empty condition — those are the wires that get a mid-segment
+// rounded-rectangle pill so the loop / branching semantics are visible
+// without selecting the wire and reading the side panel.
+function hasWirePill(w: WireGeom): boolean {
+  return Boolean(w.condition && w.condition.trim() !== '') || (w.maxIterations ?? 0) > 0
+}
+
+// wirePillGeometry computes the pill's centre + dimensions. The centre
+// reuses the wire's `toolbarAnchor` (already the midpoint of the longest
+// straight segment by construction). Width grows with content count so
+// the pill stays tight; height is fixed so it's a clear lozenge shape.
+const PILL_HEIGHT = 22
+const PILL_PADDING_X = 8
+const PILL_ICON_SLOT = 14
+const PILL_DIGIT_SLOT = 7
+function wirePillGeometry(w: WireGeom): { cx: number, cy: number, w: number, h: number } {
+  const showCond = Boolean(w.condition && w.condition.trim() !== '')
+  const iter = w.maxIterations ?? 0
+  const showIter = iter > 0
+  let inner = 0
+  if (showCond) inner += PILL_ICON_SLOT
+  if (showCond && showIter) inner += 4
+  if (showIter) {
+    inner += PILL_ICON_SLOT
+    inner += 2
+    inner += PILL_DIGIT_SLOT * Math.max(1, String(iter).length)
+  }
+  const widthPx = PILL_PADDING_X * 2 + inner
+  return {
+    cx: w.toolbarAnchor.x,
+    cy: w.toolbarAnchor.y,
+    w: widthPx,
+    h: PILL_HEIGHT,
+  }
+}
 
 // Keyboard shortcut: Delete / Backspace removes the current selection.
 // Routes to whichever delete fn matches the live selection — wire takes
@@ -4786,11 +5020,12 @@ const inPreviewMode = computed(() => !!previewedVersion.value)
 // who just zooms the canvas won't see Save light up.
 function canonicalNode(n: WorkflowNode): Record<string, unknown> {
   const out: Record<string, unknown> = { id: n.id }
-  if (n.description) out.description = n.description
-  if (n.action) out.action = n.action
-  if (n.target) out.target = n.target
-  if (n.value) out.value = n.value
-  if (n.annotation) out.annotation = n.annotation
+  if (n.title) out.title = n.title
+  if (n.actions && n.actions.length > 0) out.actions = n.actions
+  if (n.details) out.details = n.details
+  if (n.notes) out.notes = n.notes
+  if (n.workflow_ref) out.workflow_ref = n.workflow_ref
+  if (n.repeat && n.repeat > 0) out.repeat = n.repeat
   // Position / size are persisted now — include them in the signature so
   // dragging a node correctly enables Save. Round so micro-jitter from
   // floating-point math doesn't false-positive a change.
@@ -5059,6 +5294,20 @@ function onWirePatch(wireId: string, patch: Partial<WorkflowWire>) {
   applyStructuralOp({ kind: 'wire_edit', wire_id: wireId, patch })
 }
 
+// onEmbedNavigate routes the user to the referenced workflow when they
+// click the title in the embed InfoPanel. Routes to the same shape the
+// user is currently on (e.g. .../agent stays on agent; the editor root
+// goes to /workflow/[id]) so context carries through.
+function onEmbedNavigate(workflowID: string) {
+  const route = useRoute()
+  const segments = route.path.split('/').filter(s => s.length > 0)
+  // Expected shape: ['workflow', '<id>', ...suffix]. Replace the id and
+  // keep any suffix segments (e.g. 'agent', 'schedule', 'artifacts').
+  const suffix = segments.length > 2 ? segments.slice(2).join('/') : ''
+  const target = suffix ? `/workflow/${workflowID}/${suffix}` : `/workflow/${workflowID}`
+  navigateTo(target)
+}
+
 // Fold any sketched-but-unattached wires (drag-to-connect that landed
 // outside the graph) into real `wire_add` ops before we ship the graph to
 // the server. Wires that *can* be promoted (both endpoints are real graph
@@ -5276,7 +5525,7 @@ interface CanvasSettings {
 }
 const SETTINGS_KEY = 'polymux_canvas_settings'
 const SNAP_GRID = 24
-const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: true, wireType: 'fluid' })
+const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: true, wireType: 'step' })
 
 if (import.meta.client) {
   try {
@@ -5286,7 +5535,7 @@ if (import.meta.client) {
       settings.value = {
         showGrid: parsed.showGrid ?? true,
         snapToGrid: parsed.snapToGrid ?? true,
-        wireType: parsed.wireType ?? 'fluid',
+        wireType: parsed.wireType ?? 'step',
       }
     }
   }
@@ -5384,11 +5633,12 @@ onBeforeUnmount(() => {
       class="pointer-events-none invisible absolute -left-[9999px] top-0 whitespace-pre text-sm font-medium"
     />
     <!--
-      Side toolbar — slim vertical icon-only column on the left. Single
-      merged pill: history / save / run at the top, then layout helpers,
-      zoom, undo-redo, and settings stacked beneath.
+      Side toolbar — slim vertical icon-only column on the left. Split into
+      two pills inside a single 50%-vertical container: run / save / history
+      / undo / redo on top, then node + wire creation, layout helpers, zoom,
+      and settings beneath.
     -->
-    <div class="absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-2 pointer-events-none sm:left-4">
+    <div class="absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-3 pointer-events-none sm:left-4">
       <div class="flex flex-col items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md pointer-events-auto">
         <!-- Run / Stop — the primary action sits at the top. When idle a
              green play icon; while running the spinner swaps to a red stop
@@ -5441,6 +5691,29 @@ onBeforeUnmount(() => {
 
         <span class="h-px w-4 bg-neutral-200" />
 
+        <!-- Undo -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!canUndo"
+          @click="undo"
+        >
+          <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.undo') }}</span>
+        </button>
+        <!-- Redo -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="!canRedo"
+          @click="redo"
+        >
+          <UIcon name="i-heroicons-arrow-uturn-right-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip">{{ t('workflow.redo') }}</span>
+        </button>
+      </div>
+
+      <div class="flex flex-col items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md pointer-events-auto">
         <!-- Add node — clicking attaches a faded ghost to the cursor; the
              next click on the canvas drops a fresh graph node there. -->
         <button
@@ -5488,29 +5761,6 @@ onBeforeUnmount(() => {
             />
           </svg>
           <span class="canvas-tooltip">{{ t('workflow.drawWire') }}</span>
-        </button>
-
-        <span class="h-px w-4 bg-neutral-200" />
-
-        <!-- Undo -->
-        <button
-          type="button"
-          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
-          :disabled="!canUndo"
-          @click="undo"
-        >
-          <UIcon name="i-heroicons-arrow-uturn-left-20-solid" class="size-3.5" />
-          <span class="canvas-tooltip">{{ t('workflow.undo') }}</span>
-        </button>
-        <!-- Redo -->
-        <button
-          type="button"
-          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
-          :disabled="!canRedo"
-          @click="redo"
-        >
-          <UIcon name="i-heroicons-arrow-uturn-right-20-solid" class="size-3.5" />
-          <span class="canvas-tooltip">{{ t('workflow.redo') }}</span>
         </button>
 
         <span class="h-px w-4 bg-neutral-200" />
@@ -5764,6 +6014,24 @@ onBeforeUnmount(() => {
                 />
               </marker>
             </defs>
+            <!-- Loop-body highlight — soft tinted rectangle behind the
+                 selected back-wire's iterated nodes. Rendered first so
+                 it sits beneath wires and node cards. Empty when nothing
+                 is selected or the selection isn't a back-wire. -->
+            <rect
+              v-if="loopBodyBounds"
+              :x="loopBodyBounds.x"
+              :y="loopBodyBounds.y"
+              :width="loopBodyBounds.w"
+              :height="loopBodyBounds.h"
+              rx="16"
+              ry="16"
+              fill="var(--color-loop-wire-soft)"
+              stroke="var(--color-loop-wire)"
+              stroke-width="1"
+              stroke-dasharray="4 4"
+              style="pointer-events: none"
+            />
             <g v-for="w in visibleWires" :key="w.id">
               <!-- When the user is dragging this wire's endpoint OR the
                    whole wire body, the in-flight preview path is rendered
@@ -5809,15 +6077,70 @@ onBeforeUnmount(() => {
                    highlight reads the same way as a selected node's
                    border. A marquee-selected wire uses the same black
                    styling so bulk selections read identically to a
-                   single-click selection. -->
+                   single-click selection. Back-wires swap to the loop
+                   palette via wireStroke. -->
               <path
                 :d="w.d"
                 fill="none"
-                :stroke="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? 'rgb(23 23 23)' : 'rgb(163 163 163)'"
-                :stroke-width="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? '2' : '1.5'"
+                :stroke="wireStroke(w)"
+                :stroke-width="wireStrokeWidth(w)"
+                :stroke-dasharray="wireDasharray(w)"
                 stroke-linecap="round"
                 :marker-end="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? 'url(#wire-arrow-selected)' : 'url(#wire-arrow)'"
               />
+              <!-- Loop / conditional pill — a rounded-rectangle lozenge
+                   sitting at the midpoint of the wire's longest straight
+                   segment. Its stroke matches the wire so the wire reads
+                   as continuous through the pill; its white fill masks
+                   the wire underneath so visually the wire stops at the
+                   pill border on each side. Contents:
+                     - conditional symbol when wire.condition is set
+                     - loop icon + max_iterations count when > 0
+                   Clicking the pill selects the underlying wire. -->
+              <g
+                v-if="hasWirePill(w)"
+                :data-wire-pill-id="w.id"
+                class="cursor-pointer"
+                @click.stop="selectWire(w.id)"
+              >
+                <rect
+                  :x="wirePillGeometry(w).cx - wirePillGeometry(w).w / 2"
+                  :y="wirePillGeometry(w).cy - wirePillGeometry(w).h / 2"
+                  :width="wirePillGeometry(w).w"
+                  :height="wirePillGeometry(w).h"
+                  rx="11"
+                  ry="11"
+                  :stroke="wireStroke(w)"
+                  :stroke-width="wireStrokeWidth(w)"
+                  fill="white"
+                />
+                <foreignObject
+                  :x="wirePillGeometry(w).cx - wirePillGeometry(w).w / 2"
+                  :y="wirePillGeometry(w).cy - wirePillGeometry(w).h / 2"
+                  :width="wirePillGeometry(w).w"
+                  :height="wirePillGeometry(w).h"
+                  style="pointer-events: none"
+                >
+                  <div class="flex h-full items-center justify-center gap-1 text-[11px] leading-none text-neutral-700">
+                    <UIcon
+                      v-if="w.condition && w.condition.trim() !== ''"
+                      name="i-heroicons-question-mark-circle-20-solid"
+                      class="size-3 shrink-0"
+                    />
+                    <UIcon
+                      v-if="(w.maxIterations ?? 0) > 0"
+                      name="i-heroicons-arrow-path-20-solid"
+                      class="size-3 shrink-0"
+                      :style="w.style === 'back-wire' ? { color: 'var(--color-loop-wire-strong)' } : undefined"
+                    />
+                    <span
+                      v-if="(w.maxIterations ?? 0) > 0"
+                      class="tabular-nums"
+                      :style="w.style === 'back-wire' ? { color: 'var(--color-loop-wire-strong)' } : undefined"
+                    >{{ w.maxIterations }}</span>
+                  </div>
+                </foreignObject>
+              </g>
               </template>
             </g>
             <!--
@@ -5912,7 +6235,13 @@ onBeforeUnmount(() => {
             leave-to-class="opacity-0"
           >
             <div
-              v-if="w.clickable && selectedWireId === w.id && selected.size === 0 && selectedWireIds.size === 0"
+              v-if="w.clickable
+                && selectedWireId === w.id
+                && selected.size === 0
+                && selectedWireIds.size === 0
+                && (!endpointDrag || endpointDrag.wireId !== w.id)
+                && (!wireBodyDrag || wireBodyDrag.wireId !== w.id || !wireBodyDrag.isDragging)
+                && !connecting"
               class="pointer-events-auto absolute z-20 flex items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md"
               :class="w.toolbarAnchor.orientation === 'horizontal'
                 ? '-translate-x-1/2 -translate-y-full'
@@ -5991,10 +6320,13 @@ onBeforeUnmount(() => {
                   ? 'border-neutral-900'
                   : isLockedNode(node.id)
                     ? 'border-amber-500 bg-amber-50/40 hover:shadow-md'
-                    : isSelected(node.id)
-                      ? 'border-neutral-900 hover:shadow-md'
-                      : 'border-neutral-400 hover:border-neutral-500 hover:shadow-md',
+                    : isEmbedNode(node)
+                      ? 'hover:shadow-md'
+                      : isSelected(node.id)
+                        ? 'border-neutral-900 hover:shadow-md'
+                        : 'border-neutral-400 hover:border-neutral-500 hover:shadow-md',
               isDraggingNode(node.id) ? 'cursor-grabbing shadow-lg' : 'cursor-grab',
+              loopBodyNodeIds.has(node.id) ? 'ring-2 ring-offset-1' : '',
             ]"
             :style="{
               left: `${HOVER_PAD}px`,
@@ -6002,13 +6334,19 @@ onBeforeUnmount(() => {
               width: `${nodeSize(node).w}px`,
               height: `${nodeSize(node).h}px`,
               touchAction: 'none',
+              ...(isEmbedNode(node) ? { borderColor: 'var(--color-embed-border)' } : {}),
+              ...(loopBodyNodeIds.has(node.id) ? { boxShadow: '0 0 0 2px var(--color-loop-wire-soft)' } : {}),
             }"
             @pointerdown="(e) => onNodePointerDown(e, node)"
           >
-            <!-- Terminals (Start / End) get a single centered title — no
-                 kind badge or detail row, since they're graph anchors with
-                 no step content. Regular cards keep the badge / title /
-                 detail layout. -->
+            <!-- Three render branches, mutually exclusive:
+                 - Terminals (Start / End): single centred title, no
+                   editing.
+                 - Embed (workflow_ref set): referenced workflow's name +
+                   open icon, NOT inline-editable. The InfoPanel handles
+                   navigation + repeat.
+                 - Regular: title (rename on dblclick) + optional repeat
+                   badge under it. -->
             <div
               v-if="node.terminal"
               class="flex h-full items-center justify-center px-2 text-center"
@@ -6016,6 +6354,32 @@ onBeforeUnmount(() => {
               <span class="text-sm font-semibold uppercase tracking-wider text-neutral-700">
                 {{ nodeTitle(node) }}
               </span>
+            </div>
+            <div
+              v-else-if="isEmbedNode(node)"
+              class="flex h-full flex-col items-center justify-center gap-1 px-3 py-2 text-center"
+            >
+              <div class="flex max-w-full items-center justify-center gap-1.5">
+                <UIcon
+                  name="i-heroicons-arrow-top-right-on-square"
+                  class="size-3.5 shrink-0"
+                  :style="{ color: 'var(--color-embed-border)' }"
+                />
+                <span
+                  class="max-w-full truncate text-sm font-medium"
+                  :style="{ color: 'var(--color-embed-border)' }"
+                >
+                  {{ embedDisplayName(node) }}
+                </span>
+              </div>
+              <div
+                v-if="(node.node.repeat ?? 0) > 1"
+                class="flex items-center gap-1 text-[11px] leading-none"
+                :style="{ color: 'var(--color-loop-wire-strong)' }"
+              >
+                <UIcon name="i-heroicons-arrow-path-20-solid" class="size-3" />
+                <span class="tabular-nums">{{ node.node.repeat }}</span>
+              </div>
             </div>
             <div v-else class="flex h-full flex-col items-center justify-center gap-1 px-3 py-2 text-center">
               <input
@@ -6037,6 +6401,14 @@ onBeforeUnmount(() => {
               >
                 {{ nodeTitle(node) }}
               </span>
+              <div
+                v-if="(node.node.repeat ?? 0) > 1"
+                class="flex items-center gap-1 text-[11px] leading-none"
+                :style="{ color: 'var(--color-loop-wire-strong)' }"
+              >
+                <UIcon name="i-heroicons-arrow-path-20-solid" class="size-3" />
+                <span class="tabular-nums">{{ node.node.repeat }}</span>
+              </div>
             </div>
           </div>
 
@@ -6140,7 +6512,7 @@ onBeforeUnmount(() => {
             records an undo entry. Snaps to grid when snapToGrid is on.
           -->
           <div
-            v-if="!node.terminal && isSelected(node.id) && !isDraggingNode(node.id) && !connecting"
+            v-if="!node.terminal && !isEmbedNode(node) && isSelected(node.id) && !isDraggingNode(node.id) && !connecting"
             class="absolute size-3 cursor-se-resize"
             :style="{
               left: `${HOVER_PAD + nodeSize(node).w - 4}px`,
@@ -6213,7 +6585,18 @@ onBeforeUnmount(() => {
                 class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
                 @click.stop="showNodeDetails = true"
               >
-                <UIcon name="i-heroicons-information-circle" class="size-3.5" />
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  class="size-3.5"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM10 5.25a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3Zm-1 4.25a1 1 0 0 1 2 0v5a1 1 0 1 1-2 0v-5Z"
+                  />
+                </svg>
                 <span class="canvas-tooltip-above">{{ t('workflow.nodeDetails') }}</span>
               </button>
               <button
@@ -6508,6 +6891,25 @@ onBeforeUnmount(() => {
           />
         </div>
       </template>
+      <template v-else-if="selectionDetailNode && isEmbedNode(selectionDetailNode)">
+        <div class="flex-1 px-4 pt-2 pb-3">
+          <p
+            v-if="isLockedNode(selectionDetailNode.id)"
+            class="mb-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700"
+          >
+            {{ t('workflow.lockedHint') }}
+          </p>
+          <EmbedInfoView
+            :key="`${selectionDetailNode.id}:${formInstanceBump}`"
+            :node-id="selectionDetailNode.id"
+            :node="selectionDetailNode.node"
+            :workflow="embedResolved(selectionDetailNode)"
+            :locked="isLockedNode(selectionDetailNode.id)"
+            @update:patch="onNodePatch"
+            @navigate="onEmbedNavigate"
+          />
+        </div>
+      </template>
       <template v-else-if="selectionDetailNode">
         <div class="flex-1 px-4 pt-2 pb-3">
           <p
@@ -6534,25 +6936,6 @@ onBeforeUnmount(() => {
         >
           <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
           {{ t('workflow.deleteWire') }}
-        </button>
-      </template>
-      <template v-else-if="selectionDetailNode" #footer>
-        <button
-          type="button"
-          class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-caption font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="!selectedWorkflowId"
-          @click="rerunSelected"
-        >
-          <UIcon name="i-heroicons-play-20-solid" class="size-3.5" />
-          {{ t('workflow.rerunFromHere') }}
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-caption font-medium text-rose-600 transition-colors hover:bg-rose-50"
-          @click="deleteSelected"
-        >
-          <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
-          {{ t('workflow.deleteNode') }}
         </button>
       </template>
     </InfoPanel>

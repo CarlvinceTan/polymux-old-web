@@ -3,10 +3,18 @@ import { useAppToast } from '../ui/useAppToast'
 
 export interface FileAttachmentState {
   id: string
+  /** Stable identifier minted at creation and preserved across the `id` swap
+   *  when an upload finishes (localId → server-assigned id). Inline editors
+   *  use this to keep the chip's DOM node in place. */
+  localId: string
   name: string
   size: number
   progress: number
   status: 'uploading' | 'done' | 'error'
+  /** Optional initial character offset in the editor text. Only meaningful at
+   *  seed time (edit-mode rehydration); after the chip is in the DOM, its
+   *  live offset is the source of truth. */
+  position?: number
 }
 
 const maxUploadSize = ref<number | null>(null)
@@ -67,6 +75,7 @@ export function useAttachments() {
       const localId = crypto.randomUUID()
       const entry: FileAttachmentState = {
         id: localId,
+        localId,
         name: file.name,
         size: file.size,
         progress: 0,
@@ -176,13 +185,15 @@ export function useAttachments() {
     attachments.value = []
   }
 
-  function seed(existing: { id: string; name: string }[]) {
+  function seed(existing: { id: string; name: string; position?: number }[]) {
     attachments.value = existing.map(a => ({
       id: a.id,
+      localId: crypto.randomUUID(),
       name: a.name,
       size: 0,
       progress: 100,
       status: 'done' as const,
+      position: a.position,
     }))
   }
 

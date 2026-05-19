@@ -2850,11 +2850,14 @@ watch(multiDragActive, (active) => {
     <FilePreviewModal
       v-if="isPreviewOpen && typedPreviewFile"
       :item="typedPreviewFile"
+      :can-manage-access="canManageAccess"
       @close="closePreview()"
       @download="handleDownload"
       @share="() => { closePreview(false); isShareModalOpen = true }"
+      @permissions="() => { closePreview(false); isPermissionsModalOpen = true }"
       @rename="() => { closePreview(false); nextTick(() => startRename()) }"
       @move="() => { closePreview(false); openMoveModal() }"
+      @duplicate="() => { closePreview(false); startDuplicate() }"
       @info="() => { closePreview(false); isInfoModalOpen = true }"
       @delete="async () => { await handleDelete(); closePreview(false) }"
     />

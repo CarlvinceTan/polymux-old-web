@@ -60,25 +60,11 @@ const emit = defineEmits<{
   closeViewport: [agentId: string]
   spawnBrowserAgent: []
   stopAgent: [agentId: string]
-  // User pressed the pause button on the chat composer (chat turn is mid-
-  // flight). Distinct from `stopAgent`, which is per-sub-agent; this one
-  // targets whatever the chat is currently doing — orchestrator turn +
-  // cascaded sub-agents.
-  stopChat: []
   runAgent: [agentId: string]
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
-
-// Composer button mode: when any chat-driven activity is in flight the send
-// button becomes a pause button. Mirrors ChatMessages' working-indicator
-// trigger (kept slightly broader — `isStreaming` also counts here, since the
-// user can meaningfully cancel mid-stream, even though the dots are
-// suppressed during streaming to avoid double-signalling activity).
-const active = computed(
-  () => !!props.isStreaming || !!props.waitingForAgent || !!props.browserAgentsActive,
-)
 
 // View-mode state (persistence + auto-switch on browser-agent activation) is
 // owned by the workflow page (`pages/workflow/[id].vue`) so it survives the
@@ -103,10 +89,7 @@ function onRemoveFile(id: string) {
   removeFile(id, props.sessionId)
 }
 
-async function onSend(value: string) {
-  const files: ChatMessageAttachment[] = attachments.value
-    .filter(a => a.status === 'done')
-    .map(a => ({ id: a.id, name: a.name }))
+async function onSend(value: string, files: ChatMessageAttachment[]) {
   if (props.beforeSendPrompt) {
     const ok = await props.beforeSendPrompt(value.trim(), files)
     if (!ok) return
@@ -287,8 +270,7 @@ function onJumpClick() {
            (e.g. the gallery zoom slider sitting just above the bottom). -->
       <div class="pointer-events-none absolute inset-x-0 bottom-0 z-50">
         <div
-          class="pointer-events-auto relative mx-auto w-full max-w-3xl px-4 pb-3 sm:px-5 sm:pb-4"
-          :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'"
+          class="pointer-events-auto relative mx-auto w-full max-w-3xl px-4 pb-3 pt-3 sm:px-5 sm:pb-4 sm:pt-4"
         >
           <!-- Jump-to-latest: floats just above the prompt input box,
                horizontally centered. Visible only in chat view, and only
@@ -318,9 +300,7 @@ function onJumpClick() {
             v-model:browser-mode="browserMode"
             :hint="t('chat.messagePlaceholder')"
             :attachments="attachments"
-            :active="active"
             @send="onSend"
-            @stop="emit('stopChat')"
             @attach-files="onAttachFiles"
             @remove-file="onRemoveFile"
           />

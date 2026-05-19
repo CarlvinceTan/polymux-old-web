@@ -37,13 +37,98 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      // titleTemplate, og:site_name, canonical URL, and JSON-LD WebSite schema
-      // are set in app.vue. Setting a static title here would feed "Polymux"
-      // into the template and render as "Polymux Polymux" in the browser tab.
-      meta: [{ name: "twitter:card", content: "summary_large_image" }],
+      // Canonical, og:url, and the titleTemplate function live in app.vue
+      // (nuxt.config head must be JSON-serializable — no functions allowed).
+      // This default title is the SSR fallback when a page doesn't set one.
+      title: "Polymux — AI Agents for Browser Automation",
+      htmlAttrs: { lang: "en" },
+      meta: [
+        {
+          name: "description",
+          content:
+            "Polymux orchestrates AI agents for browser automation. Run multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+        },
+        {
+          name: "keywords",
+          content:
+            "AI agents, browser automation, multi-agent orchestration, AI workflow, live browser sessions, web automation, Polymux",
+        },
+        { name: "robots", content: "index,follow" },
+        { name: "theme-color", content: "#000000" },
+        {
+          property: "og:title",
+          content: "Polymux — AI Agents for Browser Automation",
+        },
+        {
+          property: "og:description",
+          content:
+            "Orchestrate AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+        },
+        { property: "og:image", content: "https://polymux.com/og-image.png" },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { property: "og:site_name", content: "Polymux" },
+        { property: "og:type", content: "website" },
+        { property: "og:locale", content: "en_US" },
+        { name: "twitter:card", content: "summary_large_image" },
+        {
+          name: "twitter:title",
+          content: "Polymux — AI Agents for Browser Automation",
+        },
+        {
+          name: "twitter:description",
+          content:
+            "Orchestrate AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+        },
+        { name: "twitter:image", content: "https://polymux.com/og-image.png" },
+      ],
       link: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
+      ],
+      script: [
+        {
+          type: "application/ld+json",
+          innerHTML: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Polymux",
+            url: "https://polymux.com",
+            logo: "https://polymux.com/og-image.png",
+            description:
+              "Polymux orchestrates AI agents for browser automation, with multi-agent workflows, live browser sessions, secure vaults, and replayable runs.",
+            // TODO: add social URLs once handles are claimed (X, LinkedIn, GitHub, YouTube, etc.)
+            sameAs: [],
+          }),
+        },
+        {
+          type: "application/ld+json",
+          innerHTML: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "Polymux",
+            url: "https://polymux.com",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            description:
+              "Deploy, manage, and scale AI agents that automate browser workflows. Multi-agent orchestration with live browser sessions and a secure vault.",
+            offers: {
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "USD",
+            },
+          }),
+        },
+        {
+          type: "application/ld+json",
+          innerHTML: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Polymux",
+            url: "https://polymux.com",
+          }),
+        },
       ],
     },
   },
@@ -63,9 +148,69 @@ export default defineNuxtConfig({
     "@nuxt/ui",
     "@nuxtjs/supabase",
     "@nuxtjs/i18n",
+    "@nuxtjs/sitemap",
+    "@nuxtjs/robots",
     "@vercel/analytics",
     "@vercel/speed-insights",
   ],
+  site: {
+    url: "https://polymux.com",
+    name: "Polymux",
+  },
+  sitemap: {
+    exclude: [
+      "/dashboard/**",
+      "/workflow/**",
+      "/vault/**",
+      "/storage/**",
+      "/integrations/**",
+      "/session/**",
+      "/settings/**",
+      "/sign-in",
+      "/sign-up",
+      "/reset-password",
+      "/forgot-password",
+      "/verify-email",
+      "/verification-successful",
+      "/confirm",
+      "/unsubscribed",
+      "/invitations/**",
+      "/account-suspended",
+    ],
+    urls: [
+      "/",
+      "/pricing",
+      "/contact",
+      "/about-us",
+      "/community",
+      "/blog",
+      "/documentation",
+      "/forum",
+      "/api-reference",
+      "/install-apps",
+      "/privacy-policy",
+      "/terms-of-service",
+      "/cookie-policy",
+    ],
+  },
+  robots: {
+    groups: [
+      {
+        userAgent: ["*"],
+        disallow: [
+          "/dashboard/",
+          "/workflow/",
+          "/vault/",
+          "/storage/",
+          "/integrations/",
+          "/session/",
+          "/settings/",
+        ],
+        allow: ["/"],
+      },
+    ],
+    sitemap: ["https://polymux.com/sitemap.xml"],
+  },
   // Bundle every icon string found in source (i-heroicons-*, i-ph-*,
   // i-simple-icons-*) into the client JS at build time. Without this,
   // @nuxt/icon fetches each icon over HTTP on first render, which is what

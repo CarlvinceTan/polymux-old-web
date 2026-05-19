@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 import type { WorkflowGraph } from '~/composables/workflows/useWorkflows'
+import { normalizeGraph } from '~/composables/workflows/useWorkflows'
 import type { WorkflowOp } from '~/composables/workflows/useWorkflowMutations'
 import { applyOp } from '~/composables/workflows/useWorkflowMutations'
 
@@ -34,14 +35,16 @@ export function useWorkflowDraft(session: SessionHandle, sessionId: Ref<string> 
   const lastDraftOp = useState<WorkflowOp | null>(lastOpKey, () => null)
 
   const onDraft = (p: { graph: WorkflowGraph | null }) => {
-    draftGraph.value = (p?.graph && Array.isArray(p.graph.nodes)) ? p.graph : emptyGraph()
+    draftGraph.value = (p?.graph && Array.isArray(p.graph.nodes)) ? normalizeGraph(p.graph) : emptyGraph()
     lastDraftAt.value = Date.now()
   }
 
   // `workflow_draft_patch` carries an op envelope so we can replay it
   // locally with a flash animation rather than swap the whole graph. The
   // full `snapshot` is the recovery fallback — if applyOp rejects (because
-  // the client is out of sync) we restore from it.
+  // the client is out of sync) we restore from it. applyOp internally runs
+  // node payloads through normalizeNode / normalizeNodePatch so legacy-shape
+  // ops still apply cleanly.
   const onDraftPatch = (p: DraftPatchEvent) => {
     if (!p) return
     const r = applyOp(draftGraph.value, p.op)
@@ -49,7 +52,7 @@ export function useWorkflowDraft(session: SessionHandle, sessionId: Ref<string> 
       draftGraph.value = r.graph
     }
     else if (p.snapshot && Array.isArray(p.snapshot.nodes)) {
-      draftGraph.value = p.snapshot
+      draftGraph.value = normalizeGraph(p.snapshot)
     }
     draftRevision.value = p.after_revision
     lastDraftAt.value = Date.now()
@@ -65,7 +68,7 @@ export function useWorkflowDraft(session: SessionHandle, sessionId: Ref<string> 
     if (!state) return
     const initial = (state as { workflow_draft?: WorkflowGraph }).workflow_draft
     if (initial && Array.isArray(initial.nodes)) {
-      draftGraph.value = initial
+      draftGraph.value = normalizeGraph(initial)
       lastDraftAt.value = Date.now()
     }
   }, { immediate: true })

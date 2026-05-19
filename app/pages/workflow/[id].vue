@@ -371,21 +371,30 @@ const workflowRunActive = computed(() =>
 const chatActive = computed(() => {
   if (chats.orchestrator.isStreaming.value) return true
   if (chats.orchestrator.thinking.value != null) return true
-  const messages = chats.orchestrator.messages.value
-  if (messages[messages.length - 1]?.role === 'user') return true
+  // waitingForAgent is the authoritative chat-turn flag: set on send/edit,
+  // cleared by the orchestrator's turn-end frame or by a server-side stop.
+  // It survives the same conditions the dots indicator does, so the spinner
+  // and the dots clear together instead of diverging when activity ends.
+  if (chats.orchestrator.waitingForAgent.value) return true
   if ((vp.viewports.value as ViewportState[]).some(v => v.isWorking)) return true
   return false
 })
 const runningKind = computed<'chat' | 'workflow' | null>(() => {
   if (workflowRunActive.value) return 'workflow'
   if (chatActive.value) return 'chat'
-  const serverKind = session.sessionState.value?.running_kind
-  if (serverKind === 'chat' || serverKind === 'workflow') return serverKind
-  // is_running=true with no server-classified kind should not happen once
-  // Session.RunningKind is populated, but if the server is mid-rollout we
-  // default to 'chat' — the loading spinner is the safer fallback because
-  // workflow_run rows are always classified explicitly via activeRuns.
-  return session.sessionState.value?.is_running ? 'chat' : null
+  // No local chat signal. Don't fall back to session_state.running_kind ===
+  // 'chat' here: the server doesn't rebroadcast session_state when a
+  // browser agent transitions from running → completed (only browser_closed
+  // fires), so the cached running_kind on the wire lags past the agent's
+  // actual completion. chatActive already covers chat-driven activity via
+  // real-time WS signals (waitingForAgent, viewport.isWorking) — trusting
+  // it exclusively keeps the spinner in sync with the dots.
+  //
+  // We DO still trust serverKind === 'workflow' as a reload-safe fallback:
+  // workflowRun.hydrate isn't called on page load, so workflowRunActive can
+  // miss an in-flight scheduled / cron run that the server knows about.
+  if (session.sessionState.value?.running_kind === 'workflow') return 'workflow'
+  return null
 })
 
 watch(

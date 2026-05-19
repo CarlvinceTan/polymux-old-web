@@ -173,7 +173,6 @@
     "badResponse": "Mauvaise réponse",
     "doubleClickToRename": "Double-cliquez pour renommer",
     "expandedBrowserPreview": "Aperçu navigateur agrandi",
-    "pause": "Pause",
     "removeAttachment": "Supprimer la pièce jointe",
     "fileUploadError": "Échec du téléchargement de {name}",
     "chatView": "Discussion",
@@ -234,10 +233,17 @@
     "deleteNode": "Supprimer l'étape",
     "emptySubtitle": "Aucune étape pour le moment. Démarrez une conversation pour construire ce workflow.",
     "noWorkflowsSubtitle": "Aucun workflow pour le moment — il apparaîtra ici dès que l'agent en aura créé un.",
-    "actionPlaceholder": "Action (ex. navigate, click, type)",
-    "targetPlaceholder": "Cible (URL ou sélecteur)",
-    "valuePlaceholder": "Valeur (optionnel)",
-    "descriptionPlaceholder": "Description",
+    "title": "Titre",
+    "titlePlaceholder": "Nom court de ce que cette étape accomplit",
+    "actions": "Actions",
+    "actionItemPlaceholder": "Décrivez une étape que l'agent doit effectuer",
+    "addAction": "Ajouter une action",
+    "removeAction": "Supprimer l'action",
+    "actionsEmpty": "Aucune action — ajoutez-en une pour décrire comment le titre est atteint.",
+    "details": "Détails",
+    "detailsPlaceholder": "Contexte d'exécution que l'agent lit et met à jour pendant les exécutions",
+    "notes": "Notes",
+    "notesPlaceholder": "Vos notes privées — l'agent ne les lit ni ne les modifie",
     "savedToast": "Workflow enregistré",
     "saveFailedToast": "Échec de l'enregistrement du workflow",
     "versionConflictToast": "Le workflow a été mis à jour ailleurs. Dernière version chargée — refaites vos modifications.",
@@ -280,7 +286,6 @@
     "wireFluid": "Fluide",
     "wireLinear": "Linéaire",
     "wireStep": "Escalier",
-    "annotationPlaceholder": "Note facultative",
     "resizeNode": "Redimensionner",
     "lockNode": "Verrouiller le nœud",
     "unlockNode": "Déverrouiller le nœud",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "Garde en langage naturel — traverser uniquement si vrai",
     "wireMaxIterationsLabel": "Itér. max",
     "wireMaxIterationsPlaceholder": "Limite le nombre de tirages de cet arc (boucles)",
-    "duplicateEdgeToast": "Une connexion existe déjà entre ces nœuds."
+    "duplicateEdgeToast": "Une connexion existe déjà entre ces nœuds.",
+    "repeatLabel": "Répéter",
+    "repeatPlaceholder": "Nombre de fois à exécuter cette étape (par défaut 1)",
+    "repeatHelp": "Exécutez cette étape N fois de suite avant de continuer.",
+    "embedLoading": "Chargement du workflow référencé…",
+    "embedEmpty": "Le workflow référencé n'a pas encore d'étapes.",
+    "embedMissing": "Workflow référencé introuvable",
+    "embedThumbnailAlt": "Mini-aperçu du workflow référencé",
+    "embedThumbnailTruncated": "+{n} étapes supplémentaires non affichées"
   },
   "dashboard": {
     "console": "Console",
@@ -345,9 +358,9 @@
     "inDays": "dans {n}j"
   },
   "search": {
-    "placeholder": "Rechercher conversations…",
-    "emptyState": "Tapez pour rechercher vos conversations",
-    "noResults": "Aucune conversation trouvée"
+    "placeholder": "Rechercher workflows…",
+    "emptyState": "Tapez pour rechercher vos workflows",
+    "noResults": "Aucun workflow trouvé"
   },
   "viewport": {
     "closeBrowser": "Fermer le navigateur",
@@ -931,7 +944,7 @@
       "pricing": "Tarification",
       "community": "Communauté",
       "contactUs": "Nous contacter",
-      "installApp": "Installer l'application"
+      "installApp": "Installer les apps"
     },
     "header": {
       "accountMenu": "Menu compte",
@@ -1112,6 +1125,10 @@
       "wallet": "Portefeuille"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "Portefeuille — Bientôt disponible",
+        "description": "Crédits d'espace de travail, budgets et analyses de dépenses. Bientôt disponible."
+      },
       "sections": {
         "overview": "Aperçu",
         "activity": "Activité",

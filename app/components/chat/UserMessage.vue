@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { ChatMessageAttachment } from '~/composables/types'
-import { useAutoResizeTextarea } from '~/composables/ui/useAutoResizeTextarea'
 
 const { t } = useI18n()
 const { copy, copied } = useClipboard()
@@ -24,20 +23,17 @@ const emit = defineEmits<{
 
 const editing = ref(false)
 const editText = ref('')
-const editTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const editFileInputRef = ref<HTMLInputElement | null>(null)
+const editorRef = ref<InstanceType<typeof import('./InlineChipEditor.vue').default> | null>(null)
 
 const { attachments: editAttachments, addFiles, removeFile, clearAll, seed } = useAttachments()
-
-const { resize: resizeEditTextarea } = useAutoResizeTextarea(editTextareaRef, editText, { maxLines: 8 })
 
 function startEdit() {
   editText.value = props.text
   seed(props.attachments ?? [])
   editing.value = true
   nextTick(() => {
-    resizeEditTextarea()
-    editTextareaRef.value?.focus()
+    editorRef.value?.focus()
   })
 }
 
@@ -46,18 +42,15 @@ function cancelEdit() {
   clearAll()
 }
 
-async function submitEdit() {
-  const trimmed = editText.value.trim()
-  const allAttachments = editAttachments.value
-    .filter(a => a.status === 'done')
-    .map(a => ({ id: a.id, name: a.name }))
-  if (!trimmed && allAttachments.length === 0) return
+async function submitEdit(text: string, attachments: ChatMessageAttachment[]) {
+  const trimmed = text.trim()
+  if (!trimmed && attachments.length === 0) return
   if (props.canSubmitEdit) {
-    const ok = await props.canSubmitEdit(trimmed, allAttachments)
+    const ok = await props.canSubmitEdit(trimmed, attachments)
     if (!ok) return
   }
   editing.value = false
-  emit('edit', trimmed, allAttachments)
+  emit('edit', trimmed, attachments)
   clearAll()
 }
 
@@ -66,22 +59,37 @@ function onRemoveEditFile(id: string) {
 }
 
 function onEditAttachClick() {
+  editorRef.value?.rememberSelection?.()
   editFileInputRef.value?.click()
 }
 
 function onEditFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files || input.files.length === 0) return
-  addFiles(props.sessionId, input.files, props.workspaceId ?? undefined)
+  // FileList is live: `input.value = ''` below empties it before addFiles'
+  // async path (await fetchUploadConfig) gets to iterate. Snapshot via a
+  // DataTransfer-owned FileList so addFiles still sees the selected files.
+  const dt = new DataTransfer()
+  for (const f of input.files) dt.items.add(f)
+  addFiles(props.sessionId, dt.files, props.workspaceId ?? undefined)
   input.value = ''
 }
 
-function onEditKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Enter' || e.shiftKey) return
-  if (e.isComposing) return
-  e.preventDefault()
-  void submitEdit()
+function onEditSendClick() {
+  editorRef.value?.submit?.()
 }
+
+// Server-loaded messages have no position info; fall back to the grouped
+// chip row below the bubble. Locally-sent messages carry positions and
+// render inline.
+const displayTokens = computed(() => {
+  const atts = props.attachments ?? []
+  const hasPositions = atts.some(a => typeof a.position === 'number')
+  if (!hasPositions) {
+    return { inline: false, tokens: [{ kind: 'text' as const, text: props.text }] }
+  }
+  return { inline: true, tokens: interleaveAttachments(props.text, atts) }
+})
 </script>
 
 <template>
@@ -100,31 +108,15 @@ function onEditKeydown(e: KeyboardEvent) {
         aria-hidden="true"
         @change="onEditFileChange"
       >
-      <textarea
-        ref="editTextareaRef"
+      <InlineChipEditor
+        ref="editorRef"
         v-model="editText"
-        rows="1"
-        name="message-edit"
-        class="w-full resize-none bg-transparent text-sm leading-relaxed text-neutral-800 outline-none"
-        @keydown="onEditKeydown"
+        :attachments="editAttachments"
+        :max-lines="8"
+        class="text-sm"
+        @submit="submitEdit"
+        @remove-attachment="onRemoveEditFile"
       />
-      <TransitionGroup
-        v-if="editAttachments.length > 0"
-        tag="div"
-        name="chip"
-        appear
-        class="relative flex flex-wrap-reverse gap-1 pt-1.5"
-      >
-        <FileAttachment
-          v-for="file in editAttachments"
-          :key="file.id"
-          :name="file.name"
-          :status="file.status"
-          :progress="file.progress"
-          removable
-          @remove="onRemoveEditFile(file.id)"
-        />
-      </TransitionGroup>
       <div class="mt-2 flex items-center justify-between gap-1.5">
         <button
           type="button"
@@ -145,7 +137,7 @@ function onEditKeydown(e: KeyboardEvent) {
           <button
             type="button"
             class="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
-            @click="submitEdit"
+            @click="onEditSendClick"
           >
             {{ t('common.send') }}
           </button>
@@ -156,18 +148,45 @@ function onEditKeydown(e: KeyboardEvent) {
     <!-- Display mode -->
     <template v-else>
       <div class="min-w-0 rounded-[1.25rem] bg-[#e8e8e8] px-3 py-1.5">
-        <p class="m-0 text-left text-sm leading-relaxed text-neutral-800 break-words">{{ text }}</p>
-        <div
-          v-if="attachments && attachments.length > 0"
-          class="flex flex-wrap gap-1 pt-1.5"
+        <!-- Inline rendering: tokens are interleaved text and chips. We use
+             whitespace-pre-wrap so newlines and runs of spaces inside text
+             tokens render the way the user typed them. -->
+        <p
+          v-if="displayTokens.inline"
+          class="m-0 text-left text-sm leading-relaxed text-neutral-800 break-words whitespace-pre-wrap"
         >
-          <FileAttachment
-            v-for="file in attachments"
-            :key="file.id"
-            :name="file.name"
-            :removable="false"
-          />
-        </div>
+          <template v-for="(tok, i) in displayTokens.tokens" :key="i">
+            <span v-if="tok.kind === 'text'">{{ tok.text }}</span>
+            <!-- align-top so the chip's centre lines up with the bubble's
+                 line-box centre. align-middle would push it to text-baseline
+                 + half-x-height, which is visibly below the caret centre. -->
+            <span
+              v-else
+              class="inline-flex align-top mx-0.5"
+            >
+              <FileAttachment
+                :name="tok.att.name"
+                :removable="false"
+              />
+            </span>
+          </template>
+        </p>
+
+        <!-- Legacy / server-loaded layout: text bubble + chip row below. -->
+        <template v-else>
+          <p class="m-0 text-left text-sm leading-relaxed text-neutral-800 break-words">{{ text }}</p>
+          <div
+            v-if="attachments && attachments.length > 0"
+            class="flex flex-wrap gap-1 pt-1.5"
+          >
+            <FileAttachment
+              v-for="file in attachments"
+              :key="file.id"
+              :name="file.name"
+              :removable="false"
+            />
+          </div>
+        </template>
       </div>
       <div class="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <MessageAction icon="i-heroicons-pencil-square-20-solid" :label="t('common.edit')" @click="startEdit" />
@@ -176,19 +195,3 @@ function onEditKeydown(e: KeyboardEvent) {
     </template>
   </div>
 </template>
-
-<style scoped>
-.chip-move,
-.chip-enter-active,
-.chip-leave-active {
-  transition: transform 0.25s ease, opacity 0.2s ease;
-}
-.chip-enter-from,
-.chip-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-.chip-leave-active {
-  position: absolute;
-}
-</style>

@@ -40,7 +40,7 @@
     "storage": "Storage",
     "vault": "Vault",
     "workflows": "Workflows",
-    "newWorkflow": "New workflow",
+    "newWorkflow": "New Workflow",
     "addWorkspace": "Add Workspace",
     "mainSidebar": "Main sidebar",
     "toggleSidebar": "Toggle sidebar"
@@ -173,7 +173,6 @@
     "badResponse": "Bad response",
     "doubleClickToRename": "Double-click to rename",
     "expandedBrowserPreview": "Expanded browser preview",
-    "pause": "Pause",
     "removeAttachment": "Remove attachment",
     "fileUploadError": "Failed to upload {name}",
     "chatView": "Chat",
@@ -234,10 +233,17 @@
     "deleteNode": "Delete step",
     "emptySubtitle": "No steps yet. Start a chat to build this workflow.",
     "noWorkflowsSubtitle": "No workflow yet — it'll appear here as the agent builds one.",
-    "actionPlaceholder": "Action (e.g. navigate, click, type)",
-    "targetPlaceholder": "Target (URL or selector)",
-    "valuePlaceholder": "Value (optional)",
-    "descriptionPlaceholder": "Description",
+    "title": "Title",
+    "titlePlaceholder": "Short name of what this step achieves",
+    "actions": "Actions",
+    "actionItemPlaceholder": "Describe one step the agent should carry out",
+    "addAction": "Add action",
+    "removeAction": "Remove action",
+    "actionsEmpty": "No actions yet — add one to describe how the title is achieved.",
+    "details": "Details",
+    "detailsPlaceholder": "Execution context the agent reads and updates during runs",
+    "notes": "Notes",
+    "notesPlaceholder": "Your private notes — the agent does not read or modify these",
     "savedToast": "Workflow saved",
     "saveFailedToast": "Failed to save workflow",
     "versionConflictToast": "Workflow was updated elsewhere. Latest version loaded — redo your edits.",
@@ -280,7 +286,6 @@
     "wireFluid": "Fluid",
     "wireLinear": "Linear",
     "wireStep": "Step",
-    "annotationPlaceholder": "Optional note",
     "resizeNode": "Resize",
     "editWire": "Edit wire",
     "deleteWire": "Delete wire",
@@ -303,7 +308,15 @@
     "discardMine": "Discard mine",
     "keepMine": "Keep mine",
     "moreInstances": "more",
-    "duplicateEdgeToast": "A wire already connects those nodes."
+    "duplicateEdgeToast": "A wire already connects those nodes.",
+    "repeatLabel": "Repeat",
+    "repeatPlaceholder": "Number of times to run this step (default 1)",
+    "repeatHelp": "Run this step N times in succession before continuing.",
+    "embedLoading": "Loading referenced workflow…",
+    "embedEmpty": "Referenced workflow has no steps yet.",
+    "embedMissing": "Referenced workflow not found",
+    "embedThumbnailAlt": "Mini preview of the referenced workflow",
+    "embedThumbnailTruncated": "+{n} more steps not shown"
   },
   "dashboard": {
     "console": "Console",
@@ -345,9 +358,9 @@
     "inDays": "in {n}d"
   },
   "search": {
-    "placeholder": "Search chats…",
-    "emptyState": "Type to search your chats",
-    "noResults": "No chats found"
+    "placeholder": "Search workflows…",
+    "emptyState": "Type to search your workflows",
+    "noResults": "No workflows found"
   },
   "viewport": {
     "closeBrowser": "Close browser",
@@ -933,7 +946,7 @@
       "pricing": "Pricing",
       "community": "Community",
       "contactUs": "Contact Us",
-      "installApp": "Install App"
+      "installApp": "Install"
     },
     "header": {
       "accountMenu": "Account menu",
@@ -1114,6 +1127,10 @@
       "wallet": "Wallet"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "Wallet — Coming soon",
+        "description": "Workspace credits, budgets, and spending insights. Available soon."
+      },
       "sections": {
         "overview": "Overview",
         "activity": "Activity",
@@ -1455,7 +1472,7 @@
     "extension": {
       "eyebrow": "Browser Extension",
       "heading": "Connect your browser",
-      "subtitle": "Install the Polymux extension to run agents locally in your browser. Watch them work in real-time without leaving your desktop.",
+      "subtitle": "Connect the Polymux extension to run agents locally in your own browser.",
       "chromeLabel": "Install for Chrome"
     },
     "yourSystem": "Your system",
@@ -1480,12 +1497,12 @@
     "mobile": {
       "eyebrow": "On the way",
       "heading": "Mobile apps",
-      "subtitle": "Native companion apps are in development. Check in on agents, approve actions, and stay close to your workflows from anywhere.",
+      "subtitle": "A native remote control for your workflows. Monitor live sessions and approve agent actions from anywhere.",
       "comingSoon": "Coming soon",
       "polymuxFor": "Polymux for {name}",
       "getNotified": "Get notified when it launches",
-      "ios": "Bring Polymux to iPhone and iPad. Follow sessions and review agent work on the go.",
-      "android": "A native Android companion for monitoring workflows and approving agent actions anywhere."
+      "ios": "Remote control for iPhone and iPad. Monitor workflows and manage your workspace on the go.",
+      "android": "A native Android app for remote control. Stay close to your agents anywhere."
     },
     "help": {
       "heading": "Need help installing?",

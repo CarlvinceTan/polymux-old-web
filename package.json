@@ -7,7 +7,8 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "og:gen": "node scripts/gen-og-image.mjs"
   },
   "dependencies": {
     "@iconify-json/heroicons": "^1.2.3",
@@ -32,7 +33,10 @@
   },
   "devDependencies": {
     "@iconify-json/simple-icons": "^1.2.79",
-    "@vue/language-core": "^3.2.8"
+    "@nuxtjs/robots": "^6.0.8",
+    "@nuxtjs/sitemap": "^8.0.15",
+    "@vue/language-core": "^3.2.8",
+    "sharp": "^0.34.5"
   },
   "overrides": {
     "@vercel/analytics": {

@@ -1,4 +1,4 @@
-import type { WorkflowGraph, WorkflowNode, WorkflowWire } from '~/composables/workflows/useWorkflows'
+import { normalizeNode, normalizeNodePatch, type WorkflowGraph, type WorkflowNode, type WorkflowWire } from '~/composables/workflows/useWorkflows'
 
 // Shared mutation ops for the workflow graph. User-driven drag-to-connect
 // and orchestrator-driven granular tools both run through `applyOp`, so the
@@ -61,7 +61,13 @@ export function applyOp(graph: WorkflowGraph, op: WorkflowOp): ApplyResult | App
   const next = cloneGraph(graph)
   switch (op.kind) {
     case 'node_add': {
-      const node: WorkflowNode = { ...op.node }
+      // Run incoming nodes through normalizeNode so any legacy-shape JSON
+      // (description/action/target/value/annotation) is mapped onto the
+      // canonical title/actions/details/notes layout before it enters the
+      // in-memory graph.
+      const incomingID = (op.node.id ?? '').trim()
+      const node: WorkflowNode = normalizeNode(op.node)
+      if (incomingID) node.id = incomingID
       if (!node.id || node.id.trim() === '') node.id = newID('node')
       if (findNodeIndex(next.nodes, node.id) >= 0) {
         return { ok: false, error: `duplicate node id: ${node.id}` }
@@ -76,13 +82,21 @@ export function applyOp(graph: WorkflowGraph, op: WorkflowOp): ApplyResult | App
       const idx = findNodeIndex(next.nodes, op.node_id)
       if (idx < 0) return { ok: false, error: `node not found: ${op.node_id}` }
       const cur = next.nodes[idx]!
-      // Only non-empty patch fields overwrite; absent fields are preserved.
+      // Normalise the patch so legacy keys (description / action / target /
+      // value / annotation) get mapped to the new field names before the
+      // merge. Then apply: strings overwrite when non-empty; the actions
+      // array overwrites when non-empty (replace-the-whole-list, matching
+      // the Go-side mergeNodePatch).
+      const patch = normalizeNodePatch(op.patch)
       const merged: WorkflowNode = { ...cur }
-      for (const [k, v] of Object.entries(op.patch)) {
-        if (v !== undefined && v !== '') {
-          (merged as unknown as Record<string, unknown>)[k] = v
-        }
-      }
+      if (patch.title) merged.title = patch.title
+      if (patch.actions && patch.actions.length > 0) merged.actions = patch.actions
+      if (patch.details) merged.details = patch.details
+      if (patch.notes) merged.notes = patch.notes
+      if (patch.workflow_ref) merged.workflow_ref = patch.workflow_ref
+      if (typeof patch.repeat === 'number') merged.repeat = patch.repeat
+      if (patch.position) merged.position = patch.position
+      if (patch.size) merged.size = patch.size
       next.nodes[idx] = merged
       return { ok: true, graph: next }
     }

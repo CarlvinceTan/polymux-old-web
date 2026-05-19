@@ -173,7 +173,6 @@
     "badResponse": "不好的回答",
     "doubleClickToRename": "双击重命名",
     "expandedBrowserPreview": "展开的浏览器预览",
-    "pause": "暂停",
     "removeAttachment": "移除附件",
     "fileUploadError": "{name} 上传失败",
     "chatView": "聊天",
@@ -234,10 +233,17 @@
     "deleteNode": "删除步骤",
     "emptySubtitle": "尚无步骤。开始聊天以构建此工作流。",
     "noWorkflowsSubtitle": "暂无工作流 — 代理创建后将在此显示。",
-    "actionPlaceholder": "动作（如 navigate、click、type）",
-    "targetPlaceholder": "目标（URL 或选择器）",
-    "valuePlaceholder": "值（可选）",
-    "descriptionPlaceholder": "描述",
+    "title": "标题",
+    "titlePlaceholder": "此步骤要达成的目标的简短名称",
+    "actions": "操作",
+    "actionItemPlaceholder": "描述代理应执行的一个步骤",
+    "addAction": "添加操作",
+    "removeAction": "移除操作",
+    "actionsEmpty": "还没有操作 — 添加一个以描述如何达成标题。",
+    "details": "详细信息",
+    "detailsPlaceholder": "代理在运行期间读取和更新的执行上下文",
+    "notes": "备注",
+    "notesPlaceholder": "您的私人备注 — 代理不会读取或修改这些内容",
     "savedToast": "工作流已保存",
     "saveFailedToast": "保存工作流失败",
     "versionConflictToast": "工作流在其他地方被更新。已加载最新版本 — 请重做你的编辑。",
@@ -280,7 +286,6 @@
     "wireFluid": "曲线",
     "wireLinear": "直线",
     "wireStep": "折线",
-    "annotationPlaceholder": "可选注释",
     "resizeNode": "调整大小",
     "lockNode": "锁定节点",
     "unlockNode": "解锁节点",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "自然语言守卫 — 仅在为真时遍历",
     "wireMaxIterationsLabel": "最大迭代",
     "wireMaxIterationsPlaceholder": "限制此连线触发次数 (循环)",
-    "duplicateEdgeToast": "这两个节点之间已存在连线。"
+    "duplicateEdgeToast": "这两个节点之间已存在连线。",
+    "repeatLabel": "重复",
+    "repeatPlaceholder": "运行此步骤的次数（默认 1）",
+    "repeatHelp": "在继续之前连续运行此步骤 N 次。",
+    "embedLoading": "正在加载引用的工作流…",
+    "embedEmpty": "引用的工作流尚无步骤。",
+    "embedMissing": "找不到引用的工作流",
+    "embedThumbnailAlt": "引用工作流的小预览",
+    "embedThumbnailTruncated": "+{n} 个步骤未显示"
   },
   "dashboard": {
     "console": "控制台",
@@ -345,9 +358,9 @@
     "inDays": "{n}天后"
   },
   "search": {
-    "placeholder": "搜索对话…",
-    "emptyState": "输入以搜索您的对话",
-    "noResults": "未找到对话"
+    "placeholder": "搜索工作流…",
+    "emptyState": "输入以搜索您的工作流",
+    "noResults": "未找到工作流"
   },
   "viewport": {
     "closeBrowser": "关闭浏览器",
@@ -1112,6 +1125,10 @@
       "wallet": "钱包"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "钱包 — 即将推出",
+        "description": "工作区额度、预算和支出分析。即将推出。"
+      },
       "sections": {
         "overview": "概览",
         "activity": "活动",

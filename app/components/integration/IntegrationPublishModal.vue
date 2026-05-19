@@ -84,7 +84,7 @@ const KINDS = computed(() => ([
     value: 'workflow' as const,
     title: t('integrations.editorNewWorkflow'),
     description: t('integrations.editorNewWorkflowDesc'),
-    icon: 'i-heroicons-bolt-20-solid',
+    icon: 'i-heroicons-square-3-stack-3d-20-solid',
   },
   {
     value: 'plugin' as const,
@@ -403,8 +403,8 @@ const stepTitle = computed(() => {
                     class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
                     @click="pickKind(k.value)"
                   >
-                    <div class="flex size-9 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 transition-colors group-hover:bg-neutral-950 group-hover:text-white">
-                      <UIcon :name="k.icon" class="size-5" />
+                    <div class="flex size-9 items-center justify-center text-neutral-700 transition-colors group-hover:text-neutral-950">
+                      <UIcon :name="k.icon" class="size-7" />
                     </div>
                     <div>
                       <p class="text-sm font-semibold leading-tight text-neutral-950">

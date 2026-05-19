@@ -173,7 +173,6 @@
     "badResponse": "Schlechte Antwort",
     "doubleClickToRename": "Doppelklick zum Umbenennen",
     "expandedBrowserPreview": "Erweiterte Browservorschau",
-    "pause": "Pause",
     "removeAttachment": "Anhang entfernen",
     "fileUploadError": "{name} konnte nicht hochgeladen werden",
     "chatView": "Chat",
@@ -234,10 +233,17 @@
     "deleteNode": "Schritt löschen",
     "emptySubtitle": "Noch keine Schritte. Starte einen Chat, um diesen Workflow aufzubauen.",
     "noWorkflowsSubtitle": "Noch kein Workflow — er erscheint hier, sobald der Agent ihn erstellt.",
-    "actionPlaceholder": "Aktion (z. B. navigate, click, type)",
-    "targetPlaceholder": "Ziel (URL oder Selektor)",
-    "valuePlaceholder": "Wert (optional)",
-    "descriptionPlaceholder": "Beschreibung",
+    "title": "Titel",
+    "titlePlaceholder": "Kurzer Name dessen, was dieser Schritt erreicht",
+    "actions": "Aktionen",
+    "actionItemPlaceholder": "Beschreibe einen Schritt, den der Agent ausführen soll",
+    "addAction": "Aktion hinzufügen",
+    "removeAction": "Aktion entfernen",
+    "actionsEmpty": "Noch keine Aktionen — füge eine hinzu, um zu beschreiben, wie der Titel erreicht wird.",
+    "details": "Details",
+    "detailsPlaceholder": "Ausführungskontext, den der Agent während Läufen liest und aktualisiert",
+    "notes": "Notizen",
+    "notesPlaceholder": "Deine privaten Notizen — der Agent liest oder ändert sie nicht",
     "savedToast": "Workflow gespeichert",
     "saveFailedToast": "Workflow konnte nicht gespeichert werden",
     "versionConflictToast": "Workflow wurde anderswo aktualisiert. Neueste Version geladen — bearbeite erneut.",
@@ -280,7 +286,6 @@
     "wireFluid": "Fließend",
     "wireLinear": "Gerade",
     "wireStep": "Stufig",
-    "annotationPlaceholder": "Optionale Notiz",
     "resizeNode": "Größe ändern",
     "lockNode": "Knoten sperren",
     "unlockNode": "Knoten entsperren",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "Natürlichsprachlicher Wächter — nur durchlaufen wenn wahr",
     "wireMaxIterationsLabel": "Max. Iter.",
     "wireMaxIterationsPlaceholder": "Begrenzt, wie oft diese Kante feuert (Schleifen)",
-    "duplicateEdgeToast": "Diese Knoten sind bereits verbunden."
+    "duplicateEdgeToast": "Diese Knoten sind bereits verbunden.",
+    "repeatLabel": "Wiederholen",
+    "repeatPlaceholder": "Anzahl der Ausführungen dieses Schritts (Standard 1)",
+    "repeatHelp": "Diesen Schritt N-mal hintereinander ausführen, bevor fortgefahren wird.",
+    "embedLoading": "Verknüpfter Workflow wird geladen…",
+    "embedEmpty": "Der verknüpfte Workflow hat noch keine Schritte.",
+    "embedMissing": "Verknüpfter Workflow nicht gefunden",
+    "embedThumbnailAlt": "Mini-Vorschau des verknüpften Workflows",
+    "embedThumbnailTruncated": "+{n} weitere Schritte nicht angezeigt"
   },
   "dashboard": {
     "console": "Konsole",
@@ -345,9 +358,9 @@
     "inDays": "in {n}T"
   },
   "search": {
-    "placeholder": "Chats durchsuchen…",
-    "emptyState": "Tippen Sie, um Ihre Chats zu durchsuchen",
-    "noResults": "Keine Chats gefunden"
+    "placeholder": "Workflows durchsuchen…",
+    "emptyState": "Tippen Sie, um Ihre Workflows zu durchsuchen",
+    "noResults": "Keine Workflows gefunden"
   },
   "viewport": {
     "closeBrowser": "Browser schließen",
@@ -931,7 +944,7 @@
       "pricing": "Preise",
       "community": "Gemeinschaft",
       "contactUs": "Kontaktieren Sie uns",
-      "installApp": "App installieren"
+      "installApp": "Apps installieren"
     },
     "header": {
       "accountMenu": "Kontomenü",
@@ -1112,6 +1125,10 @@
       "wallet": "Wallet"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "Wallet — Demnächst",
+        "description": "Workspace-Guthaben, Budgets und Ausgabenanalysen. Bald verfügbar."
+      },
       "sections": {
         "overview": "Übersicht",
         "activity": "Aktivität",

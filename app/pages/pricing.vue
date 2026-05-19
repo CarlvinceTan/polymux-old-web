@@ -5,6 +5,12 @@ definePageMeta({ layout: 'landing' })
 
 useHead({
   title: 'Pricing',
+  meta: [
+    {
+      name: 'description',
+      content: 'Simple, transparent pricing for AI agent workspaces. Start free, scale as you grow with Pro, Max, and Enterprise plans.',
+    },
+  ],
 })
 
 const { t } = useI18n()

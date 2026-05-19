@@ -1,6 +1,16 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+useHead({
+  title: 'Blog',
+  meta: [
+    {
+      name: 'description',
+      content: 'Updates, deep-dives, and case studies on AI agents, browser automation, and multi-agent orchestration with Polymux.',
+    },
+  ],
+})
+
 const route = useRoute()
 const user = useSupabaseUser()
 const { settings, saving: settingsSaving, fetchSettings } = useUserSettings()

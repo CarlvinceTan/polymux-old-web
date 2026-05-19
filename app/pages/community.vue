@@ -1,6 +1,16 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+useHead({
+  title: 'Community',
+  meta: [
+    {
+      name: 'description',
+      content: 'Join the Polymux community. Share workflows, ask questions, and connect with other AI agent builders.',
+    },
+  ],
+})
+
 const searchQuery = ref('')
 
 interface CommunityTile {

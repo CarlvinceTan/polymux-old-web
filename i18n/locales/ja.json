@@ -173,7 +173,6 @@
     "badResponse": "悪い回答",
     "doubleClickToRename": "ダブルクリックで名前を変更",
     "expandedBrowserPreview": "拡大ブラウザプレビュー",
-    "pause": "一時停止",
     "removeAttachment": "添付ファイルを削除",
     "fileUploadError": "{name} のアップロードに失敗しました",
     "chatView": "チャット",
@@ -234,10 +233,17 @@
     "deleteNode": "ステップを削除",
     "emptySubtitle": "まだステップはありません。チャットを開始してこのワークフローを構築してください。",
     "noWorkflowsSubtitle": "ワークフローはまだありません — エージェントが作成するとここに表示されます。",
-    "actionPlaceholder": "アクション（例: navigate、click、type）",
-    "targetPlaceholder": "ターゲット（URL またはセレクタ）",
-    "valuePlaceholder": "値（任意）",
-    "descriptionPlaceholder": "説明",
+    "title": "タイトル",
+    "titlePlaceholder": "このステップで達成することの短い名前",
+    "actions": "アクション",
+    "actionItemPlaceholder": "エージェントが実行すべき 1 つのステップを記述",
+    "addAction": "アクションを追加",
+    "removeAction": "アクションを削除",
+    "actionsEmpty": "まだアクションがありません — タイトルを達成する方法を追加してください。",
+    "details": "詳細",
+    "detailsPlaceholder": "エージェントが実行中に読み取り、更新する実行コンテキスト",
+    "notes": "メモ",
+    "notesPlaceholder": "あなたのプライベートメモ — エージェントはこれを読み取ったり変更したりしません",
     "savedToast": "ワークフローを保存しました",
     "saveFailedToast": "ワークフローの保存に失敗しました",
     "versionConflictToast": "ワークフローが他で更新されました。最新バージョンを読み込みました — 編集をやり直してください。",
@@ -280,7 +286,6 @@
     "wireFluid": "カーブ",
     "wireLinear": "直線",
     "wireStep": "ステップ",
-    "annotationPlaceholder": "任意のメモ",
     "resizeNode": "サイズ変更",
     "lockNode": "ノードをロック",
     "unlockNode": "ノードのロック解除",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "自然言語ガード — 真の場合のみ通過",
     "wireMaxIterationsLabel": "最大反復",
     "wireMaxIterationsPlaceholder": "このエッジが発火する回数を制限 (ループ)",
-    "duplicateEdgeToast": "それらのノード間にはすでに接続があります。"
+    "duplicateEdgeToast": "それらのノード間にはすでに接続があります。",
+    "repeatLabel": "繰り返し",
+    "repeatPlaceholder": "このステップを実行する回数（既定 1）",
+    "repeatHelp": "次に進む前に、このステップを N 回連続で実行します。",
+    "embedLoading": "参照されたワークフローを読み込み中…",
+    "embedEmpty": "参照されたワークフローにはまだステップがありません。",
+    "embedMissing": "参照されたワークフローが見つかりません",
+    "embedThumbnailAlt": "参照ワークフローのミニプレビュー",
+    "embedThumbnailTruncated": "+{n} 個のステップは非表示"
   },
   "dashboard": {
     "console": "コンソール",
@@ -345,9 +358,9 @@
     "inDays": "{n}日後"
   },
   "search": {
-    "placeholder": "チャットを検索…",
-    "emptyState": "チャットを検索するには入力してください",
-    "noResults": "チャットが見つかりません"
+    "placeholder": "ワークフローを検索…",
+    "emptyState": "ワークフローを検索するには入力してください",
+    "noResults": "ワークフローが見つかりません"
   },
   "viewport": {
     "closeBrowser": "ブラウザを閉じる",
@@ -1112,6 +1125,10 @@
       "wallet": "ウォレット"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "ウォレット — 近日公開",
+        "description": "ワークスペースのクレジット、予算、支出インサイト。近日公開予定。"
+      },
       "sections": {
         "overview": "概要",
         "activity": "アクティビティ",

@@ -1,6 +1,16 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+useHead({
+  title: 'Install Apps',
+  meta: [
+    {
+      name: 'description',
+      content: 'Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.',
+    },
+  ],
+})
+
 const { t } = useI18n()
 
 type Platform = 'macos' | 'windows' | 'linux' | 'unknown'
@@ -86,321 +96,156 @@ const detectedPlatformName = computed(() =>
   detectedPlatform.value?.name ?? t('install.yourComputer'),
 )
 
-const activeTab = ref<'desktop' | 'extension' | 'mobile'>('desktop')
-
-function scrollToManual() {
+function scrollToExtensions() {
   if (!import.meta.client) return
-  activeTab.value = 'desktop'
-  // using setTimeout to ensure the v-if renders the DOM before scrolling
-  setTimeout(() => {
-    document.getElementById('manual-install')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    })
-  }, 50)
+  document.getElementById('extensions-mobile')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
 }
 
 const mobilePlatforms = [
   { id: 'ios', name: 'iOS', icon: 'i-simple-icons-apple', descKey: 'install.mobile.ios' },
   { id: 'android', name: 'Android', icon: 'i-simple-icons-android', descKey: 'install.mobile.android' },
 ]
-
-const reassurance = [
-  { icon: 'i-heroicons-shield-check-20-solid', key: 'install.reassurance.signed' },
-  { icon: 'i-heroicons-arrow-path-20-solid', key: 'install.reassurance.updates' },
-  { icon: 'i-heroicons-sparkles-20-solid', key: 'install.reassurance.free' },
-  { icon: 'i-heroicons-lock-closed-20-solid', key: 'install.reassurance.private' },
-]
 </script>
 
 <template>
   <div class="flex w-full flex-col items-center">
-    <!-- Hero Header & Tabs -->
-    <section class="w-full px-4 pt-16 sm:px-6 sm:pt-20 lg:px-8 lg:pt-24">
+    <!-- Hero Header -->
+    <section class="w-full px-4 pt-16 pb-16 sm:px-6 sm:pt-20 lg:px-8 lg:pt-24">
       <div class="mx-auto max-w-3xl text-center">
-        <span
-          class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600 transition-opacity"
-          :class="activeTab === 'desktop' ? 'opacity-100' : 'opacity-0'"
-        >
-          <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          {{ t('install.versionBadge', { version: APP_VERSION }) }}
-        </span>
-        <h1
-          class="mt-6 font-serif text-[2.75rem] leading-[1.05] tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl"
-        >
+        <h1 class="mt-6 font-serif text-[2.75rem] leading-[1.05] tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">
           {{ t('install.heading') }}
         </h1>
         <p class="mx-auto mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-neutral-600">
           {{ t('install.subtitle') }}
         </p>
 
-        <!-- Tab Navigation -->
-        <div class="mx-auto mt-10 max-w-lg">
-          <div class="flex justify-center border-b border-neutral-200/70">
-            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+        <!-- Primary CTA -->
+        <div class="mx-auto mt-10 flex w-full max-w-md flex-col items-center gap-3">
+          <template v-if="detectedPlatform">
+            <button
+              disabled
+              class="group inline-flex w-full h-[3.5rem] items-center justify-center gap-2.5 rounded-xl bg-neutral-950/50 px-6 text-base leading-none font-medium text-white shadow-sm cursor-not-allowed"
+            >
+              <UIcon
+                :name="detectedPlatform.icon"
+                class="size-5 shrink-0"
+                aria-hidden="true"
+              />
+              <span class="mt-[1px]">{{ t('install.mobile.comingSoon') }} for {{ detectedPlatformName }}</span>
+            </button>
+          </template>
+          <template v-else>
+            <button
+              disabled
+              class="inline-flex w-full h-[3.5rem] items-center justify-center gap-2.5 rounded-xl bg-neutral-950/50 px-6 text-base leading-none font-medium text-white shadow-sm cursor-not-allowed"
+            >
+              <UIcon name="i-heroicons-clock-20-solid" class="size-5 shrink-0" />
+              <span class="mt-[1px]">Desktop Apps Coming Soon</span>
+            </button>
+          </template>
+
+          <div class="mt-1 flex items-center justify-center gap-1 text-xs text-neutral-500">
+            <span v-if="detected !== 'unknown'">Also available for</span>
+            <span v-else>Available for</span>
+            <template v-for="(p, index) in desktopPlatforms.filter(p => p.id !== detected)" :key="p.id">
               <button
-                v-for="tab in [
-                  { id: 'desktop', label: 'Desktop' },
-                  { id: 'extension', label: 'Browser Extension' },
-                  { id: 'mobile', label: 'Mobile' }
-                ]"
-                :key="tab.id"
-                @click="activeTab = tab.id as 'desktop' | 'extension' | 'mobile'"
-                class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors"
-                :class="activeTab === tab.id
-                  ? 'border-neutral-950 text-neutral-950'
-                  : 'border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'"
+                type="button"
+                class="font-medium text-neutral-600 hover:text-neutral-900 transition-colors underline decoration-neutral-300 underline-offset-4"
+                @click="detected = p.id"
               >
-                {{ tab.label }}
+                {{ p.name }}
               </button>
-            </nav>
+              <span v-if="index < desktopPlatforms.filter(p => p.id !== detected).length - 1" class="text-neutral-500">and</span>
+            </template>
           </div>
+
+          <button
+            type="button"
+            class="mt-8 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-700"
+            @click="scrollToExtensions"
+          >
+            Looking for Mobile & Extensions?
+            <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4" />
+          </button>
         </div>
       </div>
     </section>
 
-    <!-- Tab Content -->
-    <div class="w-full">
-      <Transition name="fade" mode="out-in">
-        
-        <!-- Desktop Tab -->
-        <div v-if="activeTab === 'desktop'" key="desktop" class="w-full flex flex-col items-center">
-          <!-- Primary CTA & Reassurance -->
-          <section class="w-full px-4 pb-16 sm:px-6 lg:px-8">
-            <div class="mx-auto max-w-3xl text-center">
-              <div class="mx-auto mt-10 flex w-full max-w-md flex-col items-center gap-3">
-                <template v-if="detectedPlatform">
-                  <a
-                    :href="detectedPlatform.primaryHref"
-                    class="group inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-neutral-950 px-6 py-4 text-base font-medium text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md"
-                  >
-                    <UIcon
-                      :name="detectedPlatform.icon"
-                      class="size-5 shrink-0"
-                      aria-hidden="true"
-                    />
-                    {{ t(`install.platforms.${detectedPlatform.id}.downloadLabel`) }}
-                  </a>
-                  <p class="text-xs text-neutral-500">
-                    {{ t('install.detectedNote', { platform: detectedPlatformName, meta: detectedPlatform.primaryMeta }) }}
-                  </p>
-                </template>
-                <template v-else>
-                  <button
-                    type="button"
-                    class="inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-neutral-950 px-6 py-4 text-base font-medium text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md"
-                    @click="scrollToManual"
-                  >
-                    <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-5 shrink-0" />
-                    {{ t('install.downloadFallback') }}
-                  </button>
-                  <p class="text-xs text-neutral-500">
-                    {{ t('install.chooseFallback') }}
-                  </p>
-                </template>
-
-                <button
-                  type="button"
-                  class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-800"
-                  @click="scrollToManual"
-                >
-                  {{ t('install.otherPlatformLink', { platform: detectedPlatformName }) }}
-                  <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4" />
-                </button>
-              </div>
-
-              <!-- Reassurance strip -->
-              <dl class="mx-auto mt-14 grid max-w-2xl grid-cols-2 gap-y-4 text-left sm:grid-cols-4 sm:gap-y-0">
-                <div
-                  v-for="item in reassurance"
-                  :key="item.key"
-                  class="flex items-center justify-center gap-2 text-sm text-neutral-600"
-                >
-                  <UIcon :name="item.icon" class="size-4 text-neutral-400" aria-hidden="true" />
-                  <dt class="sr-only">
-                    {{ t('install.featureLabel') }}
-                  </dt>
-                  <dd>{{ t(item.key) }}</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-
-          <!-- Manual installation -->
-          <section
-            id="manual-install"
-            class="w-full scroll-mt-20 bg-[#F9F9F9] px-4 py-20 sm:px-6 sm:py-24 lg:px-8 border-t border-neutral-200/50"
-          >
-            <div class="mx-auto max-w-6xl">
-              <div class="mx-auto max-w-2xl text-center">
-                <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                  {{ t('install.manual.eyebrow') }}
-                </span>
-                <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-                  {{ t('install.manual.heading') }}
-                </h2>
-                <p class="mx-auto mt-4 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-                  {{ t('install.manual.subtitle') }}
-                </p>
-              </div>
-
-              <div class="mt-14 grid gap-6 lg:grid-cols-3">
-                <article
-                  v-for="platform in desktopPlatforms"
-                  :key="platform.id"
-                  class="flex flex-col rounded-2xl border border-neutral-200/80 bg-white p-7 transition-shadow hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_rgba(26,28,28,0.06)]"
-                  :class="{
-                    'ring-1 ring-neutral-950/90 ring-offset-2 ring-offset-[#F9F9F9]':
-                      detected === platform.id,
-                  }"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex size-11 items-center justify-center rounded-xl bg-neutral-950 text-white">
-                      <UIcon :name="platform.icon" class="size-4.5" aria-hidden="true" />
-                    </div>
-                    <span
-                      v-if="detected === platform.id"
-                      class="inline-flex items-center gap-1 rounded-full bg-neutral-950 px-2.5 py-1 text-xs font-medium text-white"
-                    >
-                      <UIcon name="i-heroicons-check-20-solid" class="size-3.5" />
-                      {{ t('install.yourSystem') }}
-                    </span>
-                  </div>
-
-                  <h3 class="mt-5 text-xl font-semibold tracking-tight text-neutral-950">
-                    {{ platform.name }}
-                  </h3>
-                  <p class="mt-1 text-sm text-neutral-500">
-                    {{ t(`install.platforms.${platform.id}.tagline`) }} · {{ t(`install.platforms.${platform.id}.requirement`) }}
-                  </p>
-
-                  <a
-                    :href="platform.primaryHref"
-                    class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                  >
-                    <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0" />
-                    {{ t(`install.platforms.${platform.id}.downloadLabel`) }}
-                  </a>
-                  <p class="mt-2 text-center text-xs text-neutral-500">
-                    {{ platform.primaryMeta }}
-                  </p>
-
-                  <div class="mt-6 border-t border-neutral-200/70 pt-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                      {{ t('install.otherOptions') }}
-                    </p>
-                    <ul class="mt-3 flex flex-col gap-1">
-                      <li v-for="variant in platform.variants" :key="variant.label">
-                        <a
-                          :href="variant.href"
-                          class="group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-neutral-100"
-                        >
-                          <span class="flex flex-col">
-                            <span class="font-medium text-neutral-900">
-                              {{ variant.label }}
-                            </span>
-                            <span class="font-mono text-xs text-neutral-500">
-                              {{ variant.meta }}
-                            </span>
-                          </span>
-                          <UIcon
-                            name="i-heroicons-arrow-up-right-20-solid"
-                            class="size-4 shrink-0 text-neutral-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-neutral-700"
-                            aria-hidden="true"
-                          />
-                        </a>
-                      </li>
-                    </ul>
-                  </div>
-                </article>
-              </div>
-            </div>
-          </section>
+    <!-- Browser Extension & Mobile Apps Section -->
+    <section id="extensions-mobile" class="w-full bg-white px-4 py-16 sm:px-6 sm:py-20 lg:px-8 border-t border-neutral-200/50">
+      <div class="mx-auto max-w-6xl">
+        <div class="mb-14 text-center">
+          <h2 class="font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
+            Browser Extension & Mobile Apps
+          </h2>
+          <p class="mt-4 text-[1.0625rem] text-neutral-600">
+            Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.
+          </p>
         </div>
 
-        <!-- Extension Tab -->
-        <section 
-          v-else-if="activeTab === 'extension'" 
-          key="extension"
-          class="w-full bg-[#F9F9F9] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 border-t border-neutral-200/50"
-        >
-          <div class="mx-auto max-w-4xl">
-            <div class="relative overflow-hidden rounded-3xl border border-neutral-200/80 bg-white shadow-sm p-8 sm:p-10 lg:p-12">
-              <div class="flex flex-col items-center text-center">
-                <div class="flex size-14 items-center justify-center rounded-2xl bg-white text-neutral-950 shadow-[0_1px_2px_rgba(0,0,0,0.04)] border border-neutral-200/80">
-                  <UIcon name="i-heroicons-puzzle-piece-20-solid" class="size-6 text-neutral-950" />
-                </div>
-                <span class="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                  {{ t('install.extension.eyebrow') }}
-                </span>
-                <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-                  {{ t('install.extension.heading') }}
-                </h2>
-                <p class="mx-auto mt-4 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-                  {{ t('install.extension.subtitle') }}
-                </p>
-                <div class="mt-8 flex flex-col sm:flex-row gap-4">
-                  <a href="#" class="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-950 px-6 py-3.5 text-sm font-medium text-white transition-opacity hover:opacity-90 shadow-sm">
-                    <UIcon name="i-simple-icons-googlechrome" class="size-4.5" />
-                    {{ t('install.extension.chromeLabel') }}
-                  </a>
-                </div>
-              </div>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <!-- Browser Extension -->
+          <div class="relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-[#F9F9F9] p-6 sm:p-8 flex flex-col items-start shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div class="flex size-12 items-center justify-center rounded-xl bg-white text-neutral-950 shadow-sm border border-neutral-200/80">
+              <UIcon name="i-heroicons-puzzle-piece-20-solid" class="size-5 text-neutral-950" />
+            </div>
+            <span class="mt-6 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              {{ t('install.extension.eyebrow') }}
+            </span>
+            <h3 class="mt-2 font-serif text-xl tracking-tight text-neutral-950">
+              {{ t('install.extension.heading') }}
+            </h3>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-600">
+              {{ t('install.extension.subtitle') }}
+            </p>
+            <div class="mt-6 mt-auto pt-4">
+              <button disabled class="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-100 px-5 py-2.5 text-sm font-medium text-neutral-500 cursor-not-allowed">
+                <UIcon name="i-simple-icons-googlechrome" class="size-4" />
+                {{ t('install.mobile.comingSoon') }}
+              </button>
             </div>
           </div>
-        </section>
 
-        <!-- Mobile Tab -->
-        <section 
-          v-else-if="activeTab === 'mobile'"
-          key="mobile"
-          class="w-full bg-[#F9F9F9] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 border-t border-neutral-200/50"
-        >
-          <div class="mx-auto max-w-5xl">
-            <div class="mx-auto max-w-2xl text-center">
-              <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                {{ t('install.mobile.eyebrow') }}
-              </span>
-              <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-                {{ t('install.mobile.heading') }}
-              </h2>
-              <p class="mx-auto mt-4 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-                {{ t('install.mobile.subtitle') }}
-              </p>
-            </div>
+          <!-- Mobile Apps -->
+          <div class="relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-[#F9F9F9] p-6 sm:p-8 flex flex-col shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <span class="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              {{ t('install.mobile.eyebrow') }}
+            </span>
+            <h3 class="mt-2 font-serif text-xl tracking-tight text-neutral-950">
+              {{ t('install.mobile.heading') }}
+            </h3>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-600 mb-6">
+              {{ t('install.mobile.subtitle') }}
+            </p>
 
-            <div class="mt-12 grid gap-6 sm:grid-cols-2">
+            <div class="grid gap-3 mt-auto">
               <div
                 v-for="mobile in mobilePlatforms"
                 :key="mobile.id"
-                class="relative overflow-hidden rounded-2xl border border-dashed border-neutral-300/80 bg-white p-8"
+                class="relative rounded-2xl border border-dashed border-neutral-300/80 bg-white p-5 flex flex-col gap-3"
               >
-                <div class="flex items-start justify-between gap-4">
-                  <div class="flex size-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500">
-                    <UIcon :name="mobile.icon" class="size-4.5" aria-hidden="true" />
+                <div class="flex items-center justify-between gap-4">
+                  <div class="flex items-center gap-3">
+                    <div class="flex size-10 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500">
+                      <UIcon :name="mobile.icon" class="size-4" aria-hidden="true" />
+                    </div>
+                    <span class="font-semibold text-neutral-950 text-sm">
+                      {{ t('install.mobile.polymuxFor', { name: mobile.name }) }}
+                    </span>
                   </div>
-                  <span class="inline-flex items-center rounded-full bg-neutral-200/80 px-2.5 py-1 text-xs font-medium text-neutral-700">
+                  <span class="inline-flex items-center rounded-full bg-neutral-200/80 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-neutral-700">
                     {{ t('install.mobile.comingSoon') }}
                   </span>
-                </div>
-                <h3 class="mt-6 text-lg font-semibold tracking-tight text-neutral-950">
-                  {{ t('install.mobile.polymuxFor', { name: mobile.name }) }}
-                </h3>
-                <p class="mt-2 text-sm leading-relaxed text-neutral-600">
-                  {{ t(mobile.descKey) }}
-                </p>
-                <div class="mt-6 flex items-center gap-2 text-sm text-neutral-400">
-                  <UIcon name="i-heroicons-bell-alert-20-solid" class="size-4" />
-                  <NuxtLink to="/contact" class="underline-offset-2 hover:text-neutral-700 hover:underline">
-                    {{ t('install.mobile.getNotified') }}
-                  </NuxtLink>
                 </div>
               </div>
             </div>
           </div>
-        </section>
-      </Transition>
-    </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Footer help strip -->
     <section class="w-full border-t border-neutral-200 bg-white px-4 py-14 sm:px-6 lg:px-8">

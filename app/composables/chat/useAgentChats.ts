@@ -51,17 +51,6 @@ export interface ChatHandle {
   sendMessage(content: string, attachments?: ChatMessageAttachment[], wireGuard?: WireGuard): void
   editMessage(index: number, text: string, attachments: ChatMessageAttachment[], wireGuard?: WireGuard): void
   loadHistory(history: ChatMessage[]): void
-  /**
-   * User-triggered pause/cancel. Handles both states the chat can be in:
-   *   - The wireGuard for a freshly-applied optimistic send is still pending
-   *     (wire frame not yet shipped) — cancels the pending wire, rolls the
-   *     optimistic UI back synchronously, and skips the server stop.
-   *   - The wire was already shipped (or some other server-side activity is
-   *     running) — sends `stop_agent` so [[handleStopAgent]] calls
-   *     `Orchestrator.Stop` on the polymux side.
-   * Always safe to invoke; orchestrator-side Stop is a no-op when idle.
-   */
-  stopOrCancelTurn(): void
 }
 
 function newId(): string {
@@ -131,30 +120,16 @@ export function useAgentChats(session: SessionHandle) {
     return agentStates.get(chatId)!
   }
 
-  /**
-   * Bookkeeping for an in-flight optimistic send whose wireGuard hasn't
-   * resolved yet — i.e. the user bubble + dots are on screen but the wire
-   * frame hasn't been shipped. Used by [[ChatHandle.stopOrCancelTurn]] to
-   * abort the pending wire send synchronously on user pause, instead of
-   * letting the wireGuard resolve and silently ship a frame the user
-   * already cancelled.
-   *
-   * Keyed by chatId. At most one entry per chat — a second optimistic send
-   * before the first resolves replaces the slot (the prior wireGuard's
-   * `.then` still runs but its `cancelled` flag stays untouched, so it
-   * proceeds normally). Cleared when the wireGuard resolves or when a
-   * user-initiated cancel fires the rollback synchronously.
-   */
-  const inflightWireGuard = new Map<string, {
-    cancelled: boolean
-    rollback: () => void
-  }>()
+  // Per-chat ownership token for in-flight wireGuard runs. A second
+  // optimistic send before the first resolves replaces the slot, so the
+  // prior run's outcome is ignored when it eventually settles — the newer
+  // wireGuard owns the chat state now.
+  const inflightWireGuard = new Map<string, object>()
 
   /**
    * Drive the post-optimistic-apply wire-guard for both send and edit. On
-   * resolved `true` the wire frame ships. On resolved `false` (or a user
-   * pause via [[ChatHandle.stopOrCancelTurn]]) we roll back to the pre-send
-   * snapshot:
+   * resolved `true` the wire frame ships. On resolved `false` we roll back
+   * to the pre-send snapshot:
    *   - Orchestrator: reuses [[rollbackOrchestratorAfterBudgetError]] (same
    *     code path the server's TOKEN_BUDGET_EXCEEDED frame uses) so behaviour
    *     stays consistent between client- and server-rejected sends, and
@@ -186,7 +161,7 @@ export function useAgentChats(session: SessionHandle) {
       state.waitingForAgent.value = state.messages.value[state.messages.value.length - 1]?.role === 'user'
     }
 
-    const slot = { cancelled: false, rollback }
+    const slot = {}
     inflightWireGuard.set(chatId, slot)
 
     let ok = true
@@ -197,15 +172,8 @@ export function useAgentChats(session: SessionHandle) {
       ok = true
     }
 
-    // Re-check ownership: a later send for the same chat may have replaced
-    // this slot, in which case our outcome no longer applies — the newer
-    // wireGuard owns the chat state now.
     if (inflightWireGuard.get(chatId) !== slot) return
     inflightWireGuard.delete(chatId)
-
-    // User clicked pause while wireGuard was pending — rollback already ran
-    // synchronously inside stopOrCancelTurn; skip the wire send.
-    if (slot.cancelled) return
 
     if (ok) {
       sendWire()
@@ -332,37 +300,6 @@ export function useAgentChats(session: SessionHandle) {
       state.waitingForAgent.value = history[history.length - 1]?.role === 'user'
     }
 
-    function stopOrCancelTurn() {
-      // If a wireGuard for this chat is still pending, the wire frame
-      // hasn't shipped yet. Cancel synchronously so the user gets immediate
-      // feedback (dots + optimistic bubble disappear on the same tick),
-      // and skip the server stop — orchestrator has nothing to stop.
-      const pending = inflightWireGuard.get(chatId)
-      if (pending) {
-        pending.cancelled = true
-        inflightWireGuard.delete(chatId)
-        pending.rollback()
-        return
-      }
-      // Wire was already shipped (or this is a non-send pause path).
-      // Server's handleStopAgent treats empty / "orchestrator" as
-      // "stop the orchestrator's current turn" and cascades to any
-      // running sub-agents the orchestrator owns.
-      session.send<StopAgentPayload>('stop_agent', { agent_id: chatId })
-      // Clear local activity state synchronously. The server emits
-      // OnMessage("", false) on turn cancellation which would clear these,
-      // but only when a turn was actually running — when the indicator was
-      // driven by stale session_state (e.g. lingering browser_agents)
-      // there's no turn to seal and nothing arrives. Late in-flight chunks
-      // may re-arm waitingForAgent briefly, which is a fair reflection
-      // of "server is mid-stop." Keep streamingBuffer intact so any final
-      // partial appends to the existing bubble instead of forking a new
-      // one.
-      state.isStreaming.value = false
-      state.waitingForAgent.value = false
-      state.thinking.value = null
-    }
-
     return {
       messages: state.messages,
       thinking: state.thinking,
@@ -371,7 +308,6 @@ export function useAgentChats(session: SessionHandle) {
       sendMessage,
       editMessage,
       loadHistory,
-      stopOrCancelTurn,
     }
   }
 

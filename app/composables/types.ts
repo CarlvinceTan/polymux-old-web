@@ -305,6 +305,10 @@ export interface UserLocationPayload {
 export interface ChatMessageAttachment {
   id: string
   name: string
+  /** Character offset in `text` where this chip was anchored inline. Set by
+   *  the composer on send/edit so display can interleave the chip with text;
+   *  absent on server-loaded messages, which fall back to a grouped row. */
+  position?: number
 }
 
 export interface ChatMessage {

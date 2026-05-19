@@ -173,7 +173,6 @@
     "badResponse": "나쁜 답변",
     "doubleClickToRename": "더블클릭하여 이름 변경",
     "expandedBrowserPreview": "확대된 브라우저 미리보기",
-    "pause": "일시정지",
     "removeAttachment": "첨부 파일 제거",
     "fileUploadError": "{name} 업로드에 실패했습니다",
     "chatView": "채팅",
@@ -234,10 +233,17 @@
     "deleteNode": "단계 삭제",
     "emptySubtitle": "아직 단계가 없습니다. 채팅을 시작해 워크플로를 만들어 보세요.",
     "noWorkflowsSubtitle": "아직 워크플로가 없습니다 — 에이전트가 만들면 여기에 표시됩니다.",
-    "actionPlaceholder": "동작 (예: navigate, click, type)",
-    "targetPlaceholder": "대상 (URL 또는 선택자)",
-    "valuePlaceholder": "값 (선택사항)",
-    "descriptionPlaceholder": "설명",
+    "title": "제목",
+    "titlePlaceholder": "이 단계가 달성하는 작업의 짧은 이름",
+    "actions": "작업",
+    "actionItemPlaceholder": "에이전트가 수행할 한 단계를 설명하세요",
+    "addAction": "작업 추가",
+    "removeAction": "작업 제거",
+    "actionsEmpty": "아직 작업이 없습니다 — 제목을 달성하는 방법을 추가하세요.",
+    "details": "세부 정보",
+    "detailsPlaceholder": "에이전트가 실행 중에 읽고 업데이트하는 실행 컨텍스트",
+    "notes": "메모",
+    "notesPlaceholder": "비공개 메모 — 에이전트는 이를 읽거나 수정하지 않습니다",
     "savedToast": "워크플로가 저장되었습니다",
     "saveFailedToast": "워크플로 저장에 실패했습니다",
     "versionConflictToast": "워크플로가 다른 곳에서 업데이트되었습니다. 최신 버전을 불러왔습니다 — 편집을 다시 하세요.",
@@ -280,7 +286,6 @@
     "wireFluid": "유체",
     "wireLinear": "직선",
     "wireStep": "계단",
-    "annotationPlaceholder": "선택적 메모",
     "resizeNode": "크기 조정",
     "lockNode": "노드 잠금",
     "unlockNode": "노드 잠금 해제",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "자연어 가드 — true일 때만 이동",
     "wireMaxIterationsLabel": "최대 반복",
     "wireMaxIterationsPlaceholder": "이 간선이 몇 번까지 점화할지 (루프)",
-    "duplicateEdgeToast": "두 노드 사이에 이미 와이어가 연결되어 있습니다."
+    "duplicateEdgeToast": "두 노드 사이에 이미 와이어가 연결되어 있습니다.",
+    "repeatLabel": "반복",
+    "repeatPlaceholder": "이 단계를 실행할 횟수 (기본값 1)",
+    "repeatHelp": "계속하기 전에 이 단계를 N번 연속으로 실행합니다.",
+    "embedLoading": "참조된 워크플로우를 불러오는 중…",
+    "embedEmpty": "참조된 워크플로우에 아직 단계가 없습니다.",
+    "embedMissing": "참조된 워크플로우를 찾을 수 없습니다",
+    "embedThumbnailAlt": "참조된 워크플로우의 미니 미리 보기",
+    "embedThumbnailTruncated": "+{n}개 단계 표시 안 됨"
   },
   "dashboard": {
     "console": "콘솔",
@@ -345,9 +358,9 @@
     "inDays": "{n}일 후"
   },
   "search": {
-    "placeholder": "채팅 검색…",
-    "emptyState": "채팅을 검색하려면 입력하세요",
-    "noResults": "채팅을 찾을 수 없습니다"
+    "placeholder": "워크플로우 검색…",
+    "emptyState": "워크플로우를 검색하려면 입력하세요",
+    "noResults": "워크플로우를 찾을 수 없습니다"
   },
   "viewport": {
     "closeBrowser": "브라우저 닫기",
@@ -1112,6 +1125,10 @@
       "wallet": "지갑"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "지갑 — 곧 출시",
+        "description": "워크스페이스 크레딧, 예산, 지출 인사이트. 곧 출시됩니다."
+      },
       "sections": {
         "overview": "개요",
         "activity": "활동",

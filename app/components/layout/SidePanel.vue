@@ -760,39 +760,21 @@ onUnmounted(() => {
           </MenuItem>
         </Menu>
       </div>
-      <button type="button" @click="createWorkflow"
-        class="w-full h-9.5 flex items-center justify-center gap-2 rounded-md bg-neutral-950 px-4 text-center text-body-md font-normal text-white transition-opacity hover:opacity-90 outline-none">
-        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        {{ t('nav.newWorkflow') }}
-      </button>
     </div>
 
     <!-- Navigation (scrollable) -->
-    <nav class="mt-10 flex-1 flex flex-col min-h-0 overflow-hidden" aria-label="Main">
+    <nav class="mt-6 flex-1 flex flex-col min-h-0 overflow-hidden" aria-label="Main">
       <ul class="flex flex-col gap-1 shrink-0">
-        <!-- Dashboard First -->
+        <!-- New Workflow -->
         <li>
-          <NuxtLink to="/dashboard"
-            class="relative flex items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none"
-            :class="(!isSearchOpen && isMainNavItemActive('/dashboard'))
-              ? 'font-semibold'
-              : 'hover:bg-neutral-200/60'">
-            <span v-if="!isSearchOpen && isMainNavItemActive('/dashboard')"
-              class="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-neutral-950"
-              aria-hidden="true" />
-            <!-- Dashboard: layout grid -->
+          <button type="button" @click="createWorkflow"
+            class="relative flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none hover:bg-neutral-200/60">
             <svg class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
+              <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>{{ t('nav.dashboard') }}</span>
-          </NuxtLink>
+            <span>{{ t('nav.newWorkflow') }}</span>
+          </button>
         </li>
 
         <!-- Search - Between Dashboard and Workspace -->

@@ -7,6 +7,11 @@ import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 const { t } = useI18n()
 const { headerTabs } = useVaultNavTabs()
 
+// Flip to `false` to re-enable the wallet UI. All wallet code below is kept
+// intact and gated behind this flag so the feature can be brought back without
+// re-implementing it.
+const WALLET_COMING_SOON = true
+
 const {
   wallet,
   transactions,
@@ -399,7 +404,18 @@ const currencyLabel = computed(
     </header>
 
     <TabPanel ref="walletTabPanelRef" class="min-h-0 min-w-0 flex-1">
-      <div class="flex min-w-0 flex-col">
+      <div v-if="WALLET_COMING_SOON" class="flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
+        <div class="flex size-14 items-center justify-center rounded-2xl border border-neutral-200/80 bg-white text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <UIcon name="i-heroicons-wallet" class="size-6" />
+        </div>
+        <h2 class="mt-6 font-serif text-2xl tracking-tight text-neutral-950">
+          {{ t('vault.wallet.comingSoon.title') }}
+        </h2>
+        <p class="mt-3 max-w-md text-sm leading-relaxed text-neutral-600">
+          {{ t('vault.wallet.comingSoon.description') }}
+        </p>
+      </div>
+      <div v-else class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
             class="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm sm:px-6"

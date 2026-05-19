@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { FileAttachmentState } from '~/composables/chat/useAttachments'
+import type { ChatMessageAttachment } from '~/composables/types'
 import { getMicPermissionState, requestMicAccess, useSpeechRecognition } from '~/composables/device/useSpeechRecognition'
 import { useAppToast } from '~/composables/ui/useAppToast'
-import { useAutoResizeTextarea } from '~/composables/ui/useAutoResizeTextarea'
 
 const { t, locale } = useI18n()
 const toast = useAppToast()
@@ -16,13 +16,6 @@ const props = withDefaults(
     attachments?: FileAttachmentState[]
     disabled?: boolean
     browserMode?: 'server' | 'extension'
-    // True whenever there's chat activity the user could meaningfully pause:
-    // orchestrator streaming/waiting, or any browser sub-agent working. Flips
-    // the send button into a pause button (white rounded square inside the
-    // black box) that emits `stop` instead of `send`. Enter still sends so
-    // a mid-turn follow-up doesn't require reaching for the pause button —
-    // only the explicit button click triggers the pause.
-    active?: boolean
   }>(),
   {
     hint: undefined,
@@ -30,15 +23,15 @@ const props = withDefaults(
     attachments: () => [],
     disabled: false,
     browserMode: 'server',
-    active: false,
   },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:browserMode': [value: 'server' | 'extension']
-  send: [value: string]
-  stop: []
+  /** Fired with the editor's plain text and the ordered, position-tagged
+   *  attachments. The parent forwards both to the chat layer. */
+  send: [value: string, attachments: ChatMessageAttachment[]]
   'attach-files': [files: FileList]
   'remove-file': [id: string]
 }>()
@@ -52,14 +45,6 @@ const inputValue = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 })
-
-// Don't auto-flip extension → server when the global flag is off: the user
-// still sees the settings menu (just disabled) so silently rewriting their
-// selection would mask the explanation BrowserModeMenu surfaces in the
-// disabled state. Backwards: the existing workflow row may have
-// `last_browser_mode=extension` from before the flag was toggled off; the
-// server still routes those to 'server' on the wire, so leaving the local
-// ref alone is just cosmetic.
 
 const localeToBcp47: Record<string, string> = {
   en: 'en-US', ko: 'ko-KR', zh: 'zh-CN', ja: 'ja-JP',
@@ -118,34 +103,26 @@ async function onVoiceClick() {
   toggleVoice()
 }
 
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const editorRef = ref<InstanceType<typeof import('./InlineChipEditor.vue').default> | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
-
-const { expanded: expandedPrompt } = useAutoResizeTextarea(textareaRef, inputValue, { maxLines: 4 })
+const expandedPrompt = ref(false)
 
 const hasDraftText = computed(() => String(props.modelValue ?? '').length > 0)
+const hasContent = computed(() => hasDraftText.value || (props.attachments?.length ?? 0) > 0)
 
-function onPrimaryButtonClick() {
-  if (props.active) {
-    emit('stop')
-    return
-  }
-  emit('send', inputValue.value)
+function onSubmit(text: string, attachments: ChatMessageAttachment[]) {
+  emit('send', text, attachments)
 }
 
-function onTextareaKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Enter' || e.shiftKey) return
-  if (e.isComposing) return
-  e.preventDefault()
-  // Enter always sends — even mid-turn. The backend supports interrupting
-  // sends (sendMessage seals the streaming bubble before pushing the new
-  // user message), and matching the ChatGPT/Claude pattern lets a user
-  // queue a follow-up by typing + Enter without first reaching for the
-  // pause button. Pause is reserved for the explicit button click.
-  emit('send', inputValue.value)
+function onSendClick() {
+  editorRef.value?.submit?.()
 }
 
 function onAttachClick() {
+  // Remember where the caret was before opening the file picker so the chip
+  // lands inline when the user returns. Without this, focusing the file
+  // dialog would have moved focus away and the saved range is lost.
+  editorRef.value?.rememberSelection?.()
   fileInputRef.value?.click()
 }
 
@@ -161,16 +138,12 @@ function onFileInputChange(e: Event) {
   emit('attach-files', dt.files)
   input.value = ''
 }
-
 </script>
 
 <template>
-  <div
-    class="flex w-full flex-col items-stretch gap-3.5"
-    :class="attachments && attachments.length > 0 ? 'pt-0' : 'pt-1.5'"
-  >
+  <div class="flex w-full flex-col items-stretch gap-3.5 pt-1.5">
 
-    <!-- Hidden native file input (absolute so it doesn't participate in flex gap) -->
+    <!-- Hidden native file input -->
     <input
       ref="fileInputRef"
       type="file"
@@ -181,43 +154,25 @@ function onFileInputChange(e: Event) {
       @change="onFileInputChange"
     >
 
-    <!-- Attachment chips above the input box -->
-    <TransitionGroup
-      v-if="attachments && attachments.length > 0"
-      tag="div"
-      name="chip"
-      appear
-      class="relative flex w-full flex-wrap-reverse gap-1.5"
-    >
-      <FileAttachment
-        v-for="file in attachments"
-        :key="file.id"
-        :name="file.name"
-        :status="file.status"
-        :progress="file.progress"
-        half-row
-        @remove="emit('remove-file', file.id)"
-      />
-    </TransitionGroup>
-
     <div
       class="prompt-shell relative flex w-full min-h-13 rounded-2xl bg-[#e8e8e8] p-2 transition-[background-color] duration-150"
       :class="[
         expandedPrompt ? 'items-start' : 'items-center',
-        hasDraftText && 'prompt-shell--raised',
+        hasContent && 'prompt-shell--raised',
       ]"
     >
       <div class="flex flex-col items-center min-w-0 flex-1 pl-1 sm:pl-2 pr-12.25">
-        <textarea
-          ref="textareaRef"
+        <InlineChipEditor
+          ref="editorRef"
           v-model="inputValue"
-          rows="1"
-          name="prompt"
-          :disabled="props.disabled"
-          class="scrollbar-hide min-h-0 w-full resize-none overflow-y-auto bg-transparent py-0 leading-normal text-on-surface placeholder:text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 text-body-md max-h-20"
+          :attachments="props.attachments"
           :placeholder="resolvedHint"
-          autocomplete="off"
-          @keydown="onTextareaKeydown"
+          :disabled="props.disabled"
+          :max-lines="4"
+          class="w-full"
+          @submit="onSubmit"
+          @remove-attachment="(id) => emit('remove-file', id)"
+          @update:expanded="(v) => expandedPrompt = v"
         />
       </div>
       <button
@@ -225,20 +180,10 @@ function onFileInputChange(e: Event) {
         class="absolute right-2 flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         :class="expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2'"
         :disabled="props.disabled"
-        :aria-label="props.active ? t('chat.pause') : t('common.send')"
-        @click="onPrimaryButtonClick"
+        :aria-label="t('common.send')"
+        @click="onSendClick"
       >
-        <!-- Pause glyph: white rounded square centred inside the existing
-             black pill. Same affordance as ChatGPT/Claude — stop the
-             current turn (orchestrator + cascaded sub-agents) on click.
-             Uses the same size-4.5 / viewBox-24 container as the send
-             arrow and draws the rect into the same 7→17 bounding box the
-             arrow occupies, so the two glyphs land at identical visual
-             dimensions inside the button. -->
-        <svg v-if="props.active" class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="5" y="5" width="14" height="14" rx="3" ry="3" />
-        </svg>
-        <svg v-else class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>
@@ -277,19 +222,5 @@ function onFileInputChange(e: Event) {
 .prompt-shell:focus-within,
 .prompt-shell.prompt-shell--raised {
   @apply bg-neutral-50 outline outline-neutral-300/80 ring-1 ring-neutral-200/90;
-}
-
-.chip-move,
-.chip-enter-active,
-.chip-leave-active {
-  transition: transform 0.25s ease, opacity 0.2s ease;
-}
-.chip-enter-from,
-.chip-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-.chip-leave-active {
-  position: absolute;
 }
 </style>

@@ -153,6 +153,18 @@ body {
      SidePanel. Muted enough to live alongside the otherwise monochrome list
      without screaming. */
   --color-gold: #c9941f;
+
+  /* Loop wire — used by the workflow canvas for back-wire strokes,
+     iteration-count pills, and loop-body highlights so loops read
+     distinctly from forward flow without leaving the muted palette. */
+  --color-loop-wire: #8b5cf6;
+  --color-loop-wire-strong: #6d28d9;
+  --color-loop-wire-soft: rgba(139, 92, 246, 0.18);
+
+  /* Embed border — used by the workflow canvas for nodes that delegate
+     to another workflow via workflow_ref. Distinct from the loop palette
+     so a node that loops AND embeds reads as two separate semantics. */
+  --color-embed-border: #6366f1;
 }
 
 /* SidePanel collapse: drive column width and panel translate from the same

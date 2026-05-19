@@ -137,15 +137,6 @@ function onStopAgent(agentId: string) {
   chats.stopAgent(agentId)
 }
 
-// User pressed the pause button on the chat composer. Distinct from
-// onStopAgent: this targets the orchestrator (which cascades server-side to
-// any sub-agents it spawned) plus any optimistic send still waiting on the
-// async budget gate — see [[useAgentChats.stopOrCancelTurn]] for the
-// two-state cancel/stop logic.
-function onStopChat() {
-  currentChat.value.stopOrCancelTurn()
-}
-
 // "Continue" / re-run hook for an idle viewport. No first-class server API
 // exists for resuming a sub-agent yet, so this is intentionally a no-op
 // scaffold — the Viewport's onRun prop is still wired so the play button
@@ -199,7 +190,6 @@ onMounted(() => {
     :before-edit="beforeEditMessage"
     @welcome-suggestion="onWelcomeSuggestion"
     @send="onSend"
-    @stop-chat="onStopChat"
     @rename="onRename"
     @close-viewport="onCloseViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"

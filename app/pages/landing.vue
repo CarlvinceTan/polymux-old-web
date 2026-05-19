@@ -1,5 +1,16 @@
 <script setup lang="ts">
 /** Marketing home body: hero, features, pricing, reviews, CTA. Imported by `index.vue` for `/`; not a file-based route (see `nuxt.config` `pages:extend`). */
+
+useHead({
+  title: 'AI Agents for Browser Automation',
+  meta: [
+    {
+      name: 'description',
+      content: 'Polymux orchestrates AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs — built for teams.',
+    },
+  ],
+})
+
 const { t } = useI18n()
 const route = useRoute()
 

@@ -105,7 +105,9 @@ onUnmounted(() => {
                       @click="handleResultClick(session.id)"
                     >
                       <svg class="size-4 shrink-0 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        <path d="M12 2 2 7l10 5 10-5-10-5z" />
+                        <path d="m2 12 10 5 10-5" />
+                        <path d="m2 17 10 5 10-5" />
                       </svg>
                       <span class="truncate">{{ session.title }}</span>
                     </button>

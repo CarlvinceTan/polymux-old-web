@@ -173,7 +173,6 @@
     "badResponse": "Resposta ruim",
     "doubleClickToRename": "Duplo clique para renomear",
     "expandedBrowserPreview": "Visualização expandida do navegador",
-    "pause": "Pausar",
     "removeAttachment": "Remover anexo",
     "fileUploadError": "Falha ao carregar {name}",
     "chatView": "Chat",
@@ -234,10 +233,17 @@
     "deleteNode": "Excluir passo",
     "emptySubtitle": "Ainda não há passos. Inicie um chat para construir este fluxo de trabalho.",
     "noWorkflowsSubtitle": "Ainda não há fluxo — ele aparecerá aqui quando o agente criar.",
-    "actionPlaceholder": "Ação (por ex. navigate, click, type)",
-    "targetPlaceholder": "Alvo (URL ou seletor)",
-    "valuePlaceholder": "Valor (opcional)",
-    "descriptionPlaceholder": "Descrição",
+    "title": "Título",
+    "titlePlaceholder": "Nome curto do que esta etapa alcança",
+    "actions": "Ações",
+    "actionItemPlaceholder": "Descreva uma etapa que o agente deve executar",
+    "addAction": "Adicionar ação",
+    "removeAction": "Remover ação",
+    "actionsEmpty": "Ainda não há ações — adicione uma para descrever como o título é alcançado.",
+    "details": "Detalhes",
+    "detailsPlaceholder": "Contexto de execução que o agente lê e atualiza durante execuções",
+    "notes": "Notas",
+    "notesPlaceholder": "Suas notas privadas — o agente não as lê nem modifica",
     "savedToast": "Fluxo de trabalho salvo",
     "saveFailedToast": "Falha ao salvar o fluxo de trabalho",
     "versionConflictToast": "O fluxo de trabalho foi atualizado em outro lugar. Última versão carregada — refaça suas edições.",
@@ -280,7 +286,6 @@
     "wireFluid": "Fluido",
     "wireLinear": "Linear",
     "wireStep": "Degrau",
-    "annotationPlaceholder": "Nota opcional",
     "resizeNode": "Redimensionar",
     "lockNode": "Bloquear nó",
     "unlockNode": "Desbloquear nó",
@@ -303,7 +308,15 @@
     "wireConditionPlaceholder": "Guarda em linguagem natural — só percorre se verdadeiro",
     "wireMaxIterationsLabel": "Iter. máx.",
     "wireMaxIterationsPlaceholder": "Limita quantas vezes esta aresta dispara (loops)",
-    "duplicateEdgeToast": "Já existe uma conexão entre esses nós."
+    "duplicateEdgeToast": "Já existe uma conexão entre esses nós.",
+    "repeatLabel": "Repetir",
+    "repeatPlaceholder": "Número de vezes para executar este passo (padrão 1)",
+    "repeatHelp": "Execute este passo N vezes seguidas antes de continuar.",
+    "embedLoading": "Carregando workflow referenciado…",
+    "embedEmpty": "O workflow referenciado ainda não tem passos.",
+    "embedMissing": "Workflow referenciado não encontrado",
+    "embedThumbnailAlt": "Mini-visualização do workflow referenciado",
+    "embedThumbnailTruncated": "+{n} passos adicionais não mostrados"
   },
   "dashboard": {
     "console": "Console",
@@ -345,9 +358,9 @@
     "inDays": "em {n}d"
   },
   "search": {
-    "placeholder": "Buscar conversas…",
-    "emptyState": "Digite para buscar suas conversas",
-    "noResults": "Nenhuma conversa encontrada"
+    "placeholder": "Buscar fluxos de trabalho…",
+    "emptyState": "Digite para buscar seus fluxos de trabalho",
+    "noResults": "Nenhum fluxo de trabalho encontrado"
   },
   "viewport": {
     "closeBrowser": "Fechar navegador",
@@ -931,7 +944,7 @@
       "pricing": "Preços",
       "community": "Comunidade",
       "contactUs": "Fale conosco",
-      "installApp": "Instalar aplicativo"
+      "installApp": "Instalar apps"
     },
     "header": {
       "accountMenu": "Menu da conta",
@@ -1112,6 +1125,10 @@
       "wallet": "Carteira"
     },
     "wallet": {
+      "comingSoon": {
+        "title": "Carteira — Em breve",
+        "description": "Créditos do workspace, orçamentos e análises de gastos. Em breve."
+      },
       "sections": {
         "overview": "Visão geral",
         "activity": "Atividade",

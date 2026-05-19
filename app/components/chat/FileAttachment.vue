@@ -26,12 +26,12 @@ const dashOffset = computed(() => CIRCUMFERENCE - (props.progress / 100) * CIRCU
 
 <template>
   <div
-    class="flex h-5 min-w-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium leading-tight transition-colors"
+    class="inline-flex h-[21px] min-w-0 items-center gap-[2px] rounded-md py-px px-[2px] leading-tight transition-colors"
     :class="[
       halfRow ? 'max-w-[calc(50%_-_0.1875rem)]' : '',
       status === 'error'
         ? 'bg-red-50 text-red-700'
-        : 'bg-neutral-100 text-neutral-700',
+        : 'bg-neutral-200',
     ]"
   >
     <svg
@@ -68,7 +68,7 @@ const dashOffset = computed(() => CIRCUMFERENCE - (props.progress / 100) * CIRCU
     <button
       v-if="removable"
       type="button"
-      class="-mr-0.5 flex size-3.5 shrink-0 items-center justify-center rounded transition-opacity hover:opacity-60"
+      class="flex size-[14px] shrink-0 items-center justify-center rounded transition-opacity hover:opacity-60"
       :aria-label="t('chat.removeAttachment')"
       @click.stop="emit('remove')"
     >

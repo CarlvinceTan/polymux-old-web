@@ -8,16 +8,165 @@ export type WireSide = 'left' | 'right' | 'top' | 'bottom'
 
 export interface WorkflowNode {
   id: string
-  description?: string
-  action?: string
-  target?: string
-  value?: string
-  annotation?: string
+  // Short human-readable name of what this step achieves
+  // (e.g. "Update info.log in storage").
+  title?: string
+  // Ordered list of free-text action strings describing HOW the title is
+  // achieved. Each entry is one intent the sub-agent will satisfy with
+  // whatever low-level primitives it picks.
+  actions?: string[]
+  // Agent execution context — readable by the executor sub-agent and
+  // written to by the orchestrator (tool-call summaries, prior-task stashes).
+  // Users may also edit it via the canvas.
+  details?: string
+  // PRIVATE user-authored notes. Not consumed by the executor; the
+  // orchestrator must not write to this field.
+  notes?: string
+  // When set, this node delegates to the referenced workflow (by UUID).
+  // Title / actions / details are derived from the referenced workflow at
+  // display time and not editable on this node. Mutually exclusive with
+  // hand-authored actions.
+  workflow_ref?: string
+  // Run this node N times in succession before continuing through
+  // outgoing wires. Absent / 0 / 1 = single run (default). Distinct from
+  // a wire's max_iterations: repeat counts node firings within a single
+  // visit; max_iterations caps wire firings across the run.
+  repeat?: number
   // Presentation-only fields. The executor and orchestrator ignore them;
   // the canvas reads them when rendering and writes them back on user
   // drag / resize gestures.
   position?: NodePosition
   size?: NodeSize
+}
+
+// normalizeNode migrates legacy node shapes into the canonical
+// title / actions / details / notes layout. Run it on every JSON
+// ingestion site (workflow fetches, version loads, draft patches) so the
+// rest of the app only deals with the new shape.
+//
+// Rules mirror the Go-side UnmarshalJSON in
+// polymux/internal/agent/workflow_graph.go:
+//   - title    := first non-empty of (title, description)
+//   - actions  := raw.actions if non-empty; else, if any of action/target/
+//                 value is set, a single-element list whose entry is the
+//                 space-join of the non-empty parts in order
+//   - details  := first non-empty of (details, annotation)
+//   - notes    := raw.notes (legacy data has none)
+//   - id, position, size pass through unchanged
+export function normalizeNode(raw: unknown): WorkflowNode {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const str = (v: unknown): string => typeof v === 'string' ? v : ''
+  const num = (v: unknown): number | undefined => typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  const arr = (v: unknown): string[] | undefined => Array.isArray(v) && v.every(x => typeof x === 'string') ? (v as string[]) : undefined
+
+  const out: WorkflowNode = {
+    id: str(r.id),
+  }
+
+  const title = str(r.title) || str(r.description)
+  if (title) out.title = title
+
+  const actions = arr(r.actions)
+  if (actions && actions.length > 0) {
+    out.actions = actions
+  }
+  else {
+    const action = str(r.action)
+    const target = str(r.target)
+    const value = str(r.value)
+    if (action || target || value) {
+      const parts = [action, target, value].filter(p => p !== '')
+      out.actions = [parts.join(' ')]
+    }
+  }
+
+  const details = str(r.details) || str(r.annotation)
+  if (details) out.details = details
+
+  const notes = str(r.notes)
+  if (notes) out.notes = notes
+
+  const workflowRef = str(r.workflow_ref)
+  if (workflowRef) out.workflow_ref = workflowRef
+
+  const repeat = num(r.repeat)
+  if (repeat !== undefined && repeat > 0) out.repeat = repeat
+
+  if (r.position && typeof r.position === 'object') {
+    out.position = r.position as NodePosition
+  }
+  if (r.size && typeof r.size === 'object') {
+    out.size = r.size as NodeSize
+  }
+
+  return out
+}
+
+// normalizeNodePatch is the partial-patch counterpart to normalizeNode.
+// Maps legacy keys onto the new shape but only emits fields the input
+// actually carried — used by applyOp's node_edit case so a patch like
+// `{ description: 'new' }` becomes `{ title: 'new' }` before merge.
+export function normalizeNodePatch(raw: unknown): Partial<WorkflowNode> {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const str = (v: unknown): string => typeof v === 'string' ? v : ''
+  const arr = (v: unknown): string[] | undefined => Array.isArray(v) && v.every(x => typeof x === 'string') ? (v as string[]) : undefined
+
+  const out: Partial<WorkflowNode> = {}
+
+  if ('title' in r && str(r.title)) {
+    out.title = str(r.title)
+  }
+  else if ('description' in r && str(r.description)) {
+    out.title = str(r.description)
+  }
+
+  const actions = arr(r.actions)
+  if (actions) {
+    out.actions = actions
+  }
+  else if ('action' in r || 'target' in r || 'value' in r) {
+    const parts = [str(r.action), str(r.target), str(r.value)].filter(p => p !== '')
+    if (parts.length > 0) {
+      out.actions = [parts.join(' ')]
+    }
+  }
+
+  if ('details' in r && str(r.details)) {
+    out.details = str(r.details)
+  }
+  else if ('annotation' in r && str(r.annotation)) {
+    out.details = str(r.annotation)
+  }
+
+  if ('notes' in r && str(r.notes)) {
+    out.notes = str(r.notes)
+  }
+
+  if ('workflow_ref' in r && str(r.workflow_ref)) {
+    out.workflow_ref = str(r.workflow_ref)
+  }
+
+  if ('repeat' in r && typeof r.repeat === 'number' && Number.isFinite(r.repeat)) {
+    out.repeat = r.repeat
+  }
+
+  if (r.position && typeof r.position === 'object') {
+    out.position = r.position as NodePosition
+  }
+  if (r.size && typeof r.size === 'object') {
+    out.size = r.size as NodeSize
+  }
+
+  return out
+}
+
+// normalizeGraph normalises every node in a graph. Wires pass through
+// untouched — their shape hasn't changed.
+export function normalizeGraph(raw: unknown): WorkflowGraph {
+  const r = (raw ?? {}) as { nodes?: unknown[]; wires?: unknown[] }
+  const nodes = Array.isArray(r.nodes) ? r.nodes.map(normalizeNode) : []
+  const wires = Array.isArray(r.wires) ? (r.wires as WorkflowWire[]) : []
+  return { nodes, wires }
 }
 
 export interface WorkflowWire {
@@ -133,6 +282,21 @@ export interface StartRunInput {
   resume_from_node_id?: string
 }
 
+// normalizeVersion mutates a WorkflowVersion's graph in-place so its
+// nodes follow the canonical title/actions/details/notes shape. Returns
+// the same object for chaining.
+function normalizeVersion(v: WorkflowVersion): WorkflowVersion {
+  if (v && v.steps) {
+    v.steps = normalizeGraph(v.steps)
+  }
+  return v
+}
+
+function normalizeWithLatest(w: WorkflowWithLatest): WorkflowWithLatest {
+  if (w.latest_version) normalizeVersion(w.latest_version)
+  return w
+}
+
 export function useWorkflows() {
   const workflows = useState<WorkflowWithLatest[]>('workflows', () => [])
   const versions = useState<WorkflowVersion[]>('workflow-versions', () => [])
@@ -141,7 +305,7 @@ export function useWorkflows() {
   async function fetchWorkflows(workspaceID: string) {
     try {
       const data = await authFetch<WorkflowWithLatest[]>(`/workspaces/${workspaceID}/workflows`)
-      workflows.value = data ?? []
+      workflows.value = (data ?? []).map(normalizeWithLatest)
     }
     catch (err) {
       console.error('[useWorkflows] fetchWorkflows failed', err)
@@ -150,7 +314,7 @@ export function useWorkflows() {
 
   async function getWorkflow(workspaceID: string, workflowID: string): Promise<WorkflowWithLatest | null> {
     try {
-      const wf = await authFetch<WorkflowWithLatest>(`/workspaces/${workspaceID}/workflows/${workflowID}`)
+      const wf = normalizeWithLatest(await authFetch<WorkflowWithLatest>(`/workspaces/${workspaceID}/workflows/${workflowID}`))
       const idx = workflows.value.findIndex(w => w.id === workflowID)
       if (idx !== -1) workflows.value[idx] = wf
       else workflows.value = [wf, ...workflows.value]
@@ -165,7 +329,7 @@ export function useWorkflows() {
   async function fetchVersions(workspaceID: string, workflowID: string): Promise<WorkflowVersion[]> {
     try {
       const data = await authFetch<WorkflowVersion[]>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`)
-      versions.value = data ?? []
+      versions.value = (data ?? []).map(normalizeVersion)
       return versions.value
     }
     catch (err) {
@@ -179,10 +343,10 @@ export function useWorkflows() {
   // resolve null.
   async function createVersion(workspaceID: string, workflowID: string, input: CreateVersionInput): Promise<WorkflowVersion | null> {
     try {
-      const v = await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`, {
+      const v = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`, {
         method: 'POST',
         body: JSON.stringify(input),
-      })
+      }))
       versions.value = [v, ...versions.value]
       const idx = workflows.value.findIndex(w => w.id === workflowID)
       if (idx !== -1) workflows.value[idx] = { ...workflows.value[idx]!, latest_version: v }
@@ -227,9 +391,9 @@ export function useWorkflows() {
   // version strictly newer than the target on the server.
   async function resetToVersion(workspaceID: string, workflowID: string, versionID: string): Promise<{ version: WorkflowVersion } | { error: string }> {
     try {
-      const version = await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions/${versionID}/reset`, {
+      const version = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions/${versionID}/reset`, {
         method: 'POST',
-      })
+      }))
       versions.value = versions.value.filter(v => v.version <= version.version)
       return { version }
     }

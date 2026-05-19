@@ -10,7 +10,15 @@ import {
 definePageMeta({ layout: 'landing' })
 
 const { t } = useI18n()
-useHead({ title: t('forum.pageTitle') })
+useHead({
+  title: t('forum.pageTitle'),
+  meta: [
+    {
+      name: 'description',
+      content: 'Polymux community forum. Ask questions, share workflows, troubleshoot issues, and discuss AI agent builds.',
+    },
+  ],
+})
 
 const user = useSupabaseUser()
 const { relativeTime } = useRelativeTime()
