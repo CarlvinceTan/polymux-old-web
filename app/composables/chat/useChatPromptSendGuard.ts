@@ -58,7 +58,14 @@ export function useChatPromptSendGuard(
   const { isEnabled: isFeatureEnabled } = useMeFeatures()
   const supabase = useSupabaseClient()
 
-  async function canSendPrompt(text: string): Promise<boolean> {
+  /**
+   * Synchronous, in-memory-only gate. Returns immediately — safe to call on
+   * the hot path (e.g. before applying optimistic chat UI) because it never
+   * awaits a network round-trip. Covers:
+   *   - per-message input-token cap (model-config heuristic)
+   *   - sticky-over-budget flag set by a prior TOKEN_BUDGET_EXCEEDED frame
+   */
+  function canSendPromptSync(text: string): boolean {
     const trimmed = text.trim()
     const capLocal = inputTokenCap.value
     if (capLocal && capLocal > 0 && trimmed.length > 0) {
@@ -88,9 +95,26 @@ export function useChatPromptSendGuard(
       return false
     }
 
+    return true
+  }
+
+  /**
+   * Async weekly-cap pre-flight. Runs the Supabase RPC (with cache) and
+   * optimistically increments the cache on success so consecutive rapid
+   * sends see the projected spend. Designed to run AFTER the optimistic UI
+   * has applied — callers should roll back the optimistic state when this
+   * returns false. Always returns true when the workspace is unset or the
+   * `plan_limits` feature is off.
+   */
+  async function canSendPromptAsync(text: string): Promise<boolean> {
+    const wid = workspaceId.value?.trim()
+    if (!wid) return true
+    if (!isFeatureEnabled('plan_limits')) return true
+
     const weeklyCap = tokenBudgetWeeklyFromPlan(plan.value ?? null)
     if (weeklyCap <= 0) return true
 
+    const trimmed = text.trim()
     const turnEstimate = estimatePromptTokens(trimmed) + MIN_RESPONSE_OVERHEAD
 
     try {
@@ -110,6 +134,19 @@ export function useChatPromptSendGuard(
     }
 
     return true
+  }
+
+  /**
+   * Combined sync + async gate. Use when the caller doesn't need an
+   * instant optimistic-UI path (e.g. the welcome-screen send on
+   * /workflow/new, which navigates away before the chat layout mounts).
+   * For the in-chat path, call `canSendPromptSync` before applying the
+   * optimistic update and `canSendPromptAsync` after, rolling back on
+   * rejection.
+   */
+  async function canSendPrompt(text: string): Promise<boolean> {
+    if (!canSendPromptSync(text)) return false
+    return canSendPromptAsync(text)
   }
 
   /**
@@ -147,7 +184,7 @@ export function useChatPromptSendGuard(
     }
   }
 
-  return { canSendPrompt }
+  return { canSendPrompt, canSendPromptSync, canSendPromptAsync }
 }
 
 /**

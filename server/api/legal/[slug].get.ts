@@ -6,7 +6,7 @@ const SLUG_TO_FILE: Record<string, string> = {
   "api-reference": "api-reference.md",
   community: "community.md",
   documentation: "documentation.md",
-  "install-app": "install-app.md",
+  "install-apps": "install-apps.md",
   "privacy-policy": "privacy-policy.md",
   "terms-of-service": "terms-of-service.md",
   "cookie-policy": "cookie-policy.md",

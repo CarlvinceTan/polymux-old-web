@@ -34,18 +34,45 @@ export default defineNuxtPlugin((nuxtApp) => {
       // can't import the composable at module load (circular), so we stash
       // the latest snapshot on the Nuxt app and let useMeFeatures pick it
       // up reactively.
+      //
+      // `ready` only flips true once a live /decide response has been seen
+      // (not the immediate cache fire). Without this gate, a flag toggled
+      // off in PostHog would still read as enabled from localStorage on the
+      // next page load until posthog-js refreshes, causing fail-closed
+      // checks (e.g. isExtensionModeGloballyAllowed) to wrongly pass and
+      // fire requests that the server then 403s.
+      let reloadInFlight = false
+      let freshSeen = false
+
+      ph.on('featureFlagsReloading', () => {
+        reloadInFlight = true
+      })
+
       ph.onFeatureFlags((flags, payloads) => {
+        // A callback that arrives while a reload is in flight is the
+        // network response for that reload. Anything before the first
+        // reload is the cached snapshot from posthog-js's persistence.
+        if (reloadInFlight) {
+          freshSeen = true
+          reloadInFlight = false
+        }
         const enabled: Record<string, boolean> = {}
         for (const key of flags) enabled[key] = true
         // PostHog's `flags` array only contains keys that resolved truthy.
         // We can't enumerate the full set here without an extra call;
         // useMeFeatures' isEnabled() defaults absent keys to true (fail-open)
         // until a known list is fetched, so this is fine.
-        nuxtApp.payload.__posthogFlags = { ready: true, enabled, payloads }
-        // Trigger a state read on the composable side.
-        const event = new CustomEvent('posthog:flags-changed')
-        window.dispatchEvent(event)
+        nuxtApp.payload.__posthogFlags = { ready: freshSeen, enabled, payloads }
+        if (freshSeen) {
+          window.dispatchEvent(new CustomEvent('posthog:flags-changed'))
+        }
       })
+
+      // Force a fresh /decide so we don't trust the localStorage cache for
+      // gated requests. The featureFlagsReloading event above fires
+      // synchronously here; the matching onFeatureFlags callback fires
+      // when the response lands.
+      ph.reloadFeatureFlags()
     },
   })
 

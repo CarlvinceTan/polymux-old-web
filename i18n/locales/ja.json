@@ -268,6 +268,7 @@
     "showGrid": "背景グリッドを表示",
     "snapToGrid": "グリッドに吸着",
     "addNode": "ノードを追加",
+    "drawWire": "ワイヤを描く",
     "clearSelection": "選択をクリア",
     "tabs": {
       "agent": "エージェント",
@@ -291,6 +292,11 @@
     "moreInstances": "その他",
     "editWire": "ワイヤを編集",
     "deleteWire": "ワイヤを削除",
+    "deleteSelection": "選択項目を削除",
+    "duplicateSelection": "選択項目を複製",
+    "duplicateNode": "ステップを複製",
+    "duplicateWire": "ワイヤを複製",
+    "warnIsolatedNodes": "保存しました。ただし {count} 個のノードがどこにも接続されていません。",
     "wireLabelLabel": "ワイヤ",
     "wireLabelPlaceholder": "任意のラベル",
     "wireConditionLabel": "条件",
@@ -1323,7 +1329,6 @@
     "lastDay": "末日",
     "noRuns": "今後 60 日間に実行予定はありません",
     "weeklyNoDays": "少なくとも 1 日選択してください",
-    "noVersionShort": "先にバージョンを保存",
     "activeNeedsVersion": "スケジュールを有効化する前にワークフローのバージョンを保存してください。保存されたバージョンのないワークフローはスケジューラーから無視されます。",
     "freq": {
       "none": "なし",

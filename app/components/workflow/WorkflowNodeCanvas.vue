@@ -188,41 +188,77 @@ const ROW_GAP = 96   // multiple of SNAP_GRID
 // does NOT switch focus, so the affordance is unambiguous.
 const HOVER_PAD = 32
 // Distance from the card's edge to the centre of each hover port.
-const PORT_GAP = 14
+const PORT_GAP = 16
 // Distance between an existing card's edge and a freshly spawned card's edge,
 // used by the port-click action below. Same in all four directions so a tap
 // on any side gives a perfectly aligned, evenly-spaced sibling.
 const SPAWN_GAP = 80
-const positionsKey = computed(() => `polymux_node_positions_${props.sessionId}_${selectedWorkflowId.value ?? 'draft'}`)
+// Pan/zoom viewport persists in sessionStorage so the user's framing
+// survives view-mode hops. This is the only persisted canvas-only state;
+// graph geometry (positions, sizes, wire bends) lives on the graph
+// itself via `node_edit` / `wire_edit` ops.
 const cameraKey = computed(() => `polymux_flow_camera_${props.sessionId}_${selectedWorkflowId.value ?? 'draft'}`)
 
 interface Pt { x: number; y: number }
-// Transient drag-preview overlay. Drag-commit promotes entries here into
-// persisted `node.position` via a `node_edit` op; the overlay only holds
-// the in-flight gesture's coordinates.
+// Transient drag-preview overlay. Holds in-flight gesture coordinates only;
+// on `pointerup` the final position lands as a `node_edit` op (which sets
+// `node.position` via the structural-op path) and the entry is cleared.
+// No localStorage — refresh-during-drag loses the in-flight delta, but the
+// autosave that fires after release commits the position to a version row
+// within ~1 s.
 const overrides = ref<Record<string, Pt>>({})
 
-// User-drawn wires between two existing nodes (i.e. the user dragged from a
-// port and released over another node's hover zone). Same persistence model
-// as positions — promoted to real `edge_add` ops at save time.
+// Canvas-local wires whose endpoints aren't both real graph nodes (e.g.
+// a wire to a "spawn-extra" that hasn't been added to the graph yet).
+// Wires between two real nodes go straight through `applyStructuralOp`
+// (`wire_add`) — see `addUserWire`. This list holds the remainder until
+// save folds them in via `promoteUserWires`.
 interface UserWire {
   id: string
   fromId: string
   toId: string
+  // Floating endpoint positions for detached ends. Empty `fromId` /
+  // `toId` paired with a set `fromPos` / `toPos` means the user grabbed
+  // that end and dropped it into empty canvas space — same model as the
+  // graph wire's `from_pos` / `to_pos`. Lets Start/End-touching wires
+  // support the same drag-to-empty UX as wires between real nodes.
+  fromPos?: Pt
+  toPos?: Pt
+  // Sides the user latched onto during port-drag. Stored on the wire
+  // itself (rather than relying on the auto picker) so the rendered
+  // wire stays attached to the exact circle the user dropped onto,
+  // even after subsequent renders or node moves.
+  fromSide?: Side
+  toSide?: Side
 }
 const userWires = ref<UserWire[]>([])
-const userWiresKey = computed(() => `polymux_user_wires_${props.sessionId}_${selectedWorkflowId.value ?? 'draft'}`)
 
-// Per-node size overrides. Mirrors the position-overrides pattern: edits live
-// only in localStorage (resize is purely visual; the schema has no size
-// field). Defaults to NODE_W × NODE_H; terminals are never resizable.
+// Transient resize-preview overlay (mirrors `overrides`). Commits to
+// `node.size` via a `node_edit` op on release.
 interface Size { w: number; h: number }
 const NODE_MIN_W = 140
 const NODE_MIN_H = 60
 const NODE_MAX_W = 520
 const NODE_MAX_H = 260
 const sizes = ref<Record<string, Size>>({})
-const sizesKey = computed(() => `polymux_node_sizes_${props.sessionId}_${selectedWorkflowId.value ?? 'draft'}`)
+
+// Auto-layout seed memo. When a graph arrives with nodes that have no
+// `position`, we project a one-shot `buildLayout` result into this memo so
+// the canvas has stable coordinates for unpositioned nodes. Entries are
+// frozen per-node-id at first observation — later topology changes (the
+// agent adding a node, the user removing one) do NOT re-seed an existing
+// entry, so unpositioned neighbours don't shift around when the graph
+// changes shape. The auto-layout button writes positions onto the graph
+// and supersedes this memo entirely.
+const seedPositions = ref<Record<string, Pt>>({})
+
+// Stable side cache — keyed by wire id. Same first-observation-freezes
+// pattern as `seedPositions`, but stored as a plain `Map` rather than a
+// ref so it doesn't pull `wireSidesMap` into setup-time evaluation. The
+// cache is read + written inside `wireGeoms`; changes never need to
+// trigger their own re-render — `wireGeoms` is already re-evaluating
+// because its underlying reactive inputs changed.
+const stableWireSides = new Map<string, { fromSide: Side; toSide: Side }>()
 
 // User-locked nodes. Lock state lives client-side (per-workflow localStorage)
 // because the schema migration for `locked_node_ids` is a follow-up; the
@@ -231,34 +267,14 @@ const sizesKey = computed(() => `polymux_node_sizes_${props.sessionId}_${selecte
 const lockedNodeIds = ref<Set<string>>(new Set())
 const locksKey = computed(() => `polymux_node_locks_${props.sessionId}_${selectedWorkflowId.value ?? 'draft'}`)
 
-watch(positionsKey, (key) => {
+// Reset all in-memory canvas state when the user switches workflows. Locks
+// also re-hydrate from their own localStorage bucket below.
+watch(selectedWorkflowId, () => {
   overrides.value = {}
-  if (!import.meta.client) return
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) overrides.value = JSON.parse(raw) as Record<string, Pt>
-  }
-  catch {}
-}, { immediate: true })
-
-watch(userWiresKey, (key) => {
-  userWires.value = []
-  if (!import.meta.client) return
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) userWires.value = JSON.parse(raw) as UserWire[]
-  }
-  catch {}
-}, { immediate: true })
-
-watch(sizesKey, (key) => {
   sizes.value = {}
-  if (!import.meta.client) return
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) sizes.value = JSON.parse(raw) as Record<string, Size>
-  }
-  catch {}
+  userWires.value = []
+  seedPositions.value = {}
+  stableWireSides.clear()
 }, { immediate: true })
 
 watch(locksKey, (key) => {
@@ -271,21 +287,13 @@ watch(locksKey, (key) => {
   catch {}
 }, { immediate: true })
 
-function persistOverrides() {
-  if (!import.meta.client) return
-  try {
-    localStorage.setItem(positionsKey.value, JSON.stringify(overrides.value))
-  }
-  catch {}
-}
-
-function persistSizes() {
-  if (!import.meta.client) return
-  try {
-    localStorage.setItem(sizesKey.value, JSON.stringify(sizes.value))
-  }
-  catch {}
-}
+// Persist stubs retained so existing call sites stay clean. Position /
+// size / user-wire state is fully in-memory now; refresh resilience comes
+// from the autosave timer (≤ 1 s after the last edit) which commits to
+// `workflow_versions`.
+function persistOverrides() { /* no-op: positions commit via node_edit op */ }
+function persistSizes() { /* no-op: sizes commit via node_edit op */ }
+function persistUserWires() { /* no-op: wires commit via wire_add or promoteUserWires */ }
 
 function persistLocks() {
   if (!import.meta.client) return
@@ -307,11 +315,10 @@ function toggleLock(node: NodeModel) {
   lockedNodeIds.value = next
   persistLocks()
   pushLockSetToServer()
-  // A lock change is a deliberate user intent — record it on disk so the
-  // orchestrator sees the same set after a reload. Goes through the same
-  // 1 s debounced autosave that field edits use.
+  // Mark the lock change as a pending dirty edit so the Save button
+  // surfaces it. Versions are only ever created on explicit save (user
+  // pressing Save, or the orchestrator save flow under user permission).
   lockSetDirty = true
-  scheduleAutoSave()
 }
 
 function pushLockSetToServer() {
@@ -339,14 +346,6 @@ function nodeSize(n: NodeModel | string): Size {
   return { w: NODE_W, h: NODE_H }
 }
 
-function persistUserWires() {
-  if (!import.meta.client) return
-  try {
-    localStorage.setItem(userWiresKey.value, JSON.stringify(userWires.value))
-  }
-  catch {}
-}
-
 function defaultPos(node: NodeModel): Pt {
   // Anchor each cell on its CENTRE (not its top-left) so that two nodes
   // sharing a row have aligned vertical centres and two nodes sharing a
@@ -364,24 +363,109 @@ function defaultPos(node: NodeModel): Pt {
   }
 }
 
+// Snap a single coord to SNAP_GRID when the user has the snap toggle on;
+// otherwise pass it through. Used by new-node placement so freshly added
+// nodes always land on a clean grid cell.
+function snap(v: number): number {
+  if (!settings.value.snapToGrid) return v
+  return Math.round(v / 24) * 24
+}
+
+function snapPt(p: Pt): Pt {
+  return { x: snap(p.x), y: snap(p.y) }
+}
+
+// Snap `preferred` to grid, then walk diagonally one grid step at a time
+// until no existing node occupies that exact coord. Caps the search at
+// 64 steps so a fully packed grid still returns SOMETHING rather than
+// hanging.
+function findFreePlacement(preferred: Pt): Pt {
+  let x = snap(preferred.x)
+  let y = snap(preferred.y)
+  const TOL = 1
+  const occupied = (px: number, py: number) => displayedGraph.value.nodes.some((n) => {
+    const np = n.position
+    if (!np) return false
+    return Math.abs(np.x - px) < TOL && Math.abs(np.y - py) < TOL
+  })
+  let step = 0
+  while (occupied(x, y) && step < 64) {
+    step += 1
+    x += 24
+    y += 24
+  }
+  return { x, y }
+}
+
 const allNodes = computed<NodeModel[]>(() => layout.value.nodes)
 
-interface FlatWire { id: string; fromId: string; toId: string }
+interface FlatWire {
+  id: string
+  fromId: string
+  toId: string
+  // Sides + detached positions the wire was created with (for user-extra
+  // wires that carry them — see UserWire). Real `wire:` edges read these
+  // from the graph via `wiresById` in `wireGeoms` instead.
+  fromPos?: Pt
+  toPos?: Pt
+  fromSide?: Side
+  toSide?: Side
+}
 const allWires = computed<FlatWire[]>(() => [
   ...layout.value.wires.map(w => ({ id: w.id, fromId: w.fromId, toId: w.toId })),
-  ...userWires.value,
+  ...userWires.value.map(w => ({
+    id: w.id,
+    fromId: w.fromId,
+    toId: w.toId,
+    fromPos: w.fromPos,
+    toPos: w.toPos,
+    fromSide: w.fromSide,
+    toSide: w.toSide,
+  })),
 ])
 
 function nodePos(node: NodeModel): Pt {
   // Precedence: transient `overrides` overlay (live-preview while a drag
   // is in flight) → persisted `node.position` (from the saved graph) →
-  // auto-layout default.
+  // frozen `seedPositions` memo (one-shot auto-layout fallback for nodes
+  // that arrived without a position) → `defaultPos` (terminals + first-
+  // observation fallback before the seed watcher fires).
   const ovr = overrides.value[node.id]
   if (ovr) return ovr
   const persisted = node.node.position
   if (persisted) return { x: persisted.x, y: persisted.y }
+  const seeded = seedPositions.value[node.id]
+  if (seeded) return seeded
   return defaultPos(node)
 }
+
+// Seed `seedPositions` for any node that arrives without a `position`. Runs
+// every time `displayedGraph` changes but only WRITES new entries — once a
+// node id is seeded, its memo entry is frozen until the user switches
+// workflows (which clears the memo) or presses Auto-Layout (which commits
+// real positions onto the graph and makes this memo irrelevant).
+//
+// Terminals (Start / End) are seeded too so that wiring two nodes
+// together — which can change `maxLayer` and therefore End's default
+// column — doesn't drag End across the canvas behind the user's back.
+// They re-seed when Auto-Layout clears the memo.
+watch(layout, (lay) => {
+  let any = false
+  for (const m of lay.nodes) {
+    if (m.node.position) continue
+    if (seedPositions.value[m.id]) continue
+    any = true
+    break
+  }
+  if (!any) return
+  const next = { ...seedPositions.value }
+  for (const m of lay.nodes) {
+    if (m.node.position) continue
+    if (next[m.id]) continue
+    next[m.id] = defaultPos(m)
+  }
+  seedPositions.value = next
+}, { immediate: true })
 
 // Extents track both the min and max corner of the placed nodes (including
 // any user-dragged overrides that might fall to the left of / above the
@@ -486,43 +570,687 @@ watch(cameraKey, (_k, prevKey) => {
 watch([scale, offset], () => { schedulePersistViewport() }, { deep: true })
 
 function onWheel(e: WheelEvent) {
-  if (!e.ctrlKey && !e.metaKey) return
+  // Pinch (mouse Ctrl/Cmd-wheel OR macOS trackpad pinch which synthesises
+  // ctrlKey) zooms anchored at the cursor. Plain wheel pans the canvas —
+  // gives 2-finger trackpad scrolling the same "shove the world around"
+  // feel as right-click drag without needing a modifier.
+  if (!viewportEl.value) return
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault()
+    const rect = viewportEl.value.getBoundingClientRect()
+    const cx = e.clientX - rect.left
+    const cy = e.clientY - rect.top
+    const oldScale = scale.value
+    const newScale = Math.max(0.4, Math.min(2, oldScale * (1 - e.deltaY * 0.0015)))
+    if (newScale === oldScale) return
+    const wx = (cx - offset.value.x) / oldScale
+    const wy = (cy - offset.value.y) / oldScale
+    scale.value = newScale
+    offset.value = { x: cx - wx * newScale, y: cy - wy * newScale }
+    return
+  }
   e.preventDefault()
-  const delta = -e.deltaY * 0.0015
-  const newScale = Math.max(0.4, Math.min(2, scale.value * (1 + delta)))
-  scale.value = newScale
+  offset.value = {
+    x: offset.value.x - e.deltaX,
+    y: offset.value.y - e.deltaY,
+  }
 }
 
 let isPanning = false
 let panStart = { x: 0, y: 0 }
 let offsetStart = { x: 0, y: 0 }
+let panPointerId = -1
+
+// 2-finger touchscreen gesture (pan + pinch). When a second touch lands on
+// the canvas we abandon any in-flight marquee and switch the canvas into
+// "phone-map mode" until at least one touch lifts. Trackpad 2-finger
+// gestures arrive as `wheel` events instead, handled in onWheel above.
+interface TouchGesture {
+  initialDist: number
+  initialCenter: { x: number; y: number }
+  initialScale: number
+  initialOffset: Pt
+}
+let touchGesture: TouchGesture | null = null
+const activeTouchPointers = new Map<number, { x: number; y: number }>()
 
 function onCanvasPointerDown(e: PointerEvent) {
-  // Pan with middle button or space-less right-area drag (background click).
   const target = e.target as HTMLElement
   if (target.closest('[data-node]')) return
-  if (e.button !== 0 && e.button !== 1) return
-  isPanning = true
-  panStart = { x: e.clientX, y: e.clientY }
-  offsetStart = { ...offset.value }
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  // Background click clears both node and edge selection.
-  if (e.button === 0) {
-    selected.value = new Set()
-    selectedWireId.value = null
+
+  // Touchscreen: route through multi-pointer state so the 2nd finger
+  // upgrades from a marquee to a pan/pinch gesture.
+  if (e.pointerType === 'touch') {
+    activeTouchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch {}
+    if (activeTouchPointers.size >= 2) {
+      if (marqueeState.value?.active) cancelMarquee()
+      startTouchGesture()
+      e.preventDefault()
+      return
+    }
+    startMarquee(e)
+    return
   }
+
+  // Mouse / pen: right-click or middle-click drags the canvas; left-click
+  // paints a marquee.
+  if (e.button === 1 || e.button === 2) {
+    e.preventDefault()
+    isPanning = true
+    panPointerId = e.pointerId
+    panStart = { x: e.clientX, y: e.clientY }
+    offsetStart = { ...offset.value }
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch {}
+    return
+  }
+  if (e.button !== 0) return
+  startMarquee(e)
 }
 function onCanvasPointerMove(e: PointerEvent) {
-  if (!isPanning) return
-  offset.value = {
-    x: offsetStart.x + (e.clientX - panStart.x),
-    y: offsetStart.y + (e.clientY - panStart.y),
+  if (e.pointerType === 'touch' && activeTouchPointers.has(e.pointerId)) {
+    activeTouchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  }
+  if (touchGesture) {
+    updateTouchGesture()
+    return
+  }
+  if (isPanning) {
+    offset.value = {
+      x: offsetStart.x + (e.clientX - panStart.x),
+      y: offsetStart.y + (e.clientY - panStart.y),
+    }
+    return
+  }
+  if (marqueeState.value?.active) {
+    onMarqueeMove(e.clientX, e.clientY)
   }
 }
 function onCanvasPointerUp(e: PointerEvent) {
-  if (!isPanning) return
-  isPanning = false
-  ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
+  if (e.pointerType === 'touch') {
+    activeTouchPointers.delete(e.pointerId)
+    try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId) } catch {}
+    if (touchGesture) {
+      if (activeTouchPointers.size < 2) endTouchGesture()
+      else startTouchGesture()
+      return
+    }
+  }
+  if (isPanning && (e.pointerType !== 'mouse' || e.pointerId === panPointerId)) {
+    isPanning = false
+    panPointerId = -1
+    try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId) } catch {}
+    return
+  }
+  if (marqueeState.value?.active) {
+    onMarqueeUp(e)
+  }
+}
+function onCanvasContextMenu(e: MouseEvent) {
+  // Right-click drives pan, so swallow the browser context menu — without
+  // this the menu pops the moment the user releases the right button.
+  e.preventDefault()
+}
+
+// ── Marquee multi-select ───────────────────────────────────────────────────
+// Left-click (or 1-finger) drag on empty canvas paints a rectangle. Every
+// node and wire whose screen bounding box intersects the rectangle becomes
+// selected when the drag ends. The rectangle persists after release with a
+// small "delete" toolbar above its top edge — click it to wipe the
+// selection, click anywhere else (or press Esc) to dismiss the box.
+//
+// Coordinates are kept in workflow space so the box stays attached to the
+// canvas under pan/zoom. That matters for auto-zoom-out while dragging
+// past the viewport edge: the start corner stays pinned to the same
+// canvas point while the camera pulls back to reveal more on the cursor
+// side.
+interface MarqueeState {
+  active: boolean
+  startWf: Pt
+  curWf: Pt
+  initialNodeIds: Set<string>
+  initialWireIds: Set<string>
+  additive: boolean
+  pointerId: number
+  // Last known cursor in client coords, so the auto-zoom rAF can re-derive
+  // curWf each frame when scale/offset shift between pointermove events.
+  lastClientX: number
+  lastClientY: number
+}
+const marqueeState = ref<MarqueeState | null>(null)
+const persistentMarquee = ref<{ startWf: Pt; endWf: Pt } | null>(null)
+const selectedWireIds = ref<Set<string>>(new Set())
+let suppressNextCanvasClick = false
+
+function startMarquee(e: PointerEvent) {
+  if (!viewportEl.value) return
+  e.preventDefault()
+  // A fresh drag replaces any leftover persistent box.
+  if (persistentMarquee.value) persistentMarquee.value = null
+  const wf = screenToWorkflow(e.clientX, e.clientY)
+  const additive = e.shiftKey || e.metaKey || e.ctrlKey
+  marqueeState.value = {
+    active: true,
+    startWf: wf,
+    curWf: wf,
+    initialNodeIds: additive ? new Set(selected.value) : new Set(),
+    initialWireIds: additive
+      ? new Set([
+          ...selectedWireIds.value,
+          ...(selectedWireId.value ? [selectedWireId.value] : []),
+        ])
+      : new Set(),
+    additive,
+    pointerId: e.pointerId,
+    lastClientX: e.clientX,
+    lastClientY: e.clientY,
+  }
+  if (!additive) {
+    selected.value = new Set()
+    selectedWireIds.value = new Set()
+    selectedWireId.value = null
+  }
+  try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch {}
+  ensureAutoZoomLoop()
+}
+
+function onMarqueeMove(clientX: number, clientY: number) {
+  const m = marqueeState.value
+  if (!m || !m.active) return
+  m.lastClientX = clientX
+  m.lastClientY = clientY
+  m.curWf = screenToWorkflow(clientX, clientY)
+  updateMarqueeSelection()
+}
+
+function onMarqueeUp(e: PointerEvent) {
+  const m = marqueeState.value
+  if (!m || !m.active) return
+  try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId) } catch {}
+  marqueeState.value = null
+  stopAutoZoomLoop()
+  // Normalize a single-wire marquee result into the same shape a wire-click
+  // produces (selectedWireId set, selectedWireIds empty). That way the
+  // per-wire pill kicks in — without this, a 1-wire marquee left both
+  // single- and multi-pills silent.
+  if (selected.value.size === 0 && selectedWireIds.value.size === 1) {
+    const onlyWire = [...selectedWireIds.value][0]
+    if (onlyWire) {
+      selectedWireId.value = onlyWire
+      selectedWireIds.value = new Set()
+    }
+  }
+  const dragged = Math.abs(m.curWf.x - m.startWf.x) + Math.abs(m.curWf.y - m.startWf.y) > 2
+  // The rectangle is a drag-time guide only — it vanishes the instant the
+  // pointer lifts. The selection itself (black borders + multi-select pill)
+  // is what conveys "these are the items you grabbed."
+  persistentMarquee.value = null
+  if (dragged) {
+    // Swallow the synthesized click on the canvas backdrop — left otherwise
+    // it would treat the pointerup site as a background click and clear
+    // everything we just selected.
+    suppressNextCanvasClick = true
+  }
+}
+
+function cancelMarquee() {
+  if (!marqueeState.value) return
+  marqueeState.value = null
+  stopAutoZoomLoop()
+}
+
+function dismissPersistentMarquee() {
+  // Used as the canvas-wide "clear current selection" hook — the toolbar's
+  // close button, Esc, and bare canvas clicks all route here. Resets every
+  // selection bucket so the user lands in a clean no-selection state
+  // regardless of how they got there (marquee, shift-click, single click).
+  persistentMarquee.value = null
+  selected.value = new Set()
+  selectedWireIds.value = new Set()
+  selectedWireId.value = null
+}
+
+function onCanvasClick(e: MouseEvent) {
+  // After a marquee drag, the browser synthesises a click on whatever was
+  // under the cursor at release — left alone, that click would re-enter
+  // startMarquee and wipe the just-built selection. The flag is set in
+  // onMarqueeUp only when the pointer actually moved.
+  if (suppressNextCanvasClick) {
+    suppressNextCanvasClick = false
+    e.stopPropagation()
+    e.preventDefault()
+  }
+}
+
+// Translate workflow → viewport-relative screen coords (matches the
+// transform applied to the inner shift layer: scale * (wf - bounds.min) + offset).
+function workflowToViewport(wf: Pt): Pt {
+  return {
+    x: (wf.x - canvasBounds.value.minX) * scale.value + offset.value.x,
+    y: (wf.y - canvasBounds.value.minY) * scale.value + offset.value.y,
+  }
+}
+
+const marqueeBoxScreen = computed(() => {
+  const m = marqueeState.value
+  const p = persistentMarquee.value
+  let start: Pt | null = null
+  let end: Pt | null = null
+  if (m && m.active) { start = m.startWf; end = m.curWf }
+  else if (p) { start = p.startWf; end = p.endWf }
+  if (!start || !end) return null
+  const s = workflowToViewport(start)
+  const e = workflowToViewport(end)
+  const left = Math.min(s.x, e.x)
+  const top = Math.min(s.y, e.y)
+  const right = Math.max(s.x, e.x)
+  const bottom = Math.max(s.y, e.y)
+  return { left, top, right, bottom, width: right - left, height: bottom - top }
+})
+
+// Screen-space bounding box of the current multi-selection (nodes + wires
+// combined). Drives the floating multi-select toolbar's position so it
+// sits above the topmost selected item at the same canvas-gap the
+// single-node pill uses (PORT_GAP * 2 = 32 canvas-px → scaled to screen).
+// Returns null when nothing is selected — the toolbar then doesn't render.
+const multiSelectAnchor = computed<{ x: number, y: number } | null>(() => {
+  const nodeIds = selected.value
+  const wireIds = selectedWireIds.value
+  if (nodeIds.size + wireIds.size === 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const id of nodeIds) {
+    const n = allNodes.value.find(x => x.id === id)
+    if (!n) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    if (p.x < minX) minX = p.x
+    if (p.y < minY) minY = p.y
+    if (p.x + s.w > maxX) maxX = p.x + s.w
+    if (p.y + s.h > maxY) maxY = p.y + s.h
+  }
+  if (wireIds.size > 0) {
+    const wires = wireGeoms.value
+    for (const w of wires) {
+      if (!wireIds.has(w.id)) continue
+      const x1 = Math.min(w.p1.x, w.p2.x)
+      const y1 = Math.min(w.p1.y, w.p2.y)
+      const x2 = Math.max(w.p1.x, w.p2.x)
+      const y2 = Math.max(w.p1.y, w.p2.y)
+      if (x1 < minX) minX = x1
+      if (y1 < minY) minY = y1
+      if (x2 > maxX) maxX = x2
+      if (y2 > maxY) maxY = y2
+    }
+  }
+  if (!isFinite(minX) || !isFinite(minY)) return null
+  const topLeft = workflowToViewport({ x: minX, y: minY })
+  const topRight = workflowToViewport({ x: maxX, y: minY })
+  // Match the single-node selection pill: 2 * PORT_GAP canvas-px gap above
+  // the topmost edge. Scaled into screen space so the visual spacing tracks
+  // the same way as that pill at any zoom level.
+  return {
+    x: (topLeft.x + topRight.x) / 2,
+    y: topLeft.y - PORT_GAP * 2 * scale.value,
+  }
+})
+
+function updateMarqueeSelection() {
+  if (!viewportEl.value) return
+  const m = marqueeState.value
+  if (!m || !m.active) return
+  const box = marqueeBoxScreen.value
+  if (!box) return
+  const rect = viewportEl.value.getBoundingClientRect()
+  const clientBox = {
+    left: box.left + rect.left,
+    right: box.right + rect.left,
+    top: box.top + rect.top,
+    bottom: box.bottom + rect.top,
+  }
+  const matchedNodeIds: string[] = []
+  const matchedWireIds: string[] = []
+  const nodeEls = viewportEl.value.querySelectorAll<HTMLElement>('[data-node-id]')
+  for (const el of nodeEls) {
+    const id = el.dataset.nodeId
+    if (!id) continue
+    const r = el.getBoundingClientRect()
+    if (
+      r.left <= clientBox.right
+      && r.right >= clientBox.left
+      && r.top <= clientBox.bottom
+      && r.bottom >= clientBox.top
+    ) matchedNodeIds.push(id)
+  }
+  const wireEls = viewportEl.value.querySelectorAll<SVGPathElement>('[data-wire-id]')
+  for (const el of wireEls) {
+    const id = el.dataset.wireId
+    if (!id) continue
+    const r = el.getBoundingClientRect()
+    if (
+      r.left <= clientBox.right
+      && r.right >= clientBox.left
+      && r.top <= clientBox.bottom
+      && r.bottom >= clientBox.top
+    ) matchedWireIds.push(id)
+  }
+  selected.value = new Set(
+    m.additive ? [...m.initialNodeIds, ...matchedNodeIds] : matchedNodeIds,
+  )
+  selectedWireIds.value = new Set(
+    m.additive ? [...m.initialWireIds, ...matchedWireIds] : matchedWireIds,
+  )
+}
+
+function deleteMarqueeSelection() {
+  const nodeIds = [...selected.value]
+  const wireIds = [...selectedWireIds.value]
+  if (nodeIds.length === 0 && wireIds.length === 0) {
+    dismissPersistentMarquee()
+    return
+  }
+  if (!attemptEdit()) return
+  for (const id of wireIds) {
+    if (id.startsWith('wire:')) {
+      applyStructuralOp({ kind: 'wire_remove', wire_id: id.slice('wire:'.length) })
+    } else if (id.startsWith('user:')) {
+      userWires.value = userWires.value.filter(w => w.id !== id)
+    }
+  }
+  persistUserWires()
+  const deletableNodes = nodeIds.filter(id => !isTerminalId(id) && !isLockedNode(id))
+  if (deletableNodes.length > 0) {
+    const next = { ...overrides.value }
+    for (const id of deletableNodes) delete next[id]
+    overrides.value = next
+    const dset = new Set(deletableNodes)
+    const remaining = userWires.value.filter(w => !dset.has(w.fromId) && !dset.has(w.toId))
+    if (remaining.length !== userWires.value.length) {
+      userWires.value = remaining
+      persistUserWires()
+    }
+    for (const id of deletableNodes) {
+      applyStructuralOp({ kind: 'node_remove', node_id: id })
+    }
+    persistOverrides()
+  }
+  selected.value = new Set()
+  selectedWireIds.value = new Set()
+  selectedWireId.value = null
+  persistentMarquee.value = null
+  recordHistory()
+}
+
+// Offset applied to every duplicated node, in workflow coords. Up-and-right
+// so the new copy lands diagonally above the original — close enough that
+// the lineage is obvious, far enough that nothing visually overlaps.
+const DUPLICATE_OFFSET = { x: 24, y: -24 }
+
+function duplicateSelection() {
+  if (!attemptEdit()) return
+  const nodeIds = [...selected.value]
+  const wireIdsFromSet = [...selectedWireIds.value]
+  const singleWireId = selectedWireId.value
+  if (nodeIds.length === 0 && wireIdsFromSet.length === 0 && !singleWireId) return
+
+  // Step 1: clone every selectable node (skip terminals — they're spine
+  // anchors, not user-editable steps). Stash original→new id so wires
+  // selected alongside can rewire to the duplicates.
+  const nodeIdMap = new Map<string, string>()
+  const newNodeIds: string[] = []
+  for (const id of nodeIds) {
+    const n = allNodes.value.find(x => x.id === id)
+    if (!n || n.terminal) continue
+    const original = findNodeById(displayedGraph.value, id)
+    if (!original) continue
+    const pos = nodePos(n)
+    const cloned: WorkflowNode = JSON.parse(JSON.stringify(original))
+    cloned.id = ''
+    cloned.position = { x: pos.x + DUPLICATE_OFFSET.x, y: pos.y + DUPLICATE_OFFSET.y }
+    const addOp: WorkflowOp = { kind: 'node_add', node: cloned }
+    if (!applyStructuralOp(addOp)) continue
+    const newId = addOp.node.id
+    if (!newId) continue
+    nodeIdMap.set(id, newId)
+    newNodeIds.push(newId)
+    if (sizes.value[id]) sizes.value = { ...sizes.value, [newId]: sizes.value[id]! }
+  }
+
+  // Step 2: clone wires. A wire whose endpoints both got duplicated re-
+  // points at the new copies (so the visual offset carries through);
+  // wires with non-duplicated endpoints clone as parallel edges and sit
+  // visually on top of the original, which is the best we can do without
+  // moving the original endpoint nodes.
+  const newWireIds: string[] = []
+  const wireIdsToDup = new Set<string>(wireIdsFromSet)
+  if (singleWireId) wireIdsToDup.add(singleWireId)
+  for (const wId of wireIdsToDup) {
+    if (!wId.startsWith('wire:')) continue
+    const original = findWireById(displayedGraph.value, wId.slice('wire:'.length))
+    if (!original) continue
+    const newFromId = nodeIdMap.get(original.from_id) ?? original.from_id
+    const newToId = nodeIdMap.get(original.to_id) ?? original.to_id
+    const bothUnchanged = newFromId === original.from_id && newToId === original.to_id
+    if (bothUnchanged && displayedGraph.value.wires.some(
+      e => e.id !== original.id && e.from_id === newFromId && e.to_id === newToId,
+    )) continue
+    const cloned: WorkflowWire = { id: '', from_id: newFromId, to_id: newToId }
+    if (original.from_side) cloned.from_side = original.from_side
+    if (original.to_side) cloned.to_side = original.to_side
+    if (original.label) cloned.label = original.label
+    if (original.condition) cloned.condition = original.condition
+    if (typeof original.max_iterations === 'number' && original.max_iterations > 0) {
+      cloned.max_iterations = original.max_iterations
+    }
+    const addOp: WorkflowOp = { kind: 'wire_add', wire: cloned }
+    if (!applyStructuralOp(addOp)) continue
+    const newId = addOp.wire.id
+    if (newId) newWireIds.push('wire:' + newId)
+  }
+
+  // Step 3: replace the current selection with the new copies so the user
+  // can keep pressing duplicate, drag the group, or hit delete. Match the
+  // single-pill rules in onMarqueeUp: 1 wire + 0 nodes promotes to
+  // selectedWireId so the per-wire pill takes over.
+  selected.value = new Set(newNodeIds)
+  if (newWireIds.length === 0) {
+    selectedWireIds.value = new Set()
+    selectedWireId.value = null
+  } else if (newWireIds.length === 1 && newNodeIds.length === 0) {
+    selectedWireIds.value = new Set()
+    selectedWireId.value = newWireIds[0]!
+  } else {
+    selectedWireIds.value = new Set(newWireIds)
+    selectedWireId.value = null
+  }
+  // The marquee box was anchored to the original coords — clearing it
+  // avoids a stale rectangle hanging behind the new selection. The
+  // multi-select pill (anchored on the new positions) still appears.
+  persistentMarquee.value = null
+  recordHistory()
+}
+
+// Grab anywhere inside the persistent marquee box (empty space included) to
+// drag the entire selection. Mirrors the node-drag flow but seeds origins
+// from every selected node and slides the marquee box along with the
+// cursor so it tracks the moving selection.
+function onMarqueeBoxPointerDown(e: PointerEvent) {
+  if (e.button !== 0) return
+  if (!persistentMarquee.value) return
+  if (selected.value.size === 0) return
+  if (!attemptEdit()) return
+  e.stopPropagation()
+  e.preventDefault()
+  const ids = [...selected.value]
+  const origins: Record<string, Pt> = {}
+  for (const id of ids) {
+    const n = allNodes.value.find(x => x.id === id)
+    if (n) origins[id] = nodePos(n)
+  }
+  const startX = e.clientX
+  const startY = e.clientY
+  const boxStart = { ...persistentMarquee.value.startWf }
+  const boxEnd = { ...persistentMarquee.value.endWf }
+  draggingIds.value = new Set(ids)
+  frozenCanvasBounds.value = { ...liveCanvasBounds.value }
+
+  function onMove(ev: PointerEvent) {
+    const dx = (ev.clientX - startX) / scale.value
+    const dy = (ev.clientY - startY) / scale.value
+    const next = { ...overrides.value }
+    for (const id of ids) {
+      const o = origins[id]
+      if (!o) continue
+      next[id] = { x: o.x + dx, y: o.y + dy }
+    }
+    overrides.value = next
+    if (persistentMarquee.value) {
+      persistentMarquee.value = {
+        startWf: { x: boxStart.x + dx, y: boxStart.y + dy },
+        endWf: { x: boxEnd.x + dx, y: boxEnd.y + dy },
+      }
+    }
+  }
+  function onUp() {
+    draggingIds.value = new Set()
+    frozenCanvasBounds.value = null
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+    document.removeEventListener('pointercancel', onUp)
+    const moved = ids.filter((id) => {
+      const o = origins[id]
+      const cur = overrides.value[id]
+      return o && cur && (Math.abs(o.x - cur.x) > 0.5 || Math.abs(o.y - cur.y) > 0.5)
+    })
+    if (moved.length === 0) {
+      persistOverrides()
+      return
+    }
+    const nextOverrides = { ...overrides.value }
+    for (const id of moved) {
+      const pos = overrides.value[id]
+      if (!pos) continue
+      if (!findNodeById(displayedGraph.value, id)) continue
+      const ok = applyStructuralOp({
+        kind: 'node_edit',
+        node_id: id,
+        patch: { position: { x: pos.x, y: pos.y } },
+      })
+      if (ok) delete nextOverrides[id]
+    }
+    overrides.value = nextOverrides
+    persistOverrides()
+    recordHistory()
+  }
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', onUp)
+  document.addEventListener('pointercancel', onUp)
+}
+
+// ── 2-finger touch gesture (pan + pinch) ──────────────────────────────────
+function startTouchGesture() {
+  const pts = [...activeTouchPointers.values()]
+  if (pts.length < 2) return
+  const p1 = pts[0]!
+  const p2 = pts[1]!
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const dist = Math.hypot(dx, dy) || 1
+  touchGesture = {
+    initialDist: dist,
+    initialCenter: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+    initialScale: scale.value,
+    initialOffset: { ...offset.value },
+  }
+}
+
+function updateTouchGesture() {
+  if (!touchGesture || !viewportEl.value) return
+  if (activeTouchPointers.size < 2) return
+  const pts = [...activeTouchPointers.values()]
+  const p1 = pts[0]!
+  const p2 = pts[1]!
+  const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1
+  const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  const rect = viewportEl.value.getBoundingClientRect()
+  // Pinch: scale around the initial centroid; the same canvas point should
+  // stay under the *current* centroid so the gesture feels anchored.
+  const factor = dist / touchGesture.initialDist
+  const newScale = Math.max(0.4, Math.min(2, touchGesture.initialScale * factor))
+  const c0v = {
+    x: touchGesture.initialCenter.x - rect.left,
+    y: touchGesture.initialCenter.y - rect.top,
+  }
+  const cNowV = { x: center.x - rect.left, y: center.y - rect.top }
+  const wx = (c0v.x - touchGesture.initialOffset.x) / touchGesture.initialScale
+  const wy = (c0v.y - touchGesture.initialOffset.y) / touchGesture.initialScale
+  scale.value = newScale
+  offset.value = {
+    x: cNowV.x - wx * newScale,
+    y: cNowV.y - wy * newScale,
+  }
+}
+
+function endTouchGesture() {
+  touchGesture = null
+}
+
+// ── Auto-zoom-out while marquee cursor leaves the viewport ────────────────
+// Anchored at the marquee START position (in screen coords) — keeps that
+// corner visually pinned while more canvas opens up on the side the cursor
+// is dragging toward. Speed scales with how far past the edge the cursor
+// has wandered, so a tiny overshoot zooms gently and a big one ramps up.
+let autoZoomRafId: number | null = null
+
+function ensureAutoZoomLoop() {
+  if (autoZoomRafId != null) return
+  autoZoomRafId = requestAnimationFrame(autoZoomStep)
+}
+
+function stopAutoZoomLoop() {
+  if (autoZoomRafId != null) {
+    cancelAnimationFrame(autoZoomRafId)
+    autoZoomRafId = null
+  }
+}
+
+function autoZoomStep() {
+  autoZoomRafId = null
+  const m = marqueeState.value
+  if (!m || !m.active || !viewportEl.value) return
+  const rect = viewportEl.value.getBoundingClientRect()
+  const cx = m.lastClientX
+  const cy = m.lastClientY
+  const overX = cx < rect.left ? rect.left - cx
+    : cx > rect.right ? cx - rect.right
+    : 0
+  const overY = cy < rect.top ? rect.top - cy
+    : cy > rect.bottom ? cy - rect.bottom
+    : 0
+  if (overX > 0 || overY > 0) {
+    const startScreen = workflowToViewport(m.startWf)
+    const oldScale = scale.value
+    const minScale = 0.4
+    const proximity = Math.min(1, Math.hypot(overX, overY) / 200)
+    const stepFactor = 1 - 0.06 * proximity
+    const newScale = Math.max(minScale, oldScale * stepFactor)
+    if (newScale !== oldScale) {
+      const wx = (startScreen.x - offset.value.x) / oldScale
+      const wy = (startScreen.y - offset.value.y) / oldScale
+      scale.value = newScale
+      offset.value = {
+        x: startScreen.x - wx * newScale,
+        y: startScreen.y - wy * newScale,
+      }
+    }
+    // Cursor's workflow position shifts under the new scale/offset — refresh
+    // the marquee end + hit-test before the next frame.
+    m.curWf = screenToWorkflow(cx, cy)
+    updateMarqueeSelection()
+  }
+  autoZoomRafId = requestAnimationFrame(autoZoomStep)
 }
 
 function fitToView() {
@@ -536,12 +1264,9 @@ function fitToView() {
   const padBottom = 120
   const padLeft = 72
   const padRight = 32
-  // Fit-to-view always snaps to 100% zoom — it re-centres the graph in
-  // the available (non-overlay) area without rescaling, regardless of
-  // whether the bbox would technically fit at a larger zoom.
-  scale.value = 1
   const nodes = visibleNodes.value
   if (nodes.length === 0) {
+    scale.value = 1
     offset.value = { x: 0, y: 0 }
     return
   }
@@ -562,19 +1287,33 @@ function fitToView() {
     if (p.x + s.w > nMaxX) nMaxX = p.x + s.w
     if (p.y + s.h > nMaxY) nMaxY = p.y + s.h
   }
+  // Scale to fit: pick the largest zoom level (clamped to the wheel-zoom
+  // bounds) at which the bbox fits inside the available area, with a 32 px
+  // breathing margin on each side. Never zoom in past 100% — fit-to-view
+  // is "show everything", not "magnify".
+  const bboxW = nMaxX - nMinX
+  const bboxH = nMaxY - nMinY
+  const availW = Math.max(1, rect.width - padLeft - padRight - 64)
+  const availH = Math.max(1, rect.height - padTop - padBottom - 64)
+  let fitScale = 1
+  if (bboxW > 0 && bboxH > 0) {
+    fitScale = Math.min(availW / bboxW, availH / bboxH, 1)
+  }
+  fitScale = Math.max(0.4, Math.min(2, fitScale))
+  scale.value = fitScale
   // Map the centre of the nodes' bbox (in workflow coords) to the
   // centre of the *available* (non-overlay) area, not the raw viewport.
   // The shift wrapper translates by (-canvasBounds.minX, -canvasBounds.minY)
   // before scale/offset, so a workflow point at X renders at
-  // (X - canvasBounds.minX) * scale + offset.x in the viewport.
+  // (X - canvasBounds.minX) * fitScale + offset.x in the viewport.
   const cb = canvasBounds.value
   const midX = (nMinX + nMaxX) / 2
   const midY = (nMinY + nMaxY) / 2
   const targetCx = (padLeft + (rect.width - padRight)) / 2
   const targetCy = (padTop + (rect.height - padBottom)) / 2
   offset.value = {
-    x: targetCx - (midX - cb.minX),
-    y: targetCy - (midY - cb.minY),
+    x: targetCx - (midX - cb.minX) * fitScale,
+    y: targetCy - (midY - cb.minY) * fitScale,
   }
 }
 
@@ -710,7 +1449,7 @@ onMounted(() => { seedHistoryOnce() })
 
 // If the workflow being viewed switches (a different draft / saved id),
 // reset the history so we don't undo across workflows.
-watch(positionsKey, () => {
+watch(selectedWorkflowId, () => {
   history.value = []
   historyPointer.value = -1
   historySeeded = false
@@ -895,17 +1634,36 @@ const selectionDetailNode = computed<NodeModel | null>(() => {
 // aren't selectable — they're layout anchors, not real edges.
 const selectedWireId = ref<string | null>(null)
 
+// `selectedWireId` stores the FULL wire id (prefix included). For real
+// wires that's `wire:<uuid>`; for spine wires it's `spine:<from>-><to>`.
+// `selectedWire` only resolves to a WorkflowWire for real wires — spine
+// wires have no underlying graph record.
 const selectedWire = computed(() => {
   if (!selectedWireId.value) return null
-  return findWireById(displayedGraph.value, selectedWireId.value)
+  if (!selectedWireId.value.startsWith('wire:')) return null
+  return findWireById(displayedGraph.value, selectedWireId.value.slice('wire:'.length))
 })
 
 function selectWire(wireId: string) {
-  if (!wireId.startsWith('wire:')) return
-  const wId = wireId.slice('wire:'.length)
-  if (!findWireById(displayedGraph.value, wId)) return
+  // Real wires must exist in the graph; user wires are canvas-local and
+  // valid by virtue of being rendered.
+  if (wireId.startsWith('wire:')) {
+    const wId = wireId.slice('wire:'.length)
+    if (!findWireById(displayedGraph.value, wId)) return
+  }
+  else if (!wireId.startsWith('user:')) {
+    return
+  }
+  if (persistentMarquee.value) persistentMarquee.value = null
   selected.value = new Set()
-  selectedWireId.value = wId
+  selectedWireIds.value = new Set()
+  selectedWireId.value = wireId
+  // Pull focus off any text input (typically the chat box at the bottom
+  // of the layout) so a follow-up Backspace / Delete reaches the canvas
+  // keydown handler instead of editing the input. Without this, clicking
+  // a wire selected it visually but Delete typed into the chat field.
+  const active = document.activeElement
+  if (active instanceof HTMLElement && isEditableFocus()) active.blur()
 }
 
 function clearWireSelection() {
@@ -913,34 +1671,64 @@ function clearWireSelection() {
 }
 
 function deleteSelectedWire() {
-  if (!selectedWireId.value) return
-  applyStructuralOp({ kind: 'wire_remove', wire_id: selectedWireId.value })
-  selectedWireId.value = null
+  const id = selectedWireId.value
+  if (!id) return
+  if (id.startsWith('wire:')) {
+    applyStructuralOp({ kind: 'wire_remove', wire_id: id.slice('wire:'.length) })
+    selectedWireId.value = null
+    return
+  }
+  if (id.startsWith('user:')) {
+    // Canvas-local extra (e.g. wire the user dragged to End). Just drop
+    // it from the in-memory list — there's no graph wire to remove.
+    userWires.value = userWires.value.filter(w => w.id !== id)
+    persistUserWires()
+    selectedWireId.value = null
+  }
 }
 
 // Wire endpoint drag — when a wire is selected, two grip dots appear at its
-// attachment points. Dragging one moves THAT end (the other end stays
-// anchored): drop on a different node to rewire there; drop on empty space
-// to disconnect (the wire is removed entirely).
+// attachment points. Dragging one moves THAT end (the other end stays put):
+// drop on a different node to rewire there; drop on empty space to leave
+// the end DETACHED at the drop position (the wire keeps its loose end
+// where the user released it, ready to be picked back up later).
+//
+// `fixedNodeId` is empty when the non-moving end is itself detached (a
+// wire can have both ends detached temporarily — re-grabbing the detached
+// end of a wire whose other end is also detached is the trivial way there).
 interface EndpointDragState {
   wireId: string
   movingEnd: 'from' | 'to'        // which end of the wire the user grabbed
-  fixedNodeId: string             // the node that stays anchored
-  fixedPt: Pt                     // its attachment point (workflow coords)
-  fixedSide: Side                 // side of the anchored node the wire leaves from
+  fixedNodeId: string             // anchored node id; empty when the fixed end is itself detached
+  fixedPt: Pt                     // the fixed end's attachment point (workflow coords)
+  fixedSide: Side                 // side the wire leaves the fixed end from
   currPos: Pt                     // cursor position in workflow coords
-  targetId: string | null         // candidate target node, if any
+  targetId: string | null         // snapped target node id (only when within SNAP_DIST of a side circle)
+  targetSide: Side | null         // snapped target side; pinned together with targetId
+  snappedPt: Pt | null            // the snap-target side-centre, in workflow coords
   isDragging: boolean
 }
 const endpointDrag = ref<EndpointDragState | null>(null)
+
+// Snap distance, in workflow (canvas) coords. The cursor must come within this
+// of a node's side-centre for the endpoint to lock onto it. NODE_W / 4 lands
+// at 60 px which is forgiving without being so loose that drops in empty
+// space register as a connection.
+const ENDPOINT_SNAP_DIST = 20
 
 function onEndpointPointerDown(e: PointerEvent, w: WireGeom, end: 'from' | 'to') {
   e.stopPropagation()
   e.preventDefault()
   if (e.button !== 0) return
-  if (!w.selectable) return
+  // `clickable` covers persisted `wire:` edges plus canvas-local `user:`
+  // wires (the latter cover wires touching the synthetic Start / End
+  // terminals). Both shapes commit via their own branch in
+  // `commitEndpointDrag` keyed on the full wire id prefix.
+  if (!w.clickable) return
   if (!attemptEdit()) return
-  const wireId = w.id.slice('wire:'.length)
+  // Store the FULL wire id (`wire:` or `user:` prefix included) so the
+  // commit can dispatch to the right storage on release.
+  const wireId = w.id
   const fixedNodeId = end === 'from' ? w.toId : w.fromId
   const fixedPt = end === 'from' ? w.p2 : w.p1
   const fixedSide = end === 'from' ? w.toSide : w.fromSide
@@ -953,6 +1741,8 @@ function onEndpointPointerDown(e: PointerEvent, w: WireGeom, end: 'from' | 'to')
     fixedSide,
     currPos: startWf,
     targetId: null,
+    targetSide: null,
+    snappedPt: null,
     isDragging: false,
   }
   const screenStartX = e.clientX
@@ -965,8 +1755,23 @@ function onEndpointPointerDown(e: PointerEvent, w: WireGeom, end: 'from' | 'to')
     const moved = Math.hypot(dx, dy)
     const wfPos = screenToWorkflow(ev.clientX, ev.clientY)
     const isDragging = endpointDrag.value.isDragging || moved >= DRAG_THRESHOLD
-    const targetId = isDragging ? findTargetAt(wfPos, endpointDrag.value.fixedNodeId) : null
-    endpointDrag.value = { ...endpointDrag.value, currPos: wfPos, isDragging, targetId }
+    // Snap-target search: the endpoint locks onto a node's side-centre only
+    // when the cursor is within ENDPOINT_SNAP_DIST. Releasing without a snap
+    // leaves the wire unchanged (see commitEndpointDrag). User wires can
+    // attach to terminals (that's why they live in `userWires` to begin
+    // with), so we opt in to terminal targets for the `user:` branch.
+    const allowTerminals = endpointDrag.value.wireId.startsWith('user:')
+    const hit = isDragging
+      ? findSnapTargetAt(wfPos, endpointDrag.value.fixedNodeId, allowTerminals)
+      : null
+    endpointDrag.value = {
+      ...endpointDrag.value,
+      currPos: wfPos,
+      isDragging,
+      targetId: hit?.nodeId ?? null,
+      targetSide: hit?.side ?? null,
+      snappedPt: hit?.pt ?? null,
+    }
   }
 
   function onUp() {
@@ -986,42 +1791,406 @@ function commitEndpointDrag() {
   if (!drag) return
   endpointDrag.value = null
   if (!drag.isDragging) return
-  const oldWire = findWireById(displayedGraph.value, drag.wireId)
+  // Dispatch on the wire id prefix — persisted `wire:` edges support
+  // detached endpoints + metadata; canvas-local `user:` wires (those
+  // touching the synthetic Start / End anchors) only support endpoint
+  // reassignment in place, or promotion to a real graph wire once both
+  // ends become real nodes.
+  if (drag.wireId.startsWith('wire:')) commitEndpointDragForGraphWire(drag)
+  else if (drag.wireId.startsWith('user:')) commitEndpointDragForUserWire(drag)
+}
+
+function commitEndpointDragForGraphWire(drag: EndpointDragState) {
+  const realId = drag.wireId.slice('wire:'.length)
+  const oldWire = findWireById(displayedGraph.value, realId)
   if (!oldWire) return
-  // Empty-space drop → disconnect (remove the edge).
-  if (!drag.targetId) {
-    applyStructuralOp({ kind: 'wire_remove', wire_id: drag.wireId })
-    selectedWireId.value = null
-    return
+  // Resolve the MOVING end's new state. Two shapes:
+  //   • snapped on a node side → anchored: id=target, side=snapped, pos=clear
+  //   • dropped in empty space → detached: id="", side stays, pos=drop point
+  // The fixed end is untouched in both cases.
+  let movingNodeId: string
+  let movingSide: Side | undefined
+  let movingPos: { x: number; y: number } | undefined
+  if (drag.targetId && drag.targetSide) {
+    // Drop on a node side — self-loop guard: dropping back onto the
+    // anchored node would make the wire reference the same node on
+    // both ends, which isn't what the user is asking for.
+    if (drag.targetId && drag.targetId === drag.fixedNodeId) return
+    movingNodeId = drag.targetId
+    movingSide = drag.targetSide
+    movingPos = undefined
+  } else {
+    // Drop in empty space — persist the drop point so the loose end
+    // stays where the user released it.
+    movingNodeId = ''
+    movingSide = drag.movingEnd === 'from' ? oldWire.from_side : oldWire.to_side
+    movingPos = { x: drag.currPos.x, y: drag.currPos.y }
   }
-  // Dropped back on the anchored node — that would create a self-loop on
-  // the fixed node, which isn't what the user is asking for. No-op.
-  if (drag.targetId === drag.fixedNodeId) return
-  // Compute the rewired endpoints.
-  const newFromId = drag.movingEnd === 'from' ? drag.targetId : drag.fixedNodeId
-  const newToId = drag.movingEnd === 'from' ? drag.fixedNodeId : drag.targetId
-  // No-op if the user dropped back on the same target node (endpoints
-  // unchanged) — avoids a redundant remove/add cycle.
-  if (newFromId === oldWire.from_id && newToId === oldWire.to_id) return
-  // Refuse duplicates of an existing edge between these endpoints.
-  const duplicate = displayedGraph.value.wires.some(
-    e => e.id !== drag.wireId && e.from_id === newFromId && e.to_id === newToId,
-  )
-  if (duplicate) {
-    toast.show(t('workflow.duplicateEdgeToast'), 'warning', 4000)
-    return
+  // Compose the new wire from old + moving-end overrides.
+  const newFromId = drag.movingEnd === 'from' ? movingNodeId : oldWire.from_id
+  const newToId = drag.movingEnd === 'to' ? movingNodeId : oldWire.to_id
+  const newFromSide = drag.movingEnd === 'from' ? movingSide : oldWire.from_side
+  const newToSide = drag.movingEnd === 'to' ? movingSide : oldWire.to_side
+  const newFromPos = drag.movingEnd === 'from' ? movingPos : oldWire.from_pos
+  const newToPos = drag.movingEnd === 'to' ? movingPos : oldWire.to_pos
+  // No-op when nothing observable changed (commonly: the user grabbed
+  // and released without moving).
+  if (
+    newFromId === oldWire.from_id
+    && newToId === oldWire.to_id
+    && newFromSide === oldWire.from_side
+    && newToSide === oldWire.to_side
+    && newFromPos === oldWire.from_pos
+    && newToPos === oldWire.to_pos
+  ) return
+  // Duplicate-edge guard applies only when both ends are anchored —
+  // two floating ends in empty space can't meaningfully duplicate.
+  if (newFromId && newToId) {
+    const duplicate = displayedGraph.value.wires.some(
+      e => e.id !== realId && e.from_id === newFromId && e.to_id === newToId,
+    )
+    if (duplicate) {
+      toast.show(t('workflow.duplicateEdgeToast'), 'warning', 4000)
+      return
+    }
   }
-  // Preserve label / condition / max_iterations across the rewire — the
-  // user is moving the same logical connection, not authoring a new one.
-  const newWire: WorkflowWire = { id: '', from_id: newFromId, to_id: newToId }
+  const newWire: WorkflowWire = {
+    id: '',
+    from_id: newFromId,
+    to_id: newToId,
+  }
+  if (newFromSide) newWire.from_side = newFromSide
+  if (newToSide) newWire.to_side = newToSide
+  if (newFromPos) newWire.from_pos = newFromPos
+  if (newToPos) newWire.to_pos = newToPos
   if (oldWire.label) newWire.label = oldWire.label
   if (oldWire.condition) newWire.condition = oldWire.condition
   if (typeof oldWire.max_iterations === 'number' && oldWire.max_iterations > 0) {
     newWire.max_iterations = oldWire.max_iterations
   }
-  if (!applyStructuralOp({ kind: 'wire_remove', wire_id: drag.wireId })) return
+  if (!applyStructuralOp({ kind: 'wire_remove', wire_id: realId })) return
   applyStructuralOp({ kind: 'wire_add', wire: newWire })
   selectedWireId.value = null
+}
+
+function commitEndpointDragForUserWire(drag: EndpointDragState) {
+  const existing = userWires.value.find(w => w.id === drag.wireId)
+  if (!existing) return
+  // Resolve the MOVING end's new state — same two shapes as the graph
+  // wire path:
+  //   • snap on a node side → anchored: id=target, side=snapped, pos=clear
+  //   • drop in empty space → detached: id="", side stays, pos=drop point
+  let movingId: string
+  let movingSide: Side | undefined
+  let movingPos: Pt | undefined
+  if (drag.targetId && drag.targetSide) {
+    if (drag.targetId === drag.fixedNodeId) return
+    movingId = drag.targetId
+    movingSide = drag.targetSide
+    movingPos = undefined
+  } else {
+    movingId = ''
+    movingSide = drag.movingEnd === 'from' ? existing.fromSide : existing.toSide
+    movingPos = { x: drag.currPos.x, y: drag.currPos.y }
+  }
+  const newFromId = drag.movingEnd === 'from' ? movingId : existing.fromId
+  const newToId = drag.movingEnd === 'to' ? movingId : existing.toId
+  const newFromSide = drag.movingEnd === 'from' ? movingSide : existing.fromSide
+  const newToSide = drag.movingEnd === 'to' ? movingSide : existing.toSide
+  const newFromPos = drag.movingEnd === 'from' ? movingPos : existing.fromPos
+  const newToPos = drag.movingEnd === 'to' ? movingPos : existing.toPos
+  if (
+    newFromId === existing.fromId
+    && newToId === existing.toId
+    && newFromSide === existing.fromSide
+    && newToSide === existing.toSide
+    && newFromPos === existing.fromPos
+    && newToPos === existing.toPos
+  ) return
+  // If both endpoints are now real graph nodes, promote to a persisted
+  // wire — the user has effectively converted the canvas-local sketch
+  // into a real graph edge that the orchestrator can run.
+  const fromInGraph = !!newFromId && !!findNodeById(displayedGraph.value, newFromId)
+  const toInGraph = !!newToId && !!findNodeById(displayedGraph.value, newToId)
+  if (fromInGraph && toInGraph) {
+    if (
+      displayedGraph.value.wires.some(e => e.from_id === newFromId && e.to_id === newToId)
+    ) {
+      toast.show(t('workflow.duplicateEdgeToast'), 'warning', 4000)
+      return
+    }
+    const graphWire: WorkflowWire = { id: '', from_id: newFromId, to_id: newToId }
+    if (newFromSide) graphWire.from_side = newFromSide
+    if (newToSide) graphWire.to_side = newToSide
+    if (applyStructuralOp({ kind: 'wire_add', wire: graphWire })) {
+      userWires.value = userWires.value.filter(w => w.id !== existing.id)
+      persistUserWires()
+      recordHistory()
+    }
+    selectedWireId.value = null
+    return
+  }
+  // Still touches a terminal / spawn-extra (or has a floating end) —
+  // keep as a user wire with the moving endpoint reassigned in place.
+  const next: UserWire = { id: existing.id, fromId: newFromId, toId: newToId }
+  if (newFromSide) next.fromSide = newFromSide
+  if (newToSide) next.toSide = newToSide
+  if (newFromPos) next.fromPos = newFromPos
+  if (newToPos) next.toPos = newToPos
+  userWires.value = userWires.value.map(w => (w.id === existing.id ? next : w))
+  persistUserWires()
+  recordHistory()
+  selectedWireId.value = null
+}
+
+// ── Wire body drag ──────────────────────────────────────────────────────────
+// Grabbing a SELECTED wire's body (the transparent hit zone, not the white
+// grip dots) translates both endpoints by the cursor delta. On release each
+// end either snaps onto a node (linking by id) or stays at its translated
+// position (floating via `*_pos`). Same gesture as moving a node, scoped to
+// the wire so the user can reposition a wire as a single object.
+interface WireBodyDragState {
+  wireId: string         // full prefixed id (`wire:` or `user:`)
+  startCursor: Pt        // workflow coords at pointerdown
+  delta: Pt              // cursor offset since startCursor
+  origFromId: string     // empty when the start state was detached
+  origToId: string
+  origFromPos: Pt        // resolved start position (node side-centre or floating)
+  origToPos: Pt
+  origFromSide: Side
+  origToSide: Side
+  fromSnap: SnapHit | null
+  toSnap: SnapHit | null
+  isDragging: boolean
+}
+const wireBodyDrag = ref<WireBodyDragState | null>(null)
+
+function onWireBodyPointerDown(e: PointerEvent, w: WireGeom) {
+  if (e.button !== 0) return
+  if (!w.clickable) return
+  // Wire-body drag only fires on the ALREADY-selected wire. First click
+  // selects via `@click.stop="selectWire(...)"`, second click + move
+  // starts the drag — same single/double interaction as a node.
+  if (selectedWireId.value !== w.id) return
+  if (!attemptEdit()) return
+  e.stopPropagation()
+  e.preventDefault()
+  const startWf = screenToWorkflow(e.clientX, e.clientY)
+  wireBodyDrag.value = {
+    wireId: w.id,
+    startCursor: startWf,
+    delta: { x: 0, y: 0 },
+    origFromId: w.fromId,
+    origToId: w.toId,
+    origFromPos: { ...w.p1 },
+    origToPos: { ...w.p2 },
+    origFromSide: w.fromSide,
+    origToSide: w.toSide,
+    fromSnap: null,
+    toSnap: null,
+    isDragging: false,
+  }
+  const screenStartX = e.clientX
+  const screenStartY = e.clientY
+  // User wires accept terminal snap targets at either end; graph wires
+  // can't reference synthetic Start/End, so terminals stay excluded.
+  const allowTerminals = w.id.startsWith('user:')
+
+  function onMove(ev: PointerEvent) {
+    if (!wireBodyDrag.value) return
+    const dx = ev.clientX - screenStartX
+    const dy = ev.clientY - screenStartY
+    const moved = Math.hypot(dx, dy)
+    const wfPos = screenToWorkflow(ev.clientX, ev.clientY)
+    const delta = { x: wfPos.x - startWf.x, y: wfPos.y - startWf.y }
+    const isDragging = wireBodyDrag.value.isDragging || moved >= DRAG_THRESHOLD
+    let fromSnap: SnapHit | null = null
+    let toSnap: SnapHit | null = null
+    if (isDragging) {
+      const newFromPt = {
+        x: wireBodyDrag.value.origFromPos.x + delta.x,
+        y: wireBodyDrag.value.origFromPos.y + delta.y,
+      }
+      const newToPt = {
+        x: wireBodyDrag.value.origToPos.x + delta.x,
+        y: wireBodyDrag.value.origToPos.y + delta.y,
+      }
+      // Find snap targets for each end independently; nothing is
+      // excluded because both endpoints are moving.
+      fromSnap = findSnapTargetAt(newFromPt, '', allowTerminals)
+      toSnap = findSnapTargetAt(newToPt, '', allowTerminals)
+      // Self-loop guard: if both ends would snap to the same node, drop
+      // whichever match is further from its own endpoint position.
+      if (fromSnap && toSnap && fromSnap.nodeId === toSnap.nodeId) {
+        const fd = Math.hypot(newFromPt.x - fromSnap.pt.x, newFromPt.y - fromSnap.pt.y)
+        const td = Math.hypot(newToPt.x - toSnap.pt.x, newToPt.y - toSnap.pt.y)
+        if (fd <= td) toSnap = null
+        else fromSnap = null
+      }
+    }
+    wireBodyDrag.value = {
+      ...wireBodyDrag.value,
+      delta,
+      isDragging,
+      fromSnap,
+      toSnap,
+    }
+  }
+
+  function onUp() {
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+    document.removeEventListener('pointercancel', onUp)
+    commitWireBodyDrag()
+  }
+
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', onUp)
+  document.addEventListener('pointercancel', onUp)
+}
+
+// Live geometry for the in-flight wire-body drag. Mirrors the resting
+// wire but with both endpoints translated by `delta`. Snapped ends
+// clip to the snap target's side-centre so the preview shows where
+// the wire would land on release.
+const wireBodyDragGeom = computed<{ d: string } | null>(() => {
+  const drag = wireBodyDrag.value
+  if (!drag || !drag.isDragging) return null
+  const fromSide = drag.fromSnap ? drag.fromSnap.side : drag.origFromSide
+  const toSide = drag.toSnap ? drag.toSnap.side : drag.origToSide
+  // Snapped ends: convert the snap circle position back to the drawn
+  // endpoint so the arrowhead tip kisses the circle's outer edge while
+  // held (matches resting state). Unsnapped ends: same translate-by-delta
+  // path as before, then shortened via `wireDrawnEndPt`.
+  const fromDrawn = drag.fromSnap
+    ? wireDrawnEndPtFromSnap(drag.fromSnap.pt, drag.fromSnap.side)
+    : wireDrawnEndPt(
+      { x: drag.origFromPos.x + drag.delta.x, y: drag.origFromPos.y + drag.delta.y },
+      fromSide,
+    )
+  const toDrawn = drag.toSnap
+    ? wireDrawnEndPtFromSnap(drag.toSnap.pt, drag.toSnap.side)
+    : wireDrawnEndPt(
+      { x: drag.origToPos.x + drag.delta.x, y: drag.origToPos.y + drag.delta.y },
+      toSide,
+    )
+  const wt = settings.value.wireType ?? 'fluid'
+  // Exclude both anchor nodes (and any node the wire has snapped to
+  // mid-drag) from obstacles so the preview doesn't self-collide with
+  // its own endpoint cards.
+  const obstacles = obstaclesExcept(
+    drag.origFromId,
+    drag.origToId,
+    drag.fromSnap?.nodeId,
+    drag.toSnap?.nodeId,
+  )
+  return { d: routedWirePath(fromDrawn, toDrawn, fromSide, toSide, wt, obstacles) }
+})
+
+function commitWireBodyDrag() {
+  const drag = wireBodyDrag.value
+  if (!drag) return
+  wireBodyDrag.value = null
+  if (!drag.isDragging) return
+  const newFromPt = {
+    x: drag.origFromPos.x + drag.delta.x,
+    y: drag.origFromPos.y + drag.delta.y,
+  }
+  const newToPt = {
+    x: drag.origToPos.x + drag.delta.x,
+    y: drag.origToPos.y + drag.delta.y,
+  }
+  // Resolve each end: snap → anchored (id + side); else → detached
+  // (empty id + floating pos).
+  const newFromId = drag.fromSnap ? drag.fromSnap.nodeId : ''
+  const newToId = drag.toSnap ? drag.toSnap.nodeId : ''
+  const newFromSide = drag.fromSnap ? drag.fromSnap.side : drag.origFromSide
+  const newToSide = drag.toSnap ? drag.toSnap.side : drag.origToSide
+  const newFromPos = drag.fromSnap ? undefined : newFromPt
+  const newToPos = drag.toSnap ? undefined : newToPt
+  if (drag.wireId.startsWith('wire:')) {
+    commitWireBodyDragForGraphWire(drag.wireId.slice('wire:'.length), {
+      newFromId, newToId, newFromSide, newToSide, newFromPos, newToPos,
+    })
+  }
+  else if (drag.wireId.startsWith('user:')) {
+    commitWireBodyDragForUserWire(drag.wireId, {
+      newFromId, newToId, newFromSide, newToSide, newFromPos, newToPos,
+    })
+  }
+}
+
+interface WireBodyDragCommit {
+  newFromId: string
+  newToId: string
+  newFromSide: Side
+  newToSide: Side
+  newFromPos: Pt | undefined
+  newToPos: Pt | undefined
+}
+
+function commitWireBodyDragForGraphWire(realId: string, next: WireBodyDragCommit) {
+  const oldWire = findWireById(displayedGraph.value, realId)
+  if (!oldWire) return
+  // Duplicate-edge guard: only meaningful when both ends anchor to real nodes.
+  if (next.newFromId && next.newToId) {
+    const duplicate = displayedGraph.value.wires.some(
+      e => e.id !== realId && e.from_id === next.newFromId && e.to_id === next.newToId,
+    )
+    if (duplicate) {
+      toast.show(t('workflow.duplicateEdgeToast'), 'warning', 4000)
+      return
+    }
+  }
+  const newWire: WorkflowWire = {
+    id: '',
+    from_id: next.newFromId,
+    to_id: next.newToId,
+  }
+  if (next.newFromSide) newWire.from_side = next.newFromSide
+  if (next.newToSide) newWire.to_side = next.newToSide
+  if (next.newFromPos) newWire.from_pos = next.newFromPos
+  if (next.newToPos) newWire.to_pos = next.newToPos
+  if (oldWire.label) newWire.label = oldWire.label
+  if (oldWire.condition) newWire.condition = oldWire.condition
+  if (typeof oldWire.max_iterations === 'number' && oldWire.max_iterations > 0) {
+    newWire.max_iterations = oldWire.max_iterations
+  }
+  if (!applyStructuralOp({ kind: 'wire_remove', wire_id: realId })) return
+  applyStructuralOp({ kind: 'wire_add', wire: newWire })
+}
+
+function commitWireBodyDragForUserWire(wireId: string, next: WireBodyDragCommit) {
+  const existing = userWires.value.find(w => w.id === wireId)
+  if (!existing) return
+  // Promote to a graph wire when both ends land on real graph nodes.
+  const fromInGraph = !!next.newFromId && !!findNodeById(displayedGraph.value, next.newFromId)
+  const toInGraph = !!next.newToId && !!findNodeById(displayedGraph.value, next.newToId)
+  if (fromInGraph && toInGraph) {
+    if (
+      displayedGraph.value.wires.some(e => e.from_id === next.newFromId && e.to_id === next.newToId)
+    ) {
+      toast.show(t('workflow.duplicateEdgeToast'), 'warning', 4000)
+      return
+    }
+    const graphWire: WorkflowWire = { id: '', from_id: next.newFromId, to_id: next.newToId }
+    if (next.newFromSide) graphWire.from_side = next.newFromSide
+    if (next.newToSide) graphWire.to_side = next.newToSide
+    if (applyStructuralOp({ kind: 'wire_add', wire: graphWire })) {
+      userWires.value = userWires.value.filter(w => w.id !== wireId)
+      persistUserWires()
+      recordHistory()
+    }
+    return
+  }
+  const replacement: UserWire = { id: existing.id, fromId: next.newFromId, toId: next.newToId }
+  if (next.newFromSide) replacement.fromSide = next.newFromSide
+  if (next.newToSide) replacement.toSide = next.newToSide
+  if (next.newFromPos) replacement.fromPos = next.newFromPos
+  if (next.newToPos) replacement.toPos = next.newToPos
+  userWires.value = userWires.value.map(w => (w.id === wireId ? replacement : w))
+  persistUserWires()
+  recordHistory()
 }
 
 // ── Drag node ───────────────────────────────────────────────────────────────
@@ -1055,6 +2224,12 @@ function onNodePointerDown(e: PointerEvent, node: NodeModel) {
   // Hide the node-details panel while the pointer is down; only a true
   // click (pointerup without drag movement) re-opens it below.
   showNodeDetails.value = false
+  // Single-click on a node retires the persistent marquee — the user is
+  // moving on to a per-node interaction.
+  if (persistentMarquee.value) {
+    persistentMarquee.value = null
+    selectedWireIds.value = new Set()
+  }
   if (!selected.value.has(node.id)) {
     selectNode(node.id, e.shiftKey || e.metaKey || e.ctrlKey)
   }
@@ -1263,8 +2438,13 @@ function onPlacingClick(ev: MouseEvent) {
   // Swallow the click so it doesn't bubble into pan / select handlers.
   ev.stopPropagation()
   ev.preventDefault()
-  const pos = placingNode.value
-  const addOp: WorkflowOp = { kind: 'node_add', node: { id: '' } }
+  // Snap to grid + jitter off any existing node at the same coords so a
+  // freshly placed node always lands somewhere visible.
+  const pos = findFreePlacement(placingNode.value)
+  // Commit `position` directly on the new node so it renders at the placed
+  // location without needing a transient overlay. The node carries its own
+  // geometry from creation onward.
+  const addOp: WorkflowOp = { kind: 'node_add', node: { id: '', position: pos } }
   const result = applyOp(displayedGraph.value, addOp)
   if (!result.ok) {
     toast.show(result.error, 'warning', 4000)
@@ -1275,9 +2455,6 @@ function onPlacingClick(ev: MouseEvent) {
   userGraph.value = result.graph
   editedDraft.value = {}
   dirtyNodeIds.value = new Set()
-  overrides.value = { ...overrides.value, [newId]: pos }
-  persistOverrides()
-  scheduleAutoSave()
   selected.value = new Set([newId])
   recordHistory()
   cancelPlacing()
@@ -1289,6 +2466,211 @@ function cancelPlacing() {
   document.removeEventListener('click', onPlacingClick, true)
   document.removeEventListener('keydown', onPlacingKey)
 }
+
+// ── Manual wire placement ──────────────────────────────────────────────────
+// The "draw wire" toolbar button starts a two-click gesture: click 1 sets
+// the tail (latched to a node port if the cursor is on one, free coords
+// otherwise); click 2 sets the head with the same rules. Between clicks
+// the cursor trails a rubber-band wire so the user can see what they're
+// about to commit. Escape cancels.
+interface PlacingWireEndpoint {
+  nodeId?: string
+  side?: Side
+  pos: Pt
+}
+interface PlacingWireState {
+  phase: 'tail' | 'head'
+  cursor: Pt
+  snap: SnapHit | null
+  tail: PlacingWireEndpoint | null
+}
+const placingWire = ref<PlacingWireState | null>(null)
+
+// Gesture-down screen coords + whether the pointerdown that started this
+// gesture also placed the tail. Drives drag-vs-click discrimination on
+// pointerup. Kept outside the reactive ref so writing it doesn't trigger
+// re-renders.
+interface PlacingWireGesture {
+  downScreen: { x: number; y: number }
+  dragStartedFromTail: boolean
+}
+let placingWireGesture: PlacingWireGesture | null = null
+
+function startPlacingWire() {
+  if (placingWire.value) {
+    cancelPlacingWire()
+    return
+  }
+  if (!attemptEdit()) return
+  // Mutually exclusive with node placement — pressing one while the other
+  // is armed should swap, not stack both gestures' listeners.
+  if (placingNode.value) cancelPlacing()
+  placingWire.value = { phase: 'tail', cursor: { x: 0, y: 0 }, snap: null, tail: null }
+  placingWireGesture = null
+  document.addEventListener('pointermove', onPlacingWireMove)
+  document.addEventListener('pointerdown', onPlacingWireDown, true)
+  document.addEventListener('pointerup', onPlacingWireUp, true)
+  document.addEventListener('keydown', onPlacingWireKey)
+}
+
+function onPlacingWireMove(ev: PointerEvent) {
+  if (!placingWire.value) return
+  const wf = screenToWorkflow(ev.clientX, ev.clientY)
+  // Head-phase can't latch back onto the tail's own node (that would be a
+  // self-loop, which the wire-add validator rejects). Terminals are
+  // allowed as either end — same rule as the port-drag flow.
+  const excludeId = placingWire.value.phase === 'head'
+    ? placingWire.value.tail?.nodeId ?? ''
+    : ''
+  const snap = findSnapTargetAt(wf, excludeId, true)
+  placingWire.value = { ...placingWire.value, cursor: wf, snap }
+}
+
+function onPlacingWireKey(ev: KeyboardEvent) {
+  if (ev.key === 'Escape') {
+    ev.stopPropagation()
+    cancelPlacingWire()
+  }
+}
+
+// Pointerdown opens a gesture. In tail phase it places the tail (latched
+// or free) and transitions to head; the head will commit on the matching
+// pointerup if the user dragged, otherwise we stay in head waiting for
+// another gesture (click-click flow). In head phase pointerdown only
+// records the gesture start — the second click / drag-end commits on its
+// pointerup so the wire lands at the release coords, not at the press.
+function onPlacingWireDown(ev: PointerEvent) {
+  if (!placingWire.value) return
+  if (ev.button !== 0) return
+  const target = ev.target as Element | null
+  if (!target || !viewportEl.value?.contains(target)) {
+    cancelPlacingWire()
+    return
+  }
+  // Wire-tool owns the gesture — block the canvas pan / port drag / node
+  // pointerdown handlers that would otherwise fire on the same press.
+  ev.stopPropagation()
+  ev.preventDefault()
+  const wf = screenToWorkflow(ev.clientX, ev.clientY)
+  const state = placingWire.value
+  const excludeId = state.phase === 'head' ? state.tail?.nodeId ?? '' : ''
+  const snap = findSnapTargetAt(wf, excludeId, true)
+  if (state.phase === 'tail') {
+    const tail: PlacingWireEndpoint = snap
+      ? { nodeId: snap.nodeId, side: snap.side, pos: snap.pt }
+      : { pos: { ...wf } }
+    placingWire.value = { ...state, phase: 'head', tail, snap: null, cursor: wf }
+    placingWireGesture = {
+      downScreen: { x: ev.clientX, y: ev.clientY },
+      dragStartedFromTail: true,
+    }
+    return
+  }
+  // Phase 'head' — record gesture start. Commit happens on pointerup.
+  placingWire.value = { ...state, snap, cursor: wf }
+  placingWireGesture = {
+    downScreen: { x: ev.clientX, y: ev.clientY },
+    dragStartedFromTail: false,
+  }
+}
+
+function onPlacingWireUp(ev: PointerEvent) {
+  if (!placingWire.value || !placingWireGesture) return
+  if (ev.button !== 0) return
+  const gesture = placingWireGesture
+  placingWireGesture = null
+  const state = placingWire.value
+  // Only the head commits on pointerup. Tail-only gestures (a quick click
+  // that just placed the tail) end here without committing — the user is
+  // free to either drag-from-elsewhere or click again to set the head.
+  if (state.phase !== 'head') return
+  const dx = ev.clientX - gesture.downScreen.x
+  const dy = ev.clientY - gesture.downScreen.y
+  const moved = Math.hypot(dx, dy) >= DRAG_THRESHOLD
+  // Two valid commit moments:
+  //  • Drag flow: pointerdown placed the tail in this same gesture AND
+  //    the user dragged before releasing → release coord is the head.
+  //  • Click-click flow: pointerdown happened with the tail already set
+  //    (separate gesture from the one that placed it) → release coord
+  //    is the head regardless of movement, matching the old click flow.
+  const shouldCommit = gesture.dragStartedFromTail ? moved : true
+  if (!shouldCommit) return
+  ev.stopPropagation()
+  ev.preventDefault()
+  const head: PlacingWireEndpoint = state.snap
+    ? { nodeId: state.snap.nodeId, side: state.snap.side, pos: state.snap.pt }
+    : { pos: { ...state.cursor } }
+  commitPlacedWire(state.tail!, head)
+  cancelPlacingWire()
+}
+
+function commitPlacedWire(tail: PlacingWireEndpoint, head: PlacingWireEndpoint) {
+  // Self-loop guard — same rule the port-drag flow enforces in addUserWire.
+  if (tail.nodeId && head.nodeId && tail.nodeId === head.nodeId) return
+  // Both ends anchored on a node: delegate to `addUserWire`, which already
+  // routes between persisted `wire_add` (both ends real graph nodes) and
+  // the canvas-local `userWires` fallback (one or both ends are a synthetic
+  // terminal like Start / End that the wire-add validator rejects).
+  if (tail.nodeId && head.nodeId) {
+    const newId = addUserWire(tail.nodeId, head.nodeId, tail.side, head.side)
+    if (newId) selectWire(newId)
+    return
+  }
+  // At least one end is free — use the persisted wire's detached-endpoint
+  // path. A free end anchored on a terminal is converted to a floating
+  // coord here too, since the validator can't accept the terminal id.
+  const wire: WorkflowWire = { id: '', from_id: '', to_id: '' }
+  if (tail.nodeId && findNodeById(displayedGraph.value, tail.nodeId)) {
+    wire.from_id = tail.nodeId
+    if (tail.side) wire.from_side = tail.side
+  }
+  else {
+    wire.from_pos = { x: tail.pos.x, y: tail.pos.y }
+  }
+  if (head.nodeId && findNodeById(displayedGraph.value, head.nodeId)) {
+    wire.to_id = head.nodeId
+    if (head.side) wire.to_side = head.side
+  }
+  else {
+    wire.to_pos = { x: head.pos.x, y: head.pos.y }
+  }
+  if (applyStructuralOp({ kind: 'wire_add', wire })) {
+    recordHistory()
+    selectWire(`wire:${wire.id}`)
+  }
+}
+
+function cancelPlacingWire() {
+  placingWire.value = null
+  placingWireGesture = null
+  document.removeEventListener('pointermove', onPlacingWireMove)
+  document.removeEventListener('pointerdown', onPlacingWireDown, true)
+  document.removeEventListener('pointerup', onPlacingWireUp, true)
+  document.removeEventListener('keydown', onPlacingWireKey)
+}
+
+// Rubber-band wire that trails the cursor after the tail click is placed.
+// Reuses the same `buildWirePath` the live wires use so the preview looks
+// identical to the wire that will commit on the second click.
+const placingWireGeom = computed<{ d: string } | null>(() => {
+  const state = placingWire.value
+  if (!state || state.phase !== 'head' || !state.tail) return null
+  const fromSide: Side = state.tail.side ?? 'right'
+  // If the tail latched onto a side circle, push its drawn endpoint outward
+  // so the wire stroke kisses the circle's outer edge instead of disappearing
+  // under it; falls back to the raw cursor position for an unsnapped tail.
+  const tailPos = state.tail.side
+    ? wireDrawnEndPtFromSnap(state.tail.pos, state.tail.side)
+    : state.tail.pos
+  const head = state.snap
+    ? { pos: wireDrawnEndPtFromSnap(state.snap.pt, state.snap.side), side: state.snap.side }
+    : { pos: state.cursor, side: oppositeSide(fromSide) }
+  const wt = settings.value.wireType ?? 'fluid'
+  // Exclude the tail node and any node the head has snapped to so the
+  // preview doesn't try to route around its own endpoint cards.
+  const obstacles = obstaclesExcept(state.tail.nodeId, state.snap?.nodeId)
+  return { d: routedWirePath(tailPos, head.pos, fromSide, head.side, wt, obstacles) }
+})
 
 // ── Port click → spawn a new linked node ────────────────────────────────────
 function spawnFromPort(parent: NodeModel, side: Side) {
@@ -1307,11 +2689,13 @@ function spawnFromPort(parent: NodeModel, side: Side) {
     case 'top': y = pp.y - NODE_H - SPAWN_GAP; break
     case 'bottom': y = pp.y + ps.h + SPAWN_GAP; break
   }
-  // Create a real graph node (not a canvas-local "extra"), so it survives
-  // reset-layout, gets saved with the version, and is visible to the run
-  // executor / orchestrator. The op assigns an id back into op.node.id; we
-  // chain an edge_add from the parent so the new node is wired in.
-  const addNode: WorkflowOp = { kind: 'node_add', node: { id: '' } }
+  // Create a real graph node (not a canvas-local "extra") with its position
+  // baked in, so it survives reset-layout, gets saved with the version, and
+  // is visible to the run executor / orchestrator. The op assigns an id back
+  // into op.node.id; we chain a wire_add from the parent so the new node is
+  // wired in.
+  const spawnPos = snapPt({ x, y })
+  const addNode: WorkflowOp = { kind: 'node_add', node: { id: '', position: spawnPos } }
   const nodeResult = applyOp(displayedGraph.value, addNode)
   if (!nodeResult.ok) {
     toast.show(nodeResult.error, 'warning', 4000)
@@ -1319,14 +2703,32 @@ function spawnFromPort(parent: NodeModel, side: Side) {
   }
   const newId = addNode.node.id
   let nextGraph = nodeResult.graph
-  // Wire from parent to the new node when the parent is a real graph node;
-  // terminals (Start / End) aren't in the persisted graph, so a new node
-  // spawned off them is just an entry / exit and gets its spine wire
-  // implicitly from the layout.
-  if (!parent.terminal && findNodeById(nextGraph, parent.id)) {
+  // Wire from parent to the new node when the parent is a real graph node.
+  // Terminals (Start / End) aren't in the persisted graph, so the connection
+  // is stored as a canvas-local `user:` wire instead (same shape as a wire
+  // the user draws by hand from a terminal). Either way the user sees a
+  // visible wire from the port they clicked to the freshly-spawned node.
+  // The new node sits on the OPPOSITE side of the parent, so the wire
+  // leaves the clicked port (`side`) and arrives at the new node on the
+  // mirrored side — gives the natural "out the right, into the left"
+  // routing instead of a curve that bends across the card.
+  const toSide = oppositeSide(side)
+  if (parent.terminal) {
+    const userWireId = `user:${parent.id}->${newId}-${Date.now()}`
+    const entry: UserWire = {
+      id: userWireId,
+      fromId: parent.id,
+      toId: newId,
+      fromSide: side,
+      toSide,
+    }
+    userWires.value = [...userWires.value, entry]
+    persistUserWires()
+  }
+  else if (findNodeById(nextGraph, parent.id)) {
     const wireOp: WorkflowOp = {
       kind: 'wire_add',
-      wire: { id: '', from_id: parent.id, to_id: newId },
+      wire: { id: '', from_id: parent.id, to_id: newId, from_side: side, to_side: toSide },
     }
     const wireResult = applyOp(nextGraph, wireOp)
     if (wireResult.ok) nextGraph = wireResult.graph
@@ -1334,11 +2736,6 @@ function spawnFromPort(parent: NodeModel, side: Side) {
   userGraph.value = nextGraph
   editedDraft.value = {}
   dirtyNodeIds.value = new Set()
-  // Anchor the spawned node at the cursor-relative spawn point via the
-  // position-override overlay (the same mechanism drag uses).
-  overrides.value = { ...overrides.value, [newId]: { x, y } }
-  persistOverrides()
-  scheduleAutoSave()
   // Don't force active = new id here — the pointer is still inside the
   // parent's zone, so its pointerleave hasn't fired yet. Forcing active
   // here would leave activeHoverNodeId stuck on the new node when the
@@ -1362,7 +2759,12 @@ interface ConnectingState {
   fromSide: Side
   startPos: Pt
   currPos: Pt
+  // Snapped target: populated only when the cursor is within
+  // ENDPOINT_SNAP_DIST of a specific side-centre circle. `targetId` and
+  // `targetSide` move together so we never end up with a half-snap state.
   targetId: string | null
+  targetSide: Side | null
+  snappedPt: Pt | null
   isDragging: boolean
 }
 const connecting = ref<ConnectingState | null>(null)
@@ -1400,8 +2802,50 @@ function findTargetAt(wfPos: Pt, excludeId: string): string | null {
   return null
 }
 
-function addUserWire(fromId: string, toId: string) {
-  if (fromId === toId) return
+interface SnapHit {
+  nodeId: string
+  side: Side
+  pt: Pt
+}
+
+// findSnapTargetAt is the side-snap analogue of findTargetAt: rather than
+// a generous padded bbox, it requires the cursor to come within
+// ENDPOINT_SNAP_DIST of a node's side-centre point. Returns the nearest
+// hit. `includeTerminals` lets the port-drag (which CAN draw a wire to
+// the synthetic Start/End anchors as canvas-local `user:` wires) opt in;
+// endpoint-drag of an existing real wire keeps them excluded because the
+// server rejects wires whose endpoints aren't real graph nodes.
+function findSnapTargetAt(
+  wfPos: Pt,
+  excludeId: string,
+  includeTerminals = false,
+): SnapHit | null {
+  let best: { hit: SnapHit; dist: number } | null = null
+  for (const n of visibleNodes.value) {
+    if (n.id === excludeId) continue
+    if (n.terminal && !includeTerminals) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    for (const side of ['top', 'bottom', 'left', 'right'] as Side[]) {
+      // Snap math matches the visible target circle position
+      // (side-centre nudged outward by ENDPOINT_HANDLE_OFFSET).
+      const pt = endpointHandlePt(pointOnSide(p, side, s), side)
+      const d = Math.hypot(wfPos.x - pt.x, wfPos.y - pt.y)
+      if (d > ENDPOINT_SNAP_DIST) continue
+      if (!best || d < best.dist) {
+        best = { hit: { nodeId: n.id, side, pt }, dist: d }
+      }
+    }
+  }
+  return best?.hit ?? null
+}
+
+// Returns the new wire's full prefixed id (`wire:<uuid>` or `user:...`) on
+// success, or null when the wire was rejected (self-loop, duplicate, or
+// op failure). Callers select the wire so the user keeps focus on what they
+// just made instead of the source node staying highlighted.
+function addUserWire(fromId: string, toId: string, fromSide?: Side, toSide?: Side): string | null {
+  if (fromId === toId) return null
   // Skip endpoints not present in the graph (e.g. spawn-extra nodes) — wires
   // must connect real graph nodes so the orchestrator + executor see them.
   const fromInGraph = !!findNodeById(displayedGraph.value, fromId)
@@ -1409,30 +2853,45 @@ function addUserWire(fromId: string, toId: string) {
   if (!fromInGraph || !toInGraph) {
     // Fall back to the canvas-local userWires (legacy localStorage track),
     // so spawn-extras keep working without touching the persisted graph.
-    if (allWires.value.some(w => w.fromId === fromId && w.toId === toId)) return
+    // Sides from the port-drag snap are kept on the entry so the wire
+    // renders out of the exact circle the user dropped onto instead of
+    // being re-routed by the auto picker.
+    if (allWires.value.some(w => w.fromId === fromId && w.toId === toId)) return null
     const id = `user:${fromId}->${toId}-${Date.now()}`
-    userWires.value = [...userWires.value, { id, fromId, toId }]
+    const entry: UserWire = { id, fromId, toId }
+    if (fromSide) entry.fromSide = fromSide
+    if (toSide) entry.toSide = toSide
+    userWires.value = [...userWires.value, entry]
     persistUserWires()
     recordHistory()
-    return
+    return id
   }
   // Skip exact duplicates on the persisted graph.
-  if (displayedGraph.value.wires.some(e => e.from_id === fromId && e.to_id === toId)) return
+  if (displayedGraph.value.wires.some(e => e.from_id === fromId && e.to_id === toId)) return null
   // Persist via the structural-op path so the new wire survives reloads and
-  // shows up in the orchestrator's draft.
-  const wire = {
+  // shows up in the orchestrator's draft. Sides are carried over from the
+  // port-drag snap so the wire renders out of the exact circle the user
+  // latched onto, instead of being re-picked by the auto router.
+  const wire: WorkflowWire = {
     id: '',
     from_id: fromId,
     to_id: toId,
   }
-  applyStructuralOp({ kind: 'wire_add', wire })
+  if (fromSide) wire.from_side = fromSide
+  if (toSide) wire.to_side = toSide
+  if (!applyStructuralOp({ kind: 'wire_add', wire })) return null
+  return `wire:${wire.id}`
 }
 
 function onPortPointerDown(e: PointerEvent, parent: NodeModel, side: Side) {
+  // While the draw-wire tool is armed, let `onPlacingWireDown` take the
+  // pointerdown via its document-capture listener instead of starting the
+  // port-drag / spawn flow. Its snap search latches onto this port from
+  // the cursor coords.
+  if (placingWire.value) return
   e.stopPropagation()
   e.preventDefault()
   if (e.button !== 0) return
-  portPreview.value = null
   const pp = nodePos(parent)
   const port = pointOnSide(pp, side, nodeSize(parent))
   connecting.value = {
@@ -1441,6 +2900,8 @@ function onPortPointerDown(e: PointerEvent, parent: NodeModel, side: Side) {
     startPos: port,
     currPos: port,
     targetId: null,
+    targetSide: null,
+    snappedPt: null,
     isDragging: false,
   }
   const screenStartX = e.clientX
@@ -1453,12 +2914,21 @@ function onPortPointerDown(e: PointerEvent, parent: NodeModel, side: Side) {
     const moved = Math.hypot(dx, dy)
     const wfPos = screenToWorkflow(ev.clientX, ev.clientY)
     const isDragging = connecting.value.isDragging || moved >= DRAG_THRESHOLD
-    const targetId = isDragging ? findTargetAt(wfPos, connecting.value.fromId) : null
+    // Snap math matches endpoint-drag: latch only when the cursor is
+    // within ENDPOINT_SNAP_DIST of a specific side-centre circle. No
+    // generous bbox catch — the user picks the exact side. Terminals
+    // are included here since port-drag CAN produce a wire-to-End
+    // (stored as a canvas-local `user:` wire).
+    const snap = isDragging
+      ? findSnapTargetAt(wfPos, connecting.value.fromId, true)
+      : null
     connecting.value = {
       ...connecting.value,
       currPos: wfPos,
       isDragging,
-      targetId,
+      targetId: snap?.nodeId ?? null,
+      targetSide: snap?.side ?? null,
+      snappedPt: snap?.pt ?? null,
     }
   }
 
@@ -1466,84 +2936,52 @@ function onPortPointerDown(e: PointerEvent, parent: NodeModel, side: Side) {
     document.removeEventListener('pointermove', onMove)
     document.removeEventListener('pointerup', onUp)
     document.removeEventListener('pointercancel', onUp)
-    if (!connecting.value) {
-      return
-    }
-    if (connecting.value.isDragging) {
-      if (connecting.value.targetId) {
-        addUserWire(connecting.value.fromId, connecting.value.targetId)
-      }
-    }
-    else {
+    const c = connecting.value
+    if (!c) return
+    connecting.value = null
+    if (!c.isDragging) {
       // Treat as a click → existing spawn behaviour.
       spawnFromPort(parent, side)
+      return
     }
-    connecting.value = null
+    if (c.targetId) {
+      // Snapped on a side circle — create an anchored wire. Select it so
+      // the user keeps focus on what they just made (otherwise the source
+      // node — already selected because the port only renders when it is —
+      // stays highlighted, which reads as "the click did nothing").
+      const newId = addUserWire(
+        c.fromId,
+        c.targetId,
+        c.fromSide,
+        c.targetSide ?? undefined,
+      )
+      if (newId) selectWire(newId)
+      return
+    }
+    // Dropped in empty space — persist a graph wire with the to-end
+    // detached at the drop point so the arrow stays where the user
+    // released it (mirrors the endpoint-drag detach behaviour). The
+    // source is always a real graph node since port-drag fires from a
+    // node card, so the from-end stays anchored. `to_side` matches the
+    // in-flight rubber-band's routing (opposite of `fromSide`) so the
+    // wire's silhouette doesn't pop after release.
+    const wire: WorkflowWire = {
+      id: '',
+      from_id: c.fromId,
+      to_id: '',
+      from_side: c.fromSide,
+      to_side: oppositeSide(c.fromSide),
+      to_pos: { x: c.currPos.x, y: c.currPos.y },
+    }
+    if (applyStructuralOp({ kind: 'wire_add', wire })) {
+      selectWire(`wire:${wire.id}`)
+    }
   }
 
   document.addEventListener('pointermove', onMove)
   document.addEventListener('pointerup', onUp)
   document.addEventListener('pointercancel', onUp)
 }
-
-// Hover-preview a click on a port: while the pointer hovers a port (and
-// no connect drag is in progress), we render a faded ghost of the node
-// that would be spawned by clicking, plus a faded ghost wire from the
-// parent to it. Cleared on pointerleave or when a real gesture begins.
-const portPreview = ref<{ nodeId: string; side: Side } | null>(null)
-
-function onPortHover(parent: NodeModel, side: Side) {
-  if (connecting.value !== null) return
-  portPreview.value = { nodeId: parent.id, side }
-}
-
-function onPortLeave(parent: NodeModel, side: Side) {
-  if (
-    portPreview.value
-    && portPreview.value.nodeId === parent.id
-    && portPreview.value.side === side
-  ) {
-    portPreview.value = null
-  }
-}
-
-const ghostPreview = computed(() => {
-  if (!portPreview.value) return null
-  const pp = portPreview.value
-  const parent = allNodes.value.find(n => n.id === pp.nodeId)
-  if (!parent) return null
-  const ppos = nodePos(parent)
-  const psize = nodeSize(parent)
-  // The ghost previews a fresh NODE_W × NODE_H card. Align it to the
-  // parent's CENTRE on the axis perpendicular to the port direction so a
-  // left/right spawn shares the parent's vertical centre, and a top/bottom
-  // spawn shares the parent's horizontal centre.
-  const centreAlignedX = ppos.x + psize.w / 2 - NODE_W / 2
-  const centreAlignedY = ppos.y + psize.h / 2 - NODE_H / 2
-  let x = centreAlignedX
-  let y = centreAlignedY
-  switch (pp.side) {
-    case 'right': x = ppos.x + psize.w + SPAWN_GAP; break
-    case 'left': x = ppos.x - NODE_W - SPAWN_GAP; break
-    case 'top': y = ppos.y - NODE_H - SPAWN_GAP; break
-    case 'bottom': y = ppos.y + psize.h + SPAWN_GAP; break
-  }
-  return { parent, pos: { x, y }, side: pp.side }
-})
-
-const ghostWireGeom = computed<{ d: string } | null>(() => {
-  const g = ghostPreview.value
-  if (!g) return null
-  const pa = nodePos(g.parent)
-  const pb = g.pos
-  const sides = chooseSides(pa, pb)
-  const p1 = pointOnSide(pa, sides.from, nodeSize(g.parent))
-  const p2 = pointOnSide(pb, sides.to)
-  const wt = settings.value.wireType ?? 'fluid'
-  return {
-    d: buildWirePath(p1, p2, sides.from, sides.to, wt),
-  }
-})
 
 // Live geometry for the rubber-band wire that follows the cursor while the
 // user is dragging from a port. Snaps onto the target's nearest side once
@@ -1555,20 +2993,13 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
 
   let endPort: Pt
   let targetSide: Side
-  const target = c.targetId ? allNodes.value.find(n => n.id === c.targetId) : null
-  if (target) {
-    const tp = nodePos(target)
-    const ts = nodeSize(target)
-    const tCenter = { x: tp.x + ts.w / 2, y: tp.y + ts.h / 2 }
-    const ddx = tCenter.x - sourcePort.x
-    const ddy = tCenter.y - sourcePort.y
-    if (Math.abs(ddx) >= Math.abs(ddy)) {
-      targetSide = ddx >= 0 ? 'left' : 'right'
-    }
-    else {
-      targetSide = ddy >= 0 ? 'top' : 'bottom'
-    }
-    endPort = pointOnSide(tp, targetSide, ts)
+  if (c.snappedPt && c.targetSide) {
+    // Latched onto a specific side-centre circle — push the drawn endpoint
+    // outward past the circle so the arrowhead tip kisses its outer edge
+    // (matching the resting wire) while the drag is still held, instead
+    // of disappearing under the circle until release.
+    endPort = wireDrawnEndPtFromSnap(c.snappedPt, c.targetSide)
+    targetSide = c.targetSide
   }
   else {
     // Free cursor — treat the cursor as arriving opposite the source's
@@ -1578,45 +3009,196 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
     targetSide = oppositeSide(c.fromSide)
   }
   const wt = settings.value.wireType ?? 'fluid'
+  // Exclude the source node and any node the cursor has snapped to so
+  // the rubber-band doesn't try to route around its own endpoint cards.
+  const obstacles = obstaclesExcept(c.fromId, c.targetId)
   return {
-    d: buildWirePath(sourcePort, endPort, c.fromSide, targetSide, wt),
+    d: routedWirePath(sourcePort, endPort, c.fromSide, targetSide, wt, obstacles),
   }
 })
 
 // Preview wire for an in-flight endpoint drag — anchored on the fixed end
 // of the existing edge, the other end follows the cursor (snapping to the
 // candidate target node if one is under the cursor).
+interface EndpointSnapCircle {
+  nodeId: string
+  side: Side
+  pt: Pt
+  active: boolean   // currently snapped target — render with accent stroke
+  fixed: boolean    // the fixed end's anchor — non-interactive
+}
+
+// Snap-target circles to render while a wire endpoint is being dragged.
+// One per side for every non-terminal, non-fixed node; one at the fixed
+// end's existing side (so the anchored end stays visually anchored).
+// Position matches `endpointHandlePt` (side-centre nudged outward by
+// ENDPOINT_HANDLE_OFFSET) so the dragged grip circle visually lands on
+// the snap-target circle without a jump.
+const endpointSnapTargets = computed<EndpointSnapCircle[]>(() => {
+  const drag = endpointDrag.value
+  if (!drag || !drag.isDragging) return []
+  // User wires (Start/End-touching canvas-local wires) accept terminal
+  // snap targets — mirror that in the snap-circle layer so the user
+  // can see all valid drop targets, not just the real-node ones.
+  const allowTerminals = drag.wireId.startsWith('user:')
+  const out: EndpointSnapCircle[] = []
+  for (const n of visibleNodes.value) {
+    if (n.terminal && !allowTerminals) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    if (n.id === drag.fixedNodeId) {
+      out.push({
+        nodeId: n.id,
+        side: drag.fixedSide,
+        pt: endpointHandlePt(pointOnSide(p, drag.fixedSide, s), drag.fixedSide),
+        active: false,
+        fixed: true,
+      })
+      continue
+    }
+    for (const side of ['top', 'bottom', 'left', 'right'] as Side[]) {
+      out.push({
+        nodeId: n.id,
+        side,
+        pt: endpointHandlePt(pointOnSide(p, side, s), side),
+        active: drag.targetId === n.id && drag.targetSide === side,
+        fixed: false,
+      })
+    }
+  }
+  return out
+})
+
+// Snap-target circles to render while a whole wire is being dragged
+// by its body. Both endpoints are translating, so each one independently
+// hunts for the nearest side-centre. Active highlight reflects the
+// per-end snap state computed in `onWireBodyPointerDown`'s `onMove`.
+const wireBodyDragSnapTargets = computed<EndpointSnapCircle[]>(() => {
+  const drag = wireBodyDrag.value
+  if (!drag || !drag.isDragging) return []
+  const allowTerminals = drag.wireId.startsWith('user:')
+  const out: EndpointSnapCircle[] = []
+  for (const n of visibleNodes.value) {
+    if (n.terminal && !allowTerminals) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    for (const side of ['top', 'bottom', 'left', 'right'] as Side[]) {
+      const isFromSnap = drag.fromSnap?.nodeId === n.id && drag.fromSnap?.side === side
+      const isToSnap = drag.toSnap?.nodeId === n.id && drag.toSnap?.side === side
+      out.push({
+        nodeId: n.id,
+        side,
+        pt: endpointHandlePt(pointOnSide(p, side, s), side),
+        active: isFromSnap || isToSnap,
+        fixed: false,
+      })
+    }
+  }
+  return out
+})
+
+// Snap-target circles to render while the user is drawing a brand-new
+// wire from a port. Mirrors `endpointSnapTargets` for the endpoint-drag
+// case, but the source-node here is excluded (you can't wire a node to
+// itself) and terminals ARE included (a wire to End is allowed as a
+// canvas-local `user:` wire).
+const connectingSnapTargets = computed<EndpointSnapCircle[]>(() => {
+  const conn = connecting.value
+  if (!conn || !conn.isDragging) return []
+  const out: EndpointSnapCircle[] = []
+  for (const n of visibleNodes.value) {
+    if (n.id === conn.fromId) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    for (const side of ['top', 'bottom', 'left', 'right'] as Side[]) {
+      out.push({
+        nodeId: n.id,
+        side,
+        pt: endpointHandlePt(pointOnSide(p, side, s), side),
+        active: conn.targetId === n.id && conn.targetSide === side,
+        fixed: false,
+      })
+    }
+  }
+  return out
+})
+
+// Snap-target circles to render while the click-click draw-wire tool is
+// armed. Same visual contract as `endpointSnapTargets` /
+// `connectingSnapTargets` — white circle on every side of every visible
+// node, with the currently-hovered side accent-stroked. Terminals are
+// included so a free-floating wire can be drawn to / from Start / End.
+// The tail's own node is excluded once the user is placing the head, so
+// the user can't draw a self-loop (the wire-add validator rejects those).
+// Distance (canvas px) from the cursor to a node's bounding box at which
+// the draw-wire tool reveals that node's side-snap circles. Comfortably
+// larger than ENDPOINT_SNAP_DIST so the circles materialise before the
+// user is close enough to actually latch, but small enough that idle
+// cursor movement across empty canvas doesn't light up nearby nodes.
+const PLACING_WIRE_ACTIVATION_DIST = 60
+const placingWireSnapTargets = computed<EndpointSnapCircle[]>(() => {
+  const state = placingWire.value
+  if (!state) return []
+  const excludeId = state.phase === 'head' ? state.tail?.nodeId ?? '' : ''
+  const cursor = state.cursor
+  const out: EndpointSnapCircle[] = []
+  for (const n of visibleNodes.value) {
+    if (n.id === excludeId) continue
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    // Closest-point distance from cursor to the node's padded rect — zero
+    // when inside, the perpendicular drop otherwise. Skipping nodes outside
+    // the activation ring keeps the snap layer focused on whatever the
+    // user is approaching instead of plastering circles on every node.
+    const dx = Math.max(p.x - cursor.x, 0, cursor.x - (p.x + s.w))
+    const dy = Math.max(p.y - cursor.y, 0, cursor.y - (p.y + s.h))
+    if (Math.hypot(dx, dy) > PLACING_WIRE_ACTIVATION_DIST) continue
+    for (const side of ['top', 'bottom', 'left', 'right'] as Side[]) {
+      out.push({
+        nodeId: n.id,
+        side,
+        pt: endpointHandlePt(pointOnSide(p, side, s), side),
+        active: state.snap?.nodeId === n.id && state.snap?.side === side,
+        fixed: false,
+      })
+    }
+  }
+  return out
+})
+
 const endpointDragWireGeom = computed<{ d: string } | null>(() => {
   const drag = endpointDrag.value
   if (!drag || !drag.isDragging) return null
   let endPt: Pt
   let endSide: Side
-  const target = drag.targetId ? allNodes.value.find(n => n.id === drag.targetId) : null
-  if (target) {
-    const tp = nodePos(target)
-    const ts = nodeSize(target)
-    const tCenter = { x: tp.x + ts.w / 2, y: tp.y + ts.h / 2 }
-    const ddx = tCenter.x - drag.fixedPt.x
-    const ddy = tCenter.y - drag.fixedPt.y
-    if (Math.abs(ddx) >= Math.abs(ddy)) {
-      endSide = ddx >= 0 ? 'left' : 'right'
-    }
-    else {
-      endSide = ddy >= 0 ? 'top' : 'bottom'
-    }
-    endPt = pointOnSide(tp, endSide, ts)
+  if (drag.snappedPt && drag.targetSide) {
+    // Snapped to a side-centre target — push the drawn endpoint outward
+    // past the snap circle so the arrowhead tip kisses the circle's outer
+    // edge while the drag is still held, matching the resting wire's tip
+    // position exactly. Without this, the tip would sit at the circle's
+    // centre (under it) and only snap into place on release.
+    endPt = wireDrawnEndPtFromSnap(drag.snappedPt, drag.targetSide)
+    endSide = drag.targetSide
   }
   else {
+    // Unsnapped: track the cursor freely. The "side" used for routing is the
+    // opposite of the fixed end so the curve still reads.
     endPt = drag.currPos
     endSide = oppositeSide(drag.fixedSide)
   }
+  // Shorten the fixed end so the rubber-band visually stops in the
+  // anchor-circle gap, matching the resting wire's shortened endpoints.
+  const fixedDrawn = wireDrawnEndPt(drag.fixedPt, drag.fixedSide)
   const wt = settings.value.wireType ?? 'fluid'
+  // Exclude the fixed-end node and any node the dragged end has snapped
+  // to so the preview doesn't try to route around its own endpoint cards.
+  const obstacles = obstaclesExcept(drag.fixedNodeId, drag.targetId)
   // The path direction follows the original edge: if the user is moving
-  // the FROM end, the temp goes endPt → fixedPt; if moving TO, fixedPt → endPt.
+  // the FROM end, the temp goes endPt → fixedDrawn; if moving TO, fixedDrawn → endPt.
   if (drag.movingEnd === 'from') {
-    return { d: buildWirePath(endPt, drag.fixedPt, endSide, drag.fixedSide, wt) }
+    return { d: routedWirePath(endPt, fixedDrawn, endSide, drag.fixedSide, wt, obstacles) }
   }
-  return { d: buildWirePath(drag.fixedPt, endPt, drag.fixedSide, endSide, wt) }
+  return { d: routedWirePath(fixedDrawn, endPt, drag.fixedSide, endSide, wt, obstacles) }
 })
 
 // ── Wires ──────────────────────────────────────────────────────────────────
@@ -1647,6 +3229,15 @@ function outwardNormal(side: Side): Pt {
   }
 }
 
+// (mid - port) · outwardNormal(side). Positive when the port faces TOWARD
+// the chord midpoint (normal inward-flow, like A.right → B.left for nodes
+// side-by-side); negative when the port faces AWAY (A.left → B.right). The
+// outward case is what triggers wraparound routing in wireGeoms.
+function outwardNormalDotMid(side: Side, port: Pt, mid: Pt): number {
+  const n = outwardNormal(side)
+  return (mid.x - port.x) * n.x + (mid.y - port.y) * n.y
+}
+
 function chooseSides(a: Pt, b: Pt): { from: Side; to: Side } {
   // Compare the centers of A and B. The dominant axis (whichever delta is
   // larger) wins, so two nodes that are mostly above-below connect via
@@ -1670,6 +3261,68 @@ function oppositeSide(s: Side): Side {
     case 'bottom': return 'top'
     case 'left': return 'right'
     case 'right': return 'left'
+  }
+}
+
+// `outwardNormal` is defined further below near the wire-routing helpers and
+// re-used here for nudging the arrow-head endpoint grip circle outboard so it
+// sits just past the arrowhead marker instead of on top of it.
+
+const ENDPOINT_CIRCLE_R = 4
+
+// Pointer-event hit radius for the grip dots. The visible circle stays
+// at `ENDPOINT_CIRCLE_R`; an invisible disc of this radius sits on top
+// so the user doesn't need pixel-perfect aim to grab the endpoint.
+const ENDPOINT_GRIP_HIT_R = 12
+
+// The grip circle sits CENTRED on the node's border at the side-centre
+// — half inside the node body, half outside. The wire's drawn end stops
+// exactly at the outer edge of the circle (`WIRE_END_GAP` =
+// `ENDPOINT_CIRCLE_R`) so the arrowhead tip kisses the circle without
+// any gap between them.
+const WIRE_END_GAP = ENDPOINT_CIRCLE_R
+
+// Position of the grip circle (and matching snap-target circle) for a
+// node side. `pointOnSide` returns the OUTER edge of the card's box, but
+// the card draws a `border-2` line INSIDE that box (Tailwind defaults to
+// `box-sizing: border-box`), so the visible border's centre sits half a
+// border width inboard of the outer edge. Nudging the grip the same
+// distance inward puts the visible border line through the middle of
+// the circle instead of along its outboard edge.
+const NODE_BORDER_HALF = 1
+function endpointHandlePt(sideCenter: Pt, side: Side): Pt {
+  switch (side) {
+    case 'right': return { x: sideCenter.x - NODE_BORDER_HALF, y: sideCenter.y }
+    case 'left': return { x: sideCenter.x + NODE_BORDER_HALF, y: sideCenter.y }
+    case 'top': return { x: sideCenter.x, y: sideCenter.y + NODE_BORDER_HALF }
+    case 'bottom': return { x: sideCenter.x, y: sideCenter.y - NODE_BORDER_HALF }
+  }
+}
+
+// The endpoint where the wire is actually drawn — `WIRE_END_GAP` past
+// the side-centre. Lines up with the outer edge of the grip circle so
+// the wire's arrowhead just touches the circle.
+function wireDrawnEndPt(sideCenter: Pt, side: Side): Pt {
+  const n = outwardNormal(side)
+  return {
+    x: sideCenter.x + n.x * WIRE_END_GAP,
+    y: sideCenter.y + n.y * WIRE_END_GAP,
+  }
+}
+
+// In-flight rubber-bands store the latched endpoint as the snap CIRCLE
+// position (`endpointHandlePt`, i.e. side-centre nudged inward by
+// `NODE_BORDER_HALF`). Pushing it back out by `NODE_BORDER_HALF +
+// WIRE_END_GAP` puts the wire's drawn endpoint exactly where a resting
+// wire's would sit, so the arrowhead tip kisses the circle's outer edge
+// while the drag is still held — instead of disappearing under the
+// circle and only snapping into place on release.
+function wireDrawnEndPtFromSnap(snapPt: Pt, side: Side): Pt {
+  const n = outwardNormal(side)
+  const out = WIRE_END_GAP + NODE_BORDER_HALF
+  return {
+    x: snapPt.x + n.x * out,
+    y: snapPt.y + n.y * out,
   }
 }
 
@@ -1738,6 +3391,68 @@ function pathInfo(
 
 const ALL_SIDES: Side[] = ['right', 'bottom', 'left', 'top']
 
+// True when the segment from `a` to `b` enters the rectangle.
+// Used by the obstacle-aware wire side picker so wires bend around
+// unrelated nodes rather than slicing through them.
+function segmentCrossesRect(
+  a: Pt, b: Pt, rx: number, ry: number, rw: number, rh: number,
+): boolean {
+  const rRight = rx + rw
+  const rBottom = ry + rh
+  // Quick reject if both endpoints lie strictly outside one side.
+  if ((a.x < rx && b.x < rx) || (a.x > rRight && b.x > rRight)) return false
+  if ((a.y < ry && b.y < ry) || (a.y > rBottom && b.y > rBottom)) return false
+  // Either endpoint inside → counts as a crossing.
+  if (a.x >= rx && a.x <= rRight && a.y >= ry && a.y <= rBottom) return true
+  if (b.x >= rx && b.x <= rRight && b.y >= ry && b.y <= rBottom) return true
+  // Otherwise check intersection against each rectangle edge.
+  return (
+    segmentsIntersect(a, b, { x: rx, y: ry }, { x: rRight, y: ry })
+    || segmentsIntersect(a, b, { x: rRight, y: ry }, { x: rRight, y: rBottom })
+    || segmentsIntersect(a, b, { x: rRight, y: rBottom }, { x: rx, y: rBottom })
+    || segmentsIntersect(a, b, { x: rx, y: rBottom }, { x: rx, y: ry })
+  )
+}
+
+function segmentsIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
+  const dx1 = p2.x - p1.x
+  const dy1 = p2.y - p1.y
+  const dx2 = p4.x - p3.x
+  const dy2 = p4.y - p3.y
+  const denom = dx2 * dy1 - dy2 * dx1
+  if (Math.abs(denom) < 1e-9) return false
+  const ua = (dx2 * (p1.y - p3.y) - dy2 * (p1.x - p3.x)) / denom
+  const ub = (dx1 * (p1.y - p3.y) - dy1 * (p1.x - p3.x)) / denom
+  return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1
+}
+
+// Polyline approximation of a wire used for obstacle-overlap detection.
+// Fluid wires are sampled because their bezier curve bows out beyond the
+// chord — sampling at a few points along the curve catches obstacles the
+// chord would skip past. Step / linear collapse to a small set of corners.
+const OBSTACLE_PAD = 8
+function wireSamplePoints(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType,
+): Pt[] {
+  if (wireType === 'linear') return [p1, p2]
+  if (wireType === 'step') return wireWaypoints(p1, p2, fromSide, toSide, 'step')
+  // Fluid: sample 9 points along the cubic bezier we render.
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const d = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
+  const c1 = { x: p1.x + n1.x * d, y: p1.y + n1.y * d }
+  const c2 = { x: p2.x + n2.x * d, y: p2.y + n2.y * d }
+  const pts: Pt[] = []
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8
+    const omt = 1 - t
+    const x = omt * omt * omt * p1.x + 3 * omt * omt * t * c1.x + 3 * omt * t * t * c2.x + t * t * t * p2.x
+    const y = omt * omt * omt * p1.y + 3 * omt * omt * t * c1.y + 3 * omt * t * t * c2.y + t * t * t * p2.y
+    pts.push({ x, y })
+  }
+  return pts
+}
+
 // Per-wire side assignment. Picks the (fromSide, toSide) pair lexicographically:
 //   1. Prefer non-backtracking routes (legs leave the source outward and
 //      enter the target inward).
@@ -1758,6 +3473,17 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const inSidesByNode = new Map<string, Set<Side>>()
   const outSidesByNode = new Map<string, Set<Side>>()
+  const wt = settings.value.wireType ?? 'fluid'
+
+  // Precompute every node's bbox so the per-side-pair scoring loop can
+  // ask "does this route cross any unrelated node?" without re-deriving
+  // positions / sizes each iteration.
+  const obstacles: { id: string; x: number; y: number; w: number; h: number }[] = []
+  for (const n of allNodes.value) {
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    obstacles.push({ id: n.id, x: p.x, y: p.y, w: s.w, h: s.h })
+  }
 
   // Process wires in a deterministic order so the assignment is stable
   // across recomputes — straight-line (axis-aligned) connections first,
@@ -1804,6 +3530,28 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
     let bestTo: Side = bCandidates[0]!
     const sa = nodeSize(a)
     const sb = nodeSize(b)
+    // Dominant axis for this wire — picked from how the nodes overlap.
+    // Two nodes whose x-projections overlap with a vertical gap between
+    // them want top/bottom ports (vertical wire down the gap); two whose
+    // y-projections overlap with a horizontal gap want left/right ports
+    // (horizontal wire across the gap). Falls back to the bigger of
+    // |dx|/|dy| for diagonal layouts where neither projection overlaps.
+    // The alignment weight always overrides the bend cost so the wire
+    // emits along the dominant axis — for vertically separated nodes
+    // (whether X-overlapping or just |dy|-dominant), the Z with its
+    // horizontal middle leg in the gap wins over a 1-bend L whose
+    // corner would sit near one of the nodes. The overlap case carries
+    // a stronger weight so a clean axis match never gets traded for
+    // anything else; the diagonal case carries a weight just above the
+    // bend cost so a clearly-h diagonal still gets its L.
+    const xOverlap = Math.min(pa.x + sa.w, pb.x + sb.w) - Math.max(pa.x, pb.x) > 0
+    const yOverlap = Math.min(pa.y + sa.h, pb.y + sb.h) - Math.max(pa.y, pb.y) > 0
+    let dominantAxis: 'h' | 'v'
+    if (xOverlap && !yOverlap) dominantAxis = 'v'
+    else if (yOverlap && !xOverlap) dominantAxis = 'h'
+    else dominantAxis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
+    const alignmentWeight = (xOverlap !== yOverlap) ? 2e9 : 1.5e9
+
     for (const fromSide of aCandidates) {
       const p1 = pointOnSide(pa, fromSide, sa)
       for (const toSide of bCandidates) {
@@ -1812,9 +3560,45 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
         const ex = p2.x - p1.x
         const ey = p2.y - p1.y
         const dist2 = ex * ex + ey * ey
-        // Lexicographic score: feasibility ≫ bends ≫ port distance ≫ rank.
+        // Obstacle penalty: count unrelated node bboxes the wire's
+        // polyline crosses. Each crossing dominates bends/distance so the
+        // picker actively routes around bodies, but never beats
+        // feasibility (a non-folding-back route is still preferred over a
+        // clean-but-folding one).
+        let crossings = 0
+        if (obstacles.length > 2) {
+          const samples = wireSamplePoints(p1, p2, fromSide, toSide, wt)
+          for (const obs of obstacles) {
+            if (obs.id === a.id || obs.id === b.id) continue
+            const ox = obs.x - OBSTACLE_PAD
+            const oy = obs.y - OBSTACLE_PAD
+            const ow = obs.w + 2 * OBSTACLE_PAD
+            const oh = obs.h + 2 * OBSTACLE_PAD
+            for (let i = 0; i < samples.length - 1; i++) {
+              if (segmentCrossesRect(samples[i]!, samples[i + 1]!, ox, oy, ow, oh)) {
+                crossings += 1
+                break
+              }
+            }
+          }
+        }
+        // Alignment penalty: how many endpoints sit on a side that's
+        // perpendicular to the dominant axis. With a strong weight (set
+        // above based on whether the nodes' bboxes overlap on one
+        // axis), this overrides the bend cost — for vertically
+        // separated nodes overlapping in x, a 2-bend top→bottom wire
+        // (with its horizontal middle leg in the gap) beats a 1-bend
+        // right→bottom L that exits through an unnatural side. For
+        // diagonal layouts the weight is weaker than a single bend so a
+        // natural 1-bend L still wins.
+        const fromAligned = sideAxis(fromSide) === dominantAxis ? 0 : 1
+        const toAligned = sideAxis(toSide) === dominantAxis ? 0 : 1
+        const alignment = fromAligned + toAligned
+        // Lexicographic score: feasibility ≫ obstacles ≫ alignment ≫ bends ≫ port distance ≫ rank.
         const score
           = (info.feasible ? 0 : 1e15)
+            + crossings * 1e12
+            + alignment * alignmentWeight
             + info.bends * 1e9
             + dist2 * 100
             + bRanking.indexOf(toSide) * 10
@@ -1840,6 +3624,15 @@ interface WireGeom {
   id: string
   d: string
   mid: Pt
+  // Toolbar anchor — centre of the wire's longest straight segment, with
+  // an orientation derived from the wire's bounding rect (wider → render
+  // the toolbar horizontally above; taller → render vertically beside).
+  toolbarAnchor: { x: number, y: number, orientation: 'horizontal' | 'vertical' }
+  // `clickable` — wire responds to clicks (selects + highlights). True for
+  // both real graph wires (`wire:`) and synthetic spine wires (`spine:`).
+  // `selectable` — wire supports full editing (endpoint drag, action bar,
+  // side panel form). True only for real graph wires.
+  clickable: boolean
   selectable: boolean
   fromId: string
   toId: string
@@ -1852,7 +3645,632 @@ interface WireGeom {
   toSide: Side
 }
 
-function buildWirePath(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType): string {
+// Waypoint list for a wire — the polyline approximation used for bbox /
+// longest-segment math. Step wires return their full corner sequence;
+// linear / fluid wires collapse to the two endpoints (good enough for the
+// fluid case since the curve's extent is bounded near the chord).
+function wireWaypoints(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType): Pt[] {
+  if (wireType !== 'step') return [p1, p2]
+  const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
+  const isToHorizontal = toSide === 'left' || toSide === 'right'
+  const pts: Pt[] = [{ ...p1 }]
+  if (isFromHorizontal && isToHorizontal) {
+    const mx = (p1.x + p2.x) / 2
+    pts.push({ x: mx, y: p1.y })
+    pts.push({ x: mx, y: p2.y })
+  } else if (!isFromHorizontal && !isToHorizontal) {
+    const my = (p1.y + p2.y) / 2
+    pts.push({ x: p1.x, y: my })
+    pts.push({ x: p2.x, y: my })
+  } else if (isFromHorizontal) {
+    pts.push({ x: p2.x, y: p1.y })
+  } else {
+    pts.push({ x: p1.x, y: p2.y })
+  }
+  pts.push({ ...p2 })
+  return pts
+}
+
+interface Obstacle { x: number; y: number; w: number; h: number }
+
+// Pick a fluid cubic bezier's control points, then push them perpendicular
+// to the chord — by chunks of `pushStep` — until the sampled curve stops
+// poking inside any obstacle rectangle (excluding the endpoint nodes,
+// which are passed in already filtered). The push direction is chosen by
+// which side of the chord has more room. Caps at ~6 attempts so we don't
+// loop forever on pathological cases; if we can't clear it, we still
+// return a path — just one with as much clearance as we could get.
+function fluidControlsAvoidingObstacles(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
+): { c1: Pt; c2: Pt } {
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
+  let c1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
+  let c2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
+  if (obstacles.length === 0) return { c1, c2 }
+
+  // Perpendicular to the chord. Both directions are candidates; we try
+  // the one that puts the chord midpoint further from any obstacle.
+  const cx = p2.x - p1.x
+  const cy = p2.y - p1.y
+  const clen = Math.max(1, Math.hypot(cx, cy))
+  const perpA: Pt = { x: -cy / clen, y: cx / clen }
+  const perpB: Pt = { x: cy / clen, y: -cx / clen }
+  const mid: Pt = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  const distToObstacles = (dir: Pt): number => {
+    let best = Infinity
+    for (const o of obstacles) {
+      const ocx = o.x + o.w / 2
+      const ocy = o.y + o.h / 2
+      const probe = { x: mid.x + dir.x * 50, y: mid.y + dir.y * 50 }
+      const d = Math.hypot(probe.x - ocx, probe.y - ocy)
+      if (d < best) best = d
+    }
+    return best
+  }
+  const perp = distToObstacles(perpA) >= distToObstacles(perpB) ? perpA : perpB
+
+  const PUSH_STEP = 40
+  const MAX_PUSHES = 6
+  for (let pass = 0; pass < MAX_PUSHES; pass++) {
+    if (!fluidCrossesAnyObstacle(p1, c1, c2, p2, obstacles)) break
+    c1 = { x: c1.x + perp.x * PUSH_STEP, y: c1.y + perp.y * PUSH_STEP }
+    c2 = { x: c2.x + perp.x * PUSH_STEP, y: c2.y + perp.y * PUSH_STEP }
+  }
+  return { c1, c2 }
+}
+
+function fluidCrossesAnyObstacle(
+  p1: Pt, c1: Pt, c2: Pt, p2: Pt, obstacles: Obstacle[],
+): boolean {
+  // Sample the cubic bezier — 13 points is plenty for the curve sizes we
+  // see here without being expensive.
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12
+    const omt = 1 - t
+    const x = omt * omt * omt * p1.x + 3 * omt * omt * t * c1.x + 3 * omt * t * t * c2.x + t * t * t * p2.x
+    const y = omt * omt * omt * p1.y + 3 * omt * omt * t * c1.y + 3 * omt * t * t * c2.y + t * t * t * p2.y
+    for (const o of obstacles) {
+      if (x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h) return true
+    }
+  }
+  return false
+}
+
+// Does an axis-aligned segment cross a rect's interior? Endpoints sitting
+// exactly on the rect boundary don't count as crossings — important
+// because every stub starts at p1 / p2, which are on the wire's endpoint
+// node's edge. Different from the generic `segmentCrossesRect` defined
+// for the side-picker above: that one treats boundary contact as a hit;
+// here we need the opposite so stub endpoints don't false-trigger.
+function orthoSegmentCrossesRect(a: Pt, b: Pt, r: Obstacle): boolean {
+  const rx2 = r.x + r.w
+  const ry2 = r.y + r.h
+  if (Math.abs(a.y - b.y) < 0.5) {
+    // Horizontal segment at y = a.y.
+    if (a.y <= r.y || a.y >= ry2) return false
+    const minX = Math.min(a.x, b.x)
+    const maxX = Math.max(a.x, b.x)
+    return maxX > r.x && minX < rx2
+  }
+  if (Math.abs(a.x - b.x) < 0.5) {
+    // Vertical segment at x = a.x.
+    if (a.x <= r.x || a.x >= rx2) return false
+    const minY = Math.min(a.y, b.y)
+    const maxY = Math.max(a.y, b.y)
+    return maxY > r.y && minY < ry2
+  }
+  // Generic (diagonal) — our routes are orthogonal so this only fires
+  // for the linear wire-type. Skip the check there; the natural straight
+  // line is what the user asked for.
+  return false
+}
+
+function polylineCrossesAnyObstacle(pts: Pt[], obstacles: Obstacle[]): boolean {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!
+    const b = pts[i + 1]!
+    for (const o of obstacles) {
+      if (orthoSegmentCrossesRect(a, b, o)) return true
+    }
+  }
+  return false
+}
+
+function polylineLength(pts: Pt[]): number {
+  let len = 0
+  for (let i = 0; i < pts.length - 1; i++) {
+    len += Math.hypot(pts[i + 1]!.x - pts[i]!.x, pts[i + 1]!.y - pts[i]!.y)
+  }
+  return len
+}
+
+// Plan an orthogonal route from p1 (leaving fromSide) to p2 (arriving
+// from toSide) that doesn't cross any obstacle interior. The route
+// always starts with a STUB-px perpendicular stub out of p1 and ends
+// with a STUB-px perpendicular stub into p2, so the arrow lands square
+// on the edge. Between the stubs, we try a handful of orthogonal
+// candidates (direct, around-top, around-bottom, around-left,
+// around-right) and pick the shortest one that clears every obstacle.
+// Returns null if no candidate clears — caller falls back to fluid.
+function planOrthogonalRoute(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
+): Pt[] | null {
+  const STUB = 24
+  const CLEAR = 28
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const stubFrom: Pt = { x: p1.x + n1.x * STUB, y: p1.y + n1.y * STUB }
+  const stubTo: Pt = { x: p2.x + n2.x * STUB, y: p2.y + n2.y * STUB }
+  const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
+  const isToHorizontal = toSide === 'left' || toSide === 'right'
+
+  // Bounding rectangle of all obstacles + the stubs / endpoints — used
+  // to size the around-* detour lanes so they always clear.
+  let minX = Math.min(stubFrom.x, stubTo.x, p1.x, p2.x)
+  let maxX = Math.max(stubFrom.x, stubTo.x, p1.x, p2.x)
+  let minY = Math.min(stubFrom.y, stubTo.y, p1.y, p2.y)
+  let maxY = Math.max(stubFrom.y, stubTo.y, p1.y, p2.y)
+  for (const o of obstacles) {
+    if (o.x < minX) minX = o.x
+    if (o.x + o.w > maxX) maxX = o.x + o.w
+    if (o.y < minY) minY = o.y
+    if (o.y + o.h > maxY) maxY = o.y + o.h
+  }
+  const topLane = minY - CLEAR
+  const bottomLane = maxY + CLEAR
+  const leftLane = minX - CLEAR
+  const rightLane = maxX + CLEAR
+
+  const candidates: Pt[][] = []
+
+  // Direct: stub out, connect to other stub, stub in. Branches on the
+  // port orientations so the connection between stubs is always
+  // orthogonal — same-axis ports collapse to a Z, mixed axes get an L.
+  if (isFromHorizontal && isToHorizontal) {
+    if (Math.abs(stubFrom.y - stubTo.y) < 0.5) {
+      candidates.push([p1, stubFrom, stubTo, p2])
+    }
+    else {
+      const mx = (stubFrom.x + stubTo.x) / 2
+      candidates.push([
+        p1, stubFrom,
+        { x: mx, y: stubFrom.y },
+        { x: mx, y: stubTo.y },
+        stubTo, p2,
+      ])
+    }
+  }
+  else if (!isFromHorizontal && !isToHorizontal) {
+    if (Math.abs(stubFrom.x - stubTo.x) < 0.5) {
+      candidates.push([p1, stubFrom, stubTo, p2])
+    }
+    else {
+      const my = (stubFrom.y + stubTo.y) / 2
+      candidates.push([
+        p1, stubFrom,
+        { x: stubFrom.x, y: my },
+        { x: stubTo.x, y: my },
+        stubTo, p2,
+      ])
+    }
+  }
+  else if (isFromHorizontal) {
+    // Two L variants. Variant A turns at stubFrom's y (extend along the
+    // source's outward direction, then bend perpendicular into the
+    // target). Variant B turns perpendicular at stubFrom.x first, then
+    // crosses to stubTo. Variant A collapses to a clean 1-bend L when
+    // stubTo sits forward of stubFrom along the source's outward axis,
+    // but folds back through stubFrom into a 180° spike when stubTo
+    // sits behind — Variant B has 90° corners in every layout, so the
+    // spike-filter below can drop Variant A without leaving us empty.
+    candidates.push([
+      p1, stubFrom,
+      { x: stubTo.x, y: stubFrom.y },
+      stubTo, p2,
+    ])
+    candidates.push([
+      p1, stubFrom,
+      { x: stubFrom.x, y: stubTo.y },
+      stubTo, p2,
+    ])
+  }
+  else {
+    candidates.push([
+      p1, stubFrom,
+      { x: stubFrom.x, y: stubTo.y },
+      stubTo, p2,
+    ])
+    candidates.push([
+      p1, stubFrom,
+      { x: stubTo.x, y: stubFrom.y },
+      stubTo, p2,
+    ])
+  }
+
+  // Around-top / around-bottom: route along the perpendicular lane
+  // above / below the obstacle bbox, with stubs into both endpoints.
+  // The horizontal-aligned candidates work for both horizontal-horizontal
+  // and mixed configs (the lane is set on the cross axis of each stub).
+  candidates.push([
+    p1, stubFrom,
+    { x: stubFrom.x, y: topLane },
+    { x: stubTo.x, y: topLane },
+    stubTo, p2,
+  ])
+  candidates.push([
+    p1, stubFrom,
+    { x: stubFrom.x, y: bottomLane },
+    { x: stubTo.x, y: bottomLane },
+    stubTo, p2,
+  ])
+  candidates.push([
+    p1, stubFrom,
+    { x: leftLane, y: stubFrom.y },
+    { x: leftLane, y: stubTo.y },
+    stubTo, p2,
+  ])
+  candidates.push([
+    p1, stubFrom,
+    { x: rightLane, y: stubFrom.y },
+    { x: rightLane, y: stubTo.y },
+    stubTo, p2,
+  ])
+
+  // No-stub direct candidates — route p1 → midpoint → p2 without the
+  // fixed STUB-px stub. These exist for close-node layouts where the
+  // stub-based Z / L candidates above all collapse into 180° spikes
+  // because stubFrom and stubTo overlap each other. Without the stub
+  // there's no overlap to backtrack across, so the candidate is clean
+  // even when the endpoints are 1–2px apart in one axis. For wide-node
+  // layouts these have the same total length as the stub-based Z (both
+  // run along the same midpoint axis), and the stub-based candidate is
+  // listed first so it wins the tiebreak — preserving the schematic
+  // look with a clean STUB-length straight before/after each corner.
+  if (isFromHorizontal && isToHorizontal) {
+    if (Math.abs(p1.y - p2.y) < 0.5) {
+      candidates.push([p1, p2])
+    }
+    else {
+      const dmx = (p1.x + p2.x) / 2
+      candidates.push([p1, { x: dmx, y: p1.y }, { x: dmx, y: p2.y }, p2])
+    }
+  }
+  else if (!isFromHorizontal && !isToHorizontal) {
+    if (Math.abs(p1.x - p2.x) < 0.5) {
+      candidates.push([p1, p2])
+    }
+    else {
+      const dmy = (p1.y + p2.y) / 2
+      candidates.push([p1, { x: p1.x, y: dmy }, { x: p2.x, y: dmy }, p2])
+    }
+  }
+  else if (isFromHorizontal) {
+    candidates.push([p1, { x: p2.x, y: p1.y }, p2])
+    candidates.push([p1, { x: p1.x, y: p2.y }, p2])
+  }
+  else {
+    candidates.push([p1, { x: p1.x, y: p2.y }, p2])
+    candidates.push([p1, { x: p2.x, y: p1.y }, p2])
+  }
+
+  // Pick the shortest candidate that doesn't cross any obstacle AND
+  // doesn't fold back through itself at a corner. The stubs are first /
+  // last segments and always sit on the boundary of the wire's endpoint
+  // nodes (which are obstacles when their ports are outward) —
+  // `segmentCrossesRect` treats boundary contact as "outside" so the
+  // stubs themselves never false-positive. The spike check rejects
+  // candidates where any interior corner is a 180° backtrack, which
+  // would render as a pointy degenerate arc instead of a smooth bend.
+  let best: Pt[] | null = null
+  let bestLen = Infinity
+  for (const pts of candidates) {
+    if (hasOrthogonalSpike(pts)) continue
+    if (polylineCrossesAnyObstacle(pts, obstacles)) continue
+    const len = polylineLength(pts)
+    if (len < bestLen) {
+      bestLen = len
+      best = pts
+    }
+  }
+  return best
+}
+
+// True when any interior vertex in the polyline is a 180° backtrack —
+// the previous and next vertices both lie on the same side of the
+// corner along the same axis. The rounded-corner renderer collapses
+// these into a degenerate spike instead of a smooth arc, so route
+// planners use this to drop candidates that would render as a pointy
+// outcropping near the stub.
+function hasOrthogonalSpike(pts: Pt[]): boolean {
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]!
+    const curr = pts[i]!
+    const next = pts[i + 1]!
+    const v1x = prev.x - curr.x
+    const v1y = prev.y - curr.y
+    const v2x = next.x - curr.x
+    const v2y = next.y - curr.y
+    const len1 = Math.hypot(v1x, v1y)
+    const len2 = Math.hypot(v2x, v2y)
+    // Zero-length segments fold into their neighbour at render time;
+    // they can't produce a spike on their own.
+    if (len1 < 0.5 || len2 < 0.5) continue
+    // Both vectors point into the same half-plane → corner folds back
+    // on itself. Dot product is positive only when the angle between
+    // them is < 90°, which for axis-aligned vectors means parallel
+    // same-direction (180° backtrack).
+    if (v1x * v2x + v1y * v2y > 0) return true
+  }
+  return false
+}
+
+// Grid A* orthogonal router used when `planOrthogonalRoute`'s 5 fixed
+// candidates all crash through obstacles — typically when a third node
+// sits between the wire's endpoints on the natural lane, or when
+// neighbouring nodes block the wraparound lanes the simple planner would
+// have used. Returns a polyline (p1 → stubFrom → grid-aligned interior →
+// stubTo → p2) that weaves around every obstacle interior, or null if
+// even the stub cell itself is blocked (source / target overlap with an
+// obstacle), in which case the caller falls through to `buildWirePath`.
+function aStarOrthogonalRoute(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
+): Pt[] | null {
+  const STEP = 24
+  const STUB = 24
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const stubFrom: Pt = { x: p1.x + n1.x * STUB, y: p1.y + n1.y * STUB }
+  const stubTo: Pt = { x: p2.x + n2.x * STUB, y: p2.y + n2.y * STUB }
+
+  let minX = Math.min(stubFrom.x, stubTo.x, p1.x, p2.x)
+  let maxX = Math.max(stubFrom.x, stubTo.x, p1.x, p2.x)
+  let minY = Math.min(stubFrom.y, stubTo.y, p1.y, p2.y)
+  let maxY = Math.max(stubFrom.y, stubTo.y, p1.y, p2.y)
+  for (const o of obstacles) {
+    if (o.x < minX) minX = o.x
+    if (o.x + o.w > maxX) maxX = o.x + o.w
+    if (o.y < minY) minY = o.y
+    if (o.y + o.h > maxY) maxY = o.y + o.h
+  }
+  // Breathing room so the around-* wraparound lanes have somewhere to live.
+  const PAD = STEP * 4
+  minX -= PAD; maxX += PAD; minY -= PAD; maxY += PAD
+
+  // Align the grid so stubFrom lands on cell (0, *) exactly — keeps the
+  // emerging stub geometrically aligned with the rendered wire.
+  const originX = stubFrom.x - Math.ceil((stubFrom.x - minX) / STEP) * STEP
+  const originY = stubFrom.y - Math.ceil((stubFrom.y - minY) / STEP) * STEP
+  const cols = Math.ceil((maxX - originX) / STEP) + 1
+  const rows = Math.ceil((maxY - originY) / STEP) + 1
+  // Cap grid size so an out-of-bounds drag can't lock up the render thread.
+  if (cols * rows > 50000) return null
+
+  // Block any cell whose centre falls strictly inside an obstacle — cells
+  // sitting exactly on the boundary stay open so a stub landing on a
+  // node's outer edge isn't trapped before it can leave.
+  const blocked = new Uint8Array(cols * rows)
+  for (const o of obstacles) {
+    const cxLo = Math.max(0, Math.ceil((o.x - originX) / STEP))
+    const cxHi = Math.min(cols - 1, Math.floor((o.x + o.w - originX) / STEP))
+    const cyLo = Math.max(0, Math.ceil((o.y - originY) / STEP))
+    const cyHi = Math.min(rows - 1, Math.floor((o.y + o.h - originY) / STEP))
+    for (let cy = cyLo; cy <= cyHi; cy++) {
+      const row = cy * cols
+      for (let cx = cxLo; cx <= cxHi; cx++) {
+        const px = originX + cx * STEP
+        const py = originY + cy * STEP
+        if (px > o.x && px < o.x + o.w && py > o.y && py < o.y + o.h) {
+          blocked[row + cx] = 1
+        }
+      }
+    }
+  }
+
+  const startCx = Math.round((stubFrom.x - originX) / STEP)
+  const startCy = Math.round((stubFrom.y - originY) / STEP)
+  const goalCx = Math.round((stubTo.x - originX) / STEP)
+  const goalCy = Math.round((stubTo.y - originY) / STEP)
+  if (startCx < 0 || startCx >= cols || startCy < 0 || startCy >= rows) return null
+  if (goalCx < 0 || goalCx >= cols || goalCy < 0 || goalCy >= rows) return null
+  if (blocked[startCy * cols + startCx]) return null
+  if (blocked[goalCy * cols + goalCx]) return null
+
+  // 4-direction movement: 0=+x, 1=-x, 2=+y, 3=-y. A turn-cost surcharge
+  // (`TURN`) pushes A* toward visually tidy paths with few bends, even
+  // when several equal-length routes exist. TURN is in units of cells —
+  // each extra bend must save at least TURN cells of length before A*
+  // will accept it, so a higher value trades small detours for fewer
+  // (longer) legs. Set high enough that A* will route ~4 cells out of
+  // the way to avoid a zigzag between close-together nodes.
+  type Cell = { cx: number; cy: number; g: number; f: number; dir: number; parent: Cell | null }
+  const dirs: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+  const initDir = dirs.findIndex(([dx, dy]) => dx === Math.sign(n1.x) && dy === Math.sign(n1.y))
+  const heur = (cx: number, cy: number): number =>
+    Math.abs(cx - goalCx) + Math.abs(cy - goalCy)
+  const TURN = 4
+
+  const open: Cell[] = [{
+    cx: startCx, cy: startCy, g: 0,
+    f: heur(startCx, startCy), dir: initDir, parent: null,
+  }]
+  const closed = new Uint8Array(cols * rows)
+  // Hard cap on expansions for the same reason as the grid-size cap.
+  let expansions = 0
+  const MAX_EXPANSIONS = cols * rows * 2
+
+  while (open.length > 0) {
+    if (++expansions > MAX_EXPANSIONS) return null
+    // Linear scan over the open list. A binary heap would be asymptotically
+    // faster, but the open list typically stays under a few hundred entries
+    // before A* hits the goal for grids of this size.
+    let bestIdx = 0
+    for (let i = 1; i < open.length; i++) {
+      if (open[i]!.f < open[bestIdx]!.f) bestIdx = i
+    }
+    const curr = open.splice(bestIdx, 1)[0]!
+    const key = curr.cy * cols + curr.cx
+    if (closed[key]) continue
+    closed[key] = 1
+
+    if (curr.cx === goalCx && curr.cy === goalCy) {
+      const cellPath: Pt[] = []
+      let n: Cell | null = curr
+      while (n) {
+        cellPath.push({ x: originX + n.cx * STEP, y: originY + n.cy * STEP })
+        n = n.parent
+      }
+      cellPath.reverse()
+      // Collapse co-linear interior cells so the rounded-corner renderer
+      // only sees the actual bends.
+      const out: Pt[] = [p1, stubFrom]
+      for (let i = 1; i < cellPath.length - 1; i++) {
+        const prev = cellPath[i - 1]!
+        const here = cellPath[i]!
+        const next = cellPath[i + 1]!
+        const sameX = here.x === prev.x && here.x === next.x
+        const sameY = here.y === prev.y && here.y === next.y
+        if (!sameX && !sameY) out.push(here)
+      }
+      // Bridge: the grid is aligned to stubFrom, so stubTo may sit a
+      // fraction of a cell off its column / row when the wire endpoints
+      // don't share a grid offset (e.g. mixed horizontal / vertical
+      // ports). A direct connection from the last interior cell to
+      // stubTo would then render as a tiny diagonal — insert an
+      // axis-aligned intermediate so the final approach matches
+      // toSide's inward normal.
+      const lastPt = out[out.length - 1]!
+      const toHorizontal = toSide === 'left' || toSide === 'right'
+      if (toHorizontal && lastPt.y !== stubTo.y) {
+        out.push({ x: lastPt.x, y: stubTo.y })
+      }
+      else if (!toHorizontal && lastPt.x !== stubTo.x) {
+        out.push({ x: stubTo.x, y: lastPt.y })
+      }
+      out.push(stubTo, p2)
+      return out
+    }
+
+    for (let d = 0; d < 4; d++) {
+      const [dx, dy] = dirs[d]!
+      const nx = curr.cx + dx
+      const ny = curr.cy + dy
+      if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue
+      const nkey = ny * cols + nx
+      if (closed[nkey] || blocked[nkey]) continue
+      // The first step out of the start cell is charged against the
+      // outward-normal heading; later steps against the cell's own incoming
+      // direction. Keeps the stub straight unless turning saves real
+      // distance.
+      const refDir = curr.parent === null ? initDir : curr.dir
+      const turnCost = d !== refDir ? TURN : 0
+      const ng = curr.g + 1 + turnCost
+      open.push({ cx: nx, cy: ny, g: ng, f: ng + heur(nx, ny), dir: d, parent: curr })
+    }
+  }
+  return null
+}
+
+// Render a polyline with rounded right-angle corners. Identical to the
+// step-wire path builder but pulled out so the outward-wraparound path
+// can share the same look — small radius `R` quadratic-bezier turns at
+// every interior vertex, with straight L segments between.
+//
+// Picks ONE radius for every corner in the polyline so close-together
+// turns don't pop in/out at different sizes. The radius is capped at
+// `R` and shrunk to fit the tightest segment in the polyline — each
+// interior segment has a corner taking `r` from both ends (so it needs
+// to be at least 2r long), and end segments give up `r` to their one
+// adjacent corner (so they need to be at least r long).
+function roundedPolylinePath(pts: Pt[]): string {
+  if (pts.length < 2) return ''
+  // Drop interior points that are collinear with their neighbours — the
+  // route planner emits stubFrom / stubTo / lane-edge intermediates that
+  // lie on the same line as the surrounding vertices (180° "corners"),
+  // and leaving them in fragments long segments into short ones, which
+  // drags the per-wire uniformR way down. After this pass the polyline
+  // has exactly the real geometric corners, so the radius budget reflects
+  // actual bends instead of degenerate 180° points.
+  const simplified: Pt[] = [pts[0]!]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = simplified[simplified.length - 1]!
+    const curr = pts[i]!
+    const next = pts[i + 1]!
+    const v1x = curr.x - prev.x
+    const v1y = curr.y - prev.y
+    const v2x = next.x - curr.x
+    const v2y = next.y - curr.y
+    // Collinear when the 2D cross product is zero. Same-direction
+    // (180° straight) and zero-length segments both fall through here,
+    // which is what we want — neither needs its own polyline vertex.
+    if (Math.abs(v1x * v2y - v1y * v2x) < 1e-6) continue
+    simplified.push(curr)
+  }
+  simplified.push(pts[pts.length - 1]!)
+  pts = simplified
+  if (pts.length === 2) return `M ${pts[0]!.x} ${pts[0]!.y} L ${pts[1]!.x} ${pts[1]!.y}`
+  // Lower target radius so the per-wire uniformR doesn't have to shrink as
+  // much when nodes are close — close-node wires used to bottom out at
+  // R≈3 (gap 6) while wires between far nodes sat at R=12, which read as
+  // visually inconsistent across wires on the same canvas. A target of 8
+  // keeps the typical wire looking rounded while compressing the cross-
+  // wire variance: long wires now stop at 8 instead of 12, and close-node
+  // wires usually still hit the same 8 because their shortest segment is
+  // longer than 16. Only very tight layouts (gap < 16) shrink further.
+  const R = 8
+  let uniformR = R
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!
+    const b = pts[i + 1]!
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    const cornersOnSegment = (i > 0 ? 1 : 0) + (i < pts.length - 2 ? 1 : 0)
+    if (cornersOnSegment === 0) continue
+    uniformR = Math.min(uniformR, len / cornersOnSegment)
+  }
+  let d = `M ${pts[0]!.x} ${pts[0]!.y}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]!
+    const curr = pts[i]!
+    const next = pts[i + 1]!
+    const v1x = prev.x - curr.x
+    const v1y = prev.y - curr.y
+    const v2x = next.x - curr.x
+    const v2y = next.y - curr.y
+    const len1 = Math.max(1, Math.hypot(v1x, v1y))
+    const len2 = Math.max(1, Math.hypot(v2x, v2y))
+    const r = uniformR
+    const ax = curr.x + (v1x / len1) * r
+    const ay = curr.y + (v1y / len1) * r
+    const bx = curr.x + (v2x / len2) * r
+    const by = curr.y + (v2y / len2) * r
+    d += ` L ${ax} ${ay} Q ${curr.x} ${curr.y}, ${bx} ${by}`
+  }
+  const last = pts[pts.length - 1]!
+  d += ` L ${last.x} ${last.y}`
+  return d
+}
+
+// Public wrapper used by every wire renderer (resting + in-flight previews).
+// Tries the orthogonal candidate planner first, falls back to A* for the
+// awkward layouts where every candidate clips an obstacle, then finally
+// to `buildWirePath`'s raw wire-style path so something always renders —
+// the staircase mirrors the resting wire pipeline in `wireGeoms`.
+function routedWirePath(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side,
+  wireType: WireType, obstacles: Obstacle[],
+): string {
+  const wrapPts =
+    planOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
+    ?? aStarOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
+  if (wrapPts) return roundedPolylinePath(wrapPts)
+  return buildWirePath(p1, p2, fromSide, toSide, wireType, obstacles)
+}
+
+function buildWirePath(
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType,
+  obstacles: Obstacle[] = [],
+): string {
   if (wireType === 'linear') {
     return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
   }
@@ -1861,13 +4279,8 @@ function buildWirePath(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: W
     // Orthogonal (right-angle) path with curved corners.
     // Route: depart from p1 along its outward normal, travel horizontally or
     // vertically to an intermediate row/column, then arrive at p2 along its
-    // inward normal.  Every corner is a quadratic bezier for a smooth turn.
-    const n1 = outwardNormal(fromSide)
-    const n2 = outwardNormal(toSide)
-    const R = 12 // corner radius
-
-    // Compute the midpoint where the two legs of the path should meet.
-    // For horizontal departures we route at a shared X; for vertical at a shared Y.
+    // inward normal. Rendering goes through `roundedPolylinePath` so this
+    // shares the uniform-radius corner sizing with the wraparound paths.
     const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
     const isToHorizontal = toSide === 'left' || toSide === 'right'
 
@@ -1892,83 +4305,231 @@ function buildWirePath(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: W
     }
 
     pts.push({ ...p2 })
-
-    // Build path with rounded corners using quadratic bezier arcs.
-    // For each intermediate point we round the corner with a Q command.
-    if (pts.length <= 2) return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
-
-    let d = `M ${pts[0]!.x} ${pts[0]!.y}`
-    for (let i = 1; i < pts.length - 1; i++) {
-      const prev = pts[i - 1]!
-      const curr = pts[i]!
-      const next = pts[i + 1]!
-      // Vector from curr toward prev and toward next
-      const v1x = prev.x - curr.x
-      const v1y = prev.y - curr.y
-      const v2x = next.x - curr.x
-      const v2y = next.y - curr.y
-      const len1 = Math.max(1, Math.hypot(v1x, v1y))
-      const len2 = Math.max(1, Math.hypot(v2x, v2y))
-      const r = Math.min(R, len1 / 2, len2 / 2)
-      // Start of the arc (r pixels before the corner along the incoming leg)
-      const ax = curr.x + (v1x / len1) * r
-      const ay = curr.y + (v1y / len1) * r
-      // End of the arc (r pixels after the corner along the outgoing leg)
-      const bx = curr.x + (v2x / len2) * r
-      const by = curr.y + (v2y / len2) * r
-      d += ` L ${ax} ${ay} Q ${curr.x} ${curr.y}, ${bx} ${by}`
-    }
-    const last = pts[pts.length - 1]!
-    d += ` L ${last.x} ${last.y}`
-    return d
+    return roundedPolylinePath(pts)
   }
 
-  // Default: fluid (cubic bezier)
-  const n1 = outwardNormal(fromSide)
-  const n2 = outwardNormal(toSide)
-  const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
-  const c1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
-  const c2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
+  // Default: fluid (cubic bezier). Control points are pushed perpendicular
+  // to the chord when the natural curve would clip through any obstacle
+  // node, so the wire routes around bodies instead of slicing through
+  // them — see `fluidControlsAvoidingObstacles`.
+  const { c1, c2 } = fluidControlsAvoidingObstacles(p1, p2, fromSide, toSide, obstacles)
   return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
+}
+
+// Every node's padded obstacle rect, indexed by id. Shared by the resting
+// wire renderer and every in-flight preview so each consumer can filter
+// out its own endpoint nodes without re-deriving positions / sizes.
+const paddedNodeBoxes = computed<Map<string, Obstacle>>(() => {
+  const map = new Map<string, Obstacle>()
+  for (const n of allNodes.value) {
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    map.set(n.id, {
+      x: p.x - OBSTACLE_PAD,
+      y: p.y - OBSTACLE_PAD,
+      w: s.w + 2 * OBSTACLE_PAD,
+      h: s.h + 2 * OBSTACLE_PAD,
+    })
+  }
+  return map
+})
+
+// Obstacle list for a wire / preview rooted at the listed endpoint ids.
+// Pass the source / target node ids (or nullish for detached ends) and
+// the resulting list will exclude those nodes from the routing planner.
+function obstaclesExcept(...skipIds: Array<string | null | undefined>): Obstacle[] {
+  const skip = new Set(skipIds.filter((id): id is string => !!id))
+  const out: Obstacle[] = []
+  for (const [id, rect] of paddedNodeBoxes.value) {
+    if (!skip.has(id)) out.push(rect)
+  }
+  return out
 }
 
 const wireGeoms = computed<WireGeom[]>(() => {
   const out: WireGeom[] = []
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const sides = wireSidesMap.value
+  // Precompute every visible node's padded bbox so each wire's path
+  // builder can ask "does the curve I'm rendering clip through any of
+  // these?" without re-deriving on every iteration of the obstacle-avoid
+  // loop. The endpoint nodes for each wire are filtered out per-wire
+  // below.
+  const allObstacles: { id: string; rect: Obstacle }[] = []
+  for (const n of allNodes.value) {
+    const p = nodePos(n)
+    const s = nodeSize(n)
+    allObstacles.push({
+      id: n.id,
+      rect: {
+        x: p.x - OBSTACLE_PAD,
+        y: p.y - OBSTACLE_PAD,
+        w: s.w + 2 * OBSTACLE_PAD,
+        h: s.h + 2 * OBSTACLE_PAD,
+      },
+    })
+  }
   // Edges indexed by id so a persisted `from_side` / `to_side` overrides
   // the auto-pick below. Spine + extra wires are absent here and fall
   // through to the auto-picked sides.
   const wiresById = new Map<string, WorkflowWire>(
     displayedGraph.value.wires.map(e => [e.id, e]),
   )
+  // Seed `stableWireSides` with `sides`' first observation for each wire,
+  // and evict entries for wires that no longer exist. Subsequent renders
+  // reuse the stable value so a node move doesn't flip the wire to a new
+  // side. Mutating a plain Map (not a ref) means this side-effect doesn't
+  // trigger its own re-render — wireGeoms already runs because positions
+  // changed.
+  const liveWireIds = new Set<string>()
+  for (const [id, sidePair] of sides.entries()) {
+    liveWireIds.add(id)
+    if (!stableWireSides.has(id)) stableWireSides.set(id, sidePair)
+  }
+  for (const id of [...stableWireSides.keys()]) {
+    if (!liveWireIds.has(id)) stableWireSides.delete(id)
+  }
   const wt = settings.value.wireType ?? 'fluid'
+  const ZERO_SIZE: Size = { w: 0, h: 0 }
   for (const w of allWires.value) {
     const a = nodeMap.get(w.fromId)
     const b = nodeMap.get(w.toId)
-    if (!a || !b) continue
-    const pa = nodePos(a)
-    const pb = nodePos(b)
-    const assigned = sides.get(w.id)
     const persistedEdge = w.id.startsWith('wire:')
       ? wiresById.get(w.id.slice('wire:'.length))
       : undefined
-    const fromSide: Side = persistedEdge?.from_side ?? assigned?.fromSide ?? 'right'
-    const toSide: Side = persistedEdge?.to_side ?? assigned?.toSide ?? 'left'
-    const sa = nodeSize(a)
-    const sb = nodeSize(b)
+    // Detached endpoint support: when a wire's from / to node is missing
+    // we fall back to the floating position (`from_pos` / `to_pos`).
+    // Graph wires carry these via the persisted edge; user-wires carry
+    // them on the FlatWire itself. A wire with neither a node nor a
+    // floating coord at an end has no resting geometry — skip it.
+    const fromPos = !a ? (persistedEdge?.from_pos ?? w.fromPos) : undefined
+    const toPos = !b ? (persistedEdge?.to_pos ?? w.toPos) : undefined
+    if (!a && !fromPos) continue
+    if (!b && !toPos) continue
+    const pa = a ? nodePos(a) : fromPos!
+    const pb = b ? nodePos(b) : toPos!
+    const assigned = sides.get(w.id)
+    const stable = stableWireSides.get(w.id)
+    // Precedence: persisted (real wire data set by endpoint-drag / port-
+    // drag-snap) → user-wire's own side (port-drag-snap on a wire that
+    // can't be persisted, e.g. to End) → stable (frozen first pick from
+    // the auto router) → live auto pick → fallback.
+    const fromSide: Side = persistedEdge?.from_side ?? w.fromSide ?? stable?.fromSide ?? assigned?.fromSide ?? 'right'
+    const toSide: Side = persistedEdge?.to_side ?? w.toSide ?? stable?.toSide ?? assigned?.toSide ?? 'left'
+    // Detached ends use a zero-size box, so `pointOnSide` collapses to
+    // the floating point itself regardless of which side was chosen.
+    const sa = a ? nodeSize(a) : ZERO_SIZE
+    const sb = b ? nodeSize(b) : ZERO_SIZE
+    // `p1` / `p2` are the LOGICAL endpoints (node side-centres). Snap
+    // math, endpoint-drag fixed-anchor coords, and side-tracking all key
+    // off these. The wire's RENDERED path stops `WIRE_END_GAP` short of
+    // them on each side so the grip circles fit in the gap.
     const p1 = pointOnSide(pa, fromSide, sa)
     const p2 = pointOnSide(pb, toSide, sb)
-    // Geometric midpoint between the two attachment points — used to anchor
-    // the wire-selection toolbar above each editable edge.
-    const mid: Pt = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
-    // Only real graph edges (wire:<edgeId>) are user-selectable. Spine
-    // wires (Start/End anchors) and extras (`u:`) aren't editable.
-    const selectable = w.id.startsWith('wire:')
+    const p1Drawn = wireDrawnEndPt(p1, fromSide)
+    const p2Drawn = wireDrawnEndPt(p2, toSide)
+    // Geometric midpoint between the two drawn endpoints — kept as a
+    // generic anchor for any consumer that wants the chord centre.
+    const mid: Pt = { x: (p1Drawn.x + p2Drawn.x) / 2, y: (p1Drawn.y + p2Drawn.y) / 2 }
+    // Orthogonal obstacle-aware routing. Every wire goes through the
+    // candidate planner first (5 quick candidates: direct + around-top /
+    // bottom / left / right). When all 5 crash through an obstacle —
+    // typically because a third node sits on the natural lane or because
+    // neighbouring nodes block every wraparound — the A* fallback kicks
+    // in and weaves a grid-aligned path around every obstacle interior.
+    // A* itself returns null only when even the stub cell is blocked
+    // (the wire's source / target overlaps with an obstacle), in which
+    // case we fall through to the wire-style's own builder so something
+    // still renders.
+    const fromOutward = outwardNormalDotMid(fromSide, p1, mid) < 0
+    const toOutward = outwardNormalDotMid(toSide, p2, mid) < 0
+    const routingObstacles: Obstacle[] = allObstacles
+      .filter(o => o.id !== w.fromId && o.id !== w.toId)
+      .map(o => o.rect)
+    // Endpoint nodes are obstacles ONLY when the wire emerges / lands
+    // via an outward port — for inward ports the wire never re-enters
+    // the node, so including it would block the natural straight path.
+    if (a && fromOutward) routingObstacles.push({ x: pa.x, y: pa.y, w: sa.w, h: sa.h })
+    if (b && toOutward) routingObstacles.push({ x: pb.x, y: pb.y, w: sb.w, h: sb.h })
+    const wrapPts = planOrthogonalRoute(p1Drawn, p2Drawn, fromSide, toSide, routingObstacles)
+      ?? aStarOrthogonalRoute(p1Drawn, p2Drawn, fromSide, toSide, routingObstacles)
+    // Toolbar anchor: pick orientation from the overall bounding rect
+    // (wider → horizontal bar above; taller → vertical bar beside), then
+    // anchor at the centre of the longest straight segment whose direction
+    // matches that orientation. Preferring an aligned segment matters for
+    // step wires shaped like a Z — the longest segment could be the
+    // perpendicular middle leg, and centring an axis-aligned bar on a
+    // perpendicular leg would drop the bar on top of the wire. For
+    // linear / fluid wires the polyline collapses to the chord, which
+    // (by construction) is already aligned with the bbox's longer side.
+    const wpts = wrapPts ?? wireWaypoints(p1Drawn, p2Drawn, fromSide, toSide, wt)
+    let bMinX = wpts[0]!.x, bMaxX = wpts[0]!.x, bMinY = wpts[0]!.y, bMaxY = wpts[0]!.y
+    for (const p of wpts) {
+      if (p.x < bMinX) bMinX = p.x
+      if (p.x > bMaxX) bMaxX = p.x
+      if (p.y < bMinY) bMinY = p.y
+      if (p.y > bMaxY) bMaxY = p.y
+    }
+    const bboxW = bMaxX - bMinX
+    const bboxH = bMaxY - bMinY
+    const toolbarOrientation: 'horizontal' | 'vertical' = bboxW >= bboxH ? 'horizontal' : 'vertical'
+    // Collect every aligned segment tied for the longest length, then
+    // average their midpoints. Picking only the first longest segment
+    // dropped the bar on the LEFT half of a symmetric step wire — e.g.
+    // Start ↔ same-row node has two equal halves bracketing a zero-length
+    // middle leg, and the first half won the tiebreaker. Averaging
+    // matched midpoints collapses the symmetric case back to the chord
+    // centre while still riding a single-leg Z-shape's dominant straight.
+    let bestLen = -1
+    const bestMidpoints: Pt[] = []
+    const SEG_EPS = 0.5
+    for (let i = 0; i < wpts.length - 1; i++) {
+      const a = wpts[i]!
+      const b = wpts[i + 1]!
+      const dx = Math.abs(b.x - a.x)
+      const dy = Math.abs(b.y - a.y)
+      const len = Math.hypot(dx, dy)
+      const aligned = toolbarOrientation === 'horizontal' ? dx >= dy : dy >= dx
+      if (!aligned || len <= 0) continue
+      const segMid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+      if (len > bestLen + SEG_EPS) {
+        bestLen = len
+        bestMidpoints.length = 0
+        bestMidpoints.push(segMid)
+      }
+      else if (Math.abs(len - bestLen) <= SEG_EPS) {
+        bestMidpoints.push(segMid)
+      }
+    }
+    let bestCx = mid.x
+    let bestCy = mid.y
+    if (bestMidpoints.length > 0) {
+      bestCx = bestMidpoints.reduce((s, p) => s + p.x, 0) / bestMidpoints.length
+      bestCy = bestMidpoints.reduce((s, p) => s + p.y, 0) / bestMidpoints.length
+    }
+    const toolbarAnchor = { x: bestCx, y: bestCy, orientation: toolbarOrientation }
+    // `selectable` = full editor (endpoint drag handles, side-panel form).
+    // Real graph edges (`wire:`) carry persisted metadata; canvas-local
+    // extras (`user:`, e.g. wires the user dragged to a synthetic Start
+    // / End) are also draggable so their endpoints participate in the
+    // same drag-to-snap / drop-in-empty UX as real wires. The drag
+    // commit branches on the id prefix to know which store to mutate.
+    // `clickable` = receives clicks for selection + highlight + the
+    // action pill.
+    const selectable = w.id.startsWith('wire:') || w.id.startsWith('user:')
+    const clickable = selectable
+    const wireObstacles = allObstacles
+      .filter(o => o.id !== w.fromId && o.id !== w.toId)
+      .map(o => o.rect)
+    const d = wrapPts
+      ? roundedPolylinePath(wrapPts)
+      : buildWirePath(p1Drawn, p2Drawn, fromSide, toSide, wt, wireObstacles)
     out.push({
       id: w.id,
-      d: buildWirePath(p1, p2, fromSide, toSide, wt),
+      d,
       mid,
+      toolbarAnchor,
+      clickable,
       selectable,
       fromId: w.fromId,
       toId: w.toId,
@@ -2059,10 +4620,12 @@ function deleteSelected() {
     userWires.value = remainingUserWires
     persistUserWires()
   }
-  // Layout-derived graph nodes get hidden (the canvas masks them); a
-  // proper graph removal goes through `node_remove` via the per-node
-  // toolbar.
-  hidden.value = new Set([...hidden.value, ...deletable])
+  // Commit the removal to the graph so subsequent layout / save / run see
+  // the post-delete state. `node_remove` cascades wire removal for any
+  // wires incident on the removed node.
+  for (const id of deletable) {
+    applyStructuralOp({ kind: 'node_remove', node_id: id })
+  }
   selected.value = new Set()
   persistOverrides()
   recordHistory()
@@ -2073,6 +4636,57 @@ const hidden = ref<Set<string>>(new Set())
 const visibleNodes = computed(() => allNodes.value.filter(n => !hidden.value.has(n.id)))
 const visibleWires = computed(() => wireGeoms.value.filter(w => !hidden.value.has(w.fromId) && !hidden.value.has(w.toId)))
 
+// Keyboard shortcut: Delete / Backspace removes the current selection.
+// Routes to whichever delete fn matches the live selection — wire takes
+// precedence because a wire can't be selected at the same time as nodes
+// (`selectWire` clears `selected`). Suppressed when focus is in a text
+// field so the user can still backspace through input text.
+function isEditableFocus(): boolean {
+  const el = document.activeElement as HTMLElement | null
+  if (!el) return false
+  if (el.isContentEditable) return true
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
+function onCanvasKeyDown(ev: KeyboardEvent) {
+  if (ev.key === 'Escape') {
+    if (selected.value.size + selectedWireIds.value.size > 0 || selectedWireId.value) {
+      dismissPersistentMarquee()
+      ev.preventDefault()
+    }
+    return
+  }
+  if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
+  if (isEditableFocus()) return
+  // Multi-selection (nodes + wires from marquee or shift-click) goes
+  // through the combined delete path that knows how to wipe both buckets.
+  if (selectedWireIds.value.size > 0) {
+    deleteMarqueeSelection()
+    ev.preventDefault()
+    return
+  }
+  if (selectedWireId.value) {
+    deleteSelectedWire()
+    ev.preventDefault()
+    return
+  }
+  if (selected.value.size > 0) {
+    deleteSelected()
+    ev.preventDefault()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', onCanvasKeyDown)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onCanvasKeyDown)
+  stopAutoZoomLoop()
+  activeTouchPointers.clear()
+  touchGesture = null
+})
+
 // ── Layout actions ──────────────────────────────────────────────────────────
 const hasOverrides = computed(
   () => Object.keys(overrides.value).length > 0
@@ -2080,13 +4694,54 @@ const hasOverrides = computed(
 )
 
 function resetLayout() {
-  // Only clear LAYOUT state — positions and visibility. Don't touch the
-  // user's actual content (extras / user wires / persisted graph nodes),
-  // since "reset layout" is meant to re-run the auto-layout, not delete
-  // anything the user authored.
+  // "Auto layout" runs the topological layout once and writes the
+  // computed coordinates onto the graph. Positions go through per-node
+  // `node_edit` ops (so the executor sees the same chain it would for any
+  // single-field edit); wire bends + persisted sides are cleared with a
+  // direct rebuild of `userGraph` because `mergeWirePatch` doesn't accept
+  // a "clear this field" patch shape. Pressing the button again reflows
+  // from scratch.
+  if (!attemptEdit()) return
+  const graph = displayedGraph.value
+  if (graph.nodes.length > 0) {
+    const lay = buildLayout(graph)
+    for (const m of lay.nodes) {
+      if (m.terminal) continue
+      const pos = defaultPos(m)
+      const cur = m.node.position
+      if (cur && Math.abs(cur.x - pos.x) < 0.5 && Math.abs(cur.y - pos.y) < 0.5) continue
+      applyStructuralOp({
+        kind: 'node_edit',
+        node_id: m.id,
+        patch: { position: { x: pos.x, y: pos.y } },
+      })
+    }
+    // Rebuild the graph without bends / persisted sides so the auto
+    // routing takes over post-layout — without this, an old endpoint-drag
+    // choice keeps overriding the freshly-laid-out routing even though
+    // the obstacle map has changed.
+    const cur = displayedGraph.value
+    const cleaned: WorkflowGraph = {
+      nodes: cur.nodes,
+      wires: cur.wires.map((w) => {
+        const next: WorkflowWire = { ...w }
+        delete next.bends
+        delete next.from_side
+        delete next.to_side
+        return next
+      }),
+    }
+    userGraph.value = cleaned
+    editedDraft.value = {}
+    dirtyNodeIds.value = new Set()
+  }
+  // Geometry now lives on the graph — wipe transient overlays + memos so
+  // the rendered positions come entirely from the just-written `node.position`.
   overrides.value = {}
+  sizes.value = {}
+  seedPositions.value = {}
+  stableWireSides.clear()
   hidden.value = new Set()
-  persistOverrides()
   recordHistory()
   nextTick(fitToView)
 }
@@ -2153,6 +4808,8 @@ function canonicalWire(e: WorkflowWire): Record<string, unknown> {
   }
   if (e.from_side) out.from_side = e.from_side
   if (e.to_side) out.to_side = e.to_side
+  if (e.from_pos) out.from_pos = { x: Math.round(e.from_pos.x), y: Math.round(e.from_pos.y) }
+  if (e.to_pos) out.to_pos = { x: Math.round(e.to_pos.x), y: Math.round(e.to_pos.y) }
   return out
 }
 
@@ -2214,6 +4871,7 @@ function applyVersionToCanvas(v: WorkflowVersion) {
   draftGraph.value = (g && Array.isArray(g.nodes)) ? g : emptyGraph()
   overrides.value = {}
   userWires.value = []
+  stableWireSides.clear()
   hidden.value = new Set()
   selected.value = new Set()
   selectedVersionId.value = null
@@ -2294,9 +4952,28 @@ const liveEntry = computed<LiveHistoryEntry | null>(() => {
 })
 const canRun = computed(() => !!selectedWorkflowId.value && !running.value)
 
+// Connectivity warnings surfaced at save time. We don't block the save —
+// the user may know the workflow is unfinished — but we tell them what
+// looks off so the lack of magic auto-wiring isn't mistaken for the
+// canvas being broken.
+function connectivityWarnings(graph: WorkflowGraph): string[] {
+  const out: string[] = []
+  if (graph.nodes.length === 0) return out
+  const hasIn = new Set<string>()
+  const hasOut = new Set<string>()
+  for (const w of graph.wires) {
+    hasIn.add(w.to_id)
+    hasOut.add(w.from_id)
+  }
+  const isolated = graph.nodes.filter(n => !hasIn.has(n.id) && !hasOut.has(n.id))
+  if (isolated.length > 0) {
+    out.push(t('workflow.warnIsolatedNodes', { count: isolated.length }))
+  }
+  return out
+}
+
 async function onSave() {
   if (!canSave.value || !selectedWorkflowId.value) return
-  if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null }
   promoteUserWires()
   saving.value = true
   const snapshotDirty = new Set(dirtyNodeIds.value)
@@ -2311,6 +4988,11 @@ async function onSave() {
     })
     if (created) {
       toast.show(t('workflow.savedToast'), 'info', 3000)
+      // Surface non-blocking validation issues so the user knows what to
+      // fix without the canvas silently inferring wires for them.
+      for (const w of connectivityWarnings(displayedGraph.value)) {
+        toast.show(w, 'warning', 5000)
+      }
       // Re-pull the workflow so latestVersionNumber updates and the next
       // save passes the correct expected_version.
       await loadSelected()
@@ -2333,13 +5015,14 @@ async function onSave() {
   }
 }
 
-// ── Per-node edits + autosave ──────────────────────────────────────────────
+// ── Per-node edits ──────────────────────────────────────────────────────────
 // Form-driven node edits land in `editedDraft` and are overlaid on the live
-// tree via `displayedSteps`. A 1s debounce posts each batch of dirty nodes as
-// a new version through the existing createVersion path; conflict + failure
-// surface via the same toasts as manual save.
+// tree via `displayedSteps`. Versions are NEVER created in the background —
+// they only land in the DB when the user presses Save (`onSave`) or the
+// orchestrator agent runs a server-side save under user permission.
+// `dirtyNodeIds` / `userGraph` / `userWires` / `lockSetDirty` accumulate
+// the pending edits so the Save button surfaces them via `canSave`.
 
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 // Lock toggles count as save-worthy edits independent of dirtyNodeIds, so a
 // pure lock change still produces a new version on disk. Cleared on save.
 let lockSetDirty = false
@@ -2369,7 +5052,6 @@ function onNodePatch(nodeId: string, patch: Partial<WorkflowNode>) {
     next.add(nodeId)
     dirtyNodeIds.value = next
   }
-  scheduleAutoSave()
 }
 
 function onWirePatch(wireId: string, patch: Partial<WorkflowWire>) {
@@ -2377,76 +5059,47 @@ function onWirePatch(wireId: string, patch: Partial<WorkflowWire>) {
   applyStructuralOp({ kind: 'wire_edit', wire_id: wireId, patch })
 }
 
-function scheduleAutoSave() {
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
-    autoSaveTimer = null
-    void performAutoSave()
-  }, 1000)
-}
-
-async function performAutoSave() {
-  // The autosave fires from per-field edits, structural restructures, and
-  // lock toggles. Any of these being dirty is reason enough to push.
-  if (
-    dirtyNodeIds.value.size === 0
-    && userGraph.value == null
-    && !lockSetDirty
-    && userWires.value.length === 0
-  ) return
-  if (!selectedWorkflowId.value) return
-  if (previewedVersion.value) return
-  promoteUserWires()
-  const snapshotDirty = new Set(dirtyNodeIds.value)
-  const hadUserGraph = userGraph.value != null
-  const hadLockChange = lockSetDirty
-  try {
-    const created = await createVersion(workspaceId.value, selectedWorkflowId.value, {
-      steps: displayedGraph.value,
-      expected_version: latestVersionNumber.value,
-      source: 'user',
-      impact_level: 'preference',
-      locked_node_ids: [...lockedNodeIds.value],
-    })
-    if (created) {
-      await loadSelected()
-      clearEditedSnapshot(snapshotDirty)
-      if (hadUserGraph) userGraph.value = null
-      if (hadLockChange) lockSetDirty = false
-    }
-  }
-  catch (err: unknown) {
-    if (err instanceof VersionConflictError) {
-      toast.show(t('workflow.versionConflictToast'), 'warning', 6000)
-      await loadSelected()
-    }
-    else {
-      toast.show(t('workflow.saveFailedToast'), 'error', 4000)
-    }
-  }
-}
-
 // Fold any sketched-but-unattached wires (drag-to-connect that landed
-// outside the graph) into real `edge_add` ops before we ship the graph to
-// the server. Entries whose endpoints aren't in `displayedGraph` are
-// silently dropped — they referenced something that no longer exists.
-// Called at the top of onSave / performAutoSave so the promoted edges are
-// already part of `displayedGraph.value` when we read it for the payload.
+// outside the graph) into real `wire_add` ops before we ship the graph to
+// the server. Wires that *can* be promoted (both endpoints are real graph
+// nodes) are dropped from `userWires` once they're in the graph. Wires
+// whose endpoint is a synthetic Start/End anchor stay in `userWires` —
+// the server rejects those endpoints, so the only home for them is the
+// canvas-local list. Without that distinction, every save nuked a
+// user-drawn wire to End even though the user never deleted it.
+// Called at the top of `onSave` so the promoted edges are already part
+// of `displayedGraph.value` when we read it for the payload.
 function promoteUserWires() {
   if (userWires.value.length === 0) return
+  const remaining: UserWire[] = []
   for (const w of userWires.value) {
-    if (!findNodeById(displayedGraph.value, w.fromId)) continue
-    if (!findNodeById(displayedGraph.value, w.toId)) continue
-    const exists = displayedGraph.value.wires.some(
-      e => e.from_id === w.fromId && e.to_id === w.toId,
-    )
-    if (exists) continue
-    applyStructuralOp({
-      kind: 'wire_add',
-      wire: { id: '', from_id: w.fromId, to_id: w.toId },
-    })
+    const fromReal = !!w.fromId && !!findNodeById(displayedGraph.value, w.fromId)
+    const toReal = !!w.toId && !!findNodeById(displayedGraph.value, w.toId)
+    if (fromReal && toReal) {
+      // Both ends bind to real graph nodes — convert to a persisted wire
+      // so it gains structural-op replay and survives reloads. Skip if
+      // an identical edge already exists.
+      const exists = displayedGraph.value.wires.some(
+        e => e.from_id === w.fromId && e.to_id === w.toId,
+      )
+      if (exists) continue
+      applyStructuralOp({
+        kind: 'wire_add',
+        wire: { id: '', from_id: w.fromId, to_id: w.toId },
+      })
+      continue
+    }
+    // Not fully promotable — keep canvas-local. This covers: wires
+    // touching a synthetic Start / End anchor; wires whose moving end
+    // the user dropped in empty space (floating); wires to spawn-extras
+    // that aren't graph nodes yet. The user can remove explicitly via
+    // the action pill. Drop only when BOTH ends are truly meaningless
+    // (no real node id, no recognised terminal, no floating position).
+    const fromKnown = fromReal || !!w.fromId || !!w.fromPos
+    const toKnown = toReal || !!w.toId || !!w.toPos
+    if (fromKnown && toKnown) remaining.push(w)
   }
-  userWires.value = []
+  userWires.value = remaining
   persistUserWires()
 }
 
@@ -2463,14 +5116,13 @@ function applyStructuralOp(op: WorkflowOp): boolean {
   userGraph.value = result.graph
   editedDraft.value = {}
   dirtyNodeIds.value = new Set()
-  scheduleAutoSave()
   return true
 }
 
 onBeforeUnmount(() => {
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
   // Tear down placement listeners if the user unmounted mid-gesture.
   if (placingNode.value) cancelPlacing()
+  if (placingWire.value) cancelPlacingWire()
 })
 
 // ── Live-edit conflict guard ────────────────────────────────────────────────
@@ -2532,7 +5184,6 @@ watch(selectedWorkflowId, () => {
   if (Object.keys(editedDraft.value).length > 0) editedDraft.value = {}
   if (dirtyNodeIds.value.size > 0) dirtyNodeIds.value = new Set()
   if (userGraph.value != null) userGraph.value = null
-  if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null }
   lockSetDirty = false
 })
 
@@ -2577,11 +5228,20 @@ function toggleHistory() {
 }
 
 // And the inverse: selecting a node while the history panel is open should
-// close history so the node-details panel takes over the same slot.
+// close history so the node-details panel takes over the same slot. Same
+// rule for wire selection — nodes and wires share a single InfoPanel slot,
+// so picking a node must clear `selectedWireId` (mirrors `selectWire`'s
+// `selected = new Set()` clear in the opposite direction). Covers every
+// way a node can become selected (click, marquee, spawn-from-port, post-
+// delete reselection) without having to thread the clear through each.
 watch(selected, (cur) => {
-  if (cur.size > 0 && historyOpen.value) {
+  if (cur.size === 0) return
+  if (historyOpen.value) {
     historyOpen.value = false
     selectedVersionId.value = null
+  }
+  if (selectedWireId.value !== null) {
+    selectedWireId.value = null
   }
 })
 
@@ -2728,15 +5388,15 @@ onBeforeUnmount(() => {
       merged pill: history / save / run at the top, then layout helpers,
       zoom, undo-redo, and settings stacked beneath.
     -->
-    <div class="absolute left-3 top-[112px] bottom-[180px] z-30 flex flex-col gap-2 pointer-events-none sm:left-4">
-      <div class="flex h-full w-10 flex-col items-center justify-between gap-0.5 rounded-xl border border-neutral-200 bg-white/90 px-1 py-1.5 shadow-sm backdrop-blur-md pointer-events-auto">
+    <div class="absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-2 pointer-events-none sm:left-4">
+      <div class="flex flex-col items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md pointer-events-auto">
         <!-- Run / Stop — the primary action sits at the top. When idle a
              green play icon; while running the spinner swaps to a red stop
              on hover so the user can request a cancel. Clicking while
              running calls onStop (currently a UI-only reset). -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:hover:text-emerald-600"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:hover:text-emerald-600"
           :class="runActive
             ? 'text-emerald-600 hover:text-red-600'
             : 'text-emerald-600 hover:text-emerald-500'"
@@ -2760,7 +5420,7 @@ onBeforeUnmount(() => {
         <!-- Save -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
           :disabled="!canSave"
           @click="onSave"
         >
@@ -2771,7 +5431,7 @@ onBeforeUnmount(() => {
         <!-- History -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
           :class="historyOpen ? 'text-neutral-900' : 'text-neutral-500'"
           @click="toggleHistory"
         >
@@ -2779,11 +5439,13 @@ onBeforeUnmount(() => {
           <span class="canvas-tooltip">{{ t('workflow.historyTitle') }}</span>
         </button>
 
+        <span class="h-px w-4 bg-neutral-200" />
+
         <!-- Add node — clicking attaches a faded ghost to the cursor; the
              next click on the canvas drops a fresh graph node there. -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
           :class="placingNode ? 'text-neutral-900' : 'text-neutral-500'"
           @click="startPlacingNode"
         >
@@ -2806,12 +5468,34 @@ onBeforeUnmount(() => {
           <span class="canvas-tooltip">{{ t('workflow.addNode') }}</span>
         </button>
 
-        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+        <!-- Draw wire — click 1 places the tail (free, or latched to a node
+             port circle if the cursor is on one); click 2 places the head
+             with the same rules. Cursor becomes a crosshair while armed. -->
+        <button
+          type="button"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+          :class="placingWire ? 'text-neutral-900' : 'text-neutral-500'"
+          @click="startPlacingWire"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="size-3.5"
+            aria-hidden="true"
+          >
+            <path
+              fill="currentColor"
+              d="M18.75 7.721h-7.225v1.905h7.224l-3.136 3.136a.953.953 0 1 0 1.347 1.346l4.761-4.761a.95.95 0 0 0 0-1.347L16.96 3.24a.952.952 0 1 0-1.347 1.346zM11.523 9.625a.95.95 0 0 0-.952.952v7.618a2.857 2.857 0 0 1-2.857 2.857H2.952a.952.952 0 1 1 0-1.904h4.762a.95.95 0 0 0 .952-.953v-7.618a2.857 2.857 0 0 1 2.857-2.857z"
+            />
+          </svg>
+          <span class="canvas-tooltip">{{ t('workflow.drawWire') }}</span>
+        </button>
+
+        <span class="h-px w-4 bg-neutral-200" />
 
         <!-- Undo -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
           :disabled="!canUndo"
           @click="undo"
         >
@@ -2821,7 +5505,7 @@ onBeforeUnmount(() => {
         <!-- Redo -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
           :disabled="!canRedo"
           @click="redo"
         >
@@ -2829,12 +5513,12 @@ onBeforeUnmount(() => {
           <span class="canvas-tooltip">{{ t('workflow.redo') }}</span>
         </button>
 
-        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+        <span class="h-px w-4 bg-neutral-200" />
 
         <!-- Fit to view -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
           @click="fitToView"
         >
           <UIcon name="i-heroicons-arrows-pointing-out-20-solid" class="size-3.5" />
@@ -2843,20 +5527,20 @@ onBeforeUnmount(() => {
         <!-- Auto layout -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
-          :disabled="!hasOverrides"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          :disabled="displayedGraph.nodes.length === 0"
           @click="resetLayout"
         >
           <UIcon name="i-heroicons-sparkles-20-solid" class="size-3.5" />
           <span class="canvas-tooltip">{{ t('workflow.resetLayoutTitle') }}</span>
         </button>
 
-        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+        <span class="h-px w-4 bg-neutral-200" />
 
         <!-- Zoom controls -->
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
           :disabled="scale >= 2 - 0.001"
           @click="zoomIn"
         >
@@ -2868,7 +5552,7 @@ onBeforeUnmount(() => {
         </span>
         <button
           type="button"
-          class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
+          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:hover:text-neutral-500"
           :disabled="scale <= 0.4 + 0.001"
           @click="zoomOut"
         >
@@ -2876,14 +5560,14 @@ onBeforeUnmount(() => {
           <span class="canvas-tooltip">{{ t('workflow.zoomOut') }}</span>
         </button>
 
-        <span class="my-0.5 h-px w-4 bg-neutral-200" />
+        <span class="h-px w-4 bg-neutral-200" />
 
         <!-- Settings -->
         <div class="relative">
           <button
             ref="settingsButtonEl"
             type="button"
-            class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+            class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
             :class="showSettings ? 'text-neutral-900' : 'text-neutral-500'"
             @click="showSettings = !showSettings"
           >
@@ -2982,15 +5666,23 @@ onBeforeUnmount(() => {
     <div
       ref="viewportEl"
       class="relative h-full w-full select-none overflow-hidden"
-      :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
-      :style="settings.showGrid ? {
-        backgroundImage: 'radial-gradient(circle, rgb(188 188 195 / 0.7) 1.25px, transparent 1.25px)',
-        backgroundSize: `${24 * scale}px ${24 * scale}px`,
-        backgroundPosition: `${offset.x}px ${offset.y}px`,
-      } : {}"
+      :class="placingWire
+        ? 'cursor-crosshair'
+        : (isPanning ? 'cursor-grabbing' : (marqueeState?.active ? 'cursor-crosshair' : 'cursor-default'))"
+      :style="{
+        ...(settings.showGrid ? {
+          backgroundImage: 'radial-gradient(circle, rgb(188 188 195 / 0.7) 1.25px, transparent 1.25px)',
+          backgroundSize: `${24 * scale}px ${24 * scale}px`,
+          backgroundPosition: `${offset.x}px ${offset.y}px`,
+        } : {}),
+        touchAction: 'none',
+      }"
       @pointerdown="onCanvasPointerDown"
       @pointermove="onCanvasPointerMove"
       @pointerup="onCanvasPointerUp"
+      @pointercancel="onCanvasPointerUp"
+      @click="onCanvasClick"
+      @contextmenu="onCanvasContextMenu"
       @wheel="onWheel"
     >
       <div
@@ -3035,36 +5727,73 @@ onBeforeUnmount(() => {
             <defs>
               <marker
                 id="wire-arrow"
-                viewBox="0 0 10 10"
-                refX="10"
-                refY="5"
-                markerWidth="6"
+                viewBox="0 0 3 6"
+                refX="3"
+                refY="3"
+                markerWidth="3"
                 markerHeight="6"
                 orient="auto-start-reverse"
+                overflow="visible"
               >
-                <path d="M 0 0.5 L 10 5 L 0 9.5 Z" fill="rgb(163 163 163)" />
+                <path
+                  d="M 0 0 L 3 3 L 0 6"
+                  fill="none"
+                  stroke="rgb(163 163 163)"
+                  stroke-width="1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </marker>
+              <marker
+                id="wire-arrow-selected"
+                viewBox="0 0 3 6"
+                refX="3"
+                refY="3"
+                markerWidth="3"
+                markerHeight="6"
+                orient="auto-start-reverse"
+                overflow="visible"
+              >
+                <path
+                  d="M 0 0 L 3 3 L 0 6"
+                  fill="none"
+                  stroke="rgb(23 23 23)"
+                  stroke-width="1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </marker>
             </defs>
             <g v-for="w in visibleWires" :key="w.id">
-              <!-- When the user is dragging this wire's endpoint, the
-                   rubber-band path is rendered separately below; we hide
-                   the live wire to avoid a stale double-image. -->
+              <!-- When the user is dragging this wire's endpoint OR the
+                   whole wire body, the in-flight preview path is rendered
+                   separately below; we hide the live wire to avoid a
+                   stale double-image. -->
               <template
-                v-if="!(w.selectable
-                  && endpointDrag
-                  && endpointDrag.wireId === w.id.slice('wire:'.length))"
+                v-if="!(w.clickable
+                  && ((endpointDrag && endpointDrag.wireId === w.id)
+                    || (wireBodyDrag && wireBodyDrag.wireId === w.id && wireBodyDrag.isDragging)))"
               >
-              <!-- Transparent fat-stroke hit zone. Only enabled for editable
-                   edges (spine wires are layout anchors and not selectable). -->
+              <!-- Transparent fat-stroke hit zone. Enabled for any wire the
+                   user can click — real edges and synthetic spine wires.
+                   Wider than the visible stroke so short wires between
+                   tightly-spaced nodes still have a forgiving click target.
+                   First click selects (via `@click`); a pointerdown +
+                   move on the ALREADY-selected wire starts a wire-body
+                   drag that translates both endpoints (`onWireBodyPointerDown`).
+                   Cursor flips to `grab` when selected to advertise the
+                   drag affordance. -->
               <path
-                v-if="w.selectable"
+                v-if="w.clickable"
                 :d="w.d"
+                :data-wire-id="w.id"
                 fill="none"
                 stroke="transparent"
-                stroke-width="14"
+                stroke-width="28"
                 stroke-linecap="round"
-                class="cursor-pointer"
+                :class="selectedWireId === w.id ? 'cursor-grab' : 'cursor-pointer'"
                 style="pointer-events: stroke"
+                @pointerdown.stop="(e) => onWireBodyPointerDown(e, w)"
                 @click.stop="selectWire(w.id)"
               />
               <!-- Wire shadow for depth -->
@@ -3075,48 +5804,84 @@ onBeforeUnmount(() => {
                 stroke-width="3"
                 stroke-linecap="round"
               />
-              <!-- Main wire with arrowhead. Selected edge gets a bolder blue
-                   tint so the user can see what's currently picked. -->
+              <!-- Main wire with arrowhead. Selected edge swaps to the
+                   neutral-900 tint + matching black arrowhead so the
+                   highlight reads the same way as a selected node's
+                   border. A marquee-selected wire uses the same black
+                   styling so bulk selections read identically to a
+                   single-click selection. -->
               <path
                 :d="w.d"
                 fill="none"
-                :stroke="w.selectable && selectedWireId === w.id.slice('wire:'.length) ? 'rgb(59 130 246)' : 'rgb(163 163 163)'"
-                :stroke-width="w.selectable && selectedWireId === w.id.slice('wire:'.length) ? '2' : '1.5'"
+                :stroke="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? 'rgb(23 23 23)' : 'rgb(163 163 163)'"
+                :stroke-width="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? '2' : '1.5'"
                 stroke-linecap="round"
-                marker-end="url(#wire-arrow)"
+                :marker-end="w.clickable && (selectedWireId === w.id || selectedWireIds.has(w.id)) ? 'url(#wire-arrow-selected)' : 'url(#wire-arrow)'"
               />
               </template>
             </g>
             <!--
               Rubber-band wire that follows the cursor while the user is
-              dragging from a port. Snaps onto the target's nearest side
-              once the cursor enters a candidate's hover zone; otherwise
-              tracks the cursor freely. Solid blue when locked onto a
-              target, dashed when still searching.
+              dragging from a port. Uses the same neutral-900 stroke +
+              arrowhead as a selected wire so the preview reads as "the
+              wire you're about to commit", with the arrow tip pointing
+              at the cursor (the future to-end). Dashed while the cursor
+              is still searching, solid once it's snapped on a target.
             -->
             <path
               v-if="tempWireGeom"
               :d="tempWireGeom.d"
               fill="none"
-              :stroke="connecting?.targetId ? 'rgb(59 130 246)' : 'rgb(96 165 250)'"
+              stroke="rgb(23 23 23)"
               stroke-width="2"
               stroke-linecap="round"
-              :stroke-dasharray="connecting?.targetId ? undefined : '5 4'"
+              marker-end="url(#wire-arrow-selected)"
+            />
+            <!--
+              Rubber-band for the click-click draw-wire tool. After the
+              first click places the tail, the head trails the cursor
+              until the second click commits.
+            -->
+            <path
+              v-if="placingWireGeom"
+              :d="placingWireGeom.d"
+              fill="none"
+              stroke="rgb(23 23 23)"
+              stroke-width="2"
+              stroke-linecap="round"
+              marker-end="url(#wire-arrow-selected)"
             />
             <!--
               Rubber-band for an endpoint-drag on an existing wire. The
               anchored end stays put; the moving end tracks the cursor.
-              Same colour rules as the port-drag preview so the affordance
-              feels uniform across both flows.
+              `buildWirePath` above keeps the path direction matching the
+              underlying edge (from → to), so marker-end always lands on
+              the to-end — at the cursor when the to-end is being moved,
+              at the anchored node when the from-end is being moved.
             -->
             <path
               v-if="endpointDragWireGeom"
               :d="endpointDragWireGeom.d"
               fill="none"
-              :stroke="endpointDrag?.targetId ? 'rgb(59 130 246)' : 'rgb(96 165 250)'"
+              stroke="rgb(23 23 23)"
               stroke-width="2"
               stroke-linecap="round"
-              :stroke-dasharray="endpointDrag?.targetId ? undefined : '5 4'"
+              marker-end="url(#wire-arrow-selected)"
+            />
+            <!--
+              Wire-body drag preview: the whole wire translated by the
+              cursor delta. Same stroke as a selected wire so it reads
+              as "the wire you're about to drop". Either end clips onto
+              a snap target when one is found.
+            -->
+            <path
+              v-if="wireBodyDragGeom"
+              :d="wireBodyDragGeom.d"
+              fill="none"
+              stroke="rgb(23 23 23)"
+              stroke-width="2"
+              stroke-linecap="round"
+              marker-end="url(#wire-arrow-selected)"
             />
             <!--
               Endpoint grip dots — render at the two attachment points of
@@ -3127,59 +5892,15 @@ onBeforeUnmount(() => {
               SVG can fail to render because the browser treats it as a
               foreign HTML element outside the SVG namespace.)
             -->
-            <g v-for="w in visibleWires" :key="`dots-${w.id}`">
-              <g
-                v-if="w.selectable
-                  && selectedWireId === w.id.slice('wire:'.length)
-                  && (!endpointDrag || endpointDrag.wireId !== w.id.slice('wire:'.length))"
-              >
-                <circle
-                  :cx="w.p1.x"
-                  :cy="w.p1.y"
-                  r="6"
-                  fill="rgb(59 130 246)"
-                  stroke="white"
-                  stroke-width="2"
-                  class="cursor-grab"
-                  style="pointer-events: all"
-                  @pointerdown.stop="(e) => onEndpointPointerDown(e, w, 'from')"
-                />
-                <circle
-                  :cx="w.p2.x"
-                  :cy="w.p2.y"
-                  r="6"
-                  fill="rgb(59 130 246)"
-                  stroke="white"
-                  stroke-width="2"
-                  class="cursor-grab"
-                  style="pointer-events: all"
-                  @pointerdown.stop="(e) => onEndpointPointerDown(e, w, 'to')"
-                />
-              </g>
-            </g>
-            <!--
-              Ghost wire — renders while the user hovers a port (and isn't
-              already in the middle of a connect drag). Same shape the
-              spawn would produce, drawn dashed and faded so it reads as
-              "this is what clicking would do".
-            -->
-            <path
-              v-if="ghostWireGeom"
-              :d="ghostWireGeom.d"
-              fill="none"
-              stroke="rgb(115 115 115)"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-dasharray="4 4"
-              opacity="0.55"
-            />
           </svg>
 
         <!--
-          Wire selection toolbar — compact horizontal bar floating above the
-          midpoint of the selected edge. Mirrors the per-node selection
-          toolbar's visual language. Two actions: open the InfoPanel for
-          full editing, and remove the edge.
+          Wire selection toolbar — compact bar floating next to the selected
+          edge. Orientation (horizontal / vertical) follows the wire's
+          bounding rect: a wider-than-tall wire gets a horizontal bar above
+          its longest straight segment; a taller-than-wide wire gets a
+          vertical bar to the left of its longest straight segment. Two
+          actions: open the InfoPanel for full editing, and remove the edge.
         -->
         <template v-for="w in visibleWires" :key="`wtb-${w.id}`">
           <Transition
@@ -3191,30 +5912,46 @@ onBeforeUnmount(() => {
             leave-to-class="opacity-0"
           >
             <div
-              v-if="w.selectable && selectedWireId === w.id.slice('wire:'.length)"
-              class="pointer-events-auto absolute z-20 flex h-10 -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-xl border border-neutral-200 bg-white/90 px-1.5 py-1 shadow-sm backdrop-blur-md"
-              :style="{
-                left: `${w.mid.x}px`,
-                top: `${w.mid.y - 16}px`,
-                touchAction: 'none',
-              }"
+              v-if="w.clickable && selectedWireId === w.id && selected.size === 0 && selectedWireIds.size === 0"
+              class="pointer-events-auto absolute z-20 flex items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md"
+              :class="w.toolbarAnchor.orientation === 'horizontal'
+                ? '-translate-x-1/2 -translate-y-full'
+                : 'flex-col -translate-x-full -translate-y-1/2'"
+              :style="w.toolbarAnchor.orientation === 'horizontal'
+                ? { left: `${w.toolbarAnchor.x}px`, top: `${w.toolbarAnchor.y - 16}px`, touchAction: 'none' }
+                : { left: `${w.toolbarAnchor.x - 16}px`, top: `${w.toolbarAnchor.y}px`, touchAction: 'none' }"
               @pointerdown.stop
             >
+              <!-- Edit is only meaningful for persisted wires (`wire:`)
+                   — spine + user-extra wires have no editable metadata so
+                   the button is hidden rather than opening an empty form. -->
               <button
+                v-if="w.selectable"
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+                class="group/btn relative inline-flex items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+                :class="w.toolbarAnchor.orientation === 'horizontal' ? 'h-7 w-6' : 'h-6 w-7'"
                 @click.stop="showNodeDetails = true"
               >
                 <UIcon name="i-heroicons-pencil-square-20-solid" class="size-3.5" />
-                <span class="canvas-tooltip-above">{{ t('workflow.editWire') }}</span>
+                <span :class="w.toolbarAnchor.orientation === 'horizontal' ? 'canvas-tooltip-above' : 'canvas-tooltip-left'">{{ t('workflow.editWire') }}</span>
               </button>
               <button
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:text-rose-600"
+                class="group/btn relative inline-flex items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+                :class="w.toolbarAnchor.orientation === 'horizontal' ? 'h-7 w-6' : 'h-6 w-7'"
+                @click.stop="duplicateSelection"
+              >
+                <UIcon name="i-heroicons-square-2-stack-20-solid" class="size-3.5 -scale-x-100" />
+                <span :class="w.toolbarAnchor.orientation === 'horizontal' ? 'canvas-tooltip-above' : 'canvas-tooltip-left'">{{ t('workflow.duplicateWire') }}</span>
+              </button>
+              <button
+                type="button"
+                class="group/btn relative inline-flex items-center justify-center rounded-lg text-rose-500 transition-colors hover:text-rose-600"
+                :class="w.toolbarAnchor.orientation === 'horizontal' ? 'h-7 w-6' : 'h-6 w-7'"
                 @click.stop="deleteSelectedWire"
               >
                 <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
-                <span class="canvas-tooltip-above">{{ t('workflow.deleteWire') }}</span>
+                <span :class="w.toolbarAnchor.orientation === 'horizontal' ? 'canvas-tooltip-above' : 'canvas-tooltip-left'">{{ t('workflow.deleteWire') }}</span>
               </button>
             </div>
           </Transition>
@@ -3245,18 +5982,18 @@ onBeforeUnmount(() => {
         >
           <!-- Card -->
           <div
+            :data-node-id="node.id"
             class="absolute rounded-xl border-2 bg-white shadow-sm transition-shadow"
             :class="[
               nodeRunStatus(node.id) === 'running'
                 ? 'border-emerald-500 animate-pulse'
                 : connecting?.targetId === node.id
-                  ? 'border-blue-500'
+                  ? 'border-neutral-900'
                   : isLockedNode(node.id)
                     ? 'border-amber-500 bg-amber-50/40 hover:shadow-md'
                     : isSelected(node.id)
                       ? 'border-neutral-900 hover:shadow-md'
                       : 'border-neutral-400 hover:border-neutral-500 hover:shadow-md',
-              node.terminal ? 'opacity-80' : '',
               isDraggingNode(node.id) ? 'cursor-grabbing shadow-lg' : 'cursor-grab',
             ]"
             :style="{
@@ -3286,7 +6023,7 @@ onBeforeUnmount(() => {
                 v-model="renamingValue"
                 data-node-rename
                 type="text"
-                class="max-w-full min-w-0 rounded-sm border-0 bg-transparent text-center text-sm font-medium text-neutral-900 outline-none focus:ring-1 focus:ring-neutral-300"
+                class="max-w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium text-neutral-900 outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
                 @keyup.enter.stop="commitRename(node.id)"
                 @keyup.esc.stop="cancelRename"
                 @blur="commitRename(node.id)"
@@ -3317,11 +6054,13 @@ onBeforeUnmount(() => {
           <template
             v-if="
               !isDraggingNode(node.id)
-              && (
-                activeHoverNodeId === node.id
-                || connecting?.fromId === node.id
-                || connecting?.targetId === node.id
-              )
+              && !endpointDrag
+              && !connecting?.isDragging
+              && !placingWire
+              && !marqueeState?.active
+              && !persistentMarquee
+              && node.terminal !== 'end'
+              && isSelected(node.id)
             "
           >
             <button
@@ -3333,11 +6072,13 @@ onBeforeUnmount(() => {
                 top: `${HOVER_PAD - PORT_GAP}px`,
                 touchAction: 'none',
               }"
-              @pointerenter="onPortHover(node, 'top')"
-              @pointerleave="onPortLeave(node, 'top')"
               @pointerdown="(e) => onPortPointerDown(e, node, 'top')"
             >
-              <span class="block size-2.5 rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-3 group-hover:bg-neutral-500/70" />
+              <span class="grid size-2.5 place-items-center rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-4 group-hover:bg-neutral-500/80">
+                <svg class="hidden size-3 text-white group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 19V5M6 11l6-6 6 6" />
+                </svg>
+              </span>
             </button>
             <button
               type="button"
@@ -3348,11 +6089,13 @@ onBeforeUnmount(() => {
                 top: `${HOVER_PAD + nodeSize(node).h + PORT_GAP}px`,
                 touchAction: 'none',
               }"
-              @pointerenter="onPortHover(node, 'bottom')"
-              @pointerleave="onPortLeave(node, 'bottom')"
               @pointerdown="(e) => onPortPointerDown(e, node, 'bottom')"
             >
-              <span class="block size-2.5 rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-3 group-hover:bg-neutral-500/70" />
+              <span class="grid size-2.5 place-items-center rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-4 group-hover:bg-neutral-500/80">
+                <svg class="hidden size-3 text-white group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M6 13l6 6 6-6" />
+                </svg>
+              </span>
             </button>
             <button
               type="button"
@@ -3363,11 +6106,13 @@ onBeforeUnmount(() => {
                 top: `${HOVER_PAD + nodeSize(node).h / 2}px`,
                 touchAction: 'none',
               }"
-              @pointerenter="onPortHover(node, 'left')"
-              @pointerleave="onPortLeave(node, 'left')"
               @pointerdown="(e) => onPortPointerDown(e, node, 'left')"
             >
-              <span class="block size-2.5 rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-3 group-hover:bg-neutral-500/70" />
+              <span class="grid size-2.5 place-items-center rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-4 group-hover:bg-neutral-500/80">
+                <svg class="hidden size-3 text-white group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 12H5M11 6l-6 6 6 6" />
+                </svg>
+              </span>
             </button>
             <button
               type="button"
@@ -3378,11 +6123,13 @@ onBeforeUnmount(() => {
                 top: `${HOVER_PAD + nodeSize(node).h / 2}px`,
                 touchAction: 'none',
               }"
-              @pointerenter="onPortHover(node, 'right')"
-              @pointerleave="onPortLeave(node, 'right')"
               @pointerdown="(e) => onPortPointerDown(e, node, 'right')"
             >
-              <span class="block size-2.5 rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-3 group-hover:bg-neutral-500/70" />
+              <span class="grid size-2.5 place-items-center rounded-full bg-neutral-400/50 transition-all duration-150 group-hover:size-4 group-hover:bg-neutral-500/80">
+                <svg class="hidden size-3 text-white group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </span>
             </button>
           </template>
 
@@ -3393,7 +6140,7 @@ onBeforeUnmount(() => {
             records an undo entry. Snaps to grid when snapToGrid is on.
           -->
           <div
-            v-if="!node.terminal && activeHoverNodeId === node.id && !isDraggingNode(node.id) && !connecting"
+            v-if="!node.terminal && isSelected(node.id) && !isDraggingNode(node.id) && !connecting"
             class="absolute size-3 cursor-se-resize"
             :style="{
               left: `${HOVER_PAD + nodeSize(node).w - 4}px`,
@@ -3438,8 +6185,8 @@ onBeforeUnmount(() => {
             leave-to-class="opacity-0"
           >
             <div
-              v-if="!node.terminal && selected.size === 1 && isSelected(node.id) && !isDraggingNode(node.id) && !connecting"
-              class="pointer-events-auto absolute z-20 flex h-10 -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-xl border border-neutral-200 bg-white/90 px-1.5 py-1 shadow-sm backdrop-blur-md"
+              v-if="!node.terminal && selected.size === 1 && selectedWireIds.size === 0 && isSelected(node.id) && !isDraggingNode(node.id) && !connecting"
+              class="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-full items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md"
               :style="{
                 left: `${HOVER_PAD + nodeSize(node).w / 2}px`,
                 // Toolbar's bottom (after -translate-y-full) sits at
@@ -3454,7 +6201,7 @@ onBeforeUnmount(() => {
             >
               <button
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="!selectedWorkflowId || runActive"
                 @click.stop="rerunFromNode(node)"
               >
@@ -3463,7 +6210,7 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+                class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
                 @click.stop="showNodeDetails = true"
               >
                 <UIcon name="i-heroicons-information-circle" class="size-3.5" />
@@ -3471,7 +6218,7 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg transition-colors"
+                class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg transition-colors"
                 :class="isLockedNode(node.id)
                   ? 'text-amber-600 hover:text-amber-500'
                   : 'text-neutral-500 hover:text-neutral-900'"
@@ -3485,7 +6232,15 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="group/btn relative inline-flex size-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+                @click.stop="duplicateSelection"
+              >
+                <UIcon name="i-heroicons-square-2-stack-20-solid" class="size-3.5 -scale-x-100" />
+                <span class="canvas-tooltip-above">{{ t('workflow.duplicateNode') }}</span>
+              </button>
+              <button
+                type="button"
+                class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-rose-500 transition-colors hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="isLockedNode(node.id)"
                 @click.stop="deleteSelected"
               >
@@ -3496,26 +6251,6 @@ onBeforeUnmount(() => {
           </Transition>
         </div>
 
-        <!--
-          Ghost card — preview of the node that would be spawned by
-          clicking the currently-hovered port. Same NODE_W × NODE_H box
-          a real card uses, dashed border + low opacity so it reads as
-          a "what-if" placeholder. Sits in the same shift wrapper as
-          the real cards, so no extra coordinate math is needed.
-        -->
-        <div
-          v-if="ghostPreview"
-          class="pointer-events-none absolute flex items-center justify-center rounded-xl border border-dashed border-neutral-400 bg-white/60"
-          :style="{
-            left: `${ghostPreview.pos.x}px`,
-            top: `${ghostPreview.pos.y}px`,
-            width: `${NODE_W}px`,
-            height: `${NODE_H}px`,
-            opacity: 0.55,
-          }"
-        >
-          <UIcon name="i-heroicons-plus-20-solid" class="size-5 text-neutral-400" />
-        </div>
         <!--
           Cursor-following ghost for the "add node" tool — same NODE_W ×
           NODE_H footprint as the real card. Renders only while a manual
@@ -3535,8 +6270,223 @@ onBeforeUnmount(() => {
         >
           <UIcon name="i-heroicons-plus-20-solid" class="size-5 text-neutral-500" />
         </div>
+
+        <!--
+          Endpoint affordance layer. Rendered AFTER the nodes so the grip
+          circles (which sit half-inside a node body) draw on top of the
+          card, not behind it. Same coordinate system as the wires layer
+          since both are inside the inner-shift wrapper.
+        -->
+        <svg
+          class="absolute left-0 top-0 pointer-events-none"
+          :width="canvasBounds.width"
+          :height="canvasBounds.height"
+          style="overflow: visible"
+        >
+          <!-- Endpoint grip dots for the selected wire. Each grip is a
+               visible white disc with an invisible `ENDPOINT_GRIP_HIT_R`
+               hit zone on top, wrapped in a `group` so hovering the hit
+               zone fills the visible disc black (`group-hover:fill-…`).
+               The transparent disc must come AFTER the visible circle in
+               source order so it sits on top in the SVG paint stack and
+               receives pointer events first. -->
+          <g v-for="w in visibleWires" :key="`dots-${w.id}`">
+            <g
+              v-if="w.clickable
+                && selectedWireId === w.id
+                && (!endpointDrag || endpointDrag.wireId !== w.id)
+                && (!wireBodyDrag || wireBodyDrag.wireId !== w.id || !wireBodyDrag.isDragging)"
+            >
+              <g class="group">
+                <circle
+                  :cx="endpointHandlePt(w.p1, w.fromSide).x"
+                  :cy="endpointHandlePt(w.p1, w.fromSide).y"
+                  :r="ENDPOINT_CIRCLE_R"
+                  class="fill-white stroke-neutral-500 group-hover:fill-neutral-900 group-hover:stroke-neutral-900"
+                  stroke-width="1.5"
+                  style="pointer-events: none"
+                />
+                <circle
+                  :cx="endpointHandlePt(w.p1, w.fromSide).x"
+                  :cy="endpointHandlePt(w.p1, w.fromSide).y"
+                  :r="ENDPOINT_GRIP_HIT_R"
+                  fill="transparent"
+                  class="cursor-grab"
+                  style="pointer-events: all"
+                  @pointerdown.stop="(e) => onEndpointPointerDown(e, w, 'from')"
+                />
+              </g>
+              <g class="group">
+                <circle
+                  :cx="endpointHandlePt(w.p2, w.toSide).x"
+                  :cy="endpointHandlePt(w.p2, w.toSide).y"
+                  :r="ENDPOINT_CIRCLE_R"
+                  class="fill-white stroke-neutral-500 group-hover:fill-neutral-900 group-hover:stroke-neutral-900"
+                  stroke-width="1.5"
+                  style="pointer-events: none"
+                />
+                <circle
+                  :cx="endpointHandlePt(w.p2, w.toSide).x"
+                  :cy="endpointHandlePt(w.p2, w.toSide).y"
+                  :r="ENDPOINT_GRIP_HIT_R"
+                  fill="transparent"
+                  class="cursor-grab"
+                  style="pointer-events: all"
+                  @pointerdown.stop="(e) => onEndpointPointerDown(e, w, 'to')"
+                />
+              </g>
+            </g>
+          </g>
+          <!-- Snap-target circles, only while an endpoint is being dragged.
+               The cursor-over-target signal is `t.active` (computed from
+               proximity); when active the circle fills black so it matches
+               the hover-to-black behavior on a resting wire's grips. -->
+          <g v-if="endpointDrag && endpointDrag.isDragging">
+            <circle
+              v-for="(t, i) in endpointSnapTargets"
+              :key="`snap-${t.nodeId}-${t.side}-${i}`"
+              :cx="t.pt.x"
+              :cy="t.pt.y"
+              :r="ENDPOINT_CIRCLE_R"
+              :fill="t.active ? 'rgb(23 23 23)' : 'white'"
+              :stroke="t.active ? 'rgb(23 23 23)' : 'rgb(115 115 115)'"
+              :stroke-width="t.active ? '2' : '1.5'"
+              style="pointer-events: none"
+            />
+          </g>
+          <!-- Snap-target circles while a wire body is being dragged.
+               Both endpoints are moving, so any side of any non-fixed
+               node is a candidate; the active highlight reflects which
+               sides each end is currently over. -->
+          <g v-if="wireBodyDrag && wireBodyDrag.isDragging">
+            <circle
+              v-for="(t, i) in wireBodyDragSnapTargets"
+              :key="`body-snap-${t.nodeId}-${t.side}-${i}`"
+              :cx="t.pt.x"
+              :cy="t.pt.y"
+              :r="ENDPOINT_CIRCLE_R"
+              :fill="t.active ? 'rgb(23 23 23)' : 'white'"
+              :stroke="t.active ? 'rgb(23 23 23)' : 'rgb(115 115 115)'"
+              :stroke-width="t.active ? '2' : '1.5'"
+              style="pointer-events: none"
+            />
+          </g>
+          <!-- Snap-target circles while the user is drawing a new wire
+               out of a port. Same affordance as the endpoint-drag layer
+               above, just keyed off `connecting` state so the user can
+               aim a fresh wire at a specific side just like rewiring an
+               existing one. -->
+          <g v-if="connecting && connecting.isDragging">
+            <circle
+              v-for="(t, i) in connectingSnapTargets"
+              :key="`conn-snap-${t.nodeId}-${t.side}-${i}`"
+              :cx="t.pt.x"
+              :cy="t.pt.y"
+              :r="ENDPOINT_CIRCLE_R"
+              :fill="t.active ? 'rgb(23 23 23)' : 'white'"
+              :stroke="t.active ? 'rgb(23 23 23)' : 'rgb(115 115 115)'"
+              :stroke-width="t.active ? '2' : '1.5'"
+              style="pointer-events: none"
+            />
+          </g>
+          <!-- Snap-target circles for the click-click draw-wire tool. Same
+               white circles as the drag-based wire creation above so the
+               two flows have a consistent "this is a wire endpoint" look,
+               but rendered any time the tool is armed (not only while the
+               cursor is moving) so the targets are visible at rest too. -->
+          <g v-if="placingWire">
+            <circle
+              v-for="(t, i) in placingWireSnapTargets"
+              :key="`place-snap-${t.nodeId}-${t.side}-${i}`"
+              :cx="t.pt.x"
+              :cy="t.pt.y"
+              :r="ENDPOINT_CIRCLE_R"
+              :fill="t.active ? 'rgb(23 23 23)' : 'white'"
+              :stroke="t.active ? 'rgb(23 23 23)' : 'rgb(115 115 115)'"
+              :stroke-width="t.active ? '2' : '1.5'"
+              style="pointer-events: none"
+            />
+          </g>
+          <!-- Grip dot following the cursor while an endpoint is being
+               dragged — gives the user a visual "I'm holding this circle"
+               affordance. Sits exactly on the rubber-band's free end so
+               the arrowhead (when dragging the to-end) tip kisses it the
+               same way it does on a resting wire. -->
+          <circle
+            v-if="endpointDrag && endpointDrag.isDragging"
+            :cx="(endpointDrag.snappedPt ?? endpointDrag.currPos).x"
+            :cy="(endpointDrag.snappedPt ?? endpointDrag.currPos).y"
+            :r="ENDPOINT_CIRCLE_R"
+            fill="white"
+            stroke="rgb(23 23 23)"
+            stroke-width="2"
+            style="pointer-events: none"
+          />
+          <!-- Grip dot following the cursor while a brand-new wire is
+               being drawn out of a port. Same rules as the endpoint-drag
+               grip above. -->
+          <circle
+            v-if="connecting && connecting.isDragging"
+            :cx="(connecting.snappedPt ?? connecting.currPos).x"
+            :cy="(connecting.snappedPt ?? connecting.currPos).y"
+            :r="ENDPOINT_CIRCLE_R"
+            fill="white"
+            stroke="rgb(23 23 23)"
+            stroke-width="2"
+            style="pointer-events: none"
+          />
+          <!-- Both grip dots while a wire body is being dragged. Each
+               clips to the snap target when one is active so the user
+               sees exactly where each end will land. -->
+          <g v-if="wireBodyDrag && wireBodyDrag.isDragging">
+            <circle
+              :cx="wireBodyDrag.fromSnap
+                ? wireBodyDrag.fromSnap.pt.x
+                : wireBodyDrag.origFromPos.x + wireBodyDrag.delta.x"
+              :cy="wireBodyDrag.fromSnap
+                ? wireBodyDrag.fromSnap.pt.y
+                : wireBodyDrag.origFromPos.y + wireBodyDrag.delta.y"
+              :r="ENDPOINT_CIRCLE_R"
+              fill="white"
+              stroke="rgb(23 23 23)"
+              stroke-width="2"
+              style="pointer-events: none"
+            />
+            <circle
+              :cx="wireBodyDrag.toSnap
+                ? wireBodyDrag.toSnap.pt.x
+                : wireBodyDrag.origToPos.x + wireBodyDrag.delta.x"
+              :cy="wireBodyDrag.toSnap
+                ? wireBodyDrag.toSnap.pt.y
+                : wireBodyDrag.origToPos.y + wireBodyDrag.delta.y"
+              :r="ENDPOINT_CIRCLE_R"
+              fill="white"
+              stroke="rgb(23 23 23)"
+              stroke-width="2"
+              style="pointer-events: none"
+            />
+          </g>
+        </svg>
         </div>
       </div>
+
+      <!--
+        Marquee overlay. Rendered in viewport-relative screen coords (not
+        canvas coords) so its stroke stays a constant 1px regardless of
+        zoom, matching the FileBrowser marquee. The box itself is purely
+        visual — pointer-events: none lets clicks pass through to nodes /
+        background. The delete bar above the persistent box opts back in.
+      -->
+      <div
+        v-if="marqueeState?.active && marqueeBoxScreen"
+        class="pointer-events-none absolute z-20 rounded-sm border border-dashed border-neutral-700/70 bg-neutral-900/5"
+        :style="{
+          left: `${marqueeBoxScreen.left}px`,
+          top: `${marqueeBoxScreen.top}px`,
+          width: `${marqueeBoxScreen.width}px`,
+          height: `${marqueeBoxScreen.height}px`,
+        }"
+      />
     </div>
 
     <!-- Right detail panel: rounded, inset from edges. Two consumers share
@@ -3607,48 +6557,56 @@ onBeforeUnmount(() => {
       </template>
     </InfoPanel>
 
-    <!-- Multi-select contextual action bar. -->
+    <!-- Multi-select contextual action bar. Floats above the topmost
+         selected item (nodes + wires combined). The vertical gap matches
+         the single-node pill — PORT_GAP*2 canvas-px scaled to screen —
+         so it reads as the same kind of overlay just covering more items
+         at once. -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-y-4 opacity-0"
+      enter-from-class="-translate-y-2 opacity-0"
       enter-to-class="translate-y-0 opacity-100"
       leave-active-class="transition duration-150 ease-in"
       leave-from-class="translate-y-0 opacity-100"
-      leave-to-class="translate-y-4 opacity-0"
+      leave-to-class="-translate-y-2 opacity-0"
     >
       <div
-        v-if="selected.size > 1"
-        class="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-neutral-200 bg-white/90 px-4 py-2.5 shadow-lg backdrop-blur-lg"
+        v-if="(selected.size + selectedWireIds.size) > 1 && multiSelectAnchor"
+        class="pointer-events-auto absolute z-50 flex items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md"
+        :style="{
+          left: `${multiSelectAnchor.x}px`,
+          top: `${multiSelectAnchor.y}px`,
+          transform: 'translate(-50%, -100%)',
+        }"
+        @pointerdown.stop
       >
-        <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100">
-          <UIcon name="i-heroicons-squares-plus-20-solid" class="size-4 text-neutral-700" />
-        </div>
-        <span class="text-sm font-medium text-neutral-950">
-          {{ t('workflow.selectedCount', { n: selected.size }) }}
+        <span class="px-2 text-caption font-medium text-neutral-700">
+          {{ t('workflow.selectedCount', { n: selected.size + selectedWireIds.size }) }}
         </span>
-        <div class="h-5 w-px bg-neutral-200" />
-        <div class="flex items-center gap-1">
-          <button
-            class="flex size-7 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
-            :title="t('workflow.rerunFromHere')"
-            @click="rerunSelected"
-          >
-            <UIcon name="i-heroicons-play-20-solid" class="size-3.5" />
-          </button>
-          <button
-            class="flex size-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-            :title="t('workflow.deleteNode')"
-            @click="deleteSelected"
-          >
-            <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
-          </button>
-        </div>
+        <span class="h-3 w-px bg-neutral-200" />
         <button
-          class="flex size-6 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-          :title="t('workflow.clearSelection')"
-          @click="selected = new Set()"
+          type="button"
+          class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+          @click.stop="duplicateSelection"
         >
-          <UIcon name="i-heroicons-x-mark-20-solid" class="size-3" />
+          <UIcon name="i-heroicons-square-2-stack-20-solid" class="size-3.5 -scale-x-100" />
+          <span class="canvas-tooltip-above">{{ t('workflow.duplicateSelection') }}</span>
+        </button>
+        <button
+          type="button"
+          class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-rose-500 transition-colors hover:text-rose-600"
+          @click.stop="deleteMarqueeSelection"
+        >
+          <UIcon name="i-heroicons-trash-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip-above">{{ t('workflow.deleteSelection') }}</span>
+        </button>
+        <button
+          type="button"
+          class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"
+          @click.stop="dismissPersistentMarquee()"
+        >
+          <UIcon name="i-heroicons-x-mark-20-solid" class="size-3.5" />
+          <span class="canvas-tooltip-above">{{ t('workflow.clearSelection') }}</span>
         </button>
       </div>
     </Transition>
@@ -3768,6 +6726,34 @@ onBeforeUnmount(() => {
   transition: opacity 100ms;
 }
 .group\/btn:hover > .canvas-tooltip-above {
+  opacity: 1;
+}
+
+/* Left-of-button variant used by the vertical wire-selection toolbar so
+   tooltips on stacked buttons don't pop over each other. Same chrome as
+   `.canvas-tooltip`, but margin-only swap to keep the rendered text on the
+   opposite side of the wire from the toolbar itself. */
+.canvas-tooltip-left {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  z-index: 20;
+  margin-right: 0.5rem;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(229 229 229 / 0.8);
+  background-color: rgb(255 255 255);
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  line-height: 1;
+  color: rgb(82 82 82);
+  opacity: 0;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  pointer-events: none;
+  transition: opacity 100ms;
+}
+.group\/btn:hover > .canvas-tooltip-left {
   opacity: 1;
 }
 </style>

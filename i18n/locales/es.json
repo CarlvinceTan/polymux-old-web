@@ -268,6 +268,7 @@
     "showGrid": "Mostrar la cuadrícula de fondo",
     "snapToGrid": "Ajustar a la cuadrícula",
     "addNode": "Añadir nodo",
+    "drawWire": "Trazar conexión",
     "clearSelection": "Limpiar selección",
     "tabs": {
       "agent": "Agente",
@@ -291,6 +292,11 @@
     "moreInstances": "más",
     "editWire": "Editar conexión",
     "deleteWire": "Eliminar conexión",
+    "deleteSelection": "Eliminar selección",
+    "duplicateSelection": "Duplicar selección",
+    "duplicateNode": "Duplicar paso",
+    "duplicateWire": "Duplicar conexión",
+    "warnIsolatedNodes": "Guardado, pero {count} nodo(s) no están conectados.",
     "wireLabelLabel": "Conexión",
     "wireLabelPlaceholder": "Etiqueta opcional",
     "wireConditionLabel": "Condición",
@@ -1323,7 +1329,6 @@
     "lastDay": "Último",
     "noRuns": "Sin ejecuciones en los próximos 60 días",
     "weeklyNoDays": "Selecciona al menos un día",
-    "noVersionShort": "Guarda primero una versión",
     "activeNeedsVersion": "Guarda una versión del flujo antes de activar la programación. El planificador omite los flujos sin versión guardada.",
     "freq": {
       "none": "Ninguna",

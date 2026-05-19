@@ -357,14 +357,14 @@ const linkGroups = computed(() => [
         <header class="sticky top-0 z-50 border-b border-neutral-200/40 bg-white/80 backdrop-blur-xl">
             <div class="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
                 <div class="flex items-center gap-8">
-                    <button type="button" class="shrink-0 cursor-pointer border-0 bg-transparent p-0 text-inherit"
+                    <button type="button" class="inline-flex shrink-0 -translate-y-px cursor-pointer items-center border-0 bg-transparent p-0 text-inherit"
                         :aria-label="t('landing.nav.home')" @click="scrollToHome">
                         <InlineLogo size="xl" />
                     </button>
 
                     <nav class="hidden items-center gap-1 md:flex">
                         <button type="button"
-                            class="relative px-3 pb-1 pt-0.5 text-base font-semibold tracking-tight transition-colors"
+                            class="relative px-3 py-1 text-base font-semibold tracking-tight transition-colors"
                             :class="isActiveHome()
                                     ? 'text-neutral-950 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-neutral-950'
                                     : 'text-neutral-400 hover:text-neutral-600'
@@ -375,7 +375,7 @@ const linkGroups = computed(() => [
                             { id: 'features', labelKey: 'landing.nav.features' },
                             { id: 'pricing', labelKey: 'landing.nav.pricing' },
                         ]" :key="section.id" type="button"
-                            class="relative px-3 pb-1 pt-0.5 text-base font-semibold tracking-tight transition-colors"
+                            class="relative px-3 py-1 text-base font-semibold tracking-tight transition-colors"
                             :class="isActiveSection(section.id)
                                     ? 'text-neutral-950 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-neutral-950'
                                     : 'text-neutral-400 hover:text-neutral-600'
@@ -387,7 +387,7 @@ const linkGroups = computed(() => [
                             { to: '/community', labelKey: 'landing.nav.community' },
                             { to: '/contact', labelKey: 'landing.nav.contactUs' },
                         ]" :key="link.to" :to="link.to"
-                            class="relative px-3 pb-1 pt-0.5 text-base font-semibold tracking-tight transition-colors"
+                            class="relative px-3 py-1 text-base font-semibold tracking-tight transition-colors"
                             :class="isActiveNavPath(link.to)
                                     ? 'text-neutral-950 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-neutral-950'
                                     : 'text-neutral-400 hover:text-neutral-600'
@@ -399,7 +399,7 @@ const linkGroups = computed(() => [
 
                 <div class="flex items-center gap-3">
                     <!-- Install App button -->
-                    <NuxtLink to="/install-app"
+                    <NuxtLink to="/install-apps"
                         class="hidden rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium leading-tight text-neutral-700 transition-colors hover:bg-neutral-50 md:inline-flex md:items-center md:gap-1.5 md:justify-center">
                         <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-3.75 shrink-0" />
                         {{ t('landing.nav.installApp') }}
@@ -529,7 +529,7 @@ const linkGroups = computed(() => [
                             {{ t('landing.nav.contactUs') }}
                         </NuxtLink>
                         <!-- Install App button -->
-                        <NuxtLink to="/install-app"
+                        <NuxtLink to="/install-apps"
                             class="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50"
                             @click="mobileOpen = false">
                             <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0" />
@@ -582,7 +582,7 @@ const linkGroups = computed(() => [
             <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
                 <div class="grid gap-12 lg:grid-cols-6">
                     <div class="lg:col-span-2">
-                        <button type="button" class="cursor-pointer border-0 bg-transparent p-0 text-inherit"
+                        <button type="button" class="inline-flex cursor-pointer items-center border-0 bg-transparent p-0 text-inherit"
                             aria-label="Home" @click="scrollToHome">
                             <InlineLogo size="xl" />
                         </button>

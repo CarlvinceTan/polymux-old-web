@@ -3,9 +3,12 @@
 // composable so a future swap to a different flag backend touches one file.
 //
 // Behaviour:
-// - `ready`: feature flags have finished resolving for this session, or PostHog
-//   is not configured (fail-open). Middleware and FeatureGate use this to avoid
-//   acting on stale "unknown" state.
+// - `ready`: a live /decide response has been seen for this session (not the
+//   localStorage cache fire), or PostHog is not configured (fail-open).
+//   Middleware and FeatureGate use this to avoid acting on stale "unknown"
+//   state. The posthog.client plugin gates this on the featureFlagsReloading
+//   → onFeatureFlags handshake so a flag toggled off in PostHog doesn't read
+//   as enabled from cache on the next page load.
 // - isEnabled(key) defaults to `true` until PostHog has reported a flag list,
 //   to avoid a flash-of-unauthorized inside callers that ignore `ready`.
 // - When `posthog-js` is not initialised (POSTHOG_PUBLIC_KEY missing), every

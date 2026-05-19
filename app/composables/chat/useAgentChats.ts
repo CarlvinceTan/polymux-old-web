@@ -32,14 +32,36 @@ interface ChatState {
   streamingBuffer: { agentId: string; text: string } | null
 }
 
+/**
+ * Runs after the optimistic UI has applied (user bubble + working indicator
+ * already visible). Resolves to `true` to ship the wire frame, `false` to
+ * roll back the optimistic state — the chat handle restores the prior
+ * messages, clears the streaming/thinking flags, and (for sends) writes the
+ * rejected prompt back into the composer draft. Resolved values are the only
+ * supported signal; thrown errors are treated as `true` (fail-open to the
+ * server, which is authoritative).
+ */
+export type WireGuard = () => Promise<boolean>
+
 export interface ChatHandle {
   readonly messages: Ref<ChatMessage[]>
   readonly thinking: Ref<ThinkingState | null>
   readonly waitingForAgent: Ref<boolean>
   readonly isStreaming: Ref<boolean>
-  sendMessage(content: string, attachments?: ChatMessageAttachment[]): void
-  editMessage(index: number, text: string, attachments: ChatMessageAttachment[]): void
+  sendMessage(content: string, attachments?: ChatMessageAttachment[], wireGuard?: WireGuard): void
+  editMessage(index: number, text: string, attachments: ChatMessageAttachment[], wireGuard?: WireGuard): void
   loadHistory(history: ChatMessage[]): void
+  /**
+   * User-triggered pause/cancel. Handles both states the chat can be in:
+   *   - The wireGuard for a freshly-applied optimistic send is still pending
+   *     (wire frame not yet shipped) — cancels the pending wire, rolls the
+   *     optimistic UI back synchronously, and skips the server stop.
+   *   - The wire was already shipped (or some other server-side activity is
+   *     running) — sends `stop_agent` so [[handleStopAgent]] calls
+   *     `Orchestrator.Stop` on the polymux side.
+   * Always safe to invoke; orchestrator-side Stop is a no-op when idle.
+   */
+  stopOrCancelTurn(): void
 }
 
 function newId(): string {
@@ -109,10 +131,93 @@ export function useAgentChats(session: SessionHandle) {
     return agentStates.get(chatId)!
   }
 
+  /**
+   * Bookkeeping for an in-flight optimistic send whose wireGuard hasn't
+   * resolved yet — i.e. the user bubble + dots are on screen but the wire
+   * frame hasn't been shipped. Used by [[ChatHandle.stopOrCancelTurn]] to
+   * abort the pending wire send synchronously on user pause, instead of
+   * letting the wireGuard resolve and silently ship a frame the user
+   * already cancelled.
+   *
+   * Keyed by chatId. At most one entry per chat — a second optimistic send
+   * before the first resolves replaces the slot (the prior wireGuard's
+   * `.then` still runs but its `cancelled` flag stays untouched, so it
+   * proceeds normally). Cleared when the wireGuard resolves or when a
+   * user-initiated cancel fires the rollback synchronously.
+   */
+  const inflightWireGuard = new Map<string, {
+    cancelled: boolean
+    rollback: () => void
+  }>()
+
+  /**
+   * Drive the post-optimistic-apply wire-guard for both send and edit. On
+   * resolved `true` the wire frame ships. On resolved `false` (or a user
+   * pause via [[ChatHandle.stopOrCancelTurn]]) we roll back to the pre-send
+   * snapshot:
+   *   - Orchestrator: reuses [[rollbackOrchestratorAfterBudgetError]] (same
+   *     code path the server's TOKEN_BUDGET_EXCEEDED frame uses) so behaviour
+   *     stays consistent between client- and server-rejected sends, and
+   *     writes the rejected prompt back into the composer draft.
+   *   - Sub-agent: snapshot mechanism isn't wired (user-driven sub-agent
+   *     sends don't currently exist), so we defensively drop just the
+   *     optimistic bubble we appended and clear the waiting flag.
+   * Thrown guards fail open — the server is the authoritative budget check.
+   */
+  async function runWireGuard(
+    wireGuard: WireGuard,
+    chatId: string,
+    state: ChatState,
+    optimisticMessageId: string,
+    sendWire: () => void,
+  ) {
+    const rollback = () => {
+      if (chatId === 'orchestrator') {
+        const restored = rollbackOrchestratorAfterBudgetError()
+        if (restored != null) drafts['orchestrator'] = restored
+        return
+      }
+      const msgs = state.messages.value
+      if (msgs.length > 0 && msgs[msgs.length - 1]?.id === optimisticMessageId) {
+        state.messages.value = msgs.slice(0, -1)
+      }
+      state.streamingBuffer = null
+      state.isStreaming.value = false
+      state.waitingForAgent.value = state.messages.value[state.messages.value.length - 1]?.role === 'user'
+    }
+
+    const slot = { cancelled: false, rollback }
+    inflightWireGuard.set(chatId, slot)
+
+    let ok = true
+    try {
+      ok = await wireGuard()
+    } catch (e) {
+      console.warn('[useAgentChats] wireGuard threw, shipping to server:', e)
+      ok = true
+    }
+
+    // Re-check ownership: a later send for the same chat may have replaced
+    // this slot, in which case our outcome no longer applies — the newer
+    // wireGuard owns the chat state now.
+    if (inflightWireGuard.get(chatId) !== slot) return
+    inflightWireGuard.delete(chatId)
+
+    // User clicked pause while wireGuard was pending — rollback already ran
+    // synchronously inside stopOrCancelTurn; skip the wire send.
+    if (slot.cancelled) return
+
+    if (ok) {
+      sendWire()
+      return
+    }
+    rollback()
+  }
+
   function buildHandle(chatId: string): ChatHandle {
     const state = getState(chatId)
 
-    function sendMessage(content: string, attachments?: ChatMessageAttachment[]) {
+    function sendMessage(content: string, attachments?: ChatMessageAttachment[], wireGuard?: WireGuard) {
       if (chatId === 'orchestrator') {
         orchestratorRollback = [...state.messages.value]
         pendingOrchestratorPromptRestore = content
@@ -132,13 +237,27 @@ export function useAgentChats(session: SessionHandle) {
       state.messages.value = [...state.messages.value, msg]
       state.waitingForAgent.value = true
 
-      const payload: UserMessagePayload = { content, message_id: id }
-      if (chatId !== 'orchestrator') payload.agent_id = chatId
-      if (attachments?.length) payload.attachments = attachments.map(a => ({ id: a.id, name: a.name }))
-      session.send<UserMessagePayload>('user_message', payload)
+      const sendWire = () => {
+        const payload: UserMessagePayload = { content, message_id: id }
+        if (chatId !== 'orchestrator') payload.agent_id = chatId
+        if (attachments?.length) payload.attachments = attachments.map(a => ({ id: a.id, name: a.name }))
+        session.send<UserMessagePayload>('user_message', payload)
+      }
+
+      if (!wireGuard) {
+        sendWire()
+        return
+      }
+      // Guard runs AFTER the optimistic apply above so the user bubble and
+      // working indicator are visible the moment the user clicks send — any
+      // network latency the guard incurs (e.g. a Supabase usage RPC) is
+      // hidden behind the dots, not in front of them. On rejection we roll
+      // the chat back to its pre-send snapshot and restore the prompt to
+      // the composer so the user can edit or retry.
+      void runWireGuard(wireGuard, chatId, state, id, sendWire)
     }
 
-    function editMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
+    function editMessage(index: number, text: string, attachments: ChatMessageAttachment[], wireGuard?: WireGuard) {
       const existing = state.messages.value[index]
       if (!existing || existing.role !== 'user') return
 
@@ -167,11 +286,24 @@ export function useAgentChats(session: SessionHandle) {
       state.waitingForAgent.value = true
       state.messages.value = [...state.messages.value.slice(0, index), edited]
 
-      const payload: UserMessagePayload = { content: text, message_id: id }
-      if (chatId !== 'orchestrator') payload.agent_id = chatId
-      if (atts) payload.attachments = atts.map(a => ({ id: a.id, name: a.name }))
-      if (replacesMessageID) payload.replaces_message_id = replacesMessageID
-      session.send<UserMessagePayload>('user_message', payload)
+      const sendWire = () => {
+        const payload: UserMessagePayload = { content: text, message_id: id }
+        if (chatId !== 'orchestrator') payload.agent_id = chatId
+        if (atts) payload.attachments = atts.map(a => ({ id: a.id, name: a.name }))
+        if (replacesMessageID) payload.replaces_message_id = replacesMessageID
+        session.send<UserMessagePayload>('user_message', payload)
+      }
+
+      if (!wireGuard) {
+        sendWire()
+        return
+      }
+      // Same pattern as sendMessage: optimistic apply happens above, then the
+      // async budget gate runs. On rejection we restore the pre-edit messages
+      // — the in-place edit composer in UserMessage stays as the user left
+      // it (pendingOrchestratorPromptRestore is null for edits, matching the
+      // existing server-rollback behaviour).
+      void runWireGuard(wireGuard, chatId, state, id, sendWire)
     }
 
     function loadHistory(history: ChatMessage[]) {
@@ -200,6 +332,37 @@ export function useAgentChats(session: SessionHandle) {
       state.waitingForAgent.value = history[history.length - 1]?.role === 'user'
     }
 
+    function stopOrCancelTurn() {
+      // If a wireGuard for this chat is still pending, the wire frame
+      // hasn't shipped yet. Cancel synchronously so the user gets immediate
+      // feedback (dots + optimistic bubble disappear on the same tick),
+      // and skip the server stop — orchestrator has nothing to stop.
+      const pending = inflightWireGuard.get(chatId)
+      if (pending) {
+        pending.cancelled = true
+        inflightWireGuard.delete(chatId)
+        pending.rollback()
+        return
+      }
+      // Wire was already shipped (or this is a non-send pause path).
+      // Server's handleStopAgent treats empty / "orchestrator" as
+      // "stop the orchestrator's current turn" and cascades to any
+      // running sub-agents the orchestrator owns.
+      session.send<StopAgentPayload>('stop_agent', { agent_id: chatId })
+      // Clear local activity state synchronously. The server emits
+      // OnMessage("", false) on turn cancellation which would clear these,
+      // but only when a turn was actually running — when the indicator was
+      // driven by stale session_state (e.g. lingering browser_agents)
+      // there's no turn to seal and nothing arrives. Late in-flight chunks
+      // may re-arm waitingForAgent briefly, which is a fair reflection
+      // of "server is mid-stop." Keep streamingBuffer intact so any final
+      // partial appends to the existing bubble instead of forking a new
+      // one.
+      state.isStreaming.value = false
+      state.waitingForAgent.value = false
+      state.thinking.value = null
+    }
+
     return {
       messages: state.messages,
       thinking: state.thinking,
@@ -208,6 +371,7 @@ export function useAgentChats(session: SessionHandle) {
       sendMessage,
       editMessage,
       loadHistory,
+      stopOrCancelTurn,
     }
   }
 

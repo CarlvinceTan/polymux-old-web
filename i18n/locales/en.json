@@ -268,6 +268,7 @@
     "showGrid": "Show background grid",
     "snapToGrid": "Snap to grid",
     "addNode": "Add node",
+    "drawWire": "Draw wire",
     "clearSelection": "Clear selection",
     "tabs": {
       "agent": "Agent",
@@ -283,6 +284,11 @@
     "resizeNode": "Resize",
     "editWire": "Edit wire",
     "deleteWire": "Delete wire",
+    "deleteSelection": "Delete selection",
+    "duplicateSelection": "Duplicate selection",
+    "duplicateNode": "Duplicate step",
+    "duplicateWire": "Duplicate wire",
+    "warnIsolatedNodes": "Saved, but {count} node(s) are not connected to anything.",
     "wireLabelLabel": "Wire",
     "wireLabelPlaceholder": "Optional label",
     "wireConditionLabel": "Condition",
@@ -1325,7 +1331,6 @@
     "lastDay": "Last",
     "noRuns": "No upcoming runs in the next 60 days",
     "weeklyNoDays": "Select at least one day",
-    "noVersionShort": "Save a version first",
     "activeNeedsVersion": "Save a workflow version before enabling the schedule. The scheduler skips workflows without a saved version.",
     "freq": {
       "none": "None",
@@ -1446,6 +1451,12 @@
       "eyebrow": "Manual installation",
       "heading": "Pick your platform",
       "subtitle": "Every build is signed, notarised, and ships with the same features. Download the variant that fits your setup."
+    },
+    "extension": {
+      "eyebrow": "Browser Extension",
+      "heading": "Connect your browser",
+      "subtitle": "Install the Polymux extension to run agents locally in your browser. Watch them work in real-time without leaving your desktop.",
+      "chromeLabel": "Install for Chrome"
     },
     "yourSystem": "Your system",
     "otherOptions": "Other options",

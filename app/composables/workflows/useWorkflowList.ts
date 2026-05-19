@@ -19,6 +19,10 @@ export interface WorkflowSummary {
   workspace_id: string
   created_at: string
   updated_at: string
+  /** Server-controlled ordering for the SidePanel. Higher = closer to the top.
+   *  Auto-assigned to max+1 on insert; the only client-driven mutation is the
+   *  reorder helper below, called from the SidePanel's drag handler. */
+  position?: number
   is_draft?: boolean
   /** True while a browser agent is in status=running OR a scheduled run is in
    *  flight. Drives the workflow-list shimmer so users can see at a glance
@@ -291,6 +295,47 @@ export function useWorkflowList() {
     return promoted
   }
 
+  // reorderWorkflows persists the SidePanel's drag-drop result. `orderedIds`
+  // is the visible list top-down (excluding the draft, which is always pinned
+  // and not persisted server-side). Optimistically rewrites the query cache so
+  // the SidePanel doesn't snap back while the PATCH is in flight; rolls back
+  // on failure. Server re-assigns `position` for every id in one call via the
+  // reorder_workflows RPC.
+  async function reorderWorkflows(orderedIds: string[]) {
+    const wsId = currentWorkspaceId.value
+    if (!wsId || orderedIds.length === 0) return
+    const key = ['workflow-sessions', wsId]
+    const previous = queryClient.getQueryData<WorkflowSummary[]>(key)
+
+    queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) => {
+      const arr = old ?? []
+      const byId = new Map(arr.map(s => [s.id, s]))
+      const reordered: WorkflowSummary[] = []
+      const total = orderedIds.length
+      for (let i = 0; i < total; i++) {
+        const s = byId.get(orderedIds[i]!)
+        if (!s) continue
+        reordered.push({ ...s, position: total - i })
+        byId.delete(orderedIds[i]!)
+      }
+      // Surface anything the client didn't include (rows it never knew about
+      // because of a stale view) at the bottom so they don't vanish from the
+      // sidebar while the next refetch reconciles.
+      for (const s of byId.values()) reordered.push(s)
+      return reordered
+    })
+
+    try {
+      await authFetch('/sessions/order', {
+        method: 'PATCH',
+        body: JSON.stringify({ workspace_id: wsId, order: orderedIds }),
+      })
+    } catch (err) {
+      if (previous) queryClient.setQueryData(key, previous)
+      console.error('[useWorkflowList] reorderWorkflows failed', err)
+    }
+  }
+
   async function renameSession(id: string, title: string) {
     const target = sessions.value.find(s => s.id === id)
     if (target?.is_draft) return
@@ -493,6 +538,7 @@ export function useWorkflowList() {
     dropDraft,
     markDraftCommitted,
     renameSession,
+    reorderWorkflows,
     setSessionRunning,
     deleteSession,
     deleteSessionIfEmpty,

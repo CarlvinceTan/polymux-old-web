@@ -268,6 +268,7 @@
     "showGrid": "Mostrar grade de fundo",
     "snapToGrid": "Ajustar à grade",
     "addNode": "Adicionar nó",
+    "drawWire": "Traçar conexão",
     "clearSelection": "Limpar seleção",
     "tabs": {
       "agent": "Agente",
@@ -291,6 +292,11 @@
     "moreInstances": "mais",
     "editWire": "Editar conexão",
     "deleteWire": "Excluir conexão",
+    "deleteSelection": "Excluir seleção",
+    "duplicateSelection": "Duplicar seleção",
+    "duplicateNode": "Duplicar etapa",
+    "duplicateWire": "Duplicar conexão",
+    "warnIsolatedNodes": "Salvo, mas {count} nó(s) não estão conectados.",
     "wireLabelLabel": "Conexão",
     "wireLabelPlaceholder": "Rótulo opcional",
     "wireConditionLabel": "Condição",
@@ -1323,7 +1329,6 @@
     "lastDay": "Último",
     "noRuns": "Sem execuções nos próximos 60 dias",
     "weeklyNoDays": "Selecione ao menos um dia",
-    "noVersionShort": "Salve uma versão antes",
     "activeNeedsVersion": "Salve uma versão do fluxo antes de ativar o agendamento. O agendador ignora fluxos sem uma versão salva.",
     "freq": {
       "none": "Nenhuma",

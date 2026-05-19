@@ -67,11 +67,46 @@ const GALLERY_MAX_COLS = 8
 // the bar-less thumbnail rendering even though a URL bar would still
 // technically fit, because the user can't usefully read it at that scale.
 const GALLERY_BAR_THRESHOLD = 2
-// Start zoomed out — initialize at the max column count and let the
-// effectiveMaxCols watcher clamp down to whatever the gallery can fit. This
-// gives the user the most-viewports-on-screen-at-once view by default;
-// they can zoom in (fewer columns, bigger cards) via the slider.
-const galleryCols = ref(GALLERY_MAX_COLS)
+// Persisted zoom preference. Initial value defaults to the max column count
+// (most zoomed out — most viewports on screen), but if the user has previously
+// set a zoom this session/profile, restore it so navigating away and back
+// doesn't reset the slider. effectiveMaxCols still clamps the live `galleryCols`
+// post-mount when the gallery is too small for the saved value; the saved
+// preference itself is only overwritten on explicit user input (slider drag),
+// not by automatic clamping, so a transient resize or empty state doesn't
+// downgrade the user's stored zoom.
+const GALLERY_COLS_STORAGE_KEY = 'polymux_viewport_gallery_cols'
+
+function loadSavedGalleryCols(): number {
+  if (!import.meta.client) return GALLERY_MAX_COLS
+  try {
+    const raw = localStorage.getItem(GALLERY_COLS_STORAGE_KEY)
+    if (!raw) return GALLERY_MAX_COLS
+    const parsed = Number.parseInt(raw, 10)
+    if (Number.isNaN(parsed)) return GALLERY_MAX_COLS
+    return Math.max(GALLERY_MIN_COLS, Math.min(GALLERY_MAX_COLS, parsed))
+  }
+  catch {
+    return GALLERY_MAX_COLS
+  }
+}
+
+function persistGalleryCols(cols: number) {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(GALLERY_COLS_STORAGE_KEY, String(cols))
+  }
+  catch {}
+}
+
+// `savedZoom` is the user's intended zoom — only changes on explicit slider
+// drag (and persists to localStorage). `galleryCols` is the live, clamped
+// value actually rendered; it's recomputed from savedZoom whenever the room
+// available (effectiveMaxCols) changes, so growing the gallery back out
+// restores the user's preferred zoom instead of leaving it stuck at the
+// previously-clamped value.
+const savedZoom = ref(loadSavedGalleryCols())
+const galleryCols = ref(savedZoom.value)
 
 // Cap the slider at the smallest column count that already shows every
 // viewport on screen at once. Past that point zooming out further only
@@ -132,8 +167,13 @@ const effectiveMaxCols = computed(() => {
   return cap
 })
 
-watch(effectiveMaxCols, (max) => {
-  if (galleryCols.value > max) galleryCols.value = max
+// Live cols always equals the saved preference, clamped to the current room.
+// When the room grows (viewports arrive, window resizes back up), galleryCols
+// snaps back toward savedZoom; when it shrinks, galleryCols clamps down but
+// savedZoom stays intact for restoration later.
+watch([savedZoom, effectiveMaxCols], ([saved, max]) => {
+  const clamped = Math.max(GALLERY_MIN_COLS, Math.min(max, saved))
+  if (galleryCols.value !== clamped) galleryCols.value = clamped
 }, { immediate: true })
 // Slider's continuous value. The thumb glides freely under the user's finger
 // even though the underlying galleryCols only moves in integer steps; the
@@ -144,12 +184,20 @@ const sliderDrag = ref<number>(GALLERY_MIN_COLS)
 
 // drag → galleryCols. Snaps to the nearest integer column count whenever the
 // user moves the slider. Only writes when the snapped value actually differs
-// to keep the watch loop quiet.
+// to keep the watch loop quiet. This is the user-intent path, so persist the
+// chosen zoom here rather than from a generic `galleryCols` watcher — the
+// effectiveMaxCols clamp watcher also writes to `galleryCols` and we don't
+// want a transient clamp (empty viewport list, briefly-resized window) to
+// silently downgrade the user's saved preference.
 watch(sliderDrag, (drag) => {
   const max = effectiveMaxCols.value
   const inverted = max + GALLERY_MIN_COLS - drag
   const cols = Math.max(GALLERY_MIN_COLS, Math.min(max, Math.round(inverted)))
-  if (galleryCols.value !== cols) galleryCols.value = cols
+  if (galleryCols.value !== cols) {
+    galleryCols.value = cols
+    savedZoom.value = cols
+    persistGalleryCols(cols)
+  }
 })
 
 // galleryCols → drag. Sync the thumb only when an external change to
@@ -265,6 +313,7 @@ function viewportHandlers(agentId: string) {
           tabindex="0"
           class="group/gallery relative flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg outline-none ring-0 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
           :aria-label="t('viewport.expandPreview')"
+          style="container-type: inline-size"
           @click="onExpand(vp.agentId)"
           @keydown.enter="onExpand(vp.agentId)"
           @keydown.space.prevent="onExpand(vp.agentId)"
@@ -281,11 +330,14 @@ function viewportHandlers(agentId: string) {
           <!-- Overlay close button — only shown in the bar-less thumbnail
                rendering, since the in-bar X disappears with the bar. Keeps a
                way out for users when the gallery is zoomed past the bar
-               threshold. -->
+               threshold. Button + icon stay at a fixed size; only the
+               top/right offset scales with the card's inline size so the X
+               hugs the corner at narrow zoom levels instead of floating
+               toward the centre. -->
           <button
             v-if="!showBarInGallery"
             type="button"
-            class="absolute right-2 top-2 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none text-neutral-400 opacity-0 ring-0 transition-colors hover:text-neutral-700 group-hover/gallery:opacity-100"
+            class="absolute z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none text-neutral-400 opacity-0 ring-0 transition-colors hover:text-neutral-700 group-hover/gallery:opacity-100 top-[clamp(0.125rem,2cqi,0.5rem)] right-[clamp(0.125rem,2cqi,0.5rem)]"
             :aria-label="t('browser.closeAgent')"
             @click.stop="onClose(vp.agentId)"
           >

@@ -44,7 +44,7 @@ const dashOffset = computed(() => CIRCUMFERENCE - (props.progress / 100) * CIRCU
       <circle
         cx="6" cy="6" :r="RADIUS" fill="none" stroke="currentColor" stroke-width="1.5"
         stroke-linecap="round"
-        class="text-neutral-500 transition-[stroke-dashoffset] duration-200"
+        class="text-neutral-900 transition-[stroke-dashoffset] duration-200"
         :stroke-dasharray="CIRCUMFERENCE"
         :stroke-dashoffset="dashOffset"
       />

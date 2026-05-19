@@ -280,7 +280,7 @@ const featureDemoSources: string[] = ['']
             Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
           </p>
         </div>
-        <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">
+        <div class="mb-5 flex justify-center sm:mb-6">
           <div
             class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
             role="group"

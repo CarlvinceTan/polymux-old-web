@@ -96,7 +96,10 @@ export default defineNuxtPlugin(async () => {
     return inflight
   }
 
-  // Pair on initial mount when already signed in.
+  // Pair on initial mount when already signed in. The flag gate inside
+  // attemptPair fails closed until PostHog has confirmed a fresh /decide
+  // response, so this first call typically bails on cold load; the
+  // posthog:flags-changed listener below retries once flags actually land.
   void attemptPair()
 
   // Re-pair on any subsequent sign-in. Sign-out is a no-op here; the
@@ -106,5 +109,13 @@ export default defineNuxtPlugin(async () => {
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       void attemptPair()
     }
+  })
+
+  // Retry once PostHog's flag state resolves. The posthog.client plugin
+  // dispatches this event only on a fresh /decide response (not the cache
+  // fire), so attemptPair's fail-closed flag check now has the right
+  // answer to act on.
+  window.addEventListener('posthog:flags-changed', () => {
+    void attemptPair()
   })
 })

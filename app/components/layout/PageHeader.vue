@@ -85,7 +85,7 @@ function displayTabLabel(label: string) {
     <div class="flex min-w-0 items-center gap-10">
       <button
         type="button"
-        class="shrink-0 -translate-y-px cursor-pointer border-0 bg-transparent p-0 outline-none"
+        class="inline-flex shrink-0 -translate-y-px cursor-pointer items-center border-0 bg-transparent p-0 outline-none"
         :aria-label="t('nav.toggleSidebar')"
         @click="toggleSidePanel"
       >
@@ -100,7 +100,7 @@ function displayTabLabel(label: string) {
           />
           <NuxtLink
             :to="tabLinkTarget(routePath)"
-            class="relative pb-1 text-sm font-semibold tracking-tight transition-colors sm:text-base"
+            class="relative py-1 text-sm font-semibold tracking-tight transition-colors sm:text-base"
             :class="
               isActive(label)
                 ? 'text-neutral-950 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-neutral-950'

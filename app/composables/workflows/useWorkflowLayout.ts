@@ -53,55 +53,78 @@ function buildAdjacency(wires: readonly WorkflowWire[]): Map<string, WorkflowWir
 
 // assignLayers walks the graph from the entry set, treating capped wires
 // (max_iterations > 0) as if they didn't exist for layering. The remaining
-// graph is a DAG, so we can layer by longest forward path. Nodes with no
-// forward in-wire become entry candidates at layer 1 (layer 0 is reserved
-// for the synthetic Start terminal).
+// graph is layered by longest forward path: each layer is the set of nodes
+// whose forward-incoming wires have all already been placed. Cycles (where
+// no zero-incoming node remains but the worklist still has entries) are
+// broken by force-promoting the node with the fewest remaining incoming
+// wires — that edge becomes effectively a back-wire for layout purposes,
+// which is the same treatment that an explicit `max_iterations` wire gets.
 function assignLayers(nodes: WorkflowNode[], wires: readonly WorkflowWire[]): Map<string, number> {
   const forwardWires = wires.filter(w => !(w.max_iterations && w.max_iterations > 0))
+
   const incoming = new Map<string, number>()
-  for (const n of nodes) incoming.set(n.id, 0)
-  for (const w of forwardWires) incoming.set(w.to_id, (incoming.get(w.to_id) ?? 0) + 1)
+  const outgoing = new Map<string, string[]>()
+  for (const n of nodes) {
+    incoming.set(n.id, 0)
+    outgoing.set(n.id, [])
+  }
+  for (const w of forwardWires) {
+    // Detached endpoints (either end's id is empty, persisted via
+    // from_pos / to_pos instead) aren't part of the flow graph — they
+    // can't contribute layering pressure. Skipping also avoids the
+    // `outgoing.get("")` undefined-push crash that previously took out
+    // the whole layout when a draw-wire-tool sketch was on the canvas.
+    if (!w.from_id || !w.to_id) continue
+    const outList = outgoing.get(w.from_id)
+    if (!outList) continue
+    incoming.set(w.to_id, (incoming.get(w.to_id) ?? 0) + 1)
+    outList.push(w.to_id)
+  }
 
   const layer = new Map<string, number>()
-  const queue: string[] = []
-  for (const n of nodes) {
-    if ((incoming.get(n.id) ?? 0) === 0) {
-      layer.set(n.id, 1)
-      queue.push(n.id)
+  const remaining = new Set(nodes.map(n => n.id))
+  let currentLayer = 1
+
+  while (remaining.size > 0) {
+    // Nodes with all forward in-wires already placed are ready for the
+    // current layer.
+    let layerIds = [...remaining].filter(id => (incoming.get(id) ?? 0) === 0)
+
+    if (layerIds.length === 0) {
+      // Pure-cycle blockage: nothing has zero remaining incoming. Force
+      // one node onto this layer to unblock — picking the one with the
+      // fewest remaining incoming so we break the smallest cycle.
+      let minInc = Infinity
+      let pick: string | null = null
+      for (const id of remaining) {
+        const inc = incoming.get(id) ?? 0
+        if (inc < minInc) {
+          minInc = inc
+          pick = id
+        }
+      }
+      if (pick != null) layerIds = [pick]
+      else break
     }
-  }
-  // Topological BFS — every time a node is dequeued its outgoing forward
-  // wires lower their target's pending-incoming count; once that count hits
-  // zero, the target's layer is the max(parent.layer + 1).
-  const outgoing = new Map<string, WorkflowWire[]>()
-  for (const w of forwardWires) {
-    if (!outgoing.has(w.from_id)) outgoing.set(w.from_id, [])
-    outgoing.get(w.from_id)!.push(w)
-  }
-  const pending = new Map(incoming)
-  while (queue.length > 0) {
-    const id = queue.shift()!
-    const myLayer = layer.get(id)!
-    for (const w of outgoing.get(id) ?? []) {
-      const cur = layer.get(w.to_id) ?? 1
-      if (myLayer + 1 > cur) layer.set(w.to_id, myLayer + 1)
-      const left = (pending.get(w.to_id) ?? 0) - 1
-      pending.set(w.to_id, left)
-      if (left <= 0) queue.push(w.to_id)
+
+    for (const id of layerIds) {
+      layer.set(id, currentLayer)
+      remaining.delete(id)
+      for (const t of outgoing.get(id) ?? []) {
+        if (remaining.has(t)) incoming.set(t, (incoming.get(t) ?? 0) - 1)
+      }
     }
+    currentLayer++
   }
-  // Any node not visited (only reachable via back-wires) keeps its default
-  // layer of 1 so it still renders.
+
+  // Defensive: anything still unlayered (shouldn't happen) gets layer 1 so
+  // it still renders.
   for (const n of nodes) if (!layer.has(n.id)) layer.set(n.id, 1)
   return layer
 }
 
 function wireId(wire: WorkflowWire): string {
   return `wire:${wire.id}`
-}
-
-function spineWireId(fromId: string, toId: string): string {
-  return `spine:${fromId}->${toId}`
 }
 
 export function buildLayout(graph: WorkflowGraph): LayoutModel {
@@ -163,52 +186,11 @@ export function buildLayout(graph: WorkflowGraph): LayoutModel {
     terminal: 'end',
   })
 
-  // Spine wires: Start → first-column entries (nodes with no forward incoming
-  // wires); last-column exits (nodes with no forward outgoing wires) → End.
-  // Track which real nodes have forward incoming / outgoing wires so spine
-  // wires don't double-up where real wires already exist.
-  //
-  // Fully isolated nodes (no real wires of any kind) DON'T get spine wires —
-  // a freshly placed node should sit free until the user wires it. The user
-  // explicitly opts in by drawing a wire from a port.
-  const hasForwardIn = new Set<string>()
-  const hasForwardOut = new Set<string>()
-  const hasAnyWire = new Set<string>()
-  for (const w of graph.wires) {
-    hasAnyWire.add(w.from_id)
-    hasAnyWire.add(w.to_id)
-    if (w.max_iterations && w.max_iterations > 0) continue
-    hasForwardIn.add(w.to_id)
-    hasForwardOut.add(w.from_id)
-  }
-  for (const n of graph.nodes) {
-    if (!hasAnyWire.has(n.id)) continue
-    if (!hasForwardIn.has(n.id)) {
-      wires.push({
-        id: spineWireId(WORKFLOW_START_ID, n.id),
-        fromId: WORKFLOW_START_ID,
-        toId: n.id,
-        style: 'forward',
-      })
-    }
-    if (!hasForwardOut.has(n.id)) {
-      wires.push({
-        id: spineWireId(n.id, WORKFLOW_END_ID),
-        fromId: n.id,
-        toId: WORKFLOW_END_ID,
-        style: 'forward',
-      })
-    }
-  }
-  // Empty graph: connect Start directly to End so the spine reads.
-  if (graph.nodes.length === 0) {
-    wires.push({
-      id: spineWireId(WORKFLOW_START_ID, WORKFLOW_END_ID),
-      fromId: WORKFLOW_START_ID,
-      toId: WORKFLOW_END_ID,
-      style: 'forward',
-    })
-  }
+  // No spine / auto-inferred wires. Start + End are pure visual anchors
+  // — execution doesn't need an edge to either — and silently inserting
+  // Start→entry connections behind the user's back made it look like
+  // creating one wire created two. Connectivity warnings surface at
+  // save time as a toast instead (see `connectivityWarnings`).
 
   // Real wires: forward or back-wire depending on layer direction.
   for (const w of graph.wires) {

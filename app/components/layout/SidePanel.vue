@@ -31,16 +31,18 @@ const {
   createDraft,
   ensureAtLeastOneWorkflow,
   renameSession,
+  reorderWorkflows,
   deleteSession,
 } = useWorkflowList()
 
 // Writable list bound to the draggable directive. Derived from `realSessions`
-// (source of truth) + `draft` + a per-workspace saved order. SortableJS
-// mutates this in place during drag; on drop we persist the new order to
-// localStorage. IMPORTANT: always mutate this array in place (splice) —
-// `vue-draggable-plus` captures the array reference at mount time and has no
-// `updated` hook, so reassigning `.value = newArray` leaves the library
-// pointing at a stale reference and drag reorders silently fail.
+// (source of truth, already sorted server-side by workflows.position desc) +
+// the pinned `draft`. SortableJS mutates this in place during drag; on drop
+// we persist the new order via reorderWorkflows. IMPORTANT: always mutate
+// this array in place (splice) — `vue-draggable-plus` captures the array
+// reference at mount time and has no `updated` hook, so reassigning
+// `.value = newArray` leaves the library pointing at a stale reference and
+// drag reorders silently fail.
 const displaySessions = ref<WorkflowSummary[]>([])
 
 // Stable per-row keys for the workflow `<TransitionGroup>`. Without this, the
@@ -61,43 +63,6 @@ function getOrCreateSlotKey(id: string): string {
 }
 function rowKey(session: WorkflowSummary): string {
   return getOrCreateSlotKey(session.id)
-}
-
-const workflowOrderKey = computed(
-  () => `polymux_workflow_order:${currentWorkspaceId.value ?? ''}`,
-)
-
-function loadSavedOrder(): string[] {
-  if (!import.meta.client) return []
-  try {
-    const raw = localStorage.getItem(workflowOrderKey.value)
-    return raw ? (JSON.parse(raw) as string[]) : []
-  } catch {
-    return []
-  }
-}
-
-function saveOrder(ids: string[]) {
-  if (!import.meta.client) return
-  try {
-    localStorage.setItem(workflowOrderKey.value, JSON.stringify(ids))
-  } catch {}
-}
-
-// Sort real sessions by the saved order. Sessions not yet in the saved order
-// (e.g. a freshly-promoted draft) keep their position from `list` and land at
-// the top — so a draft that upgrades to a real workflow stays in place.
-function applySavedOrder(list: WorkflowSummary[]): WorkflowSummary[] {
-  const saved = loadSavedOrder()
-  if (saved.length === 0) return list.slice()
-  const savedSet = new Set(saved)
-  const byId = new Map(list.map(s => [s.id, s]))
-  const unknowns = list.filter(s => !savedSet.has(s.id))
-  const knowns = saved.flatMap(id => {
-    const s = byId.get(id)
-    return s ? [s] : []
-  })
-  return [...unknowns, ...knowns]
 }
 
 watch(
@@ -126,7 +91,10 @@ watch(
       return o ? { ...s, is_running: o.is_running, running_kind: o.running_kind } : s
     }
 
-    const ordered = applySavedOrder(realSessions.value).map(project)
+    // realSessions already comes back ordered by workflows.position desc, so
+    // the server is the only source of order — no client-side resort and no
+    // localStorage layer to reconcile.
+    const ordered = realSessions.value.map(project)
     const projectedDraft = draft.value ? project(draft.value) : null
     const next = projectedDraft ? [projectedDraft, ...ordered] : ordered
     displaySessions.value.splice(0, displaySessions.value.length, ...next)
@@ -236,7 +204,7 @@ function onDragEnd() {
     isDropping.value = false
   })
 
-  saveOrder(
+  void reorderWorkflows(
     displaySessions.value
       .filter(s => !s.is_draft)
       .map(s => s.id),
@@ -647,7 +615,7 @@ function handleSettings() {
 
 function handleInstallApp() {
   closeProfileDropdown()
-  navigateTo('/install-app')
+  navigateTo('/install-apps')
 }
 
 function handleUpgradePlan() {

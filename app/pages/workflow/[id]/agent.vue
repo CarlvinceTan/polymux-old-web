@@ -50,7 +50,7 @@ const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
 )
 
-const { canSendPrompt } = useChatPromptSendGuard(
+const { canSendPromptSync, canSendPromptAsync } = useChatPromptSendGuard(
   computed(() => workflowWorkspaceId.value ?? ''),
   computed(() => workspacePlan.value),
 )
@@ -85,19 +85,24 @@ watch(budgetRestorePrompt, (v) => {
   budgetRestorePrompt.value = null
 })
 
-async function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
+// Pre-emit gate is sync-only so the optimistic chat UI (user bubble + working
+// dots) can apply the instant the user clicks send. The async weekly-cap RPC
+// runs after the optimistic apply, inside the wireGuard passed to
+// sendMessage/editMessage — if it rejects, the chat handle rolls the bubble
+// back and restores the prompt to the composer.
+function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
   const t = text.trim()
   if (!t) return false
-  return canSendPrompt(t)
+  return canSendPromptSync(t)
 }
 
-async function beforeEditMessage(text: string, _attachments: ChatMessageAttachment[]) {
-  return canSendPrompt(text.trim())
+function beforeEditMessage(text: string, _attachments: ChatMessageAttachment[]) {
+  return canSendPromptSync(text.trim())
 }
 
 async function onWelcomeSuggestion() {
   const t = presetPrompt.trim()
-  if (!(await canSendPrompt(t))) return
+  if (!canSendPromptSync(t)) return
   onSend(presetPrompt)
 }
 
@@ -112,12 +117,12 @@ function onSend(value: string, attachments?: ChatMessageAttachment[]) {
   }
 
   armAutoSwitch()
-  currentChat.value.sendMessage(t, attachments)
+  currentChat.value.sendMessage(t, attachments, () => canSendPromptAsync(t))
 }
 
 function onEditMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
   armAutoSwitch()
-  currentChat.value.editMessage(index, text, attachments)
+  currentChat.value.editMessage(index, text, attachments, () => canSendPromptAsync(text.trim()))
 }
 
 function onFeedbackChange(messageId: string, rating: 'up' | 'down' | null) {
@@ -130,6 +135,15 @@ function onFeedbackChange(messageId: string, rating: 'up' | 'down' | null) {
 // itself uses, just user-triggered from the viewport's run/stop control.
 function onStopAgent(agentId: string) {
   chats.stopAgent(agentId)
+}
+
+// User pressed the pause button on the chat composer. Distinct from
+// onStopAgent: this targets the orchestrator (which cascades server-side to
+// any sub-agents it spawned) plus any optimistic send still waiting on the
+// async budget gate — see [[useAgentChats.stopOrCancelTurn]] for the
+// two-state cancel/stop logic.
+function onStopChat() {
+  currentChat.value.stopOrCancelTurn()
 }
 
 // "Continue" / re-run hook for an idle viewport. No first-class server API
@@ -147,13 +161,14 @@ function onRunAgent(_agentId: string) {
 // page mounts. The WS frame itself is buffered inside useWorkflowSession until the
 // socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
-  void (async () => {
-    const pending = consumePendingPrompt(sessionId.value)
-    if (!pending) return
-    const trimmed = pending.text.trim()
-    if (!(await canSendPrompt(trimmed))) return
-    onSend(pending.text, pending.attachments)
-  })()
+  const pending = consumePendingPrompt(sessionId.value)
+  if (!pending) return
+  const trimmed = pending.text.trim()
+  // Sync gate only — onSend itself folds the async weekly-cap check into the
+  // wireGuard it passes to sendMessage, so awaiting it here would re-introduce
+  // the delay we just eliminated and the welcome view would linger past mount.
+  if (!canSendPromptSync(trimmed)) return
+  onSend(pending.text, pending.attachments)
 })
 </script>
 
@@ -184,6 +199,7 @@ onMounted(() => {
     :before-edit="beforeEditMessage"
     @welcome-suggestion="onWelcomeSuggestion"
     @send="onSend"
+    @stop-chat="onStopChat"
     @rename="onRename"
     @close-viewport="onCloseViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"

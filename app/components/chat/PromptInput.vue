@@ -16,6 +16,13 @@ const props = withDefaults(
     attachments?: FileAttachmentState[]
     disabled?: boolean
     browserMode?: 'server' | 'extension'
+    // True whenever there's chat activity the user could meaningfully pause:
+    // orchestrator streaming/waiting, or any browser sub-agent working. Flips
+    // the send button into a pause button (white rounded square inside the
+    // black box) that emits `stop` instead of `send`. Enter still sends so
+    // a mid-turn follow-up doesn't require reaching for the pause button —
+    // only the explicit button click triggers the pause.
+    active?: boolean
   }>(),
   {
     hint: undefined,
@@ -23,6 +30,7 @@ const props = withDefaults(
     attachments: () => [],
     disabled: false,
     browserMode: 'server',
+    active: false,
   },
 )
 
@@ -30,6 +38,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:browserMode': [value: 'server' | 'extension']
   send: [value: string]
+  stop: []
   'attach-files': [files: FileList]
   'remove-file': [id: string]
 }>()
@@ -116,7 +125,11 @@ const { expanded: expandedPrompt } = useAutoResizeTextarea(textareaRef, inputVal
 
 const hasDraftText = computed(() => String(props.modelValue ?? '').length > 0)
 
-function onSendClick() {
+function onPrimaryButtonClick() {
+  if (props.active) {
+    emit('stop')
+    return
+  }
   emit('send', inputValue.value)
 }
 
@@ -124,7 +137,12 @@ function onTextareaKeydown(e: KeyboardEvent) {
   if (e.key !== 'Enter' || e.shiftKey) return
   if (e.isComposing) return
   e.preventDefault()
-  onSendClick()
+  // Enter always sends — even mid-turn. The backend supports interrupting
+  // sends (sendMessage seals the streaming bubble before pushing the new
+  // user message), and matching the ChatGPT/Claude pattern lets a user
+  // queue a follow-up by typing + Enter without first reaching for the
+  // pause button. Pause is reserved for the explicit button click.
+  emit('send', inputValue.value)
 }
 
 function onAttachClick() {
@@ -134,7 +152,13 @@ function onAttachClick() {
 function onFileInputChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files || input.files.length === 0) return
-  emit('attach-files', input.files)
+  // FileList is live: clearing input.value below empties it before async
+  // consumers (addFiles awaits fetchUploadConfig before iterating) get to
+  // read it. Snapshot into a DataTransfer-owned FileList so the emitted
+  // reference stays valid after the reset.
+  const dt = new DataTransfer()
+  for (const f of input.files) dt.items.add(f)
+  emit('attach-files', dt.files)
   input.value = ''
 }
 
@@ -201,10 +225,20 @@ function onFileInputChange(e: Event) {
         class="absolute right-2 flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         :class="expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2'"
         :disabled="props.disabled"
-        :aria-label="t('common.send')"
-        @click="onSendClick"
+        :aria-label="props.active ? t('chat.pause') : t('common.send')"
+        @click="onPrimaryButtonClick"
       >
-        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Pause glyph: white rounded square centred inside the existing
+             black pill. Same affordance as ChatGPT/Claude — stop the
+             current turn (orchestrator + cascaded sub-agents) on click.
+             Uses the same size-4.5 / viewBox-24 container as the send
+             arrow and draws the rect into the same 7→17 bounding box the
+             arrow occupies, so the two glyphs land at identical visual
+             dimensions inside the button. -->
+        <svg v-if="props.active" class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="5" y="5" width="14" height="14" rx="3" ry="3" />
+        </svg>
+        <svg v-else class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>

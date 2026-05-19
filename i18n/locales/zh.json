@@ -268,6 +268,7 @@
     "showGrid": "显示背景网格",
     "snapToGrid": "对齐到网格",
     "addNode": "添加节点",
+    "drawWire": "绘制连线",
     "clearSelection": "清除选择",
     "tabs": {
       "agent": "智能体",
@@ -291,6 +292,11 @@
     "moreInstances": "更多",
     "editWire": "编辑连线",
     "deleteWire": "删除连线",
+    "deleteSelection": "删除所选",
+    "duplicateSelection": "复制所选",
+    "duplicateNode": "复制步骤",
+    "duplicateWire": "复制连线",
+    "warnIsolatedNodes": "已保存，但有 {count} 个节点未连接到任何位置。",
     "wireLabelLabel": "连线",
     "wireLabelPlaceholder": "可选标签",
     "wireConditionLabel": "条件",
@@ -1323,7 +1329,6 @@
     "lastDay": "最后一日",
     "noRuns": "未来 60 天内无运行计划",
     "weeklyNoDays": "请至少选择一天",
-    "noVersionShort": "请先保存版本",
     "activeNeedsVersion": "请先保存工作流版本再启用计划。调度器会跳过没有已保存版本的工作流。",
     "freq": {
       "none": "无",

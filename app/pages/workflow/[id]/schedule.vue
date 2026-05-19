@@ -422,6 +422,14 @@ function formatRelative(d: Date) {
   return t(past ? 'schedule.relative.daysAgo' : 'schedule.relative.inDays', { n: days })
 }
 
+function tryActivate() {
+  if (!hasSavedVersion.value) {
+    toast.show(t('schedule.activeNeedsVersion'), 'warning', 4000)
+    return
+  }
+  active.value = true
+}
+
 async function onSave() {
   if (!hasSchedule.value) {
     toast.show(t('schedule.invalidCron'), 'error', 3000)
@@ -604,25 +612,15 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
             </div>
           </div>
         </div>
-        <div
-          v-if="!hasSavedVersion"
-          class="inline-flex h-6 items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 text-caption font-medium text-amber-800"
-          :title="t('schedule.activeNeedsVersion')"
-        >
-          <UIcon name="i-heroicons-exclamation-triangle" class="size-3 shrink-0" />
-          <span class="hidden sm:inline">{{ t('schedule.noVersionShort') }}</span>
-        </div>
         <div class="inline-flex h-6 items-center gap-1 rounded-lg bg-neutral-100 p-1">
           <button
             type="button"
-            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex h-full items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none transition-all"
             :class="active
               ? 'bg-white text-neutral-900 shadow-sm'
               : 'text-neutral-500 hover:text-neutral-700'"
             :aria-label="t('schedule.activeOn')"
-            :disabled="!hasSavedVersion"
-            :title="!hasSavedVersion ? t('schedule.activeNeedsVersion') : ''"
-            @click="active = true"
+            @click="tryActivate"
           >
             <UIcon name="i-heroicons-play-20-solid" class="size-3" />
             <span class="hidden sm:inline">{{ t('schedule.activeOn') }}</span>

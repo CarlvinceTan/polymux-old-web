@@ -268,6 +268,7 @@
     "showGrid": "배경 그리드 표시",
     "snapToGrid": "그리드에 맞춤",
     "addNode": "노드 추가",
+    "drawWire": "와이어 그리기",
     "clearSelection": "선택 해제",
     "tabs": {
       "agent": "에이전트",
@@ -291,6 +292,11 @@
     "moreInstances": "더 보기",
     "editWire": "와이어 편집",
     "deleteWire": "와이어 삭제",
+    "deleteSelection": "선택 항목 삭제",
+    "duplicateSelection": "선택 항목 복제",
+    "duplicateNode": "단계 복제",
+    "duplicateWire": "와이어 복제",
+    "warnIsolatedNodes": "저장되었지만 {count}개의 노드가 어디에도 연결되어 있지 않습니다.",
     "wireLabelLabel": "와이어",
     "wireLabelPlaceholder": "선택 레이블",
     "wireConditionLabel": "조건",
@@ -1323,7 +1329,6 @@
     "lastDay": "말일",
     "noRuns": "앞으로 60일 내 실행 예정이 없습니다",
     "weeklyNoDays": "하나 이상의 요일을 선택하세요",
-    "noVersionShort": "먼저 버전 저장",
     "activeNeedsVersion": "스케줄을 활성화하기 전에 워크플로 버전을 저장하세요. 저장된 버전이 없는 워크플로는 스케줄러가 건너뜁니다.",
     "freq": {
       "none": "없음",

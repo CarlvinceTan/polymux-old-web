@@ -268,6 +268,7 @@
     "showGrid": "Hintergrundraster anzeigen",
     "snapToGrid": "Am Raster ausrichten",
     "addNode": "Knoten hinzufügen",
+    "drawWire": "Verbindung zeichnen",
     "clearSelection": "Auswahl aufheben",
     "tabs": {
       "agent": "Agent",
@@ -291,6 +292,11 @@
     "moreInstances": "weitere",
     "editWire": "Verbindung bearbeiten",
     "deleteWire": "Verbindung löschen",
+    "deleteSelection": "Auswahl löschen",
+    "duplicateSelection": "Auswahl duplizieren",
+    "duplicateNode": "Schritt duplizieren",
+    "duplicateWire": "Verbindung duplizieren",
+    "warnIsolatedNodes": "Gespeichert, aber {count} Knoten sind nicht verbunden.",
     "wireLabelLabel": "Verbindung",
     "wireLabelPlaceholder": "Optionale Beschriftung",
     "wireConditionLabel": "Bedingung",
@@ -1323,7 +1329,6 @@
     "lastDay": "Letzter",
     "noRuns": "Keine Ausführungen in den nächsten 60 Tagen",
     "weeklyNoDays": "Wähle mindestens einen Tag",
-    "noVersionShort": "Erst Version speichern",
     "activeNeedsVersion": "Speichere zuerst eine Workflow-Version, bevor du den Zeitplan aktivierst. Der Scheduler überspringt Workflows ohne gespeicherte Version.",
     "freq": {
       "none": "Keine",

@@ -60,11 +60,25 @@ const emit = defineEmits<{
   closeViewport: [agentId: string]
   spawnBrowserAgent: []
   stopAgent: [agentId: string]
+  // User pressed the pause button on the chat composer (chat turn is mid-
+  // flight). Distinct from `stopAgent`, which is per-sub-agent; this one
+  // targets whatever the chat is currently doing — orchestrator turn +
+  // cascaded sub-agents.
+  stopChat: []
   runAgent: [agentId: string]
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
   'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
+
+// Composer button mode: when any chat-driven activity is in flight the send
+// button becomes a pause button. Mirrors ChatMessages' working-indicator
+// trigger (kept slightly broader — `isStreaming` also counts here, since the
+// user can meaningfully cancel mid-stream, even though the dots are
+// suppressed during streaming to avoid double-signalling activity).
+const active = computed(
+  () => !!props.isStreaming || !!props.waitingForAgent || !!props.browserAgentsActive,
+)
 
 // View-mode state (persistence + auto-switch on browser-agent activation) is
 // owned by the workflow page (`pages/workflow/[id].vue`) so it survives the
@@ -304,7 +318,9 @@ function onJumpClick() {
             v-model:browser-mode="browserMode"
             :hint="t('chat.messagePlaceholder')"
             :attachments="attachments"
+            :active="active"
             @send="onSend"
+            @stop="emit('stopChat')"
             @attach-files="onAttachFiles"
             @remove-file="onRemoveFile"
           />

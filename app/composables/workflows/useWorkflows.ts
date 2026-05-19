@@ -22,8 +22,16 @@ export interface WorkflowNode {
 
 export interface WorkflowWire {
   id: string
+  // from_id / to_id are required at runtime — the executor traverses by
+  // node id. At edit time either side may be temporarily detached: when
+  // the user drags an endpoint off its node into empty canvas space, the
+  // corresponding *_id is empty and *_pos carries the floating drop point
+  // instead. A detached wire is non-functional until reconnected, but
+  // persists so the user can pick the loose end back up later.
   from_id: string
   to_id: string
+  from_pos?: NodePosition
+  to_pos?: NodePosition
   label?: string
   condition?: string
   max_iterations?: number
@@ -31,6 +39,9 @@ export interface WorkflowWire {
   // each end. Empty / absent means "auto-pick at render time".
   from_side?: WireSide
   to_side?: WireSide
+  // Ordered step-routing corner points between the source and target
+  // ports. Absent / empty means "auto-route at render time".
+  bends?: NodePosition[]
 }
 
 export interface WorkflowGraph {
