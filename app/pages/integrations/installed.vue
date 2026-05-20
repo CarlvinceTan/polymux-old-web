@@ -3,7 +3,7 @@ import { useI18n } from '#imports'
 import type { ItemCategory, MarketplaceItem } from '~/composables/integrations/useMarketplace'
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 const { installedItems, refresh, refreshCatalog } = useMarketplace()
 const { refreshDrive } = useStorageUsage()
 
@@ -126,7 +126,7 @@ onUnmounted(() => {
   <FeatureGate name="integrations">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
@@ -138,6 +138,7 @@ onUnmounted(() => {
             </div>
             <input
               v-model="searchQuery"
+              name="installed-search"
               type="text"
               :placeholder="t('integrations.searchInstalledPlaceholder')"
               class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"
@@ -255,6 +256,7 @@ onUnmounted(() => {
               :author="item.author"
               :tags="item.tags"
               :popularity="item.popularity"
+              :is-first-party="item.isFirstParty"
               @open="openDetail(item)"
               @filter-tag="goToMarketplaceTagged"
             />

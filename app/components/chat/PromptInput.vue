@@ -146,6 +146,7 @@ function onFileInputChange(e: Event) {
     <!-- Hidden native file input -->
     <input
       ref="fileInputRef"
+      name="prompt-attachments"
       type="file"
       multiple
       class="absolute h-0 w-0 overflow-hidden opacity-0"

@@ -1727,10 +1727,20 @@ const embedCache = useEmbeddedWorkflowCache()
 // isEmbedNode is the canonical "this node delegates to another workflow"
 // predicate. Used everywhere a render branch / affordance differs for
 // embeds: the card layout, port suppression, rename gating, and the
-// InfoPanel form switch.
+// InfoPanel form switch. Pending embeds (placed via the toolbar's
+// "embedded workflow" option but not yet bound to a real workflow_ref)
+// also count — the card needs the embed treatment from the moment of
+// placement so the user knows what they're configuring in the panel.
 function isEmbedNode(node: NodeModel): boolean {
+  if (pendingEmbedIds.value.has(node.id)) return true
   const ref = node.node.workflow_ref
   return typeof ref === 'string' && ref.trim() !== ''
+}
+
+function isPendingEmbed(node: NodeModel): boolean {
+  if (!pendingEmbedIds.value.has(node.id)) return false
+  const ref = node.node.workflow_ref
+  return !(typeof ref === 'string' && ref.trim() !== '')
 }
 
 function embedRefId(node: NodeModel): string {
@@ -2224,17 +2234,19 @@ const wireBodyDragGeom = computed<{ d: string } | null>(() => {
       { x: drag.origToPos.x + drag.delta.x, y: drag.origToPos.y + drag.delta.y },
       toSide,
     )
-  const wt = settings.value.wireType ?? 'step'
-  // Exclude both anchor nodes (and any node the wire has snapped to
-  // mid-drag) from obstacles so the preview doesn't self-collide with
-  // its own endpoint cards.
-  const obstacles = obstaclesExcept(
+  // Treat snap targets as the wire's effective endpoints (that's what
+  // they become on commit), so the rubber-band picks the same route the
+  // resting wire will. Original anchor nodes stay in `extraSkip` so the
+  // wire doesn't self-collide while it's still being lifted off them
+  // mid-drag — the resting-state mismatch for the detached-on-release
+  // case is acceptable since the wire is visibly moving anyway.
+  const obstacles = routingObstaclesFor(
+    drag.fromSnap?.nodeId ?? null, fromSide, fromDrawn,
+    drag.toSnap?.nodeId ?? null, toSide, toDrawn,
     drag.origFromId,
     drag.origToId,
-    drag.fromSnap?.nodeId,
-    drag.toSnap?.nodeId,
   )
-  return { d: routedWirePath(fromDrawn, toDrawn, fromSide, toSide, wt, obstacles) }
+  return { d: routedWirePath(fromDrawn, toDrawn, fromSide, toSide, obstacles) }
 })
 
 function commitWireBodyDrag() {
@@ -2351,11 +2363,32 @@ function commitWireBodyDragForUserWire(wireId: string, next: WireBodyDragCommit)
 const draggingIds = ref<Set<string>>(new Set())
 
 // Node-details panel is opened explicitly via the info button on the
-// per-node selection toolbar (or the edit button on the wire toolbar).
+// per-node selection toolbar, the edit button on the wire toolbar, or
+// a double-click on the node card / wire path.
 // Pointerdown on a node resets this so a click that just moves selection
 // doesn't leave a stale panel open. X-close clears selection, which then
 // closes the panel via `selectionDetailNode`.
 const showNodeDetails = ref(false)
+
+// openNodeDetails / openWireDetails are the canonical "open the
+// InfoPanel for this item" entry points used by the double-click
+// handlers on the node card and the wire hit-zone path. Both select
+// the item exclusively first so the InfoPanel reads the right form,
+// then flip the panel open. Safe to call repeatedly on the same item.
+function openNodeDetails(node: NodeModel) {
+  if (!selected.value.has(node.id) || selected.value.size > 1) {
+    selectNode(node.id, false)
+  }
+  selectedWireIds.value = new Set()
+  selectedWireId.value = null
+  if (persistentMarquee.value) persistentMarquee.value = null
+  showNodeDetails.value = true
+}
+
+function openWireDetails(wireId: string) {
+  selectWire(wireId)
+  showNodeDetails.value = true
+}
 
 // Drop-target restructuring belonged to the tree model — graph workflows
 // have no containers to drop into, so node drags are purely position
@@ -2544,19 +2577,38 @@ function onZoneLeave(id: string) {
 }
 
 // ── Manual node placement ──────────────────────────────────────────────────
-// The "add node" button in the side toolbar starts a placement gesture: a
+// The "+ node" menu in the side toolbar starts a placement gesture: a
 // faded NODE_W × NODE_H ghost follows the cursor, and the next click in
-// the canvas drops the node there. The new node is a real graph node
-// (not a canvas-local extra) so it survives reset-layout and shows up in
-// save / run / orchestrator state. Escape cancels.
+// the canvas drops the node there. Two flavours, picked from the menu:
+//
+//   - 'blank':  a regular node; the user fills in title / actions via
+//               the InfoPanel after dropping.
+//   - 'embed':  a delegating node whose workflow_ref isn't bound yet.
+//               The id is added to `pendingEmbedIds` so the card renders
+//               in embed style (indigo border + "Pick workflow" copy)
+//               even before the user picks a workflow in the InfoPanel
+//               dropdown. When they pick one, the id is dropped from
+//               pendingEmbedIds and workflow_ref takes over.
+//
+// New nodes are real graph nodes (not canvas-local extras), so they
+// survive reset-layout and show up in save / run / orchestrator state.
+// Escape cancels.
+type PlacingKind = 'blank' | 'embed'
 const placingNode = ref<Pt | null>(null)
+const placingKind = ref<PlacingKind | null>(null)
+const pendingEmbedIds = ref<Set<string>>(new Set())
 
-function startPlacingNode() {
-  if (placingNode.value) {
+function startPlacingNode() { startPlacing('blank') }
+function startPlacingEmbedNode() { startPlacing('embed') }
+
+function startPlacing(kind: PlacingKind) {
+  if (placingNode.value && placingKind.value === kind) {
     cancelPlacing()
     return
   }
+  if (placingNode.value) cancelPlacing()
   if (!attemptEdit()) return
+  placingKind.value = kind
   placingNode.value = { x: 0, y: 0 }
   document.addEventListener('pointermove', onPlacingMove)
   document.addEventListener('click', onPlacingClick, true)
@@ -2605,6 +2657,16 @@ function onPlacingClick(ev: MouseEvent) {
   userGraph.value = result.graph
   editedDraft.value = {}
   dirtyNodeIds.value = new Set()
+  // For embed placements, mark the new node as a pending embed so the
+  // canvas renders it as an unbound embed card from the moment it's
+  // dropped. The id leaves pendingEmbedIds when the user picks a
+  // workflow in the InfoPanel dropdown (workflow_ref becomes truthy
+  // and takes over the embed indication).
+  if (placingKind.value === 'embed') {
+    const next = new Set(pendingEmbedIds.value)
+    next.add(newId)
+    pendingEmbedIds.value = next
+  }
   selected.value = new Set([newId])
   recordHistory()
   cancelPlacing()
@@ -2612,6 +2674,7 @@ function onPlacingClick(ev: MouseEvent) {
 
 function cancelPlacing() {
   placingNode.value = null
+  placingKind.value = null
   document.removeEventListener('pointermove', onPlacingMove)
   document.removeEventListener('click', onPlacingClick, true)
   document.removeEventListener('keydown', onPlacingKey)
@@ -2815,11 +2878,13 @@ const placingWireGeom = computed<{ d: string } | null>(() => {
   const head = state.snap
     ? { pos: wireDrawnEndPtFromSnap(state.snap.pt, state.snap.side), side: state.snap.side }
     : { pos: state.cursor, side: oppositeSide(fromSide) }
-  const wt = settings.value.wireType ?? 'step'
-  // Exclude the tail node and any node the head has snapped to so the
-  // preview doesn't try to route around its own endpoint cards.
-  const obstacles = obstaclesExcept(state.tail.nodeId, state.snap?.nodeId)
-  return { d: routedWirePath(tailPos, head.pos, fromSide, head.side, wt, obstacles) }
+  // Use wireGeoms' obstacle logic so the preview picks the same route
+  // the resting wire will on commit (no jump when the cursor stays put).
+  const obstacles = routingObstaclesFor(
+    state.tail.nodeId, fromSide, tailPos,
+    state.snap?.nodeId, head.side, head.pos,
+  )
+  return { d: routedWirePath(tailPos, head.pos, fromSide, head.side, obstacles) }
 })
 
 // ── Port click → spawn a new linked node ────────────────────────────────────
@@ -3139,7 +3204,10 @@ function onPortPointerDown(e: PointerEvent, parent: NodeModel, side: Side) {
 const tempWireGeom = computed<{ d: string } | null>(() => {
   if (!connecting.value || !connecting.value.isDragging) return null
   const c = connecting.value
-  const sourcePort = c.startPos
+  // Drawn endpoint (WIRE_END_GAP outside the port's side-centre) — same
+  // offset the resting wire uses, so the rubber-band starts where the
+  // committed wire will start instead of jumping outward on release.
+  const sourcePort = wireDrawnEndPt(c.startPos, c.fromSide)
 
   let endPort: Pt
   let targetSide: Side
@@ -3158,12 +3226,17 @@ const tempWireGeom = computed<{ d: string } | null>(() => {
     endPort = c.currPos
     targetSide = oppositeSide(c.fromSide)
   }
-  const wt = settings.value.wireType ?? 'step'
-  // Exclude the source node and any node the cursor has snapped to so
-  // the rubber-band doesn't try to route around its own endpoint cards.
-  const obstacles = obstaclesExcept(c.fromId, c.targetId)
+  // Use the same obstacle logic as `wireGeoms` so the rubber-band picks
+  // the same route the resting wire will commit to — without this, the
+  // preview drops both endpoints from the obstacle list unconditionally
+  // and the wire visibly jumps on release whenever the committed path
+  // needs to wrap around its own endpoint node.
+  const obstacles = routingObstaclesFor(
+    c.fromId, c.fromSide, sourcePort,
+    c.targetId, targetSide, endPort,
+  )
   return {
-    d: routedWirePath(sourcePort, endPort, c.fromSide, targetSide, wt, obstacles),
+    d: routedWirePath(sourcePort, endPort, c.fromSide, targetSide, obstacles),
   }
 })
 
@@ -3339,26 +3412,30 @@ const endpointDragWireGeom = computed<{ d: string } | null>(() => {
   // Shorten the fixed end so the rubber-band visually stops in the
   // anchor-circle gap, matching the resting wire's shortened endpoints.
   const fixedDrawn = wireDrawnEndPt(drag.fixedPt, drag.fixedSide)
-  const wt = settings.value.wireType ?? 'step'
-  // Exclude the fixed-end node and any node the dragged end has snapped
-  // to so the preview doesn't try to route around its own endpoint cards.
-  const obstacles = obstaclesExcept(drag.fixedNodeId, drag.targetId)
   // The path direction follows the original edge: if the user is moving
-  // the FROM end, the temp goes endPt → fixedDrawn; if moving TO, fixedDrawn → endPt.
+  // the FROM end, the temp goes endPt → fixedDrawn; if moving TO,
+  // fixedDrawn → endPt. The obstacle list mirrors `wireGeoms` so the
+  // preview chooses the same route the resting wire will on release.
   if (drag.movingEnd === 'from') {
-    return { d: routedWirePath(endPt, fixedDrawn, endSide, drag.fixedSide, wt, obstacles) }
+    const obstacles = routingObstaclesFor(
+      drag.targetId, endSide, endPt,
+      drag.fixedNodeId, drag.fixedSide, fixedDrawn,
+    )
+    return { d: routedWirePath(endPt, fixedDrawn, endSide, drag.fixedSide, obstacles) }
   }
-  return { d: routedWirePath(fixedDrawn, endPt, drag.fixedSide, endSide, wt, obstacles) }
+  const obstacles = routingObstaclesFor(
+    drag.fixedNodeId, drag.fixedSide, fixedDrawn,
+    drag.targetId, endSide, endPt,
+  )
+  return { d: routedWirePath(fixedDrawn, endPt, drag.fixedSide, endSide, obstacles) }
 })
 
 // ── Wires ──────────────────────────────────────────────────────────────────
 // Each wire picks the nearest side of its source and target nodes so the
 // connection always reads as the shortest natural arc — bottom→top for a
 // vertical chain, right→left for a horizontal one, or a corner-to-corner
-// curve for diagonals. The bezier control handles are pushed *away* from
-// each port along its outward normal, which makes the curve enter and leave
-// each node perpendicular to the chosen edge instead of clipping the corner.
-type WireType = 'fluid' | 'linear' | 'step'
+// staircase for diagonals. All wires render as orthogonal step paths with
+// curved corners (Lark-style).
 type Side = 'top' | 'bottom' | 'left' | 'right'
 
 function pointOnSide(pos: Pt, side: Side, size: Size = { w: NODE_W, h: NODE_H }): Pt {
@@ -3577,30 +3654,10 @@ function segmentsIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
 }
 
 // Polyline approximation of a wire used for obstacle-overlap detection.
-// Fluid wires are sampled because their bezier curve bows out beyond the
-// chord — sampling at a few points along the curve catches obstacles the
-// chord would skip past. Step / linear collapse to a small set of corners.
+// Step wires resolve to their corner sequence via `wireWaypoints`.
 const OBSTACLE_PAD = 8
-function wireSamplePoints(
-  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType,
-): Pt[] {
-  if (wireType === 'linear') return [p1, p2]
-  if (wireType === 'step') return wireWaypoints(p1, p2, fromSide, toSide, 'step')
-  // Fluid: sample 9 points along the cubic bezier we render.
-  const n1 = outwardNormal(fromSide)
-  const n2 = outwardNormal(toSide)
-  const d = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
-  const c1 = { x: p1.x + n1.x * d, y: p1.y + n1.y * d }
-  const c2 = { x: p2.x + n2.x * d, y: p2.y + n2.y * d }
-  const pts: Pt[] = []
-  for (let i = 0; i <= 8; i++) {
-    const t = i / 8
-    const omt = 1 - t
-    const x = omt * omt * omt * p1.x + 3 * omt * omt * t * c1.x + 3 * omt * t * t * c2.x + t * t * t * p2.x
-    const y = omt * omt * omt * p1.y + 3 * omt * omt * t * c1.y + 3 * omt * t * t * c2.y + t * t * t * p2.y
-    pts.push({ x, y })
-  }
-  return pts
+function wireSamplePoints(p1: Pt, p2: Pt, fromSide: Side, toSide: Side): Pt[] {
+  return wireWaypoints(p1, p2, fromSide, toSide)
 }
 
 // Per-wire side assignment. Picks the (fromSide, toSide) pair lexicographically:
@@ -3623,8 +3680,6 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
   const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
   const inSidesByNode = new Map<string, Set<Side>>()
   const outSidesByNode = new Map<string, Set<Side>>()
-  const wt = settings.value.wireType ?? 'step'
-
   // Precompute every node's bbox so the per-side-pair scoring loop can
   // ask "does this route cross any unrelated node?" without re-deriving
   // positions / sizes each iteration.
@@ -3717,7 +3772,7 @@ const wireSidesMap = computed<Map<string, { fromSide: Side; toSide: Side }>>(() 
         // clean-but-folding one).
         let crossings = 0
         if (obstacles.length > 2) {
-          const samples = wireSamplePoints(p1, p2, fromSide, toSide, wt)
+          const samples = wireSamplePoints(p1, p2, fromSide, toSide)
           for (const obs of obstacles) {
             if (obs.id === a.id || obs.id === b.id) continue
             const ox = obs.x - OBSTACLE_PAD
@@ -3802,12 +3857,10 @@ interface WireGeom {
   label?: string
 }
 
-// Waypoint list for a wire — the polyline approximation used for bbox /
-// longest-segment math. Step wires return their full corner sequence;
-// linear / fluid wires collapse to the two endpoints (good enough for the
-// fluid case since the curve's extent is bounded near the chord).
-function wireWaypoints(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType): Pt[] {
-  if (wireType !== 'step') return [p1, p2]
+// Waypoint list for a wire — the full corner sequence used for bbox /
+// longest-segment math and for sampling the wire's path during obstacle
+// detection.
+function wireWaypoints(p1: Pt, p2: Pt, fromSide: Side, toSide: Side): Pt[] {
   const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
   const isToHorizontal = toSide === 'left' || toSide === 'right'
   const pts: Pt[] = [{ ...p1 }]
@@ -3829,71 +3882,6 @@ function wireWaypoints(p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: W
 }
 
 interface Obstacle { x: number; y: number; w: number; h: number }
-
-// Pick a fluid cubic bezier's control points, then push them perpendicular
-// to the chord — by chunks of `pushStep` — until the sampled curve stops
-// poking inside any obstacle rectangle (excluding the endpoint nodes,
-// which are passed in already filtered). The push direction is chosen by
-// which side of the chord has more room. Caps at ~6 attempts so we don't
-// loop forever on pathological cases; if we can't clear it, we still
-// return a path — just one with as much clearance as we could get.
-function fluidControlsAvoidingObstacles(
-  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
-): { c1: Pt; c2: Pt } {
-  const n1 = outwardNormal(fromSide)
-  const n2 = outwardNormal(toSide)
-  const dist = Math.max(40, Math.min(180, Math.hypot(p2.x - p1.x, p2.y - p1.y) * 0.5))
-  let c1 = { x: p1.x + n1.x * dist, y: p1.y + n1.y * dist }
-  let c2 = { x: p2.x + n2.x * dist, y: p2.y + n2.y * dist }
-  if (obstacles.length === 0) return { c1, c2 }
-
-  // Perpendicular to the chord. Both directions are candidates; we try
-  // the one that puts the chord midpoint further from any obstacle.
-  const cx = p2.x - p1.x
-  const cy = p2.y - p1.y
-  const clen = Math.max(1, Math.hypot(cx, cy))
-  const perpA: Pt = { x: -cy / clen, y: cx / clen }
-  const perpB: Pt = { x: cy / clen, y: -cx / clen }
-  const mid: Pt = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
-  const distToObstacles = (dir: Pt): number => {
-    let best = Infinity
-    for (const o of obstacles) {
-      const ocx = o.x + o.w / 2
-      const ocy = o.y + o.h / 2
-      const probe = { x: mid.x + dir.x * 50, y: mid.y + dir.y * 50 }
-      const d = Math.hypot(probe.x - ocx, probe.y - ocy)
-      if (d < best) best = d
-    }
-    return best
-  }
-  const perp = distToObstacles(perpA) >= distToObstacles(perpB) ? perpA : perpB
-
-  const PUSH_STEP = 40
-  const MAX_PUSHES = 6
-  for (let pass = 0; pass < MAX_PUSHES; pass++) {
-    if (!fluidCrossesAnyObstacle(p1, c1, c2, p2, obstacles)) break
-    c1 = { x: c1.x + perp.x * PUSH_STEP, y: c1.y + perp.y * PUSH_STEP }
-    c2 = { x: c2.x + perp.x * PUSH_STEP, y: c2.y + perp.y * PUSH_STEP }
-  }
-  return { c1, c2 }
-}
-
-function fluidCrossesAnyObstacle(
-  p1: Pt, c1: Pt, c2: Pt, p2: Pt, obstacles: Obstacle[],
-): boolean {
-  // Sample the cubic bezier — 13 points is plenty for the curve sizes we
-  // see here without being expensive.
-  for (let i = 0; i <= 12; i++) {
-    const t = i / 12
-    const omt = 1 - t
-    const x = omt * omt * omt * p1.x + 3 * omt * omt * t * c1.x + 3 * omt * t * t * c2.x + t * t * t * p2.x
-    const y = omt * omt * omt * p1.y + 3 * omt * omt * t * c1.y + 3 * omt * t * t * c2.y + t * t * t * p2.y
-    for (const o of obstacles) {
-      if (x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h) return true
-    }
-  }
-  return false
-}
 
 // Does an axis-aligned segment cross a rect's interior? Endpoints sitting
 // exactly on the rect boundary don't count as crossings — important
@@ -3918,9 +3906,8 @@ function orthoSegmentCrossesRect(a: Pt, b: Pt, r: Obstacle): boolean {
     const maxY = Math.max(a.y, b.y)
     return maxY > r.y && minY < ry2
   }
-  // Generic (diagonal) — our routes are orthogonal so this only fires
-  // for the linear wire-type. Skip the check there; the natural straight
-  // line is what the user asked for.
+  // Diagonal segments don't appear in our orthogonal routes — never
+  // called in practice, return false to make the helper total.
   return false
 }
 
@@ -3950,12 +3937,12 @@ function polylineLength(pts: Pt[]): number {
 // on the edge. Between the stubs, we try a handful of orthogonal
 // candidates (direct, around-top, around-bottom, around-left,
 // around-right) and pick the shortest one that clears every obstacle.
-// Returns null if no candidate clears — caller falls back to fluid.
+// Returns null if no candidate clears — caller falls back to A*.
 function planOrthogonalRoute(
   p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
 ): Pt[] | null {
-  const STUB = 24
-  const CLEAR = 28
+  const STUB = 40
+  const CLEAR = 44
   const n1 = outwardNormal(fromSide)
   const n2 = outwardNormal(toSide)
   const stubFrom: Pt = { x: p1.x + n1.x * STUB, y: p1.y + n1.y * STUB }
@@ -4124,6 +4111,7 @@ function planOrthogonalRoute(
   let bestLen = Infinity
   for (const pts of candidates) {
     if (hasOrthogonalSpike(pts)) continue
+    if (!leavesAndArrivesPerpendicular(pts, fromSide, toSide)) continue
     if (polylineCrossesAnyObstacle(pts, obstacles)) continue
     const len = polylineLength(pts)
     if (len < bestLen) {
@@ -4132,6 +4120,49 @@ function planOrthogonalRoute(
     }
   }
   return best
+}
+
+// True when the polyline leaves p1 along outwardNormal(fromSide) and
+// arrives at p2 from outwardNormal(toSide). Zero-length leading /
+// trailing segments are skipped so the FIRST real displacement out of
+// p1 (and last real displacement into p2) is the one that votes —
+// otherwise a degenerate `[p1, p1, p2, p2]` shape would pass on its
+// nonexistent first segment. Used to drop no-stub direct candidates
+// that would render as a sideways chord out of a perpendicular port:
+// e.g. top→top connecting two horizontally-aligned nodes must exit each
+// top port upward first, not slide straight across as a flat horizontal
+// chord (which is shorter and would otherwise win the length tiebreak).
+function leavesAndArrivesPerpendicular(
+  pts: Pt[], fromSide: Side, toSide: Side,
+): boolean {
+  if (pts.length < 2) return false
+  const n1 = outwardNormal(fromSide)
+  const n2 = outwardNormal(toSide)
+  const start = pts[0]!
+  let fwdIdx = 1
+  while (
+    fwdIdx < pts.length
+    && Math.abs(pts[fwdIdx]!.x - start.x) < 0.5
+    && Math.abs(pts[fwdIdx]!.y - start.y) < 0.5
+  ) fwdIdx++
+  if (fwdIdx >= pts.length) return false
+  const fdx = pts[fwdIdx]!.x - start.x
+  const fdy = pts[fwdIdx]!.y - start.y
+  if (fdx * n1.x + fdy * n1.y <= 0) return false
+  const end = pts[pts.length - 1]!
+  let backIdx = pts.length - 2
+  while (
+    backIdx >= 0
+    && Math.abs(end.x - pts[backIdx]!.x) < 0.5
+    && Math.abs(end.y - pts[backIdx]!.y) < 0.5
+  ) backIdx--
+  if (backIdx < 0) return false
+  // Wire arrives at p2 traveling along (-n2); equivalently, going BACK
+  // from p2 to the previous real vertex should align with n2.
+  const bdx = pts[backIdx]!.x - end.x
+  const bdy = pts[backIdx]!.y - end.y
+  if (bdx * n2.x + bdy * n2.y <= 0) return false
+  return true
 }
 
 // True when any interior vertex in the polyline is a 180° backtrack —
@@ -4175,7 +4206,7 @@ function aStarOrthogonalRoute(
   p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
 ): Pt[] | null {
   const STEP = 24
-  const STUB = 24
+  const STUB = 40
   const n1 = outwardNormal(fromSide)
   const n2 = outwardNormal(toSide)
   const stubFrom: Pt = { x: p1.x + n1.x * STUB, y: p1.y + n1.y * STUB }
@@ -4411,67 +4442,24 @@ function roundedPolylinePath(pts: Pt[]): string {
 // Public wrapper used by every wire renderer (resting + in-flight previews).
 // Tries the orthogonal candidate planner first, falls back to A* for the
 // awkward layouts where every candidate clips an obstacle, then finally
-// to `buildWirePath`'s raw wire-style path so something always renders —
-// the staircase mirrors the resting wire pipeline in `wireGeoms`.
+// to the raw step staircase via `buildWirePath` so something always renders.
 function routedWirePath(
-  p1: Pt, p2: Pt, fromSide: Side, toSide: Side,
-  wireType: WireType, obstacles: Obstacle[],
+  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, obstacles: Obstacle[],
 ): string {
   const wrapPts =
     planOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
     ?? aStarOrthogonalRoute(p1, p2, fromSide, toSide, obstacles)
   if (wrapPts) return roundedPolylinePath(wrapPts)
-  const fallbackType = wireType === 'linear' ? 'linear' : 'step'
-  return buildWirePath(p1, p2, fromSide, toSide, fallbackType, obstacles)
+  return buildWirePath(p1, p2, fromSide, toSide)
 }
 
-function buildWirePath(
-  p1: Pt, p2: Pt, fromSide: Side, toSide: Side, wireType: WireType,
-  obstacles: Obstacle[] = [],
-): string {
-  if (wireType === 'linear') {
-    return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`
-  }
-
-  if (wireType === 'step') {
-    // Orthogonal (right-angle) path with curved corners.
-    // Route: depart from p1 along its outward normal, travel horizontally or
-    // vertically to an intermediate row/column, then arrive at p2 along its
-    // inward normal. Rendering goes through `roundedPolylinePath` so this
-    // shares the uniform-radius corner sizing with the wraparound paths.
-    const isFromHorizontal = fromSide === 'left' || fromSide === 'right'
-    const isToHorizontal = toSide === 'left' || toSide === 'right'
-
-    const pts: Pt[] = [{ ...p1 }]
-
-    if (isFromHorizontal && isToHorizontal) {
-      // Both horizontal — route through a shared vertical axis at the midpoint X.
-      const mx = (p1.x + p2.x) / 2
-      pts.push({ x: mx, y: p1.y })
-      pts.push({ x: mx, y: p2.y })
-    } else if (!isFromHorizontal && !isToHorizontal) {
-      // Both vertical — route through a shared horizontal axis at the midpoint Y.
-      const my = (p1.y + p2.y) / 2
-      pts.push({ x: p1.x, y: my })
-      pts.push({ x: p2.x, y: my })
-    } else if (isFromHorizontal) {
-      // From horizontal, to vertical — route to target's X along p1's Y, then down/up to p2.
-      pts.push({ x: p2.x, y: p1.y })
-    } else {
-      // From vertical, to horizontal — route to p2's Y along p1's X, then across to p2.
-      pts.push({ x: p1.x, y: p2.y })
-    }
-
-    pts.push({ ...p2 })
-    return roundedPolylinePath(pts)
-  }
-
-  // Default: fluid (cubic bezier). Control points are pushed perpendicular
-  // to the chord when the natural curve would clip through any obstacle
-  // node, so the wire routes around bodies instead of slicing through
-  // them — see `fluidControlsAvoidingObstacles`.
-  const { c1, c2 } = fluidControlsAvoidingObstacles(p1, p2, fromSide, toSide, obstacles)
-  return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
+// Step staircase fallback: orthogonal right-angle path with curved corners.
+// Depart from p1 along its outward normal, travel horizontally or vertically
+// to an intermediate row / column, then arrive at p2 along its inward normal.
+// Shares `roundedPolylinePath` with the wraparound planner for uniform corner
+// radius.
+function buildWirePath(p1: Pt, p2: Pt, fromSide: Side, toSide: Side): string {
+  return roundedPolylinePath(wireWaypoints(p1, p2, fromSide, toSide))
 }
 
 // Every node's padded obstacle rect, indexed by id. Shared by the resting
@@ -4492,14 +4480,40 @@ const paddedNodeBoxes = computed<Map<string, Obstacle>>(() => {
   return map
 })
 
-// Obstacle list for a wire / preview rooted at the listed endpoint ids.
-// Pass the source / target node ids (or nullish for detached ends) and
-// the resulting list will exclude those nodes from the routing planner.
-function obstaclesExcept(...skipIds: Array<string | null | undefined>): Obstacle[] {
-  const skip = new Set(skipIds.filter((id): id is string => !!id))
+// Obstacle list that matches `wireGeoms`' routing logic exactly: every
+// padded node bbox EXCEPT the two endpoints, then the endpoints added
+// BACK as unpadded rects when their port faces away from the chord
+// midpoint. Used by in-flight preview computeds (port-drag, endpoint-
+// drag, draw-tool, body-drag) so the rubber-band picks the same route
+// the resting wire will commit to. Without this, the preview drops both
+// endpoint nodes from the obstacle list unconditionally; on release the
+// wire snaps to a different path because the planner suddenly has more
+// obstacles to wrap around, even when the cursor never moved.
+function routingObstaclesFor(
+  fromId: string | null | undefined, fromSide: Side, p1: Pt,
+  toId: string | null | undefined, toSide: Side, p2: Pt,
+  ...extraSkipIds: Array<string | null | undefined>
+): Obstacle[] {
+  const skip = new Set<string>()
+  if (fromId) skip.add(fromId)
+  if (toId) skip.add(toId)
+  for (const id of extraSkipIds) if (id) skip.add(id)
   const out: Obstacle[] = []
   for (const [id, rect] of paddedNodeBoxes.value) {
     if (!skip.has(id)) out.push(rect)
+  }
+  const mid: Pt = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  const fromNode = fromId ? allNodes.value.find(n => n.id === fromId) : null
+  if (fromNode && outwardNormalDotMid(fromSide, p1, mid) < 0) {
+    const p = nodePos(fromNode)
+    const s = nodeSize(fromNode)
+    out.push({ x: p.x, y: p.y, w: s.w, h: s.h })
+  }
+  const toNode = toId ? allNodes.value.find(n => n.id === toId) : null
+  if (toNode && outwardNormalDotMid(toSide, p2, mid) < 0) {
+    const p = nodePos(toNode)
+    const s = nodeSize(toNode)
+    out.push({ x: p.x, y: p.y, w: s.w, h: s.h })
   }
   return out
 }
@@ -4547,7 +4561,6 @@ const wireGeoms = computed<WireGeom[]>(() => {
   for (const id of [...stableWireSides.keys()]) {
     if (!liveWireIds.has(id)) stableWireSides.delete(id)
   }
-  const wt = settings.value.wireType ?? 'step'
   const ZERO_SIZE: Size = { w: 0, h: 0 }
   for (const w of allWires.value) {
     const a = nodeMap.get(w.fromId)
@@ -4609,36 +4622,18 @@ const wireGeoms = computed<WireGeom[]>(() => {
     // the node, so including it would block the natural straight path.
     if (a && fromOutward) routingObstacles.push({ x: pa.x, y: pa.y, w: sa.w, h: sa.h })
     if (b && toOutward) routingObstacles.push({ x: pb.x, y: pb.y, w: sb.w, h: sb.h })
-    const wrapPts = planOrthogonalRoute(p1Drawn, p2Drawn, fromSide, toSide, routingObstacles)
+    const wrapPts =
+      planOrthogonalRoute(p1Drawn, p2Drawn, fromSide, toSide, routingObstacles)
       ?? aStarOrthogonalRoute(p1Drawn, p2Drawn, fromSide, toSide, routingObstacles)
-    // Toolbar anchor: pick orientation from the overall bounding rect
-    // (wider → horizontal bar above; taller → vertical bar beside), then
-    // anchor at the centre of the longest straight segment whose direction
-    // matches that orientation. Preferring an aligned segment matters for
-    // step wires shaped like a Z — the longest segment could be the
-    // perpendicular middle leg, and centring an axis-aligned bar on a
-    // perpendicular leg would drop the bar on top of the wire. For
-    // linear / fluid wires the polyline collapses to the chord, which
-    // (by construction) is already aligned with the bbox's longer side.
-    const wpts = wrapPts ?? wireWaypoints(p1Drawn, p2Drawn, fromSide, toSide, wt)
-    let bMinX = wpts[0]!.x, bMaxX = wpts[0]!.x, bMinY = wpts[0]!.y, bMaxY = wpts[0]!.y
-    for (const p of wpts) {
-      if (p.x < bMinX) bMinX = p.x
-      if (p.x > bMaxX) bMaxX = p.x
-      if (p.y < bMinY) bMinY = p.y
-      if (p.y > bMaxY) bMaxY = p.y
-    }
-    const bboxW = bMaxX - bMinX
-    const bboxH = bMaxY - bMinY
-    const toolbarOrientation: 'horizontal' | 'vertical' = bboxW >= bboxH ? 'horizontal' : 'vertical'
-    // Collect every aligned segment tied for the longest length, then
-    // average their midpoints. Picking only the first longest segment
-    // dropped the bar on the LEFT half of a symmetric step wire — e.g.
-    // Start ↔ same-row node has two equal halves bracketing a zero-length
-    // middle leg, and the first half won the tiebreaker. Averaging
-    // matched midpoints collapses the symmetric case back to the chord
-    // centre while still riding a single-leg Z-shape's dominant straight.
+    // Toolbar anchor: pick orientation from the LONGEST individual straight
+    // segment, then anchor at that segment's midpoint. Bbox-based orientation
+    // mispicked Z-shaped step wires (short-H + long-V + short-H) — the two
+    // horizontal stubs combined made the bbox wider than tall, so the bar
+    // landed horizontally on a stub instead of vertically beside the dominant
+    // vertical leg. Per-segment dominance correctly rides the longest leg.
+    const wpts = wrapPts ?? wireWaypoints(p1Drawn, p2Drawn, fromSide, toSide)
     let bestLen = -1
+    let bestOrientation: 'horizontal' | 'vertical' = 'horizontal'
     const bestMidpoints: Pt[] = []
     const SEG_EPS = 0.5
     for (let i = 0; i < wpts.length - 1; i++) {
@@ -4647,25 +4642,60 @@ const wireGeoms = computed<WireGeom[]>(() => {
       const dx = Math.abs(b.x - a.x)
       const dy = Math.abs(b.y - a.y)
       const len = Math.hypot(dx, dy)
-      const aligned = toolbarOrientation === 'horizontal' ? dx >= dy : dy >= dx
-      if (!aligned || len <= 0) continue
+      if (len <= 0) continue
+      const segOrientation: 'horizontal' | 'vertical' = dx >= dy ? 'horizontal' : 'vertical'
       const segMid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
       if (len > bestLen + SEG_EPS) {
         bestLen = len
+        bestOrientation = segOrientation
         bestMidpoints.length = 0
         bestMidpoints.push(segMid)
       }
-      else if (Math.abs(len - bestLen) <= SEG_EPS) {
+      // Average midpoints for ties of the SAME orientation. A symmetric
+      // step wire (Start ↔ same-row node) has two equal-length horizontal
+      // halves; averaging them recovers the chord centre. A tie across
+      // different orientations is rare but real (e.g. an L-shape with
+      // equal legs); keep the earlier winner to avoid jitter.
+      else if (Math.abs(len - bestLen) <= SEG_EPS && segOrientation === bestOrientation) {
         bestMidpoints.push(segMid)
       }
     }
     let bestCx = mid.x
     let bestCy = mid.y
     if (bestMidpoints.length > 0) {
-      bestCx = bestMidpoints.reduce((s, p) => s + p.x, 0) / bestMidpoints.length
-      bestCy = bestMidpoints.reduce((s, p) => s + p.y, 0) / bestMidpoints.length
+      // Split the anchor across the two axes:
+      // - Along the pill's tangent axis (x for horizontal, y for vertical),
+      //   AVERAGE across every tied midpoint. For a Z-shape (long-H +
+      //   short-V + long-H) where the two long legs sit at different x
+      //   ranges, this averaged x is roughly the bend's x, so the bar
+      //   lands above the bend — horizontally centred between the two
+      //   legs' centres rather than glued to one leg's midpoint.
+      // - Along the perpendicular axis (y for horizontal, x for vertical),
+      //   pin to the EXTREMITY on the side the pill extends toward (top
+      //   for horizontal via `-translate-y-full`, left for vertical via
+      //   `-translate-x-full`). That keeps the bar outside the wire mass,
+      //   not on top of a bend.
+      // Collinear ties (Start↔same-row's two halves) still collapse to
+      // the chord centre: the averaged tangent value is the chord centre
+      // and the shared perpendicular value already IS the extreme.
+      const avgX = bestMidpoints.reduce((s, p) => s + p.x, 0) / bestMidpoints.length
+      const avgY = bestMidpoints.reduce((s, p) => s + p.y, 0) / bestMidpoints.length
+      let extremeY = Number.POSITIVE_INFINITY
+      let extremeX = Number.POSITIVE_INFINITY
+      for (const m of bestMidpoints) {
+        if (m.y < extremeY) extremeY = m.y
+        if (m.x < extremeX) extremeX = m.x
+      }
+      if (bestOrientation === 'horizontal') {
+        bestCx = avgX
+        bestCy = extremeY
+      }
+      else {
+        bestCx = extremeX
+        bestCy = avgY
+      }
     }
-    const toolbarAnchor = { x: bestCx, y: bestCy, orientation: toolbarOrientation }
+    const toolbarAnchor = { x: bestCx, y: bestCy, orientation: bestOrientation }
     // `selectable` = full editor (endpoint drag handles, side-panel form).
     // Real graph edges (`wire:`) carry persisted metadata; canvas-local
     // extras (`user:`, e.g. wires the user dragged to a synthetic Start
@@ -4676,17 +4706,12 @@ const wireGeoms = computed<WireGeom[]>(() => {
     // action pill.
     const selectable = w.id.startsWith('wire:') || w.id.startsWith('user:')
     const clickable = selectable
-    const wireObstacles = allObstacles
-      .filter(o => o.id !== w.fromId && o.id !== w.toId)
-      .map(o => o.rect)
-    // Fallback when both orthogonal planners fail (very-tight layouts):
-    // Lark-style clean orthogonal staircase, not a curvy bezier. `linear`
-    // is the one wire style that should still render as a straight chord
-    // since the user picked it on purpose.
-    const fallbackType: WireType = wt === 'linear' ? 'linear' : 'step'
+    // Fallback to the raw step staircase only when both orthogonal planners
+    // returned null (very-tight layouts where every candidate clips an
+    // obstacle).
     const d = wrapPts
       ? roundedPolylinePath(wrapPts)
-      : buildWirePath(p1Drawn, p2Drawn, fromSide, toSide, fallbackType, wireObstacles)
+      : buildWirePath(p1Drawn, p2Drawn, fromSide, toSide)
     out.push({
       id: w.id,
       d,
@@ -4845,10 +4870,18 @@ function hasWirePill(w: WireGeom): boolean {
 // reuses the wire's `toolbarAnchor` (already the midpoint of the longest
 // straight segment by construction). Width grows with content count so
 // the pill stays tight; height is fixed so it's a clear lozenge shape.
-const PILL_HEIGHT = 22
+//
+// Back-wires get an extra perpendicular offset so the pill clears the
+// loop-body highlight rect and any iteration badges sitting inside the
+// nodes the wire arcs over. The offset direction follows the segment
+// orientation (lift up for horizontal arcs, left for vertical) so the
+// pill always floats on the outside of the loop body.
+const PILL_HEIGHT = 24
 const PILL_PADDING_X = 8
 const PILL_ICON_SLOT = 14
+const PILL_INFO_ICON_SLOT = 18
 const PILL_DIGIT_SLOT = 7
+const PILL_BACK_WIRE_OFFSET = 18
 function wirePillGeometry(w: WireGeom): { cx: number, cy: number, w: number, h: number } {
   const showCond = Boolean(w.condition && w.condition.trim() !== '')
   const iter = w.maxIterations ?? 0
@@ -4861,13 +4894,34 @@ function wirePillGeometry(w: WireGeom): { cx: number, cy: number, w: number, h: 
     inner += 2
     inner += PILL_DIGIT_SLOT * Math.max(1, String(iter).length)
   }
+  // Trailing info icon — always present in the pill (which itself only
+  // renders when there's condition / iterations content). Gives a
+  // one-click affordance to open the InfoPanel; wire / pill body
+  // single-clicks still only select.
+  if (inner > 0) inner += 8
+  inner += PILL_INFO_ICON_SLOT
   const widthPx = PILL_PADDING_X * 2 + inner
-  return {
-    cx: w.toolbarAnchor.x,
-    cy: w.toolbarAnchor.y,
-    w: widthPx,
-    h: PILL_HEIGHT,
+  let cx = w.toolbarAnchor.x
+  let cy = w.toolbarAnchor.y
+  if (w.style === 'back-wire') {
+    if (w.toolbarAnchor.orientation === 'horizontal') {
+      cy -= PILL_BACK_WIRE_OFFSET
+    }
+    else {
+      cx -= PILL_BACK_WIRE_OFFSET
+    }
   }
+  return { cx, cy, w: widthPx, h: PILL_HEIGHT }
+}
+
+// Cap on the condition string shown in the hover tooltip — keeps a
+// wordy condition from blowing up the bubble. The ellipsis tells the
+// user there's more text; the full condition lives in the InfoPanel.
+const COND_TOOLTIP_MAX = 140
+function truncatedConditionText(text: string | undefined): string {
+  const s = (text ?? '').trim()
+  if (s.length <= COND_TOOLTIP_MAX) return s
+  return s.slice(0, COND_TOOLTIP_MAX - 1).trimEnd() + '…'
 }
 
 // Keyboard shortcut: Delete / Backspace removes the current selection.
@@ -5025,7 +5079,7 @@ function canonicalNode(n: WorkflowNode): Record<string, unknown> {
   if (n.details) out.details = n.details
   if (n.notes) out.notes = n.notes
   if (n.workflow_ref) out.workflow_ref = n.workflow_ref
-  if (n.repeat && n.repeat > 0) out.repeat = n.repeat
+  if (n.iterations && n.iterations > 0) out.iterations = n.iterations
   // Position / size are persisted now — include them in the signature so
   // dragging a node correctly enables Save. Round so micro-jitter from
   // floating-point math doesn't false-positive a change.
@@ -5287,6 +5341,17 @@ function onNodePatch(nodeId: string, patch: Partial<WorkflowNode>) {
     next.add(nodeId)
     dirtyNodeIds.value = next
   }
+  // When the user picks a workflow via the embed dropdown, the node
+  // transitions from "pending embed" (client-only marker) to a real
+  // embed bound by workflow_ref. Drop the marker so the canvas stops
+  // showing the "Pick a workflow" placeholder.
+  if (typeof patch.workflow_ref === 'string' && patch.workflow_ref.trim() !== '') {
+    if (pendingEmbedIds.value.has(nodeId)) {
+      const next = new Set(pendingEmbedIds.value)
+      next.delete(nodeId)
+      pendingEmbedIds.value = next
+    }
+  }
 }
 
 function onWirePatch(wireId: string, patch: Partial<WorkflowWire>) {
@@ -5305,6 +5370,16 @@ function onEmbedNavigate(workflowID: string) {
   // keep any suffix segments (e.g. 'agent', 'schedule', 'artifacts').
   const suffix = segments.length > 2 ? segments.slice(2).join('/') : ''
   const target = suffix ? `/workflow/${workflowID}/${suffix}` : `/workflow/${workflowID}`
+  // Land on the flow layout so the user sees the referenced workflow's
+  // graph immediately. `viewMode` is persisted per-workflow in
+  // sessionStorage and read on the target page's mount (see
+  // `loadViewMode` in `app/pages/workflow/[id].vue`), so writing it
+  // here takes precedence over whatever the user last had open there.
+  if (import.meta.client) {
+    try {
+      sessionStorage.setItem(`polymux_workflow_viewmode:${workflowID}`, 'flow')
+    } catch {}
+  }
   navigateTo(target)
 }
 
@@ -5521,11 +5596,10 @@ watch(
 interface CanvasSettings {
   showGrid: boolean
   snapToGrid: boolean
-  wireType: WireType
 }
 const SETTINGS_KEY = 'polymux_canvas_settings'
 const SNAP_GRID = 24
-const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: true, wireType: 'step' })
+const settings = ref<CanvasSettings>({ showGrid: true, snapToGrid: true })
 
 if (import.meta.client) {
   try {
@@ -5535,7 +5609,6 @@ if (import.meta.client) {
       settings.value = {
         showGrid: parsed.showGrid ?? true,
         snapToGrid: parsed.snapToGrid ?? true,
-        wireType: parsed.wireType ?? 'step',
       }
     }
   }
@@ -5560,20 +5633,58 @@ function toggleSnapToGrid() {
   persistSettings()
 }
 
-function setWireType(wt: WireType) {
-  settings.value = { ...settings.value, wireType: wt }
-  persistSettings()
-}
-
-const wireTypeOptions = computed(() => [
-  { value: 'fluid' as WireType, label: t('workflow.wireFluid') },
-  { value: 'linear' as WireType, label: t('workflow.wireLinear') },
-  { value: 'step' as WireType, label: t('workflow.wireStep') },
-])
-
 const showSettings = ref(false)
 const settingsButtonEl = ref<HTMLElement | null>(null)
 const settingsMenuEl = ref<HTMLElement | null>(null)
+
+// Add-node popover state. Same pattern as the settings menu: a teleported
+// panel anchored to the right of the toolbar button. Two options inside —
+// "Blank node" and "Embedded workflow" — that kick off the placement
+// gesture for that kind. Auto-closes on outside click or option pick.
+const showAddNodeMenu = ref(false)
+const addNodeButtonEl = ref<HTMLElement | null>(null)
+const addNodeMenuEl = ref<HTMLElement | null>(null)
+const addNodeMenuAnchor = ref<{ left: number, top: number }>({ left: 0, top: 0 })
+function updateAddNodeMenuAnchor() {
+  const el = addNodeButtonEl.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  addNodeMenuAnchor.value = { left: r.right + 8, top: r.top }
+}
+function onAddNodeMenuDocClick(ev: MouseEvent) {
+  if (!showAddNodeMenu.value) return
+  const t = ev.target as Node | null
+  if (!t) return
+  if (addNodeButtonEl.value?.contains(t)) return
+  if (addNodeMenuEl.value?.contains(t)) return
+  showAddNodeMenu.value = false
+}
+watch(showAddNodeMenu, (open) => {
+  if (open) {
+    updateAddNodeMenuAnchor()
+    // `pointerdown`, not `mousedown` — the canvas's own pointerdown
+    // handler calls preventDefault, which suppresses the compatibility
+    // mousedown events for clicks on the canvas. Pointer events still
+    // bubble to document regardless of preventDefault, so the listener
+    // actually fires when the user clicks away from the menu.
+    document.addEventListener('pointerdown', onAddNodeMenuDocClick)
+    window.addEventListener('resize', updateAddNodeMenuAnchor)
+    window.addEventListener('scroll', updateAddNodeMenuAnchor, true)
+  }
+  else {
+    document.removeEventListener('pointerdown', onAddNodeMenuDocClick)
+    window.removeEventListener('resize', updateAddNodeMenuAnchor)
+    window.removeEventListener('scroll', updateAddNodeMenuAnchor, true)
+  }
+})
+function pickAddNodeBlank() {
+  showAddNodeMenu.value = false
+  startPlacingNode()
+}
+function pickAddNodeEmbed() {
+  showAddNodeMenu.value = false
+  startPlacingEmbedNode()
+}
 
 // The settings panel is teleported to body so it can render above the
 // chat prompt input (z-50) without being trapped in the side-toolbar's
@@ -5599,21 +5710,26 @@ function onSettingsDocClick(ev: MouseEvent) {
 watch(showSettings, (open) => {
   if (open) {
     updateSettingsAnchor()
-    document.addEventListener('mousedown', onSettingsDocClick)
+    // See onAddNodeMenuDocClick — pointerdown survives the canvas's
+    // own preventDefault, mousedown doesn't.
+    document.addEventListener('pointerdown', onSettingsDocClick)
     window.addEventListener('resize', updateSettingsAnchor)
     window.addEventListener('scroll', updateSettingsAnchor, true)
   }
   else {
-    document.removeEventListener('mousedown', onSettingsDocClick)
+    document.removeEventListener('pointerdown', onSettingsDocClick)
     window.removeEventListener('resize', updateSettingsAnchor)
     window.removeEventListener('scroll', updateSettingsAnchor, true)
   }
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', onSettingsDocClick)
+  document.removeEventListener('pointerdown', onSettingsDocClick)
+  document.removeEventListener('pointerdown', onAddNodeMenuDocClick)
   window.removeEventListener('resize', updateSettingsAnchor)
   window.removeEventListener('scroll', updateSettingsAnchor, true)
+  window.removeEventListener('resize', updateAddNodeMenuAnchor)
+  window.removeEventListener('scroll', updateAddNodeMenuAnchor, true)
   if (viewportPersistTimer != null) {
     clearTimeout(viewportPersistTimer)
     viewportPersistTimer = null
@@ -5714,32 +5830,85 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="flex flex-col items-center rounded-xl border border-neutral-200 bg-white/90 shadow-sm backdrop-blur-md pointer-events-auto">
-        <!-- Add node — clicking attaches a faded ghost to the cursor; the
-             next click on the canvas drops a fresh graph node there. -->
-        <button
-          type="button"
-          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
-          :class="placingNode ? 'text-neutral-900' : 'text-neutral-500'"
-          @click="startPlacingNode"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            class="size-3.5"
-            aria-hidden="true"
+        <!-- Add node — opens a popover with two flavours of node:
+             "Blank node" starts a placement gesture for a regular step;
+             "Embedded workflow" starts one for a delegating node the
+             user will bind to another workflow via the InfoPanel
+             dropdown. The button itself just toggles the menu; the
+             gesture begins when the user picks an option. -->
+        <div class="relative">
+          <button
+            ref="addNodeButtonEl"
+            type="button"
+            class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
+            :class="(placingNode || showAddNodeMenu) ? 'text-neutral-900' : 'text-neutral-500'"
+            @click="showAddNodeMenu = !showAddNodeMenu"
           >
-            <rect
-              x="2.9"
-              y="4.9"
-              width="18.2"
-              height="14.2"
-              rx="3.1"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-          </svg>
-          <span class="canvas-tooltip">{{ t('workflow.addNode') }}</span>
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              class="size-3.5"
+              aria-hidden="true"
+            >
+              <rect
+                x="2.9"
+                y="4.9"
+                width="18.2"
+                height="14.2"
+                rx="3.1"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+            </svg>
+            <span v-if="!showAddNodeMenu" class="canvas-tooltip">{{ t('workflow.addNode') }}</span>
+          </button>
+          <Teleport to="body">
+            <Transition
+              enter-active-class="transition duration-150 ease-out"
+              enter-from-class="-translate-x-1 opacity-0"
+              enter-to-class="translate-x-0 opacity-100"
+              leave-active-class="transition duration-100 ease-in"
+              leave-from-class="translate-x-0 opacity-100"
+              leave-to-class="-translate-x-1 opacity-0"
+            >
+              <div
+                v-if="showAddNodeMenu"
+                ref="addNodeMenuEl"
+                class="fixed z-[60] w-60 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg"
+                :style="{ left: `${addNodeMenuAnchor.left}px`, top: `${addNodeMenuAnchor.top}px` }"
+              >
+                <div class="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wider text-neutral-500">
+                  {{ t('workflow.addNode') }}
+                </div>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
+                  @click="pickAddNodeBlank"
+                >
+                  <UIcon name="i-heroicons-rectangle-stack-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                  <span class="flex min-w-0 flex-1 flex-col leading-tight">
+                    <span class="font-medium text-neutral-900">{{ t('workflow.addNodeBlank') }}</span>
+                    <span class="mt-0.5 text-[11px] text-neutral-500">{{ t('workflow.addNodeBlankDesc') }}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2.5 border-t border-neutral-100 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
+                  @click="pickAddNodeEmbed"
+                >
+                  <UIcon
+                    name="i-heroicons-arrow-top-right-on-square"
+                    class="size-4 shrink-0 text-neutral-500"
+                  />
+                  <span class="flex min-w-0 flex-1 flex-col leading-tight">
+                    <span class="font-medium text-neutral-900">{{ t('workflow.addNodeEmbed') }}</span>
+                    <span class="mt-0.5 text-[11px] text-neutral-500">{{ t('workflow.addNodeEmbedDesc') }}</span>
+                  </span>
+                </button>
+              </div>
+            </Transition>
+          </Teleport>
+        </div>
 
         <!-- Draw wire — click 1 places the tail (free, or latched to a node
              port circle if the cursor is on one); click 2 places the head
@@ -5859,51 +6028,6 @@ onBeforeUnmount(() => {
                 >
                   <span>{{ t('workflow.snapToGrid') }}</span>
                   <SettingsToggle :model-value="settings.snapToGrid" />
-                </div>
-                <div class="border-t border-neutral-100 px-3 py-2">
-                  <div class="mb-1.5 text-caption font-semibold uppercase tracking-wider text-neutral-500">
-                    {{ t('workflow.wireStyle') }}
-                  </div>
-                  <div class="flex gap-1">
-                    <button
-                      v-for="opt in wireTypeOptions"
-                      :key="opt.value"
-                      type="button"
-                      class="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors"
-                      :class="settings.wireType === opt.value
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'"
-                      @click="setWireType(opt.value)"
-                    >
-                      <svg width="16" height="10" viewBox="0 0 16 10" fill="none" class="shrink-0">
-                        <path
-                              v-if="opt.value === 'fluid'"
-                              d="M1 9 C 4 1, 12 1, 15 1"
-                              stroke="currentColor"
-                              stroke-width="1.5"
-                              stroke-linecap="round"
-                              fill="none"
-                            />
-                        <path
-                              v-else-if="opt.value === 'linear'"
-                              d="M1 9 L 15 1"
-                              stroke="currentColor"
-                              stroke-width="1.5"
-                              stroke-linecap="round"
-                              fill="none"
-                            />
-                        <path
-                              v-else
-                              d="M1 9 L 1 5 Q 1 1, 5 1 L 15 1"
-                              stroke="currentColor"
-                              stroke-width="1.5"
-                              stroke-linecap="round"
-                              fill="none"
-                            />
-                      </svg>
-                      {{ opt.label }}
-                    </button>
-                  </div>
                 </div>
               </div>
             </Transition>
@@ -6050,19 +6174,24 @@ onBeforeUnmount(() => {
                    move on the ALREADY-selected wire starts a wire-body
                    drag that translates both endpoints (`onWireBodyPointerDown`).
                    Cursor flips to `grab` when selected to advertise the
-                   drag affordance. -->
+                   drag affordance. Stroke-width is in canvas units, but
+                   the canvas is CSS-scaled by `scale`, so a fixed value
+                   shrinks in screen pixels when zoomed out. Dividing by
+                   `scale` keeps the on-screen hit-zone width at a
+                   constant ~48px regardless of zoom. -->
               <path
                 v-if="w.clickable"
                 :d="w.d"
                 :data-wire-id="w.id"
                 fill="none"
                 stroke="transparent"
-                stroke-width="28"
+                :stroke-width="48 / scale"
                 stroke-linecap="round"
                 :class="selectedWireId === w.id ? 'cursor-grab' : 'cursor-pointer'"
                 style="pointer-events: stroke"
                 @pointerdown.stop="(e) => onWireBodyPointerDown(e, w)"
                 @click.stop="selectWire(w.id)"
+                @dblclick.stop="openWireDetails(w.id)"
               />
               <!-- Wire shadow for depth -->
               <path
@@ -6102,6 +6231,7 @@ onBeforeUnmount(() => {
                 :data-wire-pill-id="w.id"
                 class="cursor-pointer"
                 @click.stop="selectWire(w.id)"
+                @dblclick.stop="openWireDetails(w.id)"
               >
                 <rect
                   :x="wirePillGeometry(w).cx - wirePillGeometry(w).w / 2"
@@ -6119,14 +6249,19 @@ onBeforeUnmount(() => {
                   :y="wirePillGeometry(w).cy - wirePillGeometry(w).h / 2"
                   :width="wirePillGeometry(w).w"
                   :height="wirePillGeometry(w).h"
-                  style="pointer-events: none"
+                  style="overflow: visible"
                 >
                   <div class="flex h-full items-center justify-center gap-1 text-[11px] leading-none text-neutral-700">
-                    <UIcon
+                    <span
                       v-if="w.condition && w.condition.trim() !== ''"
-                      name="i-heroicons-question-mark-circle-20-solid"
-                      class="size-3 shrink-0"
-                    />
+                      class="group/cond relative inline-flex h-3 w-3 shrink-0 items-center justify-center"
+                    >
+                      <UIcon
+                        name="i-heroicons-question-mark-circle-20-solid"
+                        class="size-3"
+                      />
+                      <span class="wire-pill-tooltip">{{ truncatedConditionText(w.condition) }}</span>
+                    </span>
                     <UIcon
                       v-if="(w.maxIterations ?? 0) > 0"
                       name="i-heroicons-arrow-path-20-solid"
@@ -6138,6 +6273,21 @@ onBeforeUnmount(() => {
                       class="tabular-nums"
                       :style="w.style === 'back-wire' ? { color: 'var(--color-loop-wire-strong)' } : undefined"
                     >{{ w.maxIterations }}</span>
+                    <span
+                      v-if="(w.condition && w.condition.trim() !== '') || (w.maxIterations ?? 0) > 0"
+                      class="h-3 w-px shrink-0 bg-neutral-300"
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      class="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                      :aria-label="t('workflow.editWire')"
+                      @click.stop="openWireDetails(w.id)"
+                      @dblclick.stop
+                      @pointerdown.stop
+                    >
+                      <UIcon name="i-heroicons-information-circle-20-solid" class="size-3.5" />
+                    </button>
                   </div>
                 </foreignObject>
               </g>
@@ -6320,11 +6470,9 @@ onBeforeUnmount(() => {
                   ? 'border-neutral-900'
                   : isLockedNode(node.id)
                     ? 'border-amber-500 bg-amber-50/40 hover:shadow-md'
-                    : isEmbedNode(node)
-                      ? 'hover:shadow-md'
-                      : isSelected(node.id)
-                        ? 'border-neutral-900 hover:shadow-md'
-                        : 'border-neutral-400 hover:border-neutral-500 hover:shadow-md',
+                    : isSelected(node.id)
+                      ? 'border-neutral-900 hover:shadow-md'
+                      : 'border-neutral-400 hover:border-neutral-500 hover:shadow-md',
               isDraggingNode(node.id) ? 'cursor-grabbing shadow-lg' : 'cursor-grab',
               loopBodyNodeIds.has(node.id) ? 'ring-2 ring-offset-1' : '',
             ]"
@@ -6334,19 +6482,19 @@ onBeforeUnmount(() => {
               width: `${nodeSize(node).w}px`,
               height: `${nodeSize(node).h}px`,
               touchAction: 'none',
-              ...(isEmbedNode(node) ? { borderColor: 'var(--color-embed-border)' } : {}),
               ...(loopBodyNodeIds.has(node.id) ? { boxShadow: '0 0 0 2px var(--color-loop-wire-soft)' } : {}),
             }"
             @pointerdown="(e) => onNodePointerDown(e, node)"
+            @dblclick.stop="openNodeDetails(node)"
           >
             <!-- Three render branches, mutually exclusive:
                  - Terminals (Start / End): single centred title, no
                    editing.
                  - Embed (workflow_ref set): referenced workflow's name +
                    open icon, NOT inline-editable. The InfoPanel handles
-                   navigation + repeat.
-                 - Regular: title (rename on dblclick) + optional repeat
-                   badge under it. -->
+                   navigation + iterations.
+                 - Regular: title (rename on dblclick) + optional
+                   iterations badge under it. -->
             <div
               v-if="node.terminal"
               class="flex h-full items-center justify-center px-2 text-center"
@@ -6360,25 +6508,25 @@ onBeforeUnmount(() => {
               class="flex h-full flex-col items-center justify-center gap-1 px-3 py-2 text-center"
             >
               <div class="flex max-w-full items-center justify-center gap-1.5">
-                <UIcon
-                  name="i-heroicons-arrow-top-right-on-square"
-                  class="size-3.5 shrink-0"
-                  :style="{ color: 'var(--color-embed-border)' }"
-                />
                 <span
-                  class="max-w-full truncate text-sm font-medium"
-                  :style="{ color: 'var(--color-embed-border)' }"
+                  class="max-w-full truncate text-sm font-medium text-neutral-900"
+                  :class="isPendingEmbed(node) ? 'italic text-neutral-500' : ''"
                 >
-                  {{ embedDisplayName(node) }}
+                  {{ isPendingEmbed(node) ? t('workflow.embedPendingTitle') : embedDisplayName(node) }}
                 </span>
+                <UIcon
+                  v-if="!isPendingEmbed(node)"
+                  name="i-heroicons-arrow-top-right-on-square"
+                  class="size-3.5 shrink-0 text-neutral-500"
+                />
               </div>
               <div
-                v-if="(node.node.repeat ?? 0) > 1"
+                v-if="(node.node.iterations ?? 0) > 1"
                 class="flex items-center gap-1 text-[11px] leading-none"
                 :style="{ color: 'var(--color-loop-wire-strong)' }"
               >
                 <UIcon name="i-heroicons-arrow-path-20-solid" class="size-3" />
-                <span class="tabular-nums">{{ node.node.repeat }}</span>
+                <span class="tabular-nums">{{ node.node.iterations }}</span>
               </div>
             </div>
             <div v-else class="flex h-full flex-col items-center justify-center gap-1 px-3 py-2 text-center">
@@ -6386,6 +6534,7 @@ onBeforeUnmount(() => {
                 v-if="renamingNodeId === node.id"
                 v-model="renamingValue"
                 data-node-rename
+                name="node-rename"
                 type="text"
                 class="max-w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium text-neutral-900 outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
                 @keyup.enter.stop="commitRename(node.id)"
@@ -6402,12 +6551,12 @@ onBeforeUnmount(() => {
                 {{ nodeTitle(node) }}
               </span>
               <div
-                v-if="(node.node.repeat ?? 0) > 1"
+                v-if="(node.node.iterations ?? 0) > 1"
                 class="flex items-center gap-1 text-[11px] leading-none"
                 :style="{ color: 'var(--color-loop-wire-strong)' }"
               >
                 <UIcon name="i-heroicons-arrow-path-20-solid" class="size-3" />
-                <span class="tabular-nums">{{ node.node.repeat }}</span>
+                <span class="tabular-nums">{{ node.node.iterations }}</span>
               </div>
             </div>
           </div>
@@ -6437,8 +6586,7 @@ onBeforeUnmount(() => {
           >
             <button
               type="button"
-              class="group absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
-              :title="t('workflow.spawnFromPort')"
+              class="group group/btn absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
               :style="{
                 left: `${HOVER_PAD + nodeSize(node).w / 2}px`,
                 top: `${HOVER_PAD - PORT_GAP}px`,
@@ -6451,11 +6599,11 @@ onBeforeUnmount(() => {
                   <path d="M12 19V5M6 11l6-6 6 6" />
                 </svg>
               </span>
+              <span class="canvas-tooltip-above">{{ t('workflow.spawnFromPort') }}</span>
             </button>
             <button
               type="button"
-              class="group absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
-              :title="t('workflow.spawnFromPort')"
+              class="group group/btn absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
               :style="{
                 left: `${HOVER_PAD + nodeSize(node).w / 2}px`,
                 top: `${HOVER_PAD + nodeSize(node).h + PORT_GAP}px`,
@@ -6468,11 +6616,11 @@ onBeforeUnmount(() => {
                   <path d="M12 5v14M6 13l6 6 6-6" />
                 </svg>
               </span>
+              <span class="canvas-tooltip-above">{{ t('workflow.spawnFromPort') }}</span>
             </button>
             <button
               type="button"
-              class="group absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
-              :title="t('workflow.spawnFromPort')"
+              class="group group/btn absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
               :style="{
                 left: `${HOVER_PAD - PORT_GAP}px`,
                 top: `${HOVER_PAD + nodeSize(node).h / 2}px`,
@@ -6485,11 +6633,11 @@ onBeforeUnmount(() => {
                   <path d="M19 12H5M11 6l-6 6 6 6" />
                 </svg>
               </span>
+              <span class="canvas-tooltip-left">{{ t('workflow.spawnFromPort') }}</span>
             </button>
             <button
               type="button"
-              class="group absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
-              :title="t('workflow.spawnFromPort')"
+              class="group group/btn absolute grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center bg-transparent"
               :style="{
                 left: `${HOVER_PAD + nodeSize(node).w + PORT_GAP}px`,
                 top: `${HOVER_PAD + nodeSize(node).h / 2}px`,
@@ -6502,6 +6650,7 @@ onBeforeUnmount(() => {
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
               </span>
+              <span class="canvas-tooltip">{{ t('workflow.spawnFromPort') }}</span>
             </button>
           </template>
 
@@ -6642,16 +6791,21 @@ onBeforeUnmount(() => {
         -->
         <div
           v-if="placingNode"
-          class="pointer-events-none absolute flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-500 bg-white/70"
+          class="pointer-events-none absolute flex items-center justify-center rounded-xl border-2 border-dashed bg-white/70"
           :style="{
             left: `${placingNode.x}px`,
             top: `${placingNode.y}px`,
             width: `${NODE_W}px`,
             height: `${NODE_H}px`,
             opacity: 0.7,
+            borderColor: placingKind === 'embed' ? 'var(--color-embed-border)' : 'rgb(115 115 115)',
           }"
         >
-          <UIcon name="i-heroicons-plus-20-solid" class="size-5 text-neutral-500" />
+          <UIcon
+            :name="placingKind === 'embed' ? 'i-heroicons-arrow-top-right-on-square' : 'i-heroicons-plus-20-solid'"
+            class="size-5"
+            :style="{ color: placingKind === 'embed' ? 'var(--color-embed-border)' : 'rgb(115 115 115)' }"
+          />
         </div>
 
         <!--
@@ -6905,6 +7059,7 @@ onBeforeUnmount(() => {
             :node="selectionDetailNode.node"
             :workflow="embedResolved(selectionDetailNode)"
             :locked="isLockedNode(selectionDetailNode.id)"
+            :current-workflow-id="selectedWorkflowId ?? ''"
             @update:patch="onNodePatch"
             @navigate="onEmbedNavigate"
           />
@@ -7109,6 +7264,38 @@ onBeforeUnmount(() => {
   transition: opacity 100ms;
 }
 .group\/btn:hover > .canvas-tooltip-above {
+  opacity: 1;
+}
+
+/* Wire-pill tooltip — surfaces the condition text when the user hovers
+   the question-mark icon inside a wire pill. Wraps for multi-line so
+   long conditions stay readable; capped via JS (truncatedConditionText)
+   so we never blow up the bubble. Sits above the pill — the pill is
+   typically already pushed off the wire path so there's headroom. */
+.wire-pill-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  max-width: 260px;
+  width: max-content;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(229 229 229 / 0.8);
+  background-color: rgb(255 255 255);
+  padding: 0.375rem 0.5rem;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgb(38 38 38);
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+  opacity: 0;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.05);
+  pointer-events: none;
+  transition: opacity 100ms;
+}
+.group\/cond:hover > .wire-pill-tooltip {
   opacity: 1;
 }
 

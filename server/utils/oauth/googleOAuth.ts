@@ -18,15 +18,6 @@ export const GOOGLE_DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
 ]
 
-// Gmail uses gmail.modify (read + send + label management) — wide enough to
-// cover summarization, drafting, and label routing without granting full
-// admin access (which would require gmail.full).
-export const GMAIL_SCOPES = [
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-]
-
 export interface GoogleOAuthCreds {
   clientId: string
   clientSecret: string

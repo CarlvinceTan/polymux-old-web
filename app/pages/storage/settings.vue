@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { StorageProvider } from '~/types/storage'
 
-const { headerTabs } = useStorageNavTabs()
+const { headerTabs, customTabs } = useStorageNavTabs()
 
 const { t } = useI18n()
 const {
@@ -87,7 +87,7 @@ async function onConfirmDisconnect() {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <TabPanel class="min-h-0 min-w-0 flex-1">

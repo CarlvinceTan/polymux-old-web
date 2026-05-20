@@ -1,5 +1,3 @@
-import type { SupportedCurrency } from './useCurrency'
-
 export interface Wallet {
   id: string
   workspace_id: string
@@ -205,7 +203,7 @@ export function useWallet() {
     }
   }
 
-  async function topUp(amountCents: number, currency: SupportedCurrency = 'usd') {
+  async function topUp(amountCents: number) {
     if (!wsId.value) return null
     try {
       const result = await $fetch<{ url: string }>('/api/stripe/wallet-topup', {
@@ -213,7 +211,6 @@ export function useWallet() {
         body: JSON.stringify({
           workspaceId: wsId.value,
           amountCents,
-          currency,
         }),
       })
       if (result?.url) {
@@ -228,12 +225,10 @@ export function useWallet() {
 
   const balanceDisplay = computed(() => {
     if (!wallet.value) return '$0.00'
-    return formatCents(wallet.value.balance_cents, wallet.value.currency as SupportedCurrency)
+    return formatCents(wallet.value.balance_cents)
   })
 
-  function formatCents(cents: number, currency: SupportedCurrency = 'usd'): string {
-    const zeroDecimal = ['jpy', 'krw'].includes(currency)
-    if (zeroDecimal) return `${currency.toUpperCase()} ${cents.toLocaleString()}`
+  function formatCents(cents: number): string {
     return `$${(cents / 100).toFixed(2)}`
   }
 

@@ -155,6 +155,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('workspaceCreate.nameLabel') }}</label>
                 <input
                   v-model="name"
+                  name="workspace-name"
                   :placeholder="t('workspaceCreate.namePlaceholder')"
                   autofocus
                   :maxlength="WORKSPACE_NAME_MAX_LENGTH"
@@ -188,7 +189,9 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     <!-- Email input -->
                     <input
                       v-model="invite.email"
+                      :name="`invite-email-${index}`"
                       type="email"
+                      autocomplete="email"
                       :placeholder="t('workspaceCreate.emailPlaceholder')"
                       class="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white py-1.5 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                     />

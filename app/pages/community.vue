@@ -60,6 +60,7 @@ const tiles: CommunityTile[] = [
           <div class="relative">
             <input
               v-model="searchQuery"
+              name="community-search"
               type="text"
               placeholder="Search community..."
               class="w-full rounded-lg border border-neutral-200 py-3 pl-[3.75rem] pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"

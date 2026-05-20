@@ -56,7 +56,23 @@ type BillingPeriod = 'annual' | 'monthly'
 
 const billingPeriod = ref<BillingPeriod>('annual')
 
-const { currency, prices, detect } = useCurrency()
+interface PriceData {
+  free: { monthly: string; annualPerMonth: string }
+  pro: { monthly: string; annualPerMonth: string }
+  max: { monthly: string; annualPerMonth: string }
+  enterprise: { monthly: string; annualPerMonth: string }
+}
+
+const prices = useState<PriceData | null>('pricing-prices', () => null)
+
+async function fetchPrices() {
+  try {
+    prices.value = await $fetch<PriceData>('/api/prices')
+  }
+  catch {
+    prices.value = null
+  }
+}
 
 const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
   { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
@@ -137,7 +153,7 @@ function onWorkspacePickerClickOutside(event: MouseEvent) {
 }
 
 onMounted(async () => {
-  detect()
+  fetchPrices()
   document.addEventListener('click', onWorkspacePickerClickOutside)
   if (workspaces.value.length === 0) await fetchWorkspaces()
   const qsWorkspace = (route.query.workspaceId as string | undefined)?.trim()
@@ -172,9 +188,13 @@ function nextTierUp(key: PlanKey): PlanKey {
   return planOrder[idx + 1] ?? key
 }
 
-const selectedPlanKey = ref<PlanKey>(
-  currentUserPlan.value ? nextTierUp(currentUserPlan.value) : 'free',
-)
+function isPlanDowngrade(key: PlanKey) {
+  const cur = currentUserPlan.value
+  if (!cur) return false
+  return planOrder.indexOf(key) < planOrder.indexOf(cur)
+}
+
+const selectedPlanKey = ref<PlanKey>(nextTierUp(targetWorkspacePlan.value))
 
 watch(targetWorkspacePlan, (plan) => {
   selectedPlanKey.value = nextTierUp(plan)
@@ -185,6 +205,7 @@ function onTierSelect(key: PlanKey) {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
   }
   if (currentUserPlan.value === key) return
+  if (isPlanDowngrade(key)) return
   selectedPlanKey.value = key
   nextTick(() => {
     const el = document.getElementById(`plan-panel-${key}`)
@@ -219,7 +240,6 @@ async function onPurchaseNow() {
       body: {
         planKey: key,
         billingPeriod: billingPeriod.value,
-        currency: currency.value,
         workspaceId,
       },
     })
@@ -383,13 +403,14 @@ async function onPurchaseNow() {
           :highlighted="plan.highlighted"
           :selected="selectedPlanKey === plan.key"
           :is-current="currentUserPlan === plan.key"
+          :disabled="isPlanDowngrade(plan.key)"
           :items="planItemsForKey(plan.key)"
           :panel-id="`plan-panel-${plan.key}`"
           @select="onTierSelect(plan.key)"
         />
       </div>
       <div
-        v-if="selectedPlanKey !== 'free'"
+        v-if="selectedPlanKey !== 'free' && currentUserPlan !== selectedPlanKey && !isPlanDowngrade(selectedPlanKey)"
         class="mt-10 flex flex-col items-center gap-3 sm:mt-12"
       >
         <button

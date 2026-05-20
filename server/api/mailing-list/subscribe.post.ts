@@ -1,5 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { Resend } from 'resend'
+import { renderEmailLayout, sendEmail } from '../../utils/email'
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -87,9 +87,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Send verification email
+  // Send verification email. This is a confirmation of an action the
+  // recipient just took (subscribing to the blog), so it bypasses the
+  // all_notifications_enabled gate — sendEmail() rather than
+  // sendNotificationEmail().
   try {
-    const resend = new Resend(config.resendApiKey)
     const verificationLink = `${config.public.appUrl}/verify-email?token=${verificationToken}`
     // Visible footer link goes through the Nuxt page (which POSTs to the
     // API on mount). The List-Unsubscribe header points straight at the
@@ -98,33 +100,21 @@ export default defineEventHandler(async (event) => {
     const unsubscribePage = `${config.public.appUrl}/unsubscribed?token=${newSubscriber.unsubscribe_token}`
     const unsubscribeApi = `${config.public.appUrl}/api/mailing-list/unsubscribe?token=${newSubscriber.unsubscribe_token}`
 
-    await resend.emails.send({
-      from: 'Polymux <onboarding@resend.dev>',
+    await sendEmail({
       to: email,
       subject: 'Verify your subscription to the Polymux Blog',
       headers: {
         'List-Unsubscribe': `<${unsubscribeApi}>, <mailto:unsubscribe@polymux.io?subject=unsubscribe-${newSubscriber.unsubscribe_token}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Verify your subscription</h2>
-          <p>Thanks for subscribing to the Polymux Blog! Click the button below to confirm your email address.</p>
-          <div style="margin: 30px 0;">
-            <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Verify Email
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">Or copy and paste this link:</p>
-          <p style="color: #0066cc; font-size: 12px; word-break: break-all;">${verificationLink}</p>
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">This link expires in 7 days.</p>
-          <hr style="margin-top: 32px; border: 0; border-top: 1px solid #e5e5e5;">
-          <p style="color: #999; font-size: 11px; margin-top: 16px;">
-            You're receiving this because you subscribed to the Polymux Blog.
-            <a href="${unsubscribePage}" style="color: #666; text-decoration: underline;">Unsubscribe</a>.
-          </p>
-        </div>
-      `,
+      html: renderEmailLayout({
+        title: 'Verify your subscription',
+        intro: 'Thanks for subscribing to the Polymux Blog! Click the button below to confirm your email address.',
+        ctaLabel: 'Verify email',
+        ctaUrl: verificationLink,
+        footerHtml: `This link expires in 7 days. You're receiving this because you subscribed to the Polymux Blog. <a href="${unsubscribePage}" style="color:#7a7a7a;text-decoration:underline;">Unsubscribe</a>.`,
+        preheader: 'Confirm your email to start receiving the Polymux Blog.',
+      }),
     })
   }
   catch (emailError) {

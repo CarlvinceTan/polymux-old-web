@@ -400,7 +400,7 @@ const stepTitle = computed(() => {
                     v-for="k in KINDS"
                     :key="k.value"
                     type="button"
-                    class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+                    class="ghost-panel ghost-panel-hover group flex flex-col gap-3 rounded-xl bg-white p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
                     @click="pickKind(k.value)"
                   >
                     <div class="flex size-9 items-center justify-center text-neutral-700 transition-colors group-hover:text-neutral-950">
@@ -426,6 +426,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorManifestUrl') }}</span>
                     <input
                       v-model="manifestUrl"
+                      name="manifest-url"
                       type="url"
                       required
                       placeholder="https://github.com/you/repo/raw/main/polymux.json"
@@ -448,6 +449,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorPickWorkflow') }}</span>
                     <select
                       v-model="wfWorkflowId"
+                      name="wf-workflow-id"
                       required
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
                     >
@@ -462,6 +464,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorPickWorkflowVersion') }}</span>
                     <select
                       v-model="wfWorkflowVersionId"
+                      name="wf-workflow-version-id"
                       required
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
                     >
@@ -479,6 +482,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorName') }}</span>
                     <input
                       v-model="wfName"
+                      name="wf-name"
                       type="text"
                       required
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -500,6 +504,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorDescription') }}</span>
                     <textarea
                       v-model="wfDescription"
+                      name="wf-description"
                       rows="2"
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
                     />
@@ -509,6 +514,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorTags') }}</span>
                     <input
                       v-model="wfTagsCsv"
+                      name="wf-tags"
                       type="text"
                       :placeholder="t('integrations.editorTagsPlaceholder')"
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -530,6 +536,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorName') }}</span>
                     <input
                       v-model="plName"
+                      name="pl-name"
                       type="text"
                       required
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -551,6 +558,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorDescription') }}</span>
                     <textarea
                       v-model="plDescription"
+                      name="pl-description"
                       rows="2"
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
                     />
@@ -560,6 +568,7 @@ const stepTitle = computed(() => {
                     <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorTags') }}</span>
                     <input
                       v-model="plTagsCsv"
+                      name="pl-tags"
                       type="text"
                       :placeholder="t('integrations.editorTagsPlaceholder')"
                       class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"

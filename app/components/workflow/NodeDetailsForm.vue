@@ -19,17 +19,22 @@ const title = ref(props.node.title ?? '')
 const actions = ref<string[]>([...(props.node.actions ?? [])])
 const details = ref(props.node.details ?? '')
 const notes = ref(props.node.notes ?? '')
-const repeatText = ref(
-  typeof props.node.repeat === 'number' && props.node.repeat > 1
-    ? String(props.node.repeat)
+const iterationsText = ref(
+  typeof props.node.iterations === 'number' && props.node.iterations > 1
+    ? String(props.node.iterations)
     : '',
 )
 
-// 350ms idle commit for text fields. Each field has its own timer so typing
-// in one input doesn't delay the commit on another. For the actions list we
-// key timers by row index — every editable row shares the same "actions"
-// patch shape (we always send the whole array), but the debounce is per-row
-// so a fast typist in row 2 doesn't reset the timer for row 1.
+// draftAction holds a new-action row that hasn't been committed yet. The
+// row only joins the persisted `actions` array when the user presses
+// Enter; blurring or pressing Escape discards it. This avoids dangling
+// empty rows the user has to manually clean up.
+const draftAction = ref<string | null>(null)
+const draftInputEl = ref<HTMLTextAreaElement | null>(null)
+// Set by @keyup.enter so the subsequent @blur knows the row has already
+// committed and shouldn't be discarded.
+let draftCommittedViaEnter = false
+
 const idleTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 function scheduleIdleCommit(key: string, fn: () => void) {
   clearTimeout(idleTimers[key])
@@ -44,32 +49,59 @@ function commit(patch: Partial<WorkflowNode>) {
 function commitTitle() { commit({ title: title.value }) }
 function commitDetails() { commit({ details: details.value }) }
 function commitNotes() { commit({ notes: notes.value }) }
-function commitRepeat() {
+function commitIterations() {
   if (props.locked) return
-  const trimmed = repeatText.value.trim()
+  const trimmed = iterationsText.value.trim()
   if (trimmed === '') {
-    commit({ repeat: 0 })
+    commit({ iterations: 0 })
     return
   }
   const n = Number.parseInt(trimmed, 10)
   if (!Number.isFinite(n) || n < 0) {
-    commit({ repeat: 0 })
+    commit({ iterations: 0 })
     return
   }
-  commit({ repeat: Math.min(100, n) })
+  commit({ iterations: Math.min(100, n) })
 }
 function commitActions() {
-  // Send the whole array — the server / applyOp uses replace-the-whole-list
-  // semantics for the actions slice. Empty trailing strings are kept so the
-  // user can keep typing in a blank row; ValidateGraph treats all-empty as
-  // "no actions".
   commit({ actions: [...actions.value] })
 }
 
-function addAction() {
+function startDraftAction() {
   if (props.locked) return
-  actions.value = [...actions.value, '']
+  draftAction.value = ''
+  draftCommittedViaEnter = false
+  void nextTick(() => draftInputEl.value?.focus())
+}
+
+function commitDraftAction() {
+  if (props.locked) {
+    draftAction.value = null
+    return
+  }
+  const text = (draftAction.value ?? '').trim()
+  if (text === '') {
+    draftAction.value = null
+    return
+  }
+  draftCommittedViaEnter = true
+  actions.value = [...actions.value, text]
   commitActions()
+  draftAction.value = null
+}
+
+function cancelDraftAction() {
+  draftAction.value = null
+}
+
+function onDraftBlur() {
+  if (draftCommittedViaEnter) {
+    draftCommittedViaEnter = false
+    return
+  }
+  // Discard the draft when the user clicks elsewhere without pressing
+  // Enter — empty or not. Matches "only Enter commits" semantics.
+  draftAction.value = null
 }
 
 function removeAction(idx: number) {
@@ -83,22 +115,24 @@ function removeAction(idx: number) {
 const focusInput = () => emit('focus', props.nodeId)
 const blurInput = () => emit('blur', props.nodeId)
 
-const labelCls = 'text-[11px] text-neutral-400'
-const inputCls = 'min-w-0 w-full bg-transparent border-0 px-1.5 py-1 -mx-1.5 rounded-sm outline-none font-mono text-[12px] text-neutral-800 placeholder:text-neutral-300 focus:bg-neutral-50 focus:ring-1 focus:ring-neutral-300 disabled:cursor-not-allowed disabled:text-neutral-400'
-const textareaCls = inputCls + ' resize-none leading-snug font-sans'
+const labelCls = 'text-[11px] font-semibold uppercase tracking-wider text-neutral-700'
+const helperCls = 'text-[11px] text-neutral-500'
+const inputCls = 'min-w-0 w-full bg-transparent border-0 px-1.5 py-1 -mx-1.5 rounded-sm outline-none text-[13px] text-neutral-900 placeholder:text-neutral-400 focus:bg-neutral-50 focus:ring-1 focus:ring-neutral-300 disabled:cursor-not-allowed disabled:text-neutral-400'
+const textareaCls = inputCls + ' resize-none leading-snug'
+const actionRowCls = 'w-full bg-transparent border-0 outline-none text-[13px] text-neutral-900 placeholder:text-neutral-400 text-left rounded-sm py-1.5 px-2 focus:bg-neutral-50 focus:ring-1 focus:ring-neutral-300 disabled:cursor-not-allowed disabled:text-neutral-400 resize-none leading-snug'
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="space-y-3">
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+      <div :class="labelCls">
         {{ t('workflow.title') }}
       </div>
       <input
         id="nd-title"
         v-model="title"
         :disabled="locked"
-        :class="inputCls + ' mt-2'"
+        :class="inputCls + ' mt-1.5'"
         :placeholder="t('workflow.titlePlaceholder')"
         type="text"
         @input="scheduleIdleCommit('title', commitTitle)"
@@ -110,28 +144,29 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
 
     <section>
       <div class="flex items-center justify-between">
-        <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+        <div :class="labelCls">
           {{ t('workflow.actions') }}
         </div>
         <button
           type="button"
-          class="text-[11px] text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="locked"
-          @click="addAction"
+          class="text-[11px] font-medium text-neutral-600 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="locked || draftAction !== null"
+          @click="startDraftAction"
         >
           + {{ t('workflow.addAction') }}
         </button>
       </div>
-      <ul v-if="actions.length > 0" class="mt-2 space-y-1.5">
+      <ul v-if="actions.length > 0 || draftAction !== null" class="mt-1.5 space-y-1">
         <li
           v-for="(_, idx) in actions"
           :key="idx"
-          class="flex items-start gap-1.5"
+          class="flex items-center gap-2"
         >
           <textarea
             v-model="actions[idx]"
+            :name="`action-item-${idx}`"
             :disabled="locked"
-            :class="textareaCls + ' min-h-[2rem]'"
+            :class="actionRowCls"
             :placeholder="t('workflow.actionItemPlaceholder')"
             rows="1"
             @input="scheduleIdleCommit(`action:${idx}`, commitActions)"
@@ -140,7 +175,7 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
           />
           <button
             type="button"
-            class="mt-1 shrink-0 text-neutral-300 transition-colors hover:text-rose-500 disabled:cursor-not-allowed disabled:hover:text-neutral-300"
+            class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-rose-500 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-neutral-400"
             :disabled="locked"
             :aria-label="t('workflow.removeAction')"
             @click="removeAction(idx)"
@@ -148,23 +183,50 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
             <UIcon name="i-heroicons-x-mark-20-solid" class="size-3.5" />
           </button>
         </li>
+        <li
+          v-if="draftAction !== null"
+          class="flex items-center gap-2"
+        >
+          <textarea
+            ref="draftInputEl"
+            v-model="draftAction"
+            name="action-item-draft"
+            :disabled="locked"
+            :class="actionRowCls"
+            :placeholder="t('workflow.actionItemPlaceholder')"
+            rows="1"
+            @keydown.enter.prevent="commitDraftAction"
+            @keydown.esc.prevent="cancelDraftAction"
+            @blur="onDraftBlur(); blurInput()"
+            @focus="focusInput"
+          />
+          <button
+            type="button"
+            class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-rose-500"
+            :aria-label="t('workflow.removeAction')"
+            @mousedown.prevent="cancelDraftAction"
+          >
+            <UIcon name="i-heroicons-x-mark-20-solid" class="size-3.5" />
+          </button>
+        </li>
       </ul>
       <p
         v-else
-        class="mt-2 text-[11px] italic text-neutral-300"
+        class="mt-1.5 text-[11px] italic text-neutral-500"
       >
         {{ t('workflow.actionsEmpty') }}
       </p>
     </section>
 
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+      <div :class="labelCls">
         {{ t('workflow.details') }}
       </div>
       <textarea
         v-model="details"
+        name="node-details"
         :disabled="locked"
-        :class="textareaCls + ' mt-2 min-h-[3rem]'"
+        :class="textareaCls + ' mt-1.5 min-h-[2.5rem]'"
         :placeholder="t('workflow.detailsPlaceholder')"
         rows="3"
         @input="scheduleIdleCommit('details', commitDetails)"
@@ -174,13 +236,14 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
     </section>
 
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+      <div :class="labelCls">
         {{ t('workflow.notes') }}
       </div>
       <textarea
         v-model="notes"
+        name="node-notes"
         :disabled="locked"
-        :class="textareaCls + ' mt-2 min-h-[2.5rem]'"
+        :class="textareaCls + ' mt-1.5 min-h-[2.25rem]'"
         :placeholder="t('workflow.notesPlaceholder')"
         rows="2"
         @input="scheduleIdleCommit('notes', commitNotes)"
@@ -190,24 +253,24 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
     </section>
 
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-        {{ t('workflow.repeatLabel') }}
+      <div :class="labelCls">
+        {{ t('workflow.iterationsLabel') }}
       </div>
       <input
-        id="nd-repeat"
-        v-model="repeatText"
+        id="nd-iterations"
+        v-model="iterationsText"
         :disabled="locked"
-        :class="inputCls + ' mt-2'"
-        :placeholder="t('workflow.repeatPlaceholder')"
+        :class="inputCls + ' mt-1.5'"
+        :placeholder="t('workflow.iterationsPlaceholder')"
         type="text"
         inputmode="numeric"
-        @input="scheduleIdleCommit('repeat', commitRepeat)"
-        @blur="commitRepeat(); blurInput()"
-        @keyup.enter="commitRepeat"
+        @input="scheduleIdleCommit('iterations', commitIterations)"
+        @blur="commitIterations(); blurInput()"
+        @keyup.enter="commitIterations"
         @focus="focusInput"
       />
-      <p class="mt-1 text-[10px] text-neutral-400">
-        {{ t('workflow.repeatHelp') }}
+      <p :class="helperCls + ' mt-1'">
+        {{ t('workflow.iterationsHelp') }}
       </p>
     </section>
   </div>

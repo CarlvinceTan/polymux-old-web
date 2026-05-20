@@ -32,7 +32,13 @@
     "cookiesPolicy": "Cookie 政策",
     "reportBug": "报告问题",
     "getHelp": "获取帮助",
-    "dismiss": "关闭"
+    "dismiss": "关闭",
+    "toast": {
+      "warning": "警告",
+      "error": "错误",
+      "info": "信息",
+      "loading": "加载中…"
+    }
   },
   "nav": {
     "dashboard": "控制台",
@@ -124,7 +130,6 @@
     "payment": "支付",
     "general": "通用",
     "language": "语言",
-    "currency": "货币",
     "locationSharing": "位置共享",
     "locationGranted": "位置访问已允许",
     "locationDenied": "已被浏览器阻止 — 在浏览器设置中更新",
@@ -135,6 +140,7 @@
     "showCursor": "显示光标",
     "showCursorHint": "在实时浏览器视口上显示一个箭头光标，位于代理悬停或点击的位置。适合实时查看模拟鼠标。默认关闭。",
     "notifications": "通知",
+    "allNotifications": "所有通知",
     "emailNotif": "邮件",
     "pushNotif": "推送",
     "productUpdates": "产品更新",
@@ -282,10 +288,6 @@
       "artifacts": "工件"
     },
     "liveBadge": "实时",
-    "wireStyle": "连线样式",
-    "wireFluid": "曲线",
-    "wireLinear": "直线",
-    "wireStep": "折线",
     "resizeNode": "调整大小",
     "lockNode": "锁定节点",
     "unlockNode": "解锁节点",
@@ -309,14 +311,26 @@
     "wireMaxIterationsLabel": "最大迭代",
     "wireMaxIterationsPlaceholder": "限制此连线触发次数 (循环)",
     "duplicateEdgeToast": "这两个节点之间已存在连线。",
-    "repeatLabel": "重复",
-    "repeatPlaceholder": "运行此步骤的次数（默认 1）",
-    "repeatHelp": "在继续之前连续运行此步骤 N 次。",
+    "iterationsLabel": "迭代次数",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "此步骤运行的次数。默认 1（运行一次）。",
     "embedLoading": "正在加载引用的工作流…",
     "embedEmpty": "引用的工作流尚无步骤。",
     "embedMissing": "找不到引用的工作流",
     "embedThumbnailAlt": "引用工作流的小预览",
-    "embedThumbnailTruncated": "+{n} 个步骤未显示"
+    "embedThumbnailTruncated": "+{n} 个步骤未显示",
+    "addNodeBlank": "空白节点",
+    "addNodeBlankDesc": "你自行编写动作的新步骤",
+    "addNodeEmbed": "嵌入式工作流",
+    "addNodeEmbedDesc": "将已保存的工作流作为步骤运行",
+    "embedWorkflowLabel": "工作流",
+    "embedSelectWorkflow": "选择工作流",
+    "embedSearchPlaceholder": "搜索工作流…",
+    "embedNoWorkflows": "无可用工作流",
+    "embedNoMatches": "没有匹配的工作流",
+    "embedPendingTitle": "选择一个工作流",
+    "embedUnboundToast": "此嵌入未选择工作流 — 请在信息面板中选择。",
+    "embedOpen": "打开引用的工作流 →"
   },
   "dashboard": {
     "console": "控制台",
@@ -507,7 +521,16 @@
     "localMigrateFailed": "迁移未完成。",
     "localExporting": "正在从这台设备迁移文件…",
     "localExportDone": "工作区文件不再仅存在于这台设备。",
-    "localExportFailed": "迁移未完成。"
+    "localExportFailed": "迁移未完成。",
+    "editorNewLayout": "布局",
+    "editorNewLayoutDesc": "编写自定义 HTML/CSS/JS，作为工作区分区页面上的选项卡呈现。",
+    "editorLayoutSection": "分区",
+    "editorLayoutSectionHelp": "选项卡附加到哪个工作区分区。",
+    "editorLayoutBody": "正文",
+    "editorLayoutBodyHelp": "原始 HTML、CSS 和 JS。在沙盒化的 iframe 内渲染。",
+    "filterLayouts": "布局",
+    "categoryLayout": "布局",
+    "official": "官方"
   },
   "workspace": {
     "team": "团队",
@@ -972,8 +995,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1143,8 +1165,7 @@
         "availableBalance": "可用余额",
         "autoTopUp": "自动充值",
         "autoTopUpOn": "已开启",
-        "topUp": "充值",
-        "newTopUpsCharged": "新的充值将以 {currency} 计费。"
+        "topUp": "充值"
       },
       "activity": {
         "title": "消费活动",
@@ -1227,7 +1248,6 @@
       "topUpModal": {
         "title": "充值余额",
         "amount": "金额",
-        "chargeCurrency": "计费货币",
         "minMaxNote": "最小 {min} · 最大 {max} / 次充值。",
         "amountRangeError": "金额必须在 {min} 到 {max} 之间。",
         "checkoutError": "无法开始结账。请重试。",
@@ -1241,7 +1261,6 @@
         "enableDesc": "余额不足时自动充值。",
         "triggerBelow": "低于此金额时触发",
         "addAmount": "添加金额",
-        "note": "扣款使用您当前的充值货币。可在充值弹窗中更改。",
         "done": "完成"
       },
       "policies": {
@@ -1487,12 +1506,22 @@
       "contactSupport": "联系支持"
     }
   },
+  "docs": {
+    "searchPlaceholder": "搜索文档…",
+    "searchEmpty": "没有匹配的页面。",
+    "accountMenu": "账户菜单",
+    "dashboard": "控制台",
+    "signOut": "退出登录",
+    "signIn": "登录",
+    "loadError": "无法加载此页面。",
+    "tryAgain": "重试",
+    "previous": "上一页",
+    "next": "下一页",
+    "contact": "联系我们",
+    "onThisPage": "本页内容"
+  },
   "legalDocs": {
     "loadError": "无法加载此文档。请稍后再试。",
-    "documentation": {
-      "title": "文档",
-      "subtitle": "使用 Polymux 构建的指南和概念。"
-    },
     "privacy": {
       "title": "隐私政策",
       "subtitle": "我们在您使用 Polymux 时如何收集、使用和保护您的信息。"

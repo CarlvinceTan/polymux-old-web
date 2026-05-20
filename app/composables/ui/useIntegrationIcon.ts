@@ -12,26 +12,6 @@ const PROVIDER_ICONS: Record<string, IntegrationIconMeta> = {
     iconName: 'i-simple-icons-googledrive',
     tintClass: 'bg-google-drive-tint text-google-drive',
   },
-  'gmail': {
-    iconName: 'i-simple-icons-gmail',
-    tintClass: NEUTRAL_TINT,
-  },
-  'github': {
-    iconName: 'i-simple-icons-github',
-    tintClass: NEUTRAL_TINT,
-  },
-  'slack': {
-    iconName: 'i-simple-icons-slack',
-    tintClass: NEUTRAL_TINT,
-  },
-  'notion': {
-    iconName: 'i-simple-icons-notion',
-    tintClass: NEUTRAL_TINT,
-  },
-  'linear': {
-    iconName: 'i-simple-icons-linear',
-    tintClass: NEUTRAL_TINT,
-  },
 }
 
 const CATEGORY_FALLBACK: Record<ItemCategory, IntegrationIconMeta> = {
@@ -45,6 +25,10 @@ const CATEGORY_FALLBACK: Record<ItemCategory, IntegrationIconMeta> = {
   },
   integration: {
     iconName: 'i-heroicons-link-20-solid',
+    tintClass: NEUTRAL_TINT,
+  },
+  layout: {
+    iconName: 'i-heroicons-squares-2x2-20-solid',
     tintClass: NEUTRAL_TINT,
   },
 }

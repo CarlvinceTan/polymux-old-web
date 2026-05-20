@@ -32,7 +32,13 @@
     "cookiesPolicy": "Cookie-Richtlinie",
     "reportBug": "Fehler melden",
     "getHelp": "Hilfe erhalten",
-    "dismiss": "Schließen"
+    "dismiss": "Schließen",
+    "toast": {
+      "warning": "Warnung",
+      "error": "Fehler",
+      "info": "Info",
+      "loading": "Laden…"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -124,7 +130,6 @@
     "payment": "Zahlung",
     "general": "Allgemein",
     "language": "Sprache",
-    "currency": "Währung",
     "locationSharing": "Standortfreigabe",
     "locationGranted": "Standortzugriff erlaubt",
     "locationDenied": "Vom Browser blockiert — in den Browsereinstellungen aktualisieren",
@@ -135,6 +140,7 @@
     "showCursor": "Cursor anzeigen",
     "showCursorHint": "Zeigt einen Pfeilcursor über dem Live-Browser-Viewport an der Position, auf die der Agent zeigt oder klickt. Hilfreich, um die simulierte Maus in Echtzeit zu beobachten. Standardmäßig aus.",
     "notifications": "Benachrichtigungen",
+    "allNotifications": "Alle Benachrichtigungen",
     "emailNotif": "E-Mail",
     "pushNotif": "Push",
     "productUpdates": "Produktupdates",
@@ -282,10 +288,6 @@
       "artifacts": "Artefakte"
     },
     "liveBadge": "Live",
-    "wireStyle": "Linienstil",
-    "wireFluid": "Fließend",
-    "wireLinear": "Gerade",
-    "wireStep": "Stufig",
     "resizeNode": "Größe ändern",
     "lockNode": "Knoten sperren",
     "unlockNode": "Knoten entsperren",
@@ -309,14 +311,26 @@
     "wireMaxIterationsLabel": "Max. Iter.",
     "wireMaxIterationsPlaceholder": "Begrenzt, wie oft diese Kante feuert (Schleifen)",
     "duplicateEdgeToast": "Diese Knoten sind bereits verbunden.",
-    "repeatLabel": "Wiederholen",
-    "repeatPlaceholder": "Anzahl der Ausführungen dieses Schritts (Standard 1)",
-    "repeatHelp": "Diesen Schritt N-mal hintereinander ausführen, bevor fortgefahren wird.",
+    "iterationsLabel": "Iterationen",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "Anzahl der Ausführungen dieses Schritts. Standard 1 (einmal).",
     "embedLoading": "Verknüpfter Workflow wird geladen…",
     "embedEmpty": "Der verknüpfte Workflow hat noch keine Schritte.",
     "embedMissing": "Verknüpfter Workflow nicht gefunden",
     "embedThumbnailAlt": "Mini-Vorschau des verknüpften Workflows",
-    "embedThumbnailTruncated": "+{n} weitere Schritte nicht angezeigt"
+    "embedThumbnailTruncated": "+{n} weitere Schritte nicht angezeigt",
+    "addNodeBlank": "Leerer Knoten",
+    "addNodeBlankDesc": "Ein neuer Schritt, dessen Aktionen du selbst schreibst",
+    "addNodeEmbed": "Eingebetteter Workflow",
+    "addNodeEmbedDesc": "Einen gespeicherten Workflow als Schritt ausführen",
+    "embedWorkflowLabel": "Workflow",
+    "embedSelectWorkflow": "Workflow auswählen",
+    "embedSearchPlaceholder": "Workflows suchen…",
+    "embedNoWorkflows": "Keine Workflows verfügbar",
+    "embedNoMatches": "Keine passenden Workflows",
+    "embedPendingTitle": "Workflow auswählen",
+    "embedUnboundToast": "Für dieses Embed ist kein Workflow ausgewählt — wähle einen im Info-Panel.",
+    "embedOpen": "Verknüpften Workflow öffnen →"
   },
   "dashboard": {
     "console": "Konsole",
@@ -507,7 +521,16 @@
     "localMigrateFailed": "Die Migration wurde nicht abgeschlossen.",
     "localExporting": "Dateien werden von diesem Gerät verschoben…",
     "localExportDone": "Deine Workspace-Dateien liegen nicht mehr nur auf diesem Gerät.",
-    "localExportFailed": "Die Migration wurde nicht abgeschlossen."
+    "localExportFailed": "Die Migration wurde nicht abgeschlossen.",
+    "editorNewLayout": "Layout",
+    "editorNewLayoutDesc": "Erstellen Sie eigenes HTML/CSS/JS, das als Tab auf Arbeitsbereichsabschnittsseiten gerendert wird.",
+    "editorLayoutSection": "Bereich",
+    "editorLayoutSectionHelp": "Welcher Arbeitsbereichsabschnitt den Tab erhält.",
+    "editorLayoutBody": "Inhalt",
+    "editorLayoutBodyHelp": "Roher HTML, CSS und JS. Wird in einem isolierten iframe gerendert.",
+    "filterLayouts": "Layouts",
+    "categoryLayout": "Layout",
+    "official": "Offiziell"
   },
   "workspace": {
     "team": "Team",
@@ -972,8 +995,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1143,8 +1165,7 @@
         "availableBalance": "Verfügbares Guthaben",
         "autoTopUp": "Auto-Aufladung",
         "autoTopUpOn": "Ein",
-        "topUp": "Aufladen",
-        "newTopUpsCharged": "Neue Aufladungen werden in {currency} berechnet."
+        "topUp": "Aufladen"
       },
       "activity": {
         "title": "Ausgabenaktivität",
@@ -1227,7 +1248,6 @@
       "topUpModal": {
         "title": "Guthaben aufladen",
         "amount": "Betrag",
-        "chargeCurrency": "Abrechnungswährung",
         "minMaxNote": "Min. {min} · Max. {max} pro Aufladung.",
         "amountRangeError": "Der Betrag muss zwischen {min} und {max} liegen.",
         "checkoutError": "Checkout konnte nicht gestartet werden. Bitte erneut versuchen.",
@@ -1241,7 +1261,6 @@
         "enableDesc": "Guthaben automatisch nachladen, wenn es niedrig ist.",
         "triggerBelow": "Auslösen unterhalb",
         "addAmount": "Betrag hinzufügen",
-        "note": "Abbuchungen erfolgen in Ihrer aktuellen Aufladewährung. Ändern Sie sie im Aufladen-Dialog.",
         "done": "Fertig"
       },
       "policies": {
@@ -1487,12 +1506,22 @@
       "contactSupport": "Support kontaktieren"
     }
   },
+  "docs": {
+    "searchPlaceholder": "Dokumentation durchsuchen…",
+    "searchEmpty": "Keine Treffer.",
+    "accountMenu": "Kontomenü",
+    "dashboard": "Dashboard",
+    "signOut": "Abmelden",
+    "signIn": "Anmelden",
+    "loadError": "Diese Seite konnte nicht geladen werden.",
+    "tryAgain": "Erneut versuchen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "contact": "Kontakt",
+    "onThisPage": "Auf dieser Seite"
+  },
   "legalDocs": {
     "loadError": "Dieses Dokument konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
-    "documentation": {
-      "title": "Dokumentation",
-      "subtitle": "Anleitungen und Konzepte für die Entwicklung mit Polymux."
-    },
     "privacy": {
       "title": "Datenschutzrichtlinie",
       "subtitle": "Wie wir Ihre Daten bei der Nutzung von Polymux erfassen, verwenden und schützen."

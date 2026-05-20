@@ -77,6 +77,7 @@ onUnmounted(() => {
               <input
                 ref="inputRef"
                 v-model="searchQuery"
+                name="global-search"
                 type="text"
                 :placeholder="t('search.placeholder')"
                 class="flex-1 bg-transparent text-body-lg outline-none placeholder:text-secondary text-on-surface"

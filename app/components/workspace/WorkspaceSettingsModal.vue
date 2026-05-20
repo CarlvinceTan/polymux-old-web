@@ -607,6 +607,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
                   <input
                     ref="avatarInput"
+                    name="workspace-avatar"
                     type="file"
                     accept="image/*"
                     class="hidden"

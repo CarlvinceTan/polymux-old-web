@@ -32,7 +32,13 @@
     "cookiesPolicy": "Politique des cookies",
     "reportBug": "Signaler un bug",
     "getHelp": "Obtenir de l'aide",
-    "dismiss": "Fermer"
+    "dismiss": "Fermer",
+    "toast": {
+      "warning": "Avertissement",
+      "error": "Erreur",
+      "info": "Info",
+      "loading": "Chargement…"
+    }
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -124,7 +130,6 @@
     "payment": "Paiement",
     "general": "Général",
     "language": "Langue",
-    "currency": "Devise",
     "locationSharing": "Partage de localisation",
     "locationGranted": "Accès à la localisation autorisé",
     "locationDenied": "Bloqué par le navigateur — mettre à jour dans les paramètres du navigateur",
@@ -135,6 +140,7 @@
     "showCursor": "Afficher le curseur",
     "showCursorHint": "Affiche un curseur en flèche sur le viewport du navigateur en direct, à la position où l'agent pointe ou clique. Utile pour observer la souris simulée en temps réel. Désactivé par défaut.",
     "notifications": "Notifications",
+    "allNotifications": "Toutes les notifications",
     "emailNotif": "E-mail",
     "pushNotif": "Push",
     "productUpdates": "Mises à jour produit",
@@ -282,10 +288,6 @@
       "artifacts": "Artefacts"
     },
     "liveBadge": "En direct",
-    "wireStyle": "Style de fil",
-    "wireFluid": "Fluide",
-    "wireLinear": "Linéaire",
-    "wireStep": "Escalier",
     "resizeNode": "Redimensionner",
     "lockNode": "Verrouiller le nœud",
     "unlockNode": "Déverrouiller le nœud",
@@ -309,14 +311,26 @@
     "wireMaxIterationsLabel": "Itér. max",
     "wireMaxIterationsPlaceholder": "Limite le nombre de tirages de cet arc (boucles)",
     "duplicateEdgeToast": "Une connexion existe déjà entre ces nœuds.",
-    "repeatLabel": "Répéter",
-    "repeatPlaceholder": "Nombre de fois à exécuter cette étape (par défaut 1)",
-    "repeatHelp": "Exécutez cette étape N fois de suite avant de continuer.",
+    "iterationsLabel": "Itérations",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "Nombre d'exécutions de cette étape. Par défaut 1 (une fois).",
     "embedLoading": "Chargement du workflow référencé…",
     "embedEmpty": "Le workflow référencé n'a pas encore d'étapes.",
     "embedMissing": "Workflow référencé introuvable",
     "embedThumbnailAlt": "Mini-aperçu du workflow référencé",
-    "embedThumbnailTruncated": "+{n} étapes supplémentaires non affichées"
+    "embedThumbnailTruncated": "+{n} étapes supplémentaires non affichées",
+    "addNodeBlank": "Nœud vierge",
+    "addNodeBlankDesc": "Une nouvelle étape dont vous écrivez les actions",
+    "addNodeEmbed": "Workflow intégré",
+    "addNodeEmbedDesc": "Exécuter un workflow enregistré comme étape",
+    "embedWorkflowLabel": "Workflow",
+    "embedSelectWorkflow": "Sélectionner un workflow",
+    "embedSearchPlaceholder": "Rechercher des workflows…",
+    "embedNoWorkflows": "Aucun workflow disponible",
+    "embedNoMatches": "Aucun workflow correspondant",
+    "embedPendingTitle": "Choisir un workflow",
+    "embedUnboundToast": "Aucun workflow n'est sélectionné pour cet embed — choisissez-en un dans le panneau d'infos.",
+    "embedOpen": "Ouvrir le workflow référencé →"
   },
   "dashboard": {
     "console": "Console",
@@ -507,7 +521,16 @@
     "localMigrateFailed": "La migration n'a pas abouti.",
     "localExporting": "Déplacement des fichiers hors de cet appareil…",
     "localExportDone": "Vos fichiers d'espace de travail ne sont plus uniquement sur cet appareil.",
-    "localExportFailed": "La migration n'a pas abouti."
+    "localExportFailed": "La migration n'a pas abouti.",
+    "editorNewLayout": "Disposition",
+    "editorNewLayoutDesc": "Créez du HTML/CSS/JS personnalisé qui s'affiche comme un onglet sur les pages de section de l'espace de travail.",
+    "editorLayoutSection": "Section",
+    "editorLayoutSectionHelp": "À quelle section de l'espace de travail l'onglet est attaché.",
+    "editorLayoutBody": "Contenu",
+    "editorLayoutBodyHelp": "HTML, CSS et JS bruts. Rendu dans une iframe isolée.",
+    "filterLayouts": "Dispositions",
+    "categoryLayout": "Disposition",
+    "official": "Officiel"
   },
   "workspace": {
     "team": "Équipe",
@@ -972,8 +995,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1143,8 +1165,7 @@
         "availableBalance": "Solde disponible",
         "autoTopUp": "Recharge auto",
         "autoTopUpOn": "Activée",
-        "topUp": "Recharger",
-        "newTopUpsCharged": "Les prochaines recharges seront facturées en {currency}."
+        "topUp": "Recharger"
       },
       "activity": {
         "title": "Activité des dépenses",
@@ -1227,7 +1248,6 @@
       "topUpModal": {
         "title": "Recharger le solde",
         "amount": "Montant",
-        "chargeCurrency": "Devise du débit",
         "minMaxNote": "Min {min} · Max {max} par recharge.",
         "amountRangeError": "Le montant doit être compris entre {min} et {max}.",
         "checkoutError": "Impossible de démarrer le paiement. Veuillez réessayer.",
@@ -1241,7 +1261,6 @@
         "enableDesc": "Recharger automatiquement le solde lorsqu’il est faible.",
         "triggerBelow": "Déclencher en dessous de",
         "addAmount": "Montant à ajouter",
-        "note": "Les débits utilisent votre devise de recharge actuelle. Modifiez-la depuis la fenêtre de recharge.",
         "done": "Terminé"
       },
       "policies": {
@@ -1487,12 +1506,22 @@
       "contactSupport": "Contacter le support"
     }
   },
+  "docs": {
+    "searchPlaceholder": "Rechercher dans la documentation…",
+    "searchEmpty": "Aucun résultat.",
+    "accountMenu": "Menu du compte",
+    "dashboard": "Tableau de bord",
+    "signOut": "Se déconnecter",
+    "signIn": "Se connecter",
+    "loadError": "Cette page n'a pas pu être chargée.",
+    "tryAgain": "Réessayer",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "contact": "Contact",
+    "onThisPage": "Sur cette page"
+  },
   "legalDocs": {
     "loadError": "Ce document n'a pas pu être chargé. Veuillez réessayer plus tard.",
-    "documentation": {
-      "title": "Documentation",
-      "subtitle": "Guides et concepts pour construire avec Polymux."
-    },
     "privacy": {
       "title": "Politique de confidentialité",
       "subtitle": "Comment nous collectons, utilisons et protégeons vos informations lorsque vous utilisez Polymux."

@@ -999,7 +999,7 @@ onUnmounted(() => {
             <div v-else
               class="group relative flex w-full items-center justify-between rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950">
               <input v-model="editingValue" @keyup.enter="confirmRename(session.id)" @keyup.esc="cancelRename"
-                @blur="confirmRename(session.id)" type="text"
+                @blur="confirmRename(session.id)" type="text" name="session-rename"
                 class="flex-1 bg-transparent border-0 outline-none min-w-0 py-0.75 m-0 h-auto leading-normal"
                 autofocus />
             </div>

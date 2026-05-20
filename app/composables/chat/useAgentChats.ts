@@ -294,10 +294,16 @@ export function useAgentChats(session: SessionHandle) {
       state.thinking.value = null
       // Restore the working indicator iff the orchestrator was still mid-turn
       // when we last left this workflow (last persisted message is the user's
-      // prompt with no agent reply yet). Otherwise clear it — coming back to
-      // a workflow whose response landed in the DB while we were away should
-      // not look like it's still thinking.
-      state.waitingForAgent.value = history[history.length - 1]?.role === 'user'
+      // prompt with no agent reply yet) AND the server confirms chat activity
+      // is currently in flight. Without the server check, a turn that was
+      // interrupted before the reply persisted (server crash, hard refresh
+      // mid-stream) would resurrect the dots forever — the DB stays at
+      // "last=user" but nothing is actually working. If session_state hasn't
+      // arrived yet, leave the flag off; the upcoming session_state or live
+      // events (agent_thinking / partial agent_message) will arm it.
+      state.waitingForAgent.value =
+        history[history.length - 1]?.role === 'user' &&
+        session.sessionState.value?.running_kind === 'chat'
     }
 
     return {
@@ -402,12 +408,17 @@ export function useAgentChats(session: SessionHandle) {
     }
   }
 
-  function handleBrowserSpawned(_p: BrowserSpawnedPayload) {
+  function handleBrowserSpawned(p: BrowserSpawnedPayload) {
     clearOrchestratorSendRollback()
-    // Re-arm waitingForAgent — same reason as the partial / thinking paths:
-    // the orchestrator is actively delegating, so the indicator should stay
-    // up even if loadHistory just cleared it on rehydrate.
-    orchestratorState.waitingForAgent.value = true
+    // Re-arm waitingForAgent only when the spawn carries an active task —
+    // status="running" means the spawner seeded a task, which is the
+    // orchestrator's MessageAgent tool delegating mid-turn. The user's "+"
+    // tile arrives with status="ready" and no orchestrator turn behind it;
+    // arming the dots there falsely suggests the orchestrator is working
+    // when nothing actually is.
+    if (p.status === 'running') {
+      orchestratorState.waitingForAgent.value = true
+    }
     if (orchestratorState.streamingBuffer) {
       orchestratorState.streamingBuffer = null
       orchestratorState.isStreaming.value = false

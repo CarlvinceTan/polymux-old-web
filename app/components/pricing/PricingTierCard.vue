@@ -19,9 +19,20 @@ const props = withDefaults(
     panelId?: string
     /** When true the panel is greyed out and the CTA reads "Current Plan". */
     isCurrent?: boolean
+    /** When true the panel is greyed out and click is a no-op (e.g. downgrades). */
+    disabled?: boolean
   }>(),
-  { compareAtPrice: undefined, isCurrent: false },
+  { compareAtPrice: undefined, isCurrent: false, disabled: false },
 )
+
+const emit = defineEmits<{
+  select: []
+}>()
+
+function onClick() {
+  if (props.isCurrent || props.disabled) return
+  emit('select')
+}
 
 const sortedItems = computed(() =>
   [...props.items].sort((a, b) => {
@@ -30,12 +41,8 @@ const sortedItems = computed(() =>
   }),
 )
 
-const emit = defineEmits<{
-  select: []
-}>()
-
 const outerClass = computed(() => {
-  if (props.isCurrent) {
+  if (props.isCurrent || props.disabled) {
     return [
       'border p-5 transition-shadow opacity-60',
       'border-neutral-200 bg-neutral-50 cursor-default',
@@ -57,7 +64,8 @@ const outerClass = computed(() => {
     class="group relative flex h-full w-full flex-col rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
     :class="outerClass"
     :aria-pressed="selected"
-    @click="emit('select')"
+    :aria-disabled="disabled || isCurrent"
+    @click="onClick"
   >
     <div class="mb-4 min-h-[4rem]">
       <h3 class="text-2xl font-bold tracking-tight text-neutral-950 sm:text-[1.65rem]">
@@ -125,7 +133,7 @@ const outerClass = computed(() => {
       <span
         class="block w-full rounded-md px-4 py-2 text-center text-sm font-medium transition-opacity"
         :class="
-          isCurrent
+          isCurrent || disabled
             ? 'border border-neutral-200 bg-neutral-100 text-neutral-400 cursor-default'
             : selected
               ? 'bg-neutral-950 text-white hover:opacity-90'

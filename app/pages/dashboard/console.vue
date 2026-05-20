@@ -4,7 +4,7 @@ import type { WorkflowSummary } from '~/composables/workflows/useWorkflowList'
 import type { ScheduledWorkflowView } from '~/composables/workflows/useScheduledWorkflows'
 
 const { t } = useI18n()
-const { headerTabs } = useDashboardNavTabs()
+const { headerTabs, customTabs } = useDashboardNavTabs()
 const { sessions, fetchSessions, runningOverrides } = useWorkflowList()
 const { active: activeSchedules, fetchList: fetchSchedules, runsPerMonth } = useScheduledWorkflows()
 const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
@@ -133,6 +133,7 @@ function formatAbsolute(ms: number): string {
     <header class="shrink-0">
       <PageHeader
         :tabs="headerTabs"
+        :custom-tabs="customTabs"
         raw-tab-labels
       />
     </header>

@@ -215,6 +215,7 @@ function goBack() {
             <form class="mt-3 space-y-3" novalidate @submit.prevent="submitReply">
               <textarea
                 v-model="replyBody"
+                name="forum-reply"
                 rows="5"
                 maxlength="20000"
                 :placeholder="t('forum.replyPlaceholder')"

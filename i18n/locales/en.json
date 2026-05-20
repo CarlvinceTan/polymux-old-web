@@ -32,7 +32,13 @@
     "cookiesPolicy": "Cookies policy",
     "reportBug": "Report bug",
     "getHelp": "Get help",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "toast": {
+      "warning": "Warning",
+      "error": "Error",
+      "info": "Info",
+      "loading": "Loading…"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -124,7 +130,6 @@
     "payment": "Payment",
     "general": "General",
     "language": "Language",
-    "currency": "Currency",
     "locationSharing": "Location sharing",
     "locationGranted": "Location access allowed",
     "locationDenied": "Blocked by browser — update in browser settings",
@@ -135,6 +140,8 @@
     "showCursor": "Show cursor",
     "showCursorHint": "Renders an arrow cursor on top of the live browser viewport at the position the agent is hovering or clicking. Useful for watching the simulated mouse in real time. Off by default.",
     "notifications": "Notifications",
+    "allNotifications": "All notifications",
+    "allNotificationsHint": "Master switch for non-essential emails the app sends you (workspace invitations, newsletter, etc.). Important account messages still come through.",
     "emailNotif": "Email",
     "pushNotif": "Push",
     "productUpdates": "Product updates",
@@ -282,10 +289,6 @@
       "artifacts": "Artifacts"
     },
     "liveBadge": "Live",
-    "wireStyle": "Wire style",
-    "wireFluid": "Fluid",
-    "wireLinear": "Linear",
-    "wireStep": "Step",
     "resizeNode": "Resize",
     "editWire": "Edit wire",
     "deleteWire": "Delete wire",
@@ -309,14 +312,26 @@
     "keepMine": "Keep mine",
     "moreInstances": "more",
     "duplicateEdgeToast": "A wire already connects those nodes.",
-    "repeatLabel": "Repeat",
-    "repeatPlaceholder": "Number of times to run this step (default 1)",
-    "repeatHelp": "Run this step N times in succession before continuing.",
+    "iterationsLabel": "Iterations",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "Number of times this step runs. Default 1 (runs once).",
     "embedLoading": "Loading referenced workflow…",
     "embedEmpty": "Referenced workflow has no steps yet.",
     "embedMissing": "Referenced workflow not found",
     "embedThumbnailAlt": "Mini preview of the referenced workflow",
-    "embedThumbnailTruncated": "+{n} more steps not shown"
+    "embedThumbnailTruncated": "+{n} more steps not shown",
+    "addNodeBlank": "Blank node",
+    "addNodeBlankDesc": "A new step you write actions for",
+    "addNodeEmbed": "Embedded workflow",
+    "addNodeEmbedDesc": "Run a saved workflow as a step",
+    "embedWorkflowLabel": "Workflow",
+    "embedSelectWorkflow": "Select workflow",
+    "embedSearchPlaceholder": "Search workflows…",
+    "embedNoWorkflows": "No workflows available",
+    "embedNoMatches": "No matching workflows",
+    "embedPendingTitle": "Pick a workflow",
+    "embedUnboundToast": "This embed has no workflow selected — pick one in the info panel.",
+    "embedOpen": "Open referenced workflow →"
   },
   "dashboard": {
     "console": "Console",
@@ -408,6 +423,12 @@
     "editorNewWorkflowDesc": "Publish an existing workflow definition for others to install.",
     "editorNewPlugin": "Plugin",
     "editorNewPluginDesc": "Bundle connections and workflows together as one installable item.",
+    "editorNewLayout": "Layout",
+    "editorNewLayoutDesc": "Author custom HTML/CSS/JS that renders as a tab on workspace section pages.",
+    "editorLayoutSection": "Section",
+    "editorLayoutSectionHelp": "Which workspace section the tab attaches to.",
+    "editorLayoutBody": "Body",
+    "editorLayoutBodyHelp": "Raw HTML, CSS, and JS. Rendered inside a sandboxed iframe.",
     "editorBack": "Back",
     "editorPublish": "Publish",
     "editorPublishing": "Publishing…",
@@ -460,6 +481,7 @@
     "filterAll": "All",
     "filterWorkflows": "Workflows",
     "filterPlugins": "Plugins",
+    "filterLayouts": "Layouts",
     "filterIntegrations": "Connections",
     "filterInstalled": "Installed",
     "tagFilterBanner": "Showing listings tagged \"{tag}\".",
@@ -484,6 +506,7 @@
     "connect": "Connect",
     "categoryWorkflow": "Workflow",
     "categoryPlugin": "Plugin",
+    "categoryLayout": "Layout",
     "categoryConnection": "Connection",
     "categoryIntegration": "Integration",
     "connectedBy": "Connected by {email}",
@@ -508,7 +531,8 @@
     "localMigrateFailed": "Migration didn't finish.",
     "localExporting": "Moving files off this device…",
     "localExportDone": "Your workspace files are no longer only on this device.",
-    "localExportFailed": "Migration didn't finish."
+    "localExportFailed": "Migration didn't finish.",
+    "official": "Official"
   },
   "workspace": {
     "team": "Team",
@@ -946,7 +970,7 @@
       "pricing": "Pricing",
       "community": "Community",
       "contactUs": "Contact Us",
-      "installApp": "Install"
+      "installApp": "Install Apps"
     },
     "header": {
       "accountMenu": "Account menu",
@@ -974,8 +998,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1145,8 +1168,7 @@
         "availableBalance": "Available balance",
         "autoTopUp": "Auto top-up",
         "autoTopUpOn": "On",
-        "topUp": "Top up",
-        "newTopUpsCharged": "New top-ups will be charged in {currency}."
+        "topUp": "Top up"
       },
       "activity": {
         "title": "Spending activity",
@@ -1229,7 +1251,6 @@
       "topUpModal": {
         "title": "Top up balance",
         "amount": "Amount",
-        "chargeCurrency": "Charge currency",
         "minMaxNote": "Min {min} · Max {max} per top-up.",
         "amountRangeError": "Amount must be between {min} and {max}.",
         "checkoutError": "Couldn't start checkout. Please try again.",
@@ -1243,7 +1264,6 @@
         "enableDesc": "Automatically reload your balance when it gets low.",
         "triggerBelow": "Trigger when below",
         "addAmount": "Add amount",
-        "note": "Charges use your current top-up currency. You can change it from the Top up modal.",
         "done": "Done"
       },
       "policies": {
@@ -1511,12 +1531,22 @@
       "contactSupport": "Contact support"
     }
   },
+  "docs": {
+    "searchPlaceholder": "Search docs…",
+    "searchEmpty": "No matching pages.",
+    "accountMenu": "Account menu",
+    "dashboard": "Dashboard",
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "loadError": "This page could not be loaded.",
+    "tryAgain": "Try again",
+    "previous": "Previous",
+    "next": "Next",
+    "contact": "Contact",
+    "onThisPage": "On this page"
+  },
   "legalDocs": {
     "loadError": "This document could not be loaded. Please try again later.",
-    "documentation": {
-      "title": "Documentation",
-      "subtitle": "Guides and concepts for building with Polymux."
-    },
     "privacy": {
       "title": "Privacy policy",
       "subtitle": "How we collect, use, and protect your information when you use Polymux."

@@ -112,6 +112,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </label>
                   <input
                     v-model="path"
+                    name="artifact-path"
                     type="text"
                     :placeholder="artifact?.name ?? ''"
                     autofocus

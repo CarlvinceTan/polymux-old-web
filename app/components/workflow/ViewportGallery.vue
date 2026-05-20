@@ -347,7 +347,7 @@ function viewportHandlers(agentId: string) {
 
         <button
           type="button"
-          class="group/add flex min-w-0 cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors hover:bg-neutral-950/4 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
+          class="group/add flex min-w-0 cursor-pointer flex-col items-stretch self-start overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors hover:bg-neutral-950/4 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
           :class="isAtCap ? 'opacity-40' : ''"
           :aria-label="t('browser.addAgent')"
           @click="onSpawnOrWarn"
@@ -388,6 +388,7 @@ function viewportHandlers(agentId: string) {
         <UIcon name="i-heroicons-magnifying-glass-minus-20-solid" class="size-3.5" />
         <input
           v-model.number="sliderDrag"
+          name="gallery-zoom"
           type="range"
           :min="GALLERY_MIN_COLS"
           :max="effectiveMaxCols"

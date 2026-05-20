@@ -13,12 +13,14 @@ export default defineEventHandler(async (event) => {
     settings?: Record<string, unknown>
     cloaked_browser_enabled?: boolean
     show_cursor_overlay?: boolean
+    all_notifications_enabled?: boolean
   }>(event)
 
   if (
     typeof body.blog_newsletter_subscribed !== 'boolean'
     && typeof body.cloaked_browser_enabled !== 'boolean'
     && typeof body.show_cursor_overlay !== 'boolean'
+    && typeof body.all_notifications_enabled !== 'boolean'
     && body.settings === undefined
   ) {
     throw createError({ statusCode: 400, statusMessage: 'No valid settings provided.' })
@@ -31,6 +33,7 @@ export default defineEventHandler(async (event) => {
     p_settings: (body.settings as Json) ?? undefined,
     p_cloaked_browser_enabled: body.cloaked_browser_enabled ?? undefined,
     p_show_cursor_overlay: body.show_cursor_overlay ?? undefined,
+    p_all_notifications_enabled: body.all_notifications_enabled ?? undefined,
   })
 
   if (error) {
@@ -42,6 +45,7 @@ export default defineEventHandler(async (event) => {
     blog_newsletter_subscribed: data.blog_newsletter_subscribed,
     cloaked_browser_enabled: data.cloaked_browser_enabled,
     show_cursor_overlay: data.show_cursor_overlay,
+    all_notifications_enabled: data.all_notifications_enabled,
     settings: data.settings,
     updated_at: data.updated_at,
   }

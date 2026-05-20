@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       agreement_acceptances: {
@@ -227,6 +252,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      blog_posts: {
+        Row: {
+          accent: string
+          author_id: string | null
+          body_markdown: string
+          category: string | null
+          cover_image_url: string | null
+          created_at: string
+          excerpt: string
+          id: string
+          published_at: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          author_id?: string | null
+          body_markdown?: string
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string
+          id?: string
+          published_at?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          author_id?: string | null
+          body_markdown?: string
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string
+          id?: string
+          published_at?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       budgets: {
         Row: {
@@ -604,6 +674,38 @@ export type Database = {
           },
         ]
       }
+      integration_layout_refs: {
+        Row: {
+          body: string
+          created_at: string
+          integration_id: string
+          target_section: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          integration_id: string
+          target_section: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          integration_id?: string
+          target_section?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_layout_refs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: true
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_plugin_items: {
         Row: {
           child_integration_id: string
@@ -939,40 +1041,40 @@ export type Database = {
       }
       maintenance_windows: {
         Row: {
-          id: string
-          title: string
-          description: string
-          starts_at: string
-          ends_at: string
-          created_by: string | null
-          created_at: string
-          cancelled_at: string | null
-          initial_email_sent_at: string | null
           cancellation_email_sent_at: string | null
+          cancelled_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          ends_at: string
+          id: string
+          initial_email_sent_at: string | null
+          starts_at: string
+          title: string
         }
         Insert: {
-          id?: string
-          title: string
-          description?: string
-          starts_at: string
-          ends_at: string
-          created_by?: string | null
-          created_at?: string
-          cancelled_at?: string | null
-          initial_email_sent_at?: string | null
           cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          ends_at: string
+          id?: string
+          initial_email_sent_at?: string | null
+          starts_at: string
+          title: string
         }
         Update: {
-          id?: string
-          title?: string
-          description?: string
-          starts_at?: string
-          ends_at?: string
-          created_by?: string | null
-          created_at?: string
-          cancelled_at?: string | null
-          initial_email_sent_at?: string | null
           cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          ends_at?: string
+          id?: string
+          initial_email_sent_at?: string | null
+          starts_at?: string
+          title?: string
         }
         Relationships: []
       }
@@ -1218,6 +1320,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          all_notifications_enabled: boolean
           blog_newsletter_subscribed: boolean
           cloaked_browser_enabled: boolean
           created_at: string
@@ -1227,6 +1330,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          all_notifications_enabled?: boolean
           blog_newsletter_subscribed?: boolean
           cloaked_browser_enabled?: boolean
           created_at?: string
@@ -1236,6 +1340,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          all_notifications_enabled?: boolean
           blog_newsletter_subscribed?: boolean
           cloaked_browser_enabled?: boolean
           created_at?: string
@@ -1462,7 +1567,7 @@ export type Database = {
           created_by: string | null
           id: string
           impact_level: string
-          locked_step_indices: number[]
+          locked_node_ids: string[]
           source: string
           steps: Json
           tags: string[]
@@ -1478,7 +1583,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           impact_level?: string
-          locked_step_indices?: number[]
+          locked_node_ids?: string[]
           source?: string
           steps: Json
           tags?: string[]
@@ -1494,7 +1599,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           impact_level?: string
-          locked_step_indices?: number[]
+          locked_node_ids?: string[]
           source?: string
           steps?: Json
           tags?: string[]
@@ -1520,9 +1625,11 @@ export type Database = {
           description: string | null
           id: string
           is_running: boolean
+          last_browser_mode: string
           last_browser_states: Json
           last_viewport_urls: Json
           name: string
+          position: number
           running_kind: string | null
           updated_at: string
           workspace_id: string
@@ -1534,9 +1641,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_running?: boolean
+          last_browser_mode?: string
           last_browser_states?: Json
           last_viewport_urls?: Json
           name: string
+          position?: number
           running_kind?: string | null
           updated_at?: string
           workspace_id: string
@@ -1548,9 +1657,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_running?: boolean
+          last_browser_mode?: string
           last_browser_states?: Json
           last_viewport_urls?: Json
           name?: string
+          position?: number
           running_kind?: string | null
           updated_at?: string
           workspace_id?: string
@@ -1565,45 +1676,124 @@ export type Database = {
           },
         ]
       }
-      workspace_browser_states: {
+      workspace_browser_cookies: {
         Row: {
-          id: string
-          workspace_id: string
-          origin: string
-          vault_secret_id: string
-          fingerprint_seed: string | null
+          domain: string
+          expires_at: string | null
+          http_only: boolean
           last_seen_at: string
-          captured_by: string | null
-          last_used_by: string | null
-          last_used_at: string | null
-          use_count: number
-          enabled: boolean
+          name: string
+          observed_by: string | null
+          origin: string
+          path: string
+          same_site: string
+          secure: boolean
+          value_enc: string
+          workspace_id: string
         }
         Insert: {
-          id?: string
-          workspace_id: string
-          origin: string
-          vault_secret_id: string
-          fingerprint_seed?: string | null
+          domain: string
+          expires_at?: string | null
+          http_only?: boolean
           last_seen_at: string
-          captured_by?: string | null
-          last_used_by?: string | null
-          last_used_at?: string | null
-          use_count?: number
-          enabled?: boolean
+          name: string
+          observed_by?: string | null
+          origin: string
+          path: string
+          same_site?: string
+          secure?: boolean
+          value_enc: string
+          workspace_id: string
         }
         Update: {
-          id?: string
-          workspace_id?: string
-          origin?: string
-          vault_secret_id?: string
-          fingerprint_seed?: string | null
+          domain?: string
+          expires_at?: string | null
+          http_only?: boolean
           last_seen_at?: string
+          name?: string
+          observed_by?: string | null
+          origin?: string
+          path?: string
+          same_site?: string
+          secure?: boolean
+          value_enc?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_browser_cookies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_browser_keys: {
+        Row: {
+          created_at: string
+          vault_secret_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          vault_secret_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          vault_secret_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_browser_keys_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_browser_states: {
+        Row: {
+          captured_by: string | null
+          enabled: boolean
+          fingerprint_seed: string | null
+          id: string
+          last_seen_at: string
+          last_used_at: string | null
+          last_used_by: string | null
+          origin: string
+          use_count: number
+          vault_secret_id: string
+          workspace_id: string
+        }
+        Insert: {
           captured_by?: string | null
-          last_used_by?: string | null
-          last_used_at?: string | null
-          use_count?: number
           enabled?: boolean
+          fingerprint_seed?: string | null
+          id?: string
+          last_seen_at: string
+          last_used_at?: string | null
+          last_used_by?: string | null
+          origin: string
+          use_count?: number
+          vault_secret_id: string
+          workspace_id: string
+        }
+        Update: {
+          captured_by?: string | null
+          enabled?: boolean
+          fingerprint_seed?: string | null
+          id?: string
+          last_seen_at?: string
+          last_used_at?: string | null
+          last_used_by?: string | null
+          origin?: string
+          use_count?: number
+          vault_secret_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -1733,6 +1923,7 @@ export type Database = {
           id: string
           installed_via_plugin_id: string | null
           integration_version_id: string | null
+          key_external_id: string | null
           metadata: Json
           provider: string
           refresh_token_enc: string | null
@@ -1756,6 +1947,7 @@ export type Database = {
           id?: string
           installed_via_plugin_id?: string | null
           integration_version_id?: string | null
+          key_external_id?: string | null
           metadata?: Json
           provider: string
           refresh_token_enc?: string | null
@@ -1779,6 +1971,7 @@ export type Database = {
           id?: string
           installed_via_plugin_id?: string | null
           integration_version_id?: string | null
+          key_external_id?: string | null
           metadata?: Json
           provider?: string
           refresh_token_enc?: string | null
@@ -1951,6 +2144,7 @@ export type Database = {
           id: string
           is_weak: boolean
           last_used_at: string | null
+          last_used_by: string | null
           name: string
           updated_at: string
           url: string
@@ -1965,6 +2159,7 @@ export type Database = {
           id?: string
           is_weak?: boolean
           last_used_at?: string | null
+          last_used_by?: string | null
           name: string
           updated_at?: string
           url?: string
@@ -1979,6 +2174,7 @@ export type Database = {
           id?: string
           is_weak?: boolean
           last_used_at?: string | null
+          last_used_by?: string | null
           name?: string
           updated_at?: string
           url?: string
@@ -2029,6 +2225,35 @@ export type Database = {
           },
         ]
       }
+      workspace_token_usage: {
+        Row: {
+          tokens_used: number
+          updated_at: string
+          week_start: string
+          workspace_id: string
+        }
+        Insert: {
+          tokens_used?: number
+          updated_at?: string
+          week_start: string
+          workspace_id: string
+        }
+        Update: {
+          tokens_used?: number
+          updated_at?: string
+          week_start?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_token_usage_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           avatar_url: string | null
@@ -2071,6 +2296,20 @@ export type Database = {
         Args: { invite_token: string }
         Returns: Json
       }
+      capture_workspace_browser_cookies: {
+        Args: { p_cookies: Json; p_origin: string; p_workspace_id: string }
+        Returns: number
+      }
+      capture_workspace_browser_state: {
+        Args: {
+          p_fingerprint_seed: string
+          p_local_storage_delta: Json
+          p_observed_by: string
+          p_origin: string
+          p_workspace_id: string
+        }
+        Returns: undefined
+      }
       claim_due_scheduled_runs: {
         Args: { p_instance: string; p_limit: number; p_now: string }
         Returns: {
@@ -2078,9 +2317,14 @@ export type Database = {
           scheduled_for: string
           workflow_id: string
           workflow_version_id: string
+          workspace_id: string
         }[]
       }
       cleanup_anonymous_users: { Args: never; Returns: undefined }
+      count_workspace_workflow_runs_this_month: {
+        Args: { p_workspace_id: string }
+        Returns: number
+      }
       create_workspace_password: {
         Args: {
           p_is_weak?: boolean
@@ -2096,6 +2340,7 @@ export type Database = {
           id: string
           is_weak: boolean
           last_used_at: string | null
+          last_used_by: string | null
           name: string
           updated_at: string
           url: string
@@ -2130,16 +2375,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      delete_workspace_password: {
-        Args: { p_password_id: string }
-        Returns: undefined
-      }
       delete_workspace_browser_origin: {
         Args: { p_origin: string; p_workspace_id: string }
         Returns: undefined
       }
+      delete_workspace_password: {
+        Args: { p_password_id: string }
+        Returns: undefined
+      }
       effective_file_permission: {
         Args: { p_path: string; p_user_id: string; p_workspace_id: string }
+        Returns: string
+      }
+      ensure_workspace_browser_key: {
+        Args: { p_workspace_id: string }
         Returns: string
       }
       expire_stale_scheduled_runs: {
@@ -2149,6 +2398,7 @@ export type Database = {
       get_or_create_user_settings: {
         Args: { p_user_id: string }
         Returns: {
+          all_notifications_enabled: boolean
           blog_newsletter_subscribed: boolean
           cloaked_browser_enabled: boolean
           created_at: string
@@ -2172,10 +2422,19 @@ export type Database = {
         Args: { ws_id: string }
         Returns: Database["public"]["Enums"]["workspace_role"]
       }
+      get_workspace_token_usage: {
+        Args: { p_week_start: string; p_workspace_id: string }
+        Returns: number
+      }
       increment_forum_discussion_views: {
         Args: { p_id: string }
         Returns: undefined
       }
+      increment_workspace_token_usage: {
+        Args: { p_delta: number; p_week_start: string; p_workspace_id: string }
+        Returns: number
+      }
+      is_maintainer: { Args: never; Returns: boolean }
       is_workspace_member: { Args: { ws_id: string }; Returns: boolean }
       list_forum_discussions: {
         Args: {
@@ -2213,9 +2472,41 @@ export type Database = {
           workspace_id: string
         }[]
       }
+      load_workspace_browser_cookies: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          domain: string
+          expires_at: string
+          http_only: boolean
+          last_seen_at: string
+          name: string
+          origin: string
+          path: string
+          same_site: string
+          secure: boolean
+          value: string
+        }[]
+      }
+      load_workspace_browser_state: {
+        Args: { p_workspace_id: string }
+        Returns: {
+          fingerprint_seed: string
+          last_seen_at: string
+          local_storage: Json
+          origin: string
+        }[]
+      }
+      notifications_enabled_for_email: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
       peek_workspace_invitation: {
         Args: { invite_token: string }
         Returns: Json
+      }
+      reorder_workflows: {
+        Args: { p_ordered_ids: string[]; p_workspace_id: string }
+        Returns: undefined
       }
       soft_delete_workflow: {
         Args: { p_workflow_id: string }
@@ -2226,9 +2517,11 @@ export type Database = {
           description: string | null
           id: string
           is_running: boolean
+          last_browser_mode: string
           last_browser_states: Json
           last_viewport_urls: Json
           name: string
+          position: number
           running_kind: string | null
           updated_at: string
           workspace_id: string
@@ -2239,6 +2532,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      touch_workspace_browser_state_used: {
+        Args: { p_origin: string; p_used_by: string; p_workspace_id: string }
+        Returns: undefined
       }
       update_workspace_password: {
         Args: {
@@ -2255,6 +2552,7 @@ export type Database = {
           id: string
           is_weak: boolean
           last_used_at: string | null
+          last_used_by: string | null
           name: string
           updated_at: string
           url: string
@@ -2270,72 +2568,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      upsert_user_settings:
-        | {
-            Args: { p_blog_newsletter_subscribed?: boolean; p_settings?: Json }
-            Returns: {
-              blog_newsletter_subscribed: boolean
-              cloaked_browser_enabled: boolean
-              created_at: string
-              settings: Json
-              show_cursor_overlay: boolean
-              updated_at: string
-              user_id: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "user_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              p_blog_newsletter_subscribed?: boolean
-              p_cloaked_browser_enabled?: boolean
-              p_settings?: Json
-            }
-            Returns: {
-              blog_newsletter_subscribed: boolean
-              cloaked_browser_enabled: boolean
-              created_at: string
-              settings: Json
-              show_cursor_overlay: boolean
-              updated_at: string
-              user_id: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "user_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              p_blog_newsletter_subscribed?: boolean
-              p_cloaked_browser_enabled?: boolean
-              p_settings?: Json
-              p_show_cursor_overlay?: boolean
-            }
-            Returns: {
-              blog_newsletter_subscribed: boolean
-              cloaked_browser_enabled: boolean
-              created_at: string
-              settings: Json
-              show_cursor_overlay: boolean
-              updated_at: string
-              user_id: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "user_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      upsert_user_settings: {
+        Args: {
+          p_all_notifications_enabled?: boolean
+          p_blog_newsletter_subscribed?: boolean
+          p_cloaked_browser_enabled?: boolean
+          p_settings?: Json
+          p_show_cursor_overlay?: boolean
+        }
+        Returns: {
+          all_notifications_enabled: boolean
+          blog_newsletter_subscribed: boolean
+          cloaked_browser_enabled: boolean
+          created_at: string
+          settings: Json
+          show_cursor_overlay: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       wipe_descendant_file_permissions: {
         Args: { p_path: string; p_workspace_id: string }
+        Returns: number
+      }
+      workspace_browser_key_passphrase: {
+        Args: { p_workspace_id: string }
+        Returns: string
+      }
+      workspace_member_cap_for_plan: {
+        Args: { p_plan: string }
         Returns: number
       }
     }
@@ -2467,6 +2734,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       share_permission_level: ["viewer", "editor"],

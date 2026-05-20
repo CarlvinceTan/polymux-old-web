@@ -2,8 +2,9 @@ import { useAppToast } from '~/composables/ui/useAppToast'
 
 // User-facing taxonomy: integrations are code-based (first-party connectors
 // or third-party manifest+webhook), workflows are JSON definitions, plugins
-// bundle integrations + workflows. The marketplace catalog mixes all three.
-export type ItemCategory = 'integration' | 'workflow' | 'plugin'
+// bundle integrations + workflows, layouts are author-written HTML/CSS/JS
+// rendered into a TabPanel slot. The marketplace catalog mixes all four.
+export type ItemCategory = 'integration' | 'workflow' | 'plugin' | 'layout'
 
 export interface MarketplaceItem {
   /** Stable client-side id; matches `workspace_integrations.provider` and `integrations.slug`. */
@@ -39,6 +40,9 @@ export interface WorkspaceIntegration {
   root_folder_id: string | null
   root_folder_name: string | null
   metadata: Record<string, unknown>
+  /** Non-null when this row was created as a child of a plugin install; points at the parent `integrations.id`. */
+  installed_via_plugin_id: string | null
+  status: 'active' | 'needs_regrant' | 'disabled'
   created_at: string
   updated_at: string
 }
@@ -150,6 +154,35 @@ export function useMarketplace() {
     (catalog.value ?? []).filter(item => isInstalled(item.id)),
   )
 
+  // Server response shape for a successful single (workflow / integration)
+  // install vs a plugin install with bundle outcomes. Mirrors
+  // `POST /api/workspaces/[id]/integrations` in `server/api/workspaces/[id]/
+  // integrations/index.post.ts`.
+  type SingleInstallResponse = {
+    ok: true
+    kind: 'installed' | 'already_installed'
+    workspace_integration_id: string
+    provider: string
+  }
+  type PluginInstallResponse = {
+    ok: true
+    kind: 'plugin'
+    workspace_integration_id: string
+    provider: string
+    children: Array<
+      | { kind: 'installed', workspaceIntegrationId: string, slug: string }
+      | { kind: 'already_installed', workspaceIntegrationId: string, slug: string }
+      | { kind: 'requires_oauth', slug: string }
+      | { kind: 'error', slug: string, message: string }
+    >
+    requires_oauth_children: string[]
+    failed_children: { slug: string, message: string }[]
+  }
+
+  function nameForSlug(slug: string): string {
+    return (catalog.value ?? []).find(i => i.id === slug)?.name ?? slug
+  }
+
   async function install(id: string) {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
@@ -162,7 +195,7 @@ export function useMarketplace() {
 
     // First-party OAuth connectors and any catalog item flagged as needing
     // OAuth go through the redirect flow. Third-party tool/workflow/plugin
-    // installs (Phase 2+) hit the inline POST instead.
+    // installs hit the inline POST instead.
     if (item.requiresOauth) {
       if (import.meta.client) {
         window.location.href = `/api/integrations/${id}/connect?workspace_id=${workspaceId}`
@@ -171,11 +204,25 @@ export function useMarketplace() {
     }
 
     try {
-      await $fetch(`/api/workspaces/${workspaceId}/integrations`, {
-        method: 'POST',
-        body: { provider: id },
-      })
+      const res = await $fetch<SingleInstallResponse | PluginInstallResponse>(
+        `/api/workspaces/${workspaceId}/integrations`,
+        { method: 'POST', body: { provider: id } },
+      )
       await Promise.all([refreshConnections(), refreshCatalog()])
+
+      // Surface plugin outcomes. The shell + non-OAuth children are already
+      // installed at this point; we just tell the user what (if anything)
+      // they still need to do.
+      if (res.kind === 'plugin') {
+        if (res.requires_oauth_children.length) {
+          const names = res.requires_oauth_children.map(nameForSlug).join(', ')
+          toast.show(`Plugin installed. These connections still need to be set up: ${names}.`, 'info')
+        }
+        if (res.failed_children.length) {
+          const names = res.failed_children.map(c => nameForSlug(c.slug)).join(', ')
+          toast.show(`Some plugin items failed to install: ${names}.`, 'error')
+        }
+      }
     }
     catch (err) {
       console.error('[useMarketplace] install failed', err)

@@ -10,13 +10,13 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('blog_newsletter_subscribed, settings, updated_at')
+    .select('blog_newsletter_subscribed, all_notifications_enabled, settings, updated_at')
     .eq('user_id', user.sub)
     .single()
 
   if (error?.code === 'PGRST116') {
     // Row not found - create default settings
-    return { blog_newsletter_subscribed: false, settings: {}, updated_at: null }
+    return { blog_newsletter_subscribed: false, all_notifications_enabled: true, settings: {}, updated_at: null }
   }
 
   if (error) {

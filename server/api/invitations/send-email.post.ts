@@ -9,9 +9,15 @@
 // they wouldn't have a real invitation row backing it, and the accept link
 // would 404 anyway. Rate limiting / abuse protection is left to the Resend
 // account quota for now.
+//
+// Notifications gate: invitations are non-essential, so the send is routed
+// through sendNotificationEmail() — recipients who already have a Polymux
+// account and have disabled all notifications won't receive it. Recipients
+// without an account are sent unconditionally (the email is how they sign
+// up).
 
-import { Resend } from 'resend'
 import { serverSupabaseUser } from '#supabase/server'
+import { renderEmailLayout, sendNotificationEmail } from '../../utils/email'
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -46,53 +52,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig()
-  if (!config.resendApiKey) {
-    // No API key configured — skip silently so dev environments without
-    // Resend don't error. The invitation row still exists; the recipient
-    // just doesn't get the email.
-    return { ok: true, sent: false, reason: 'resend_not_configured' }
-  }
-
-  const resend = new Resend(config.resendApiKey)
   const appUrl = (config.public.appUrl as string | undefined) ?? 'http://localhost:3000'
   const acceptUrl = `${appUrl.replace(/\/$/, '')}/invitations/accept?token=${encodeURIComponent(token)}`
   const wsLabel = workspaceName || 'a workspace on Polymux'
   const inviter = inviterName || 'A teammate'
 
-  const { error } = await resend.emails.send({
-    from: 'Polymux <onboarding@resend.dev>',
-    to: [email],
+  const result = await sendNotificationEmail(event, {
+    to: email,
     subject: `${inviter} invited you to ${wsLabel} on Polymux`,
-    html: `
-      <p>Hi,</p>
-      <p>${escapeHtml(inviter)} invited you to join <strong>${escapeHtml(wsLabel)}</strong> on Polymux as a <strong>${escapeHtml(role)}</strong>.</p>
-      <p>
-        <a
-          href="${acceptUrl}"
-          style="display:inline-block;padding:10px 16px;background:#0a0a0a;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:500"
-        >Accept invitation</a>
-      </p>
-      <p style="color:#737373;font-size:13px">
-        Or paste this link into your browser:<br>
-        <a href="${acceptUrl}" style="color:#737373">${acceptUrl}</a>
-      </p>
-      <p style="color:#737373;font-size:13px">This link expires in 7 days.</p>
-    `,
+    html: renderEmailLayout({
+      title: 'You\'ve been invited to Polymux',
+      intro: `${inviter} invited you to join ${wsLabel} as a ${role}. Accept below to create your account and get started.`,
+      ctaLabel: 'Accept invitation',
+      ctaUrl: acceptUrl,
+      footer: 'If you weren\'t expecting this invitation, you can safely ignore this email. The link expires in 7 days.',
+      preheader: `${inviter} invited you to ${wsLabel} on Polymux.`,
+    }),
   })
 
-  if (error) {
-    console.error('[invitations/send-email] resend error', error)
-    throw createError({ statusCode: 502, statusMessage: 'Failed to send invitation email.' })
-  }
-
-  return { ok: true, sent: true }
+  return result
 })
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}

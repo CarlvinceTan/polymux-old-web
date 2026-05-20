@@ -9,7 +9,7 @@ type FilterValue = 'all' | ItemCategory
 type SortValue = 'recent' | 'nameAZ' | 'nameZA' | 'popularity'
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 
 const { listings, listPending: pending, fetchListings, refreshListings } = useEditorMyListings()
 
@@ -150,7 +150,7 @@ onUnmounted(() => {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel ref="tabPanelRef" class="min-h-0 min-w-0 flex-1">
@@ -165,6 +165,7 @@ onUnmounted(() => {
             </div>
             <input
               v-model="searchQuery"
+              name="publisher-search"
               type="text"
               :placeholder="t('integrations.editorSearchPlaceholder')"
               class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"
@@ -265,7 +266,7 @@ onUnmounted(() => {
             v-for="item in visiblePublishListings"
             :key="item.id"
             :to="`/integrations/publish/${item.id}`"
-            class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+            class="ghost-panel ghost-panel-hover group flex flex-col gap-3 rounded-xl bg-white p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
           >
             <div class="flex items-start gap-3">
               <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700">

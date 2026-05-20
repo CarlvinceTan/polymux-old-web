@@ -5,7 +5,7 @@ import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 
 const { t } = useI18n()
 
-const { headerTabs } = useVaultNavTabs()
+const { headerTabs, customTabs } = useVaultNavTabs()
 
 const {
   passwords,
@@ -217,7 +217,7 @@ onUnmounted(() => {
   <FeatureGate name="vault">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel ref="tabPanelRef" class="min-h-0 min-w-0 flex-1">
@@ -229,6 +229,7 @@ onUnmounted(() => {
             </div>
             <input
               v-model="searchQuery"
+              name="vault-passwords-search"
               type="text"
               :placeholder="t('vault.passwords.searchPlaceholder')"
               class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"

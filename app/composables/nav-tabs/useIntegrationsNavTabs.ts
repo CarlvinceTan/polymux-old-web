@@ -1,3 +1,5 @@
+import { useCustomTabs } from '~/composables/integrations/useCustomTabs'
+
 export function useIntegrationsNavTabs() {
   const { t } = useI18n()
   const headerTabs = computed(() => ({
@@ -5,5 +7,6 @@ export function useIntegrationsNavTabs() {
     [t('integrations.marketplace')]: '/integrations/marketplace',
     [t('integrations.publish')]: '/integrations/publish',
   } as Record<string, string>))
-  return { headerTabs }
+  const { tabs: customTabs } = useCustomTabs('integrations')
+  return { headerTabs, customTabs }
 }

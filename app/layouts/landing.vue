@@ -5,7 +5,6 @@ const user = useSupabaseUser()
 const { signOut } = useSignOut()
 
 const { locale, locales, setLocale, t } = useI18n()
-const { detect: detectCurrency } = useCurrency()
 
 const availableLocales = computed(() =>
     (locales.value as Array<{ code: string; name: string }>).map(l => ({
@@ -32,12 +31,12 @@ function closeLocaleDropdown() {
 
 function toggleProfileDropdown() {
     isProfileDropdownOpen.value = !isProfileDropdownOpen.value
-    if (isProfileDropdownOpen.value) closeLocaleDropdown()
+    closeLocaleDropdown()
 }
 
 function toggleLocaleDropdown() {
     isLocaleOpen.value = !isLocaleOpen.value
-    if (isLocaleOpen.value) closeProfileDropdown()
+    if (isLocaleOpen.value && !user.value) closeProfileDropdown()
 }
 
 function handleLandingSettings() {
@@ -58,9 +57,8 @@ async function selectLandingLocale(locCode: string) {
 
 function handleLandingHeaderClickOutside(event: MouseEvent) {
     const target = event.target as Node
-    const insideProfileMenu = profileMenuRef.value?.contains(target)
-    const insideProfileTrigger = document.querySelector('.landing-profile-trigger')?.contains(target)
-    if (!insideProfileMenu && !insideProfileTrigger) closeProfileDropdown()
+    const insideProfileCluster = document.querySelector('.landing-profile-cluster')?.contains(target)
+    if (!insideProfileCluster) closeProfileDropdown()
 
     const insideLocaleMenu = localeMenuRef.value?.contains(target)
     const insideLocaleTrigger = localeTriggerRef.value?.contains(target)
@@ -251,7 +249,6 @@ function scrollLandingToTop() {
 }
 
 onMounted(() => {
-    void detectCurrency()
     attachLandingScrollHandlers()
     landingScrollEl?.addEventListener('scrollend', onLandingScrollEnd)
     document.addEventListener('click', handleLandingHeaderClickOutside)
@@ -405,43 +402,74 @@ const linkGroups = computed(() => [
                         {{ t('landing.nav.installApp') }}
                     </NuxtLink>
 
-                    <!-- Authenticated: account menu (desktop header only) -->
-                    <div v-if="user" class="relative hidden md:inline-flex">
+                    <!-- Authenticated: avatar + expanding action strip (desktop header only) -->
+                    <div v-if="user" class="landing-profile-cluster relative hidden md:flex md:items-center">
+                        <!-- Avatar trigger -->
                         <button type="button"
-                            class="landing-profile-trigger inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium leading-snug text-neutral-800 transition-colors hover:bg-neutral-100 outline-none"
-                            :aria-label="t('landing.header.accountMenu')" aria-haspopup="menu" :aria-expanded="isProfileDropdownOpen"
+                            class="landing-profile-trigger inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md outline-none transition-opacity hover:opacity-90"
+                            :aria-label="t('landing.header.accountMenu')" :aria-expanded="isProfileDropdownOpen"
                             @click="toggleProfileDropdown">
-                            <UIcon name="i-heroicons-user-20-solid" class="size-4 shrink-0 text-neutral-600"
-                                aria-hidden="true" />
-                            <span class="max-w-35 truncate">{{ displayName }}</span>
+                            <img v-if="avatarUrl" :src="avatarUrl" :alt="displayName"
+                                class="size-full object-cover" referrerpolicy="no-referrer" />
+                            <AccountIcon v-else :initials="initials" size="md" aria-hidden="true" />
                         </button>
 
-                        <Transition enter-active-class="transition duration-100 ease-out"
-                            leave-active-class="transition duration-75 ease-in"
-                            enter-from-class="opacity-0 -translate-y-0.5"
-                            leave-to-class="opacity-0 -translate-y-0.5">
-                            <div v-if="isProfileDropdownOpen" ref="profileMenuRef"
-                                class="absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
-                                role="menu">
-                                <button type="button" role="menuitem"
-                                    class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-neutral-800 transition-colors hover:bg-neutral-50 outline-none"
-                                    @click="handleLandingSettings">
-                                    {{ t('landing.header.settings') }}
-                                </button>
-                                <div class="mx-3 my-1 h-px bg-neutral-100"></div>
-                                <button type="button" role="menuitem"
-                                    class="block w-full px-3 py-1.5 text-left text-[13px] leading-tight text-red-600 transition-colors hover:bg-red-50/70 outline-none"
+                        <!-- Expanding action strip (language + sign out) -->
+                        <Transition
+                            enter-active-class="landing-strip-active"
+                            enter-from-class="landing-strip-collapsed"
+                            enter-to-class="landing-strip-open"
+                            leave-active-class="landing-strip-active"
+                            leave-from-class="landing-strip-open"
+                            leave-to-class="landing-strip-collapsed">
+                            <div v-show="isProfileDropdownOpen" class="flex items-center gap-2 pl-2">
+                                <div class="relative">
+                                    <button ref="localeTriggerRef" type="button"
+                                        class="group/tip relative inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+                                        :aria-label="t('landing.header.language')" aria-haspopup="menu"
+                                        :tabindex="isProfileDropdownOpen ? 0 : -1"
+                                        :aria-expanded="isLocaleOpen" @click="toggleLocaleDropdown">
+                                        <UIcon name="i-heroicons-globe-alt" class="size-4 shrink-0" aria-hidden="true" />
+                                        <span class="landing-tip">{{ t('landing.header.language') }}</span>
+                                    </button>
+
+                                    <Transition enter-active-class="transition duration-100 ease-out"
+                                        leave-active-class="transition duration-75 ease-in"
+                                        enter-from-class="opacity-0 -translate-y-0.5"
+                                        leave-to-class="opacity-0 -translate-y-0.5">
+                                        <div v-if="isLocaleOpen" ref="localeMenuRef"
+                                            class="absolute left-1/2 top-full z-50 mt-2 inline-flex max-h-72 -translate-x-1/2 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                                            role="menu">
+                                            <button v-for="loc in availableLocales"
+                                                :key="loc.code" type="button" role="menuitem"
+                                                class="whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
+                                                :class="locale === loc.code
+                                                    ? 'font-medium text-neutral-950'
+                                                    : 'text-neutral-700'"
+                                                @click="selectLandingLocale(loc.code)">
+                                                {{ loc.label }}
+                                            </button>
+                                        </div>
+                                    </Transition>
+                                </div>
+
+                                <button type="button"
+                                    class="group/tip relative inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+                                    :aria-label="t('landing.header.signOut')"
+                                    :tabindex="isProfileDropdownOpen ? 0 : -1"
                                     @click="handleLandingSignOut">
-                                    {{ t('landing.header.signOut') }}
+                                    <UIcon name="i-heroicons-arrow-right-start-on-rectangle-20-solid"
+                                        class="size-4 shrink-0" aria-hidden="true" />
+                                    <span class="landing-tip">{{ t('landing.header.signOut') }}</span>
                                 </button>
                             </div>
                         </Transition>
                     </div>
 
-                    <!-- Language (plain text trigger; panel hugs content width) -->
-                    <div class="relative hidden md:inline-flex flex-col items-center text-sm">
+                    <!-- Signed-out: standalone language -->
+                    <div v-if="!user" class="relative hidden md:inline-flex flex-col items-center text-sm">
                         <button ref="localeTriggerRef" type="button"
-                            class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-1 text-neutral-600 outline-none transition-colors hover:text-neutral-950"
+                            class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:text-neutral-950"
                             :aria-label="t('landing.header.language')" aria-haspopup="menu"
                             :aria-expanded="isLocaleOpen" @click="toggleLocaleDropdown">
                             <UIcon name="i-heroicons-globe-alt" class="size-[18px] shrink-0" aria-hidden="true" />
@@ -615,7 +643,8 @@ const linkGroups = computed(() => [
                     </p>
 
                     <div class="flex items-center gap-4">
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
+                        <a href="https://www.linkedin.com/company/polymuxai/" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
                             :aria-label="t('landing.footer.linkedIn')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -623,14 +652,17 @@ const linkGroups = computed(() => [
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600" :aria-label="t('landing.footer.x')">
+                        <a href="https://x.com/PolymuxAI" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
+                            :aria-label="t('landing.footer.x')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
                                     d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
+                        <a href="https://www.instagram.com/polymuxai/" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
                             :aria-label="t('landing.footer.instagram')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -638,7 +670,8 @@ const linkGroups = computed(() => [
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
+                        <a href="https://www.youtube.com/channel/UCWk26NQhk-l1g-AV9dnUpgw" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
                             :aria-label="t('landing.footer.youTube')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -646,7 +679,8 @@ const linkGroups = computed(() => [
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
+                        <a href="https://www.facebook.com/profile.php?id=61589842064261&amp;sk=about" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
                             :aria-label="t('landing.footer.facebook')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -654,7 +688,8 @@ const linkGroups = computed(() => [
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
+                        <a href="https://www.reddit.com/r/polymux/" target="_blank" rel="noopener noreferrer"
+                            class="text-neutral-400 transition-colors hover:text-neutral-600"
                             :aria-label="t('landing.footer.reddit')">
                             <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -662,16 +697,55 @@ const linkGroups = computed(() => [
                             </svg>
                         </a>
 
-                        <a href="#" class="text-neutral-400 transition-colors hover:text-neutral-600"
-                            :aria-label="t('landing.footer.discord')">
-                            <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z" />
-                            </svg>
-                        </a>
                     </div>
                 </div>
             </div>
         </footer>
     </div>
 </template>
+
+<style scoped>
+/* Avatar-cluster action strip: animates width + opacity so icons appear to
+   slide in from the right while the avatar shifts left. overflow:hidden is
+   only on the active phase so static state lets tooltips spill outside. */
+.landing-strip-active {
+    transition: max-width 200ms ease-out, opacity 200ms ease-out;
+    overflow: hidden;
+}
+.landing-strip-collapsed {
+    max-width: 0;
+    opacity: 0;
+}
+.landing-strip-open {
+    max-width: 100px;
+    opacity: 1;
+}
+
+/* Header action tooltip — mirrors `.canvas-tooltip` (WorkflowNodeCanvas.vue):
+   white shell, thin border, soft shadow, 11px text. Pops BELOW the button
+   since these icons live in the page header. Each consumer button supplies
+   `group/tip relative` so this rule's hover selector resolves. */
+.landing-tip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    z-index: 20;
+    margin-top: 0.5rem;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(229 229 229 / 0.8);
+    background-color: rgb(255 255 255);
+    padding: 0.25rem 0.5rem;
+    font-size: 11px;
+    line-height: 1;
+    color: rgb(82 82 82);
+    opacity: 0;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    pointer-events: none;
+    transition: opacity 100ms;
+}
+.group\/tip:hover > .landing-tip {
+    opacity: 1;
+}
+</style>

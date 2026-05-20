@@ -247,6 +247,7 @@ onMounted(loadState)
                     <p class="text-xs text-neutral-400">{{ t('permissions.allMembersDescription') }}</p>
                   </div>
                   <select
+                    name="all-members-permission"
                     class="rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-400"
                     :value="allMembersDraft"
                     @change="(e) => setDraft(allMembersKey, (e.target as HTMLSelectElement).value as GrantLevel | 'inherit')"
@@ -278,6 +279,7 @@ onMounted(loadState)
                       </p>
                     </div>
                     <select
+                      :name="`member-permission-${m.user_id}`"
                       class="rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-400"
                       :value="draft.get(m.user_id) ?? 'inherit'"
                       @change="(e) => setDraft(m.user_id, (e.target as HTMLSelectElement).value as GrantLevel | 'inherit')"

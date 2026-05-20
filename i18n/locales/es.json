@@ -32,7 +32,13 @@
     "cookiesPolicy": "Política de cookies",
     "reportBug": "Reportar error",
     "getHelp": "Obtener ayuda",
-    "dismiss": "Cerrar"
+    "dismiss": "Cerrar",
+    "toast": {
+      "warning": "Advertencia",
+      "error": "Error",
+      "info": "Información",
+      "loading": "Cargando…"
+    }
   },
   "nav": {
     "dashboard": "Panel",
@@ -124,7 +130,6 @@
     "payment": "Pago",
     "general": "General",
     "language": "Idioma",
-    "currency": "Moneda",
     "locationSharing": "Compartir ubicación",
     "locationGranted": "Acceso a la ubicación permitido",
     "locationDenied": "Bloqueado por el navegador — actualiza en la configuración del navegador",
@@ -135,6 +140,7 @@
     "showCursor": "Mostrar cursor",
     "showCursorHint": "Muestra un cursor de flecha sobre la vista en directo del navegador en la posición donde el agente está señalando o haciendo clic. Útil para observar el ratón simulado en tiempo real. Desactivado por defecto.",
     "notifications": "Notificaciones",
+    "allNotifications": "Todas las notificaciones",
     "emailNotif": "Correo electrónico",
     "pushNotif": "Push",
     "productUpdates": "Actualizaciones del producto",
@@ -282,10 +288,6 @@
       "artifacts": "Artefactos"
     },
     "liveBadge": "En vivo",
-    "wireStyle": "Estilo de cable",
-    "wireFluid": "Fluido",
-    "wireLinear": "Lineal",
-    "wireStep": "Escalonado",
     "resizeNode": "Redimensionar",
     "lockNode": "Bloquear nodo",
     "unlockNode": "Desbloquear nodo",
@@ -309,14 +311,26 @@
     "wireMaxIterationsLabel": "Iter. máx.",
     "wireMaxIterationsPlaceholder": "Limita cuántas veces se dispara esta arista (bucles)",
     "duplicateEdgeToast": "Ya existe una conexión entre esos nodos.",
-    "repeatLabel": "Repetir",
-    "repeatPlaceholder": "Número de veces para ejecutar este paso (predeterminado 1)",
-    "repeatHelp": "Ejecuta este paso N veces seguidas antes de continuar.",
+    "iterationsLabel": "Iteraciones",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "Número de veces que se ejecuta este paso. Predeterminado 1 (una vez).",
     "embedLoading": "Cargando flujo de trabajo referenciado…",
     "embedEmpty": "El flujo de trabajo referenciado aún no tiene pasos.",
     "embedMissing": "Flujo de trabajo referenciado no encontrado",
     "embedThumbnailAlt": "Vista previa mini del flujo de trabajo referenciado",
-    "embedThumbnailTruncated": "+{n} pasos más no mostrados"
+    "embedThumbnailTruncated": "+{n} pasos más no mostrados",
+    "addNodeBlank": "Nodo en blanco",
+    "addNodeBlankDesc": "Un nuevo paso para el que escribes las acciones",
+    "addNodeEmbed": "Flujo de trabajo incrustado",
+    "addNodeEmbedDesc": "Ejecutar un flujo de trabajo guardado como paso",
+    "embedWorkflowLabel": "Flujo de trabajo",
+    "embedSelectWorkflow": "Seleccionar flujo de trabajo",
+    "embedSearchPlaceholder": "Buscar flujos de trabajo…",
+    "embedNoWorkflows": "No hay flujos de trabajo disponibles",
+    "embedNoMatches": "Sin coincidencias",
+    "embedPendingTitle": "Elige un flujo de trabajo",
+    "embedUnboundToast": "Este incrustado no tiene flujo de trabajo seleccionado — elige uno en el panel de información.",
+    "embedOpen": "Abrir flujo de trabajo referenciado →"
   },
   "dashboard": {
     "console": "Consola",
@@ -507,7 +521,16 @@
     "localMigrateFailed": "La migración no se completó.",
     "localExporting": "Moviendo archivos fuera de este dispositivo…",
     "localExportDone": "Los archivos del espacio ya no están solo en este dispositivo.",
-    "localExportFailed": "La migración no se completó."
+    "localExportFailed": "La migración no se completó.",
+    "editorNewLayout": "Disposición",
+    "editorNewLayoutDesc": "Crea HTML/CSS/JS personalizado que se renderiza como pestaña en las páginas de sección del espacio de trabajo.",
+    "editorLayoutSection": "Sección",
+    "editorLayoutSectionHelp": "A qué sección del espacio de trabajo se adjunta la pestaña.",
+    "editorLayoutBody": "Cuerpo",
+    "editorLayoutBodyHelp": "HTML, CSS y JS sin procesar. Se renderiza dentro de un iframe aislado.",
+    "filterLayouts": "Disposiciones",
+    "categoryLayout": "Disposición",
+    "official": "Oficial"
   },
   "workspace": {
     "team": "Equipo",
@@ -972,8 +995,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1143,8 +1165,7 @@
         "availableBalance": "Saldo disponible",
         "autoTopUp": "Recarga automática",
         "autoTopUpOn": "Activa",
-        "topUp": "Recargar",
-        "newTopUpsCharged": "Las nuevas recargas se cobrarán en {currency}."
+        "topUp": "Recargar"
       },
       "activity": {
         "title": "Actividad de gasto",
@@ -1227,7 +1248,6 @@
       "topUpModal": {
         "title": "Recargar saldo",
         "amount": "Importe",
-        "chargeCurrency": "Moneda del cargo",
         "minMaxNote": "Mín. {min} · Máx. {max} por recarga.",
         "amountRangeError": "El importe debe estar entre {min} y {max}.",
         "checkoutError": "No se pudo iniciar el pago. Inténtalo de nuevo.",
@@ -1241,7 +1261,6 @@
         "enableDesc": "Recarga el saldo automáticamente cuando sea bajo.",
         "triggerBelow": "Activar por debajo de",
         "addAmount": "Importe a añadir",
-        "note": "Los cargos usan tu moneda actual de recarga. Cámbiala desde el modal de recarga.",
         "done": "Listo"
       },
       "policies": {
@@ -1487,12 +1506,22 @@
       "contactSupport": "Contactar con soporte"
     }
   },
+  "docs": {
+    "searchPlaceholder": "Buscar en la documentación…",
+    "searchEmpty": "Sin resultados.",
+    "accountMenu": "Menú de la cuenta",
+    "dashboard": "Panel",
+    "signOut": "Cerrar sesión",
+    "signIn": "Iniciar sesión",
+    "loadError": "No se pudo cargar esta página.",
+    "tryAgain": "Reintentar",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "contact": "Contacto",
+    "onThisPage": "En esta página"
+  },
   "legalDocs": {
     "loadError": "Este documento no se pudo cargar. Inténtalo más tarde.",
-    "documentation": {
-      "title": "Documentación",
-      "subtitle": "Guías y conceptos para construir con Polymux."
-    },
     "privacy": {
       "title": "Política de privacidad",
       "subtitle": "Cómo recopilamos, usamos y protegemos tu información cuando usas Polymux."

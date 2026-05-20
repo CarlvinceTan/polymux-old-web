@@ -27,11 +27,12 @@ export interface WorkflowNode {
   // display time and not editable on this node. Mutually exclusive with
   // hand-authored actions.
   workflow_ref?: string
-  // Run this node N times in succession before continuing through
-  // outgoing wires. Absent / 0 / 1 = single run (default). Distinct from
-  // a wire's max_iterations: repeat counts node firings within a single
-  // visit; max_iterations caps wire firings across the run.
-  repeat?: number
+  // Total number of times this node runs in succession before
+  // continuing through outgoing wires. Absent / 0 / 1 = single run
+  // (default); 2 = twice; etc. Distinct from a wire's max_iterations:
+  // iterations counts node firings within a single visit; max_iterations
+  // caps wire firings across the run.
+  iterations?: number
   // Presentation-only fields. The executor and orchestrator ignore them;
   // the canvas reads them when rendering and writes them back on user
   // drag / resize gestures.
@@ -89,8 +90,8 @@ export function normalizeNode(raw: unknown): WorkflowNode {
   const workflowRef = str(r.workflow_ref)
   if (workflowRef) out.workflow_ref = workflowRef
 
-  const repeat = num(r.repeat)
-  if (repeat !== undefined && repeat > 0) out.repeat = repeat
+  const iterations = num(r.iterations)
+  if (iterations !== undefined && iterations > 0) out.iterations = iterations
 
   if (r.position && typeof r.position === 'object') {
     out.position = r.position as NodePosition
@@ -146,8 +147,8 @@ export function normalizeNodePatch(raw: unknown): Partial<WorkflowNode> {
     out.workflow_ref = str(r.workflow_ref)
   }
 
-  if ('repeat' in r && typeof r.repeat === 'number' && Number.isFinite(r.repeat)) {
-    out.repeat = r.repeat
+  if ('iterations' in r && typeof r.iterations === 'number' && Number.isFinite(r.iterations)) {
+    out.iterations = r.iterations
   }
 
   if (r.position && typeof r.position === 'object') {

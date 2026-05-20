@@ -2,10 +2,12 @@
 import { useI18n } from '#imports'
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 const router = useRouter()
 
-const kind = ref<'integration' | 'workflow' | 'plugin' | null>(null)
+type Kind = 'integration' | 'workflow' | 'plugin' | 'layout'
+
+const kind = ref<Kind | null>(null)
 
 const KINDS = computed(() => ([
   {
@@ -26,9 +28,15 @@ const KINDS = computed(() => ([
     description: t('integrations.editorNewPluginDesc'),
     icon: 'i-heroicons-cube-transparent-20-solid',
   },
+  {
+    value: 'layout' as const,
+    title: t('integrations.editorNewLayout'),
+    description: t('integrations.editorNewLayoutDesc'),
+    icon: 'i-heroicons-squares-2x2-20-solid',
+  },
 ]))
 
-function pick(k: 'integration' | 'workflow' | 'plugin') {
+function pick(k: Kind) {
   kind.value = k
   router.push(`/integrations/publish/new/${k}`)
 }
@@ -37,7 +45,7 @@ function pick(k: 'integration' | 'workflow' | 'plugin') {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
@@ -64,7 +72,7 @@ function pick(k: 'integration' | 'workflow' | 'plugin') {
             v-for="k in KINDS"
             :key="k.value"
             type="button"
-            class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+            class="ghost-panel ghost-panel-hover group flex flex-col gap-3 rounded-xl bg-white p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
             @click="pick(k.value)"
           >
             <div class="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 transition-colors group-hover:bg-neutral-950 group-hover:text-white">

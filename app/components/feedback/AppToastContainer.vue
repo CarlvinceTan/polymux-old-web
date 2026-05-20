@@ -1,19 +1,42 @@
 <script setup lang="ts">
-import type { ToastAction } from '~/composables/ui/useAppToast'
+import type { Toast, ToastAction } from '~/composables/ui/useAppToast'
 import { useAppToast } from '~/composables/ui/useAppToast'
 
 const { t } = useI18n()
 const { toasts, dismiss } = useAppToast()
 
-function actionClass(variant: ToastAction['variant'] = 'default'): string {
-  switch (variant) {
-    case 'primary':
-      return 'bg-neutral-900 text-white hover:bg-neutral-800'
-    case 'danger':
-      return 'bg-red-600 text-white hover:bg-red-500'
-    default:
-      return 'bg-white/80 text-neutral-800 ring-1 ring-neutral-300 hover:bg-white'
-  }
+// Per-toast-type button palette so action buttons inherit the toast's hue
+// instead of defaulting to neutral black/white.
+//   primary = affirmative path (Keep / Save / Discard mine)
+//   default = secondary path (cancel-like)
+//   danger  = destructive — stays red regardless of toast hue
+type ActionPalette = Record<NonNullable<ToastAction['variant']>, string>
+
+const actionPaletteMap: Record<Toast['type'], ActionPalette> = {
+  warning: {
+    primary: 'bg-amber-600 text-white hover:bg-amber-500 focus-visible:ring-amber-500/50',
+    default: 'bg-amber-100 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200 focus-visible:ring-amber-500/50',
+    danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/50',
+  },
+  error: {
+    primary: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/50',
+    default: 'bg-red-100 text-red-900 ring-1 ring-red-300 hover:bg-red-200 focus-visible:ring-red-500/50',
+    danger: 'bg-red-700 text-white hover:bg-red-600 focus-visible:ring-red-500/50',
+  },
+  info: {
+    primary: 'bg-blue-600 text-white hover:bg-blue-500 focus-visible:ring-blue-500/50',
+    default: 'bg-blue-100 text-blue-900 ring-1 ring-blue-300 hover:bg-blue-200 focus-visible:ring-blue-500/50',
+    danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/50',
+  },
+  loading: {
+    primary: 'bg-neutral-700 text-white hover:bg-neutral-600 focus-visible:ring-neutral-500/50',
+    default: 'bg-neutral-100 text-neutral-800 ring-1 ring-neutral-300 hover:bg-neutral-200 focus-visible:ring-neutral-500/50',
+    danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/50',
+  },
+}
+
+function actionClass(type: Toast['type'], variant: ToastAction['variant'] = 'default'): string {
+  return actionPaletteMap[type][variant]
 }
 
 function runAction(toastId: string, action: ToastAction) {
@@ -64,49 +87,63 @@ const iconColorMap: Record<string, string> = {
           <div
             v-for="toast in toasts"
             :key="toast.id"
-            class="pointer-events-auto inline-flex max-w-[min(36rem,calc(100vw-2rem))] items-center gap-2.5 rounded-xl border p-3.5 shadow-lg"
+            class="pointer-events-auto flex w-[min(28rem,calc(100vw-2rem))] max-w-full flex-col rounded-xl border p-3.5 shadow-lg"
             :class="colorMap[toast.type]"
           >
-            <UIcon
-              :name="iconMap[toast.type]"
-              class="size-4 shrink-0"
-              :class="[iconColorMap[toast.type], toast.type === 'loading' ? 'animate-spin' : '']"
-              aria-hidden="true"
-            />
-            <p
-              class="m-0 min-w-0 shrink truncate text-sm leading-snug"
-              :title="toast.message"
-            >
-              {{ toast.message }}
-            </p>
+            <div class="flex items-start">
+              <UIcon
+                :name="iconMap[toast.type]"
+                class="mt-0.5 size-4 shrink-0"
+                :class="[iconColorMap[toast.type], toast.type === 'loading' ? 'animate-spin' : '']"
+                aria-hidden="true"
+              />
+              <!--
+                Middle column carries the header label and message. mr-3.5
+                (14px) on this column mirrors the toast's p-3.5 right padding
+                so the close-X has equal space on both sides —
+                toast-edge ↔ X == X ↔ text-right.
+              -->
+              <div class="ml-2.5 mr-3.5 min-w-0 flex-1">
+                <div class="text-sm font-semibold leading-snug">
+                  {{ t(`common.toast.${toast.type}`) }}
+                </div>
+                <p class="mt-1 whitespace-pre-line break-words text-sm leading-snug">
+                  {{ toast.message }}
+                </p>
+              </div>
+              <UIcon
+                name="i-heroicons-x-mark-20-solid"
+                role="button"
+                tabindex="0"
+                class="mt-0.5 size-4 shrink-0 cursor-pointer opacity-60 transition-opacity hover:opacity-100 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/45"
+                :aria-label="t('common.dismiss')"
+                @click.stop="dismiss(toast.id)"
+                @keydown.enter.prevent="dismiss(toast.id)"
+                @keydown.space.prevent="dismiss(toast.id)"
+              />
+            </div>
             <!--
-              Action buttons. Each click runs the action's callback AND
-              dismisses the toast — saves the caller from having to dismiss
-              by id in every onClick, and matches the "pick one then move
-              on" pattern (Discard / Keep).
+              Actions row sits below the header row and spans the full toast
+              width so justify-center positions the buttons in the visual
+              centre of the toast (not just the content column). mt-4 / mb-1
+              add breathing room above and below the buttons; clicking any
+              action runs its callback then dismisses the toast.
             -->
-            <template v-if="toast.actions && toast.actions.length > 0">
+            <div
+              v-if="toast.actions && toast.actions.length > 0"
+              class="mt-3 mb-0.5 flex flex-wrap justify-center gap-2"
+            >
               <button
                 v-for="action in toast.actions"
                 :key="action.label"
                 type="button"
-                class="shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/45"
-                :class="actionClass(action.variant)"
+                class="shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
+                :class="actionClass(toast.type, action.variant)"
                 @click.stop="runAction(toast.id, action)"
               >
                 {{ action.label }}
               </button>
-            </template>
-            <UIcon
-              name="i-heroicons-x-mark-20-solid"
-              role="button"
-              tabindex="0"
-              class="size-4 shrink-0 cursor-pointer opacity-60 transition-opacity hover:opacity-100 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/45"
-              :aria-label="t('common.dismiss')"
-              @click.stop="dismiss(toast.id)"
-              @keydown.enter.prevent="dismiss(toast.id)"
-              @keydown.space.prevent="dismiss(toast.id)"
-            />
+            </div>
           </div>
         </TransitionGroup>
       </div>

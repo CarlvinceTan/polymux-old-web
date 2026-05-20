@@ -204,7 +204,7 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                         <span>{{ t('onboarding.terms.bullet4') }}</span>
                       </li>
                     </ul>
-                    <p class="mt-4 text-xs text-neutral-500">
+                    <p class="mt-4 text-center text-xs text-neutral-500">
                       {{ t('onboarding.terms.footnote') }}
                       <NuxtLink
                         to="/terms-of-service"
@@ -220,11 +220,12 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                         {{ t('onboarding.terms.privacyPolicy') }}
                       </NuxtLink>{{ t('onboarding.terms.footnoteEnd') }}
                     </p>
-                    <label class="mt-3 flex cursor-pointer items-start gap-2">
+                    <label class="mx-auto mt-3 flex max-w-sm cursor-pointer items-start gap-2">
                       <input
                         v-model="acknowledged"
+                        name="acknowledged"
                         type="checkbox"
-                        class="mt-0.5 size-3.5 shrink-0 cursor-pointer appearance-none rounded-sm border border-neutral-300 bg-white checked:border-neutral-400 checked:bg-white checked:bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2016%2016%22%20fill=%22none%22%20stroke=%22%23404040%22%20stroke-width=%222.5%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22><polyline%20points=%223,8%207,12%2013,4%22/></svg>')] checked:bg-center checked:bg-no-repeat focus:outline-none focus:ring-1 focus:ring-neutral-300"
+                        class="onboarding-ack-checkbox mt-0.5 size-3.5 shrink-0 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400"
                       >
                       <span class="text-xs leading-snug text-neutral-500">
                         {{ t('onboarding.terms.acknowledgement') }}
@@ -281,7 +282,7 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                 v-else
                 type="button"
                 :disabled="!acknowledged"
-                class="inline-flex items-center gap-1 rounded-md bg-neutral-950 px-4 py-1.5 text-sm font-medium text-white outline-none transition-colors hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                class="inline-flex items-center gap-1 rounded-md bg-neutral-950 px-4 py-1.5 text-sm font-medium text-white outline-none transition-colors hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
                 @click="handleAccept"
               >
                 {{ t('onboarding.getStarted') }}
@@ -295,6 +296,27 @@ const SLIDE_HERO: Record<SlideKey, string> = {
 </template>
 
 <style scoped>
+/* Hard-override browser defaults so the box is monochrome (not the
+   user-agent blue/teal accent) and only the checkmark glyph changes
+   between states — the surrounding label text and footer button are
+   unaffected. */
+.onboarding-ack-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  accent-color: var(--color-primary);
+  background-color: #ffffff;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0.125rem;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 0.75rem 0.75rem;
+}
+.onboarding-ack-checkbox:checked {
+  background-color: #ffffff;
+  border-color: var(--color-neutral-500);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230a0a0a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='3,8 7,12 13,4'/></svg>");
+}
+
 .slide-fwd-enter-active,
 .slide-fwd-leave-active,
 .slide-back-enter-active,

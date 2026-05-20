@@ -101,6 +101,7 @@ const displayTokens = computed(() => {
     <div v-if="editing" class="mb-6 w-full rounded-[1.25rem] border border-neutral-300 bg-white px-3 py-2">
       <input
         ref="editFileInputRef"
+        name="edit-message-attachments"
         type="file"
         multiple
         class="absolute h-0 w-0 overflow-hidden opacity-0"

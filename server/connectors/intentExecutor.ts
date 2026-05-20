@@ -57,37 +57,10 @@ function register(def: ActionDefinition): void {
   ACTION_REGISTRY[def.action] = def
 }
 
-// Slack: post a message. Demonstrates the model end-to-end.
-register({
-  action: 'slack.chat.postMessage',
-  connectorSlug: 'slack',
-  polymuxScope: 'slack:chat.write',
-  upstreamScope: 'chat:write',
-  execute: async ({ accessToken, args }) => {
-    const channel = typeof args.channel === 'string' ? args.channel : null
-    const text = typeof args.text === 'string' ? args.text : null
-    if (!channel || !text) {
-      throw new IntentExecutionError('bad_args', 'slack.chat.postMessage requires {channel, text}')
-    }
-    const blocks = Array.isArray(args.blocks) ? args.blocks : undefined
-    const res = await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: JSON.stringify({ channel, text, blocks }),
-    })
-    if (!res.ok) {
-      throw new IntentExecutionError('upstream_error', `Slack returned ${res.status}`)
-    }
-    const json = await res.json() as { ok: boolean, error?: string, ts?: string, channel?: string }
-    if (!json.ok) {
-      throw new IntentExecutionError('upstream_error', `Slack: ${json.error ?? 'unknown'}`)
-    }
-    return { posted: true, ts: json.ts, channel: json.channel }
-  },
-})
+// No first-party tool actions are registered today — Slack/Gmail/etc. were
+// removed when their OAuth-only scaffolding came out. Add new actions with
+// `register({...})` once the relevant first-party connector exists.
+void register
 
 // ---------------------------------------------------------------------------
 // Public API

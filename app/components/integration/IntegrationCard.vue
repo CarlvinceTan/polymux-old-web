@@ -10,6 +10,8 @@ const props = defineProps<{
   author: string
   tags?: string[]
   popularity?: number
+  /** First-party (built by Polymux) — surfaces the Polymux logo next to the type icon. */
+  isFirstParty?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,18 +22,20 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 /** Matches IntegrationPublishModal / integrations/publish/new icons */
-const typeIcon = computed(() =>
-  props.category === 'workflow'
-    ? 'i-heroicons-bolt-20-solid'
-    : props.category === 'plugin'
-      ? 'i-heroicons-cube-transparent-20-solid'
-      : 'i-heroicons-link-20-solid',
-)
+const typeIcon = computed(() => {
+  switch (props.category) {
+    case 'workflow': return 'i-heroicons-bolt-20-solid'
+    case 'plugin': return 'i-heroicons-cube-transparent-20-solid'
+    case 'layout': return 'i-heroicons-squares-2x2-20-solid'
+    default: return 'i-heroicons-link-20-solid'
+  }
+})
 
 const typeLabel = computed(() => ({
   integration: t('integrations.categoryConnection'),
   workflow: t('integrations.categoryWorkflow'),
   plugin: t('integrations.categoryPlugin'),
+  layout: t('integrations.categoryLayout'),
 }[props.category]))
 
 function onTagClick(tag: string, event: MouseEvent) {
@@ -50,7 +54,7 @@ const downloadsLabel = computed(() => {
 <template>
   <button
     type="button"
-    class="ghost-panel group flex flex-col gap-3 rounded-xl bg-white p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+    class="ghost-panel ghost-panel-hover group flex flex-col gap-3 rounded-xl bg-white p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
     @click="$emit('open')"
   >
     <div class="flex items-start gap-3">
@@ -70,6 +74,14 @@ const downloadsLabel = computed(() => {
             >
               {{ typeLabel }}
             </span>
+          </span>
+          <!-- "Official" chip — first-party badge, sits to the RIGHT of the
+               type icon. Renders only for is_first_party rows. -->
+          <span
+            v-if="isFirstParty"
+            class="shrink-0 rounded-md bg-neutral-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+          >
+            {{ t('integrations.official') }}
           </span>
         </div>
         <p class="mt-0.5 truncate text-label-md text-neutral-500">

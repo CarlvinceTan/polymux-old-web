@@ -230,6 +230,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('credentialRequest.usernameLabel') }}</label>
                   <input
                     v-model="newUsername"
+                    name="credential-username"
+                    autocomplete="username"
                     :placeholder="props.suggestedUsername || t('credentialRequest.usernamePlaceholder')"
                     class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                   >
@@ -240,6 +242,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <div class="relative">
                     <input
                       v-model="newPassword"
+                      name="credential-password"
+                      autocomplete="new-password"
                       :type="showNewPassword ? 'text' : 'password'"
                       :placeholder="t('credentialRequest.passwordPlaceholder')"
                       class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 pr-10 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"

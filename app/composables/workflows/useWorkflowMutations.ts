@@ -94,7 +94,7 @@ export function applyOp(graph: WorkflowGraph, op: WorkflowOp): ApplyResult | App
       if (patch.details) merged.details = patch.details
       if (patch.notes) merged.notes = patch.notes
       if (patch.workflow_ref) merged.workflow_ref = patch.workflow_ref
-      if (typeof patch.repeat === 'number') merged.repeat = patch.repeat
+      if (typeof patch.iterations === 'number') merged.iterations = patch.iterations
       if (patch.position) merged.position = patch.position
       if (patch.size) merged.size = patch.size
       next.nodes[idx] = merged

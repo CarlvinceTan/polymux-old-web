@@ -105,6 +105,15 @@ async function saveBlogSubscription(value: boolean) {
   }
 }
 
+async function saveAllNotifications(value: boolean) {
+  try {
+    await useUserSettings().saveSettings({ all_notifications_enabled: value })
+  }
+  catch (e) {
+    console.error('[settings] Error saving all-notifications preference:', e)
+  }
+}
+
 async function saveShowCursorOverlay(value: boolean) {
   try {
     await useUserSettings().saveSettings({ show_cursor_overlay: value })
@@ -114,7 +123,6 @@ async function saveShowCursorOverlay(value: boolean) {
   }
 }
 
-const { currency, setCurrency, currencyOptions, detect: detectCurrency } = useCurrency()
 const geo = useGeolocation({ active: false })
 
 /** Empty when permission is granted — no explanatory subtitle needed. */
@@ -125,10 +133,6 @@ const locationPermissionHint = computed(() => {
     case 'unsupported': return t('settings.locationUnsupported')
     default: return t('settings.locationPrompt')
   }
-})
-
-watch(isOpen, (open) => {
-  if (open) detectCurrency()
 })
 
 type SettingsSubpage = 'payment' | 'delete-account'
@@ -312,6 +316,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       <div>
                         <textarea
                           v-model="deleteDetail"
+                          name="delete-detail"
                           :placeholder="t('settings.deleteDetailPlaceholder')"
                           rows="3"
                           class="w-full resize-none rounded-lg border border-neutral-200 bg-white px-4 py-3 text-body-md text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
@@ -364,11 +369,11 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         <div class="flex w-full max-w-xs flex-col gap-3">
                           <div>
                             <label class="mb-1 block text-label-md font-medium text-neutral-600">{{ t('settings.displayName') }}</label>
-                            <input v-model="editName" type="text" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400">
+                            <input v-model="editName" name="display-name" autocomplete="name" type="text" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400">
                           </div>
                           <div>
                             <label class="mb-1 block text-label-md font-medium text-neutral-600">{{ t('common.email') }}</label>
-                            <input v-model="editEmail" type="email" :disabled="!isEmailAuth" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400">
+                            <input v-model="editEmail" name="email" autocomplete="email" type="email" :disabled="!isEmailAuth" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400">
                             <p v-if="!isEmailAuth" class="mt-1 text-label-md text-neutral-400">{{ t('settings.emailManagedByProvider') }}</p>
                           </div>
                           <p v-if="profileError" class="text-label-md text-error-600">{{ profileError }}</p>
@@ -418,14 +423,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       :visible-count="5"
                       @update:model-value="changeLocale($event)"
                     />
-                    <SettingsDropdown
-                      icon="i-heroicons-currency-dollar-20-solid"
-                      :label="t('settings.currency')"
-                      :options="currencyOptions"
-                      :model-value="currency"
-                      :visible-count="5"
-                      @update:model-value="setCurrency($event as any)"
-                    />
                     <div>
                       <SettingsSectionRow>
                         <template #icon>
@@ -461,12 +458,23 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <!-- Notifications -->
                   <SettingsSection :title="t('settings.notifications')">
                     <SettingsSectionRow>
+                      <template #icon><UIcon name="i-heroicons-bell-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
+                      <template #label>{{ t('settings.allNotifications') }}</template>
+                      <template #trailing>
+                        <SettingsToggle
+                          :model-value="userSettings.all_notifications_enabled"
+                          :disabled="blogSubscriptionSaving"
+                          @update:model-value="saveAllNotifications"
+                        />
+                      </template>
+                    </SettingsSectionRow>
+                    <SettingsSectionRow>
                       <template #icon><UIcon name="i-heroicons-newspaper-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
                       <template #label>{{ t('settings.blogNewsletter') }}</template>
                       <template #trailing>
                         <SettingsToggle
-                          :model-value="userSettings.blog_newsletter_subscribed"
-                          :disabled="blogSubscriptionSaving"
+                          :model-value="userSettings.blog_newsletter_subscribed && userSettings.all_notifications_enabled"
+                          :disabled="blogSubscriptionSaving || !userSettings.all_notifications_enabled"
                           @update:model-value="saveBlogSubscription"
                         />
                       </template>

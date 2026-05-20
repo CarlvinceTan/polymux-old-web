@@ -112,6 +112,7 @@ const hasActiveFilters = computed(
           <div class="relative">
             <input
               v-model="search"
+              name="forum-search"
               type="text"
               :placeholder="t('forum.searchPlaceholder')"
               class="w-full rounded-lg border border-neutral-200 bg-white py-3 pl-[3.75rem] pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"

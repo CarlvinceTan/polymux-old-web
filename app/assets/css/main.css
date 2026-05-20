@@ -225,6 +225,17 @@ body {
     0 4px 18px rgba(26, 28, 28, 0.09);
 }
 
+/* Opt-in hover state for clickable .ghost-panel surfaces: same shadow shape,
+   deeper opacity. No translation — the surface stays put. */
+.ghost-panel-hover {
+  transition: box-shadow 150ms ease;
+}
+.ghost-panel-hover:hover {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 6px 24px rgba(26, 28, 28, 0.18);
+}
+
 /* Same soft lift as .ghost-panel but without the hairline border. Use when
    the surface should float visually but shouldn't gain a 1px outline — e.g.
    the viewport screenshare panel, where the bar+preview chrome is already

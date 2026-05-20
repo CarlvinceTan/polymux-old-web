@@ -550,6 +550,7 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
               <UIcon name="i-heroicons-magnifying-glass" class="size-3.5 shrink-0 text-neutral-400" />
               <input
                 v-model="tzQuery"
+                name="tz-search"
                 type="text"
                 :placeholder="t('schedule.tzSearch')"
                 class="min-w-0 flex-1 bg-transparent text-body-md text-neutral-900 outline-none placeholder:text-neutral-400"
@@ -686,6 +687,7 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
                 </label>
                 <input
                   v-model.lazy="minuteText"
+                  name="schedule-minute"
                   type="text"
                   inputmode="numeric"
                   maxlength="3"
@@ -702,6 +704,7 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
                     </label>
                     <input
                       v-model="hourMinuteTime"
+                      name="schedule-time"
                       type="time"
                       class="h-11 rounded-lg border border-neutral-200 bg-white px-3.5 font-mono text-lg font-semibold text-neutral-950 tabular-nums outline-none transition-colors hover:border-neutral-400 focus:border-neutral-950 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                     >
@@ -767,6 +770,7 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
                 </label>
                 <input
                   v-model="customExpr"
+                  name="custom-cron-expr"
                   type="text"
                   spellcheck="false"
                   class="w-full rounded-lg border bg-neutral-50 px-3 py-2.5 font-mono text-body-md tabular-nums outline-none transition-colors focus:bg-white"
@@ -820,6 +824,7 @@ const tzTriggerOffset = computed(() => tzOffset(timezone.value))
                   <UIcon name="i-heroicons-clock" class="size-3.5 shrink-0 text-neutral-400" />
                   <input
                     v-model="pickerTime"
+                    name="one-off-time"
                     type="time"
                     class="w-[72px] bg-transparent text-body-md text-neutral-900 tabular-nums outline-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                     @blur="bumpTimeIfPast"

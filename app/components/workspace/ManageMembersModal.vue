@@ -508,6 +508,7 @@ onUnmounted(() => {
                 </div>
                 <input
                   v-model="memberSearch"
+                  name="member-search"
                   type="text"
                   :placeholder="t('workspaceMenu.searchMembers')"
                   class="min-w-0 flex-1 bg-transparent pr-2 text-[11px] text-neutral-950 outline-none placeholder:text-neutral-400"
@@ -736,6 +737,7 @@ onUnmounted(() => {
                 <p class="mt-0.5 text-[11px] text-neutral-400">{{ t('workspaceMenu.commaHint') }}</p>
                 <textarea
                   v-model="inviteEmails"
+                  name="invite-emails"
                   rows="3"
                   placeholder="alice@example.com, bob@example.com"
                   class="mt-1.5 w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
@@ -745,6 +747,7 @@ onUnmounted(() => {
                 <label class="block text-[11px] font-medium text-neutral-600">{{ t('workspaceMenu.role') }}</label>
                 <select
                   v-model="inviteRole"
+                  name="invite-role"
                   class="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10"
                 >
                   <option value="admin">{{ t('workspaceMenu.roleAdminLabel') }}</option>
@@ -829,6 +832,7 @@ onUnmounted(() => {
                 <label class="block text-[11px] font-medium text-neutral-600">{{ t('workspaceMenu.role') }}</label>
                 <select
                   v-model="manageAccessRole"
+                  name="manage-access-role"
                   class="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10"
                 >
                   <option v-for="r in roles" :key="r" :value="r" :disabled="r === 'owner' && myRole !== 'owner'">

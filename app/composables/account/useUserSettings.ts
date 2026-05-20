@@ -26,12 +26,18 @@ interface UserSettings {
   // (midas) is dispatching. Off by default — opt-in surface so the cursor
   // doesn't distract by default.
   show_cursor_overlay: boolean
+  // Master kill-switch for non-essential emails sent by the web app
+  // (workspace invitations, blog newsletter, etc). When false, the shared
+  // email helper drops these sends. Important emails dispatched from the
+  // admin console pass `bypassUserPreferences: true` and ignore the flag.
+  all_notifications_enabled: boolean
 }
 
 const defaults: UserSettings = {
   blog_newsletter_subscribed: false,
   cloaked_browser_enabled: true,
   show_cursor_overlay: false,
+  all_notifications_enabled: true,
 }
 
 const settings = ref<UserSettings>({ ...defaults })
@@ -65,7 +71,7 @@ export function useUserSettings() {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('blog_newsletter_subscribed, cloaked_browser_enabled, show_cursor_overlay')
+        .select('blog_newsletter_subscribed, cloaked_browser_enabled, show_cursor_overlay, all_notifications_enabled')
         .eq('user_id', uid)
         .maybeSingle()
 
@@ -77,6 +83,7 @@ export function useUserSettings() {
           blog_newsletter_subscribed: data?.blog_newsletter_subscribed ?? defaults.blog_newsletter_subscribed,
           cloaked_browser_enabled: data?.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
           show_cursor_overlay: data?.show_cursor_overlay ?? defaults.show_cursor_overlay,
+          all_notifications_enabled: data?.all_notifications_enabled ?? defaults.all_notifications_enabled,
         }
       }
 
@@ -103,7 +110,7 @@ export function useUserSettings() {
     settings.value = { ...settings.value, ...patch }
 
     try {
-      const result = await $fetch<{ blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean }>('/api/user-settings', {
+      const result = await $fetch<{ blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean }>('/api/user-settings', {
         method: 'PATCH',
         body: patch,
       })
@@ -113,6 +120,7 @@ export function useUserSettings() {
         blog_newsletter_subscribed: result.blog_newsletter_subscribed,
         cloaked_browser_enabled: result.cloaked_browser_enabled,
         show_cursor_overlay: result.show_cursor_overlay,
+        all_notifications_enabled: result.all_notifications_enabled,
       }
       fetchedForUserId = user.value.sub
     }
@@ -142,12 +150,13 @@ export function useUserSettings() {
           filter: `user_id=eq.${uid}`,
         },
         (payload) => {
-          const newRow = payload.new as { blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean } | undefined
+          const newRow = payload.new as { blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean } | undefined
           if (newRow) {
             settings.value = {
               blog_newsletter_subscribed: newRow.blog_newsletter_subscribed ?? defaults.blog_newsletter_subscribed,
               cloaked_browser_enabled: newRow.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
               show_cursor_overlay: newRow.show_cursor_overlay ?? defaults.show_cursor_overlay,
+              all_notifications_enabled: newRow.all_notifications_enabled ?? defaults.all_notifications_enabled,
             }
             fetchedForUserId = uid
           }

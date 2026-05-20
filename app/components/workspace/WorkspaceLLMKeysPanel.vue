@@ -206,6 +206,7 @@ watchEffect(() => {
           <label class="block text-[11px] font-medium text-neutral-700">Provider</label>
           <select
             v-model="formProvider"
+            name="llm-provider"
             class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
           >
             <option v-for="p in providerOptions" :key="p.value" :value="p.value">
@@ -217,6 +218,7 @@ watchEffect(() => {
           <label class="block text-[11px] font-medium text-neutral-700">API key</label>
           <input
             v-model="formKey"
+            name="llm-api-key"
             type="password"
             autocomplete="off"
             spellcheck="false"

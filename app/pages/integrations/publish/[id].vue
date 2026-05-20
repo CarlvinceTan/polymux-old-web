@@ -2,7 +2,7 @@
 import { useI18n } from '#imports'
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 const toast = useAppToast()
 const route = useRoute()
 
@@ -103,7 +103,7 @@ async function onYank() {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
@@ -178,6 +178,7 @@ async function onYank() {
               <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorName') }}</span>
               <input
                 v-model="editName"
+                name="edit-name"
                 type="text"
                 required
                 class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -188,6 +189,7 @@ async function onYank() {
               <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorDescription') }}</span>
               <textarea
                 v-model="editDescription"
+                name="edit-description"
                 rows="3"
                 class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
               />
@@ -197,6 +199,7 @@ async function onYank() {
               <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorVisibility') }}</span>
               <select
                 v-model="editVisibility"
+                name="edit-visibility"
                 class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
               >
                 <option value="private">
@@ -212,6 +215,7 @@ async function onYank() {
               <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorTags') }}</span>
               <input
                 v-model="editTagsCsv"
+                name="edit-tags"
                 type="text"
                 :placeholder="t('integrations.editorTagsPlaceholder')"
                 class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"

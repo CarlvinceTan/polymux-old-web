@@ -224,6 +224,7 @@ onMounted(() => {
                 >
                   <input
                     type="checkbox"
+                    :name="`share-workspace-${workspace.id}`"
                     :checked="isWorkspaceSelected(workspace.id)"
                     class="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
                     @change="toggleWorkspace(workspace.id)"

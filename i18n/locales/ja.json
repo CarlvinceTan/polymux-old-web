@@ -32,7 +32,13 @@
     "cookiesPolicy": "Cookieポリシー",
     "reportBug": "バグを報告",
     "getHelp": "ヘルプを取得",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "toast": {
+      "warning": "警告",
+      "error": "エラー",
+      "info": "情報",
+      "loading": "読み込み中…"
+    }
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -124,7 +130,6 @@
     "payment": "お支払い",
     "general": "一般",
     "language": "言語",
-    "currency": "通貨",
     "locationSharing": "位置情報の共有",
     "locationGranted": "位置情報のアクセスが許可されています",
     "locationDenied": "ブラウザによりブロックされています — ブラウザ設定で更新してください",
@@ -135,6 +140,7 @@
     "showCursor": "カーソルを表示",
     "showCursorHint": "エージェントがホバー / クリックしている位置に、ライブブラウザビューポート上に矢印カーソルを表示します。シミュレートされたマウスをリアルタイムで観察するのに便利です。デフォルトでオフ。",
     "notifications": "通知",
+    "allNotifications": "すべての通知",
     "emailNotif": "メール",
     "pushNotif": "プッシュ",
     "productUpdates": "製品アップデート",
@@ -282,10 +288,6 @@
       "artifacts": "アーティファクト"
     },
     "liveBadge": "ライブ",
-    "wireStyle": "ワイヤースタイル",
-    "wireFluid": "カーブ",
-    "wireLinear": "直線",
-    "wireStep": "ステップ",
     "resizeNode": "サイズ変更",
     "lockNode": "ノードをロック",
     "unlockNode": "ノードのロック解除",
@@ -309,14 +311,26 @@
     "wireMaxIterationsLabel": "最大反復",
     "wireMaxIterationsPlaceholder": "このエッジが発火する回数を制限 (ループ)",
     "duplicateEdgeToast": "それらのノード間にはすでに接続があります。",
-    "repeatLabel": "繰り返し",
-    "repeatPlaceholder": "このステップを実行する回数（既定 1）",
-    "repeatHelp": "次に進む前に、このステップを N 回連続で実行します。",
+    "iterationsLabel": "反復回数",
+    "iterationsPlaceholder": "1",
+    "iterationsHelp": "このステップが実行される回数。既定は 1（1 回実行）。",
     "embedLoading": "参照されたワークフローを読み込み中…",
     "embedEmpty": "参照されたワークフローにはまだステップがありません。",
     "embedMissing": "参照されたワークフローが見つかりません",
     "embedThumbnailAlt": "参照ワークフローのミニプレビュー",
-    "embedThumbnailTruncated": "+{n} 個のステップは非表示"
+    "embedThumbnailTruncated": "+{n} 個のステップは非表示",
+    "addNodeBlank": "空のノード",
+    "addNodeBlankDesc": "アクションを自分で記述する新しいステップ",
+    "addNodeEmbed": "埋め込みワークフロー",
+    "addNodeEmbedDesc": "保存済みワークフローをステップとして実行",
+    "embedWorkflowLabel": "ワークフロー",
+    "embedSelectWorkflow": "ワークフローを選択",
+    "embedSearchPlaceholder": "ワークフローを検索…",
+    "embedNoWorkflows": "利用可能なワークフローがありません",
+    "embedNoMatches": "一致するワークフローがありません",
+    "embedPendingTitle": "ワークフローを選択",
+    "embedUnboundToast": "この埋め込みにはワークフローが選択されていません — 情報パネルで選択してください。",
+    "embedOpen": "参照されたワークフローを開く →"
   },
   "dashboard": {
     "console": "コンソール",
@@ -507,7 +521,16 @@
     "localMigrateFailed": "移行が完了しませんでした。",
     "localExporting": "このデバイスからファイルを移動しています…",
     "localExportDone": "ワークスペースのファイルはこのデバイスのみではなくなりました。",
-    "localExportFailed": "移行が完了しませんでした。"
+    "localExportFailed": "移行が完了しませんでした。",
+    "editorNewLayout": "レイアウト",
+    "editorNewLayoutDesc": "ワークスペースのセクションページにタブとしてレンダリングされるカスタムHTML/CSS/JSを作成します。",
+    "editorLayoutSection": "セクション",
+    "editorLayoutSectionHelp": "タブが取り付けられるワークスペースセクション。",
+    "editorLayoutBody": "本文",
+    "editorLayoutBodyHelp": "生のHTML、CSS、JS。サンドボックス化されたiframe内でレンダリングされます。",
+    "filterLayouts": "レイアウト",
+    "categoryLayout": "レイアウト",
+    "official": "公式"
   },
   "workspace": {
     "team": "チーム",
@@ -972,8 +995,7 @@
       "instagram": "Instagram",
       "youTube": "YouTube",
       "facebook": "Facebook",
-      "reddit": "Reddit",
-      "discord": "Discord"
+      "reddit": "Reddit"
     }
   },
   "development": {
@@ -1143,8 +1165,7 @@
         "availableBalance": "利用可能残高",
         "autoTopUp": "自動チャージ",
         "autoTopUpOn": "オン",
-        "topUp": "チャージ",
-        "newTopUpsCharged": "新規チャージは {currency} で課金されます。"
+        "topUp": "チャージ"
       },
       "activity": {
         "title": "支出アクティビティ",
@@ -1227,7 +1248,6 @@
       "topUpModal": {
         "title": "残高をチャージ",
         "amount": "金額",
-        "chargeCurrency": "請求通貨",
         "minMaxNote": "最小 {min} · 最大 {max} / チャージ。",
         "amountRangeError": "金額は {min} から {max} の間で指定してください。",
         "checkoutError": "チェックアウトを開始できませんでした。もう一度お試しください。",
@@ -1241,7 +1261,6 @@
         "enableDesc": "残高が少なくなったら自動的にチャージします。",
         "triggerBelow": "この金額を下回ったら",
         "addAmount": "追加金額",
-        "note": "請求は現在のチャージ通貨を使用します。チャージダイアログから変更できます。",
         "done": "完了"
       },
       "policies": {
@@ -1487,12 +1506,22 @@
       "contactSupport": "サポートに連絡"
     }
   },
+  "docs": {
+    "searchPlaceholder": "ドキュメントを検索…",
+    "searchEmpty": "一致するページがありません。",
+    "accountMenu": "アカウントメニュー",
+    "dashboard": "ダッシュボード",
+    "signOut": "サインアウト",
+    "signIn": "サインイン",
+    "loadError": "このページを読み込めませんでした。",
+    "tryAgain": "再試行",
+    "previous": "前へ",
+    "next": "次へ",
+    "contact": "お問い合わせ",
+    "onThisPage": "このページの内容"
+  },
   "legalDocs": {
     "loadError": "このドキュメントを読み込めませんでした。後でもう一度お試しください。",
-    "documentation": {
-      "title": "ドキュメント",
-      "subtitle": "Polymux で開発するためのガイドとコンセプト。"
-    },
     "privacy": {
       "title": "プライバシーポリシー",
       "subtitle": "Polymux 利用時の情報の収集、使用、保護について。"

@@ -1,6 +1,6 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import { useStripe, isValidPlan, isValidPeriod } from '~~/server/utils/billing/stripe'
-import { isValidCurrency, getStripePriceId } from '~~/server/utils/billing/pricing'
+import { getStripePriceId } from '~~/server/utils/billing/pricing'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -11,13 +11,11 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     planKey?: unknown
     billingPeriod?: unknown
-    currency?: unknown
     workspaceId?: unknown
   }>(event)
 
   const planKey = body.planKey as string | undefined
   const billingPeriod = body.billingPeriod as string | undefined
-  const currencyRaw = ((body.currency as string) || 'usd').toLowerCase().trim()
   const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
 
   if (!workspaceId) {
@@ -30,8 +28,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid billing period.' })
   }
 
-  const currency = isValidCurrency(currencyRaw) ? currencyRaw : 'usd'
-  const priceId = getStripePriceId(currency, planKey, billingPeriod)
+  const priceId = getStripePriceId(planKey, billingPeriod)
   if (!priceId) {
     throw createError({ statusCode: 500, statusMessage: 'Price not configured for this plan.' })
   }
@@ -65,6 +62,7 @@ export default defineEventHandler(async (event) => {
     mode: 'subscription',
     customer_email: user.email,
     line_items: [{ price: priceId, quantity: 1 }],
+    adaptive_pricing: { enabled: true },
     metadata: {
       userId: user.sub,
       workspaceId,

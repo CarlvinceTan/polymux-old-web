@@ -18,11 +18,11 @@ import { isConnectorId } from '~~/server/connectors/registry'
 //     env. Polymux can't show it again — it's hashed nowhere; just rotate
 //     by publishing a new version.
 //
-// First-party slugs are reserved (`google-drive`, `gmail`, etc.) and rejected
-// here so a third party can't claim them. Same goes for slugs that already
-// exist with a different author, or that the same author has already
-// registered as a workflow or plugin — slugs share one namespace across
-// all three kinds.
+// First-party connector slugs (currently just `google-drive`) are reserved
+// and rejected here so a third party can't claim them. Same goes for slugs
+// that already exist with a different author, or that the same author has
+// already registered as a workflow or plugin — slugs share one namespace
+// across all kinds.
 
 interface PublishBody {
   manifest_url?: unknown
@@ -58,8 +58,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: `Manifest invalid: ${(err as Error).message}` })
   }
 
-  // 2. Reserved-slug check. First-party connector slugs (google-drive, gmail,
-  //    etc.) can't be claimed by third parties.
+  // 2. Reserved-slug check. First-party connector slugs (currently just
+  //    google-drive) can't be claimed by third parties.
   if (isConnectorId(manifest.identity.slug)) {
     throw createError({
       statusCode: 409,

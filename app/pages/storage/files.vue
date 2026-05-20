@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { headerTabs } = useStorageNavTabs()
+const { headerTabs, customTabs } = useStorageNavTabs()
 const route = useRoute()
 
 // Deeplink target from polymux:// chips in agent replies. `path` carries
@@ -28,7 +28,7 @@ const highlightFileName = computed<string | undefined>(() => {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
     <div class="relative flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <FileBrowser

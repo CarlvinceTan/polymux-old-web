@@ -37,19 +37,19 @@ function commitMaxIterations() {
   commit({ max_iterations: Number.isFinite(n) && n > 0 ? n : 0 })
 }
 
-const labelCls = 'text-[11px] text-neutral-400'
-const inputCls = 'min-w-0 w-full bg-transparent border-0 px-1.5 py-1 -mx-1.5 rounded-sm outline-none font-mono text-[12px] text-neutral-800 placeholder:text-neutral-300 focus:bg-neutral-50 focus:ring-1 focus:ring-neutral-300'
-const textareaCls = inputCls + ' resize-none leading-snug font-sans'
+const labelCls = 'text-[11px] font-semibold uppercase tracking-wider text-neutral-700'
+const inputCls = 'min-w-0 w-full bg-transparent border-0 px-1.5 py-1 -mx-1.5 rounded-sm outline-none text-[13px] text-neutral-900 placeholder:text-neutral-400 focus:bg-neutral-50 focus:ring-1 focus:ring-neutral-300'
+const textareaCls = inputCls + ' resize-none leading-snug'
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="space-y-3">
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+      <div :class="labelCls">
         {{ t('workflow.wireLabelLabel') }}
       </div>
-      <div class="mt-2 grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-1.5">
-        <label :class="labelCls" for="we-label">label</label>
+      <div class="mt-1.5 grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-1.5">
+        <label class="text-[11px] text-neutral-600" for="we-label">label</label>
         <input
           id="we-label"
           v-model="label"
@@ -61,7 +61,7 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
           @keyup.enter="commitLabel"
         />
 
-        <label :class="labelCls" for="we-max">{{ t('workflow.wireMaxIterationsLabel') }}</label>
+        <label class="text-[11px] text-neutral-600" for="we-max">{{ t('workflow.wireMaxIterationsLabel') }}</label>
         <input
           id="we-max"
           v-model="maxIterationsText"
@@ -77,12 +77,13 @@ const textareaCls = inputCls + ' resize-none leading-snug font-sans'
     </section>
 
     <section>
-      <div class="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+      <div :class="labelCls">
         {{ t('workflow.wireConditionLabel') }}
       </div>
       <textarea
         v-model="condition"
-        :class="textareaCls + ' mt-2 min-h-[3rem]'"
+        name="wire-condition"
+        :class="textareaCls + ' mt-1.5 min-h-[2.75rem]'"
         :placeholder="t('workflow.wireConditionPlaceholder')"
         rows="3"
         @input="scheduleIdleCommit('condition', commitCondition)"

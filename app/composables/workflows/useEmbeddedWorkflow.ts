@@ -24,13 +24,45 @@ export interface UseEmbeddedWorkflowCache {
   // without waiting for the lookup-on-render trigger. Useful for
   // pre-warming the cache when a graph mounts.
   request: (workflowIds: string[]) => void
+  // invalidate drops the cache entry for workflowId so the next lookup
+  // refetches. Call this when a referenced workflow may have been
+  // mutated (the local user just saved a new version, or a WS event
+  // arrived announcing a remote update). Idempotent; safe to call on
+  // unknown ids.
+  invalidate: (workflowId: string | undefined | null) => void
 }
 
 export function useEmbeddedWorkflowCache(): UseEmbeddedWorkflowCache {
   const cache = useState<Map<string, CacheEntry>>('embedded-workflows', () => new Map())
   const inflight = useState<Map<string, Promise<CacheEntry>>>('embedded-workflows-inflight', () => new Map())
   const { currentWorkspace } = useWorkspaces()
-  const { getWorkflow } = useWorkflows()
+  const { getWorkflow, workflows } = useWorkflows()
+
+  // Keep cache entries in sync with the live `workflows` array — when a
+  // workflow we already have cached gets a newer latest_version (local
+  // user just saved, or a refetch picked up a remote change), swap the
+  // entry to the fresh value so embed thumbnails and titles update
+  // without the user needing to navigate away and back. Idempotent and
+  // version-gated so we don't thrash on repeated identical updates.
+  watch(
+    workflows,
+    (curr) => {
+      let mutated = false
+      const next = new Map(cache.value)
+      for (const w of curr ?? []) {
+        const cached = cache.value.get(w.id)
+        if (cached === undefined) continue
+        const cachedVersion = cached?.latest_version?.version ?? 0
+        const freshVersion = w.latest_version?.version ?? 0
+        if (freshVersion > cachedVersion) {
+          next.set(w.id, w)
+          mutated = true
+        }
+      }
+      if (mutated) cache.value = next
+    },
+    { deep: true },
+  )
 
   function startFetch(id: string): void {
     if (cache.value.has(id) || inflight.value.has(id)) return
@@ -71,6 +103,17 @@ export function useEmbeddedWorkflowCache(): UseEmbeddedWorkflowCache {
         if (typeof id !== 'string' || !id.trim()) continue
         startFetch(id.trim())
       }
+    },
+    invalidate(workflowId) {
+      const id = typeof workflowId === 'string' ? workflowId.trim() : ''
+      if (!id) return
+      if (!cache.value.has(id) && !inflight.value.has(id)) return
+      const next = new Map(cache.value)
+      next.delete(id)
+      cache.value = next
+      const nextInflight = new Map(inflight.value)
+      nextInflight.delete(id)
+      inflight.value = nextInflight
     },
   }
 }

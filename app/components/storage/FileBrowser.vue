@@ -2242,6 +2242,7 @@ watch(multiDragActive, (active) => {
 
                   <input
                     ref="fileInputRef"
+                    name="file-upload"
                     type="file"
                     multiple
                     class="hidden"
@@ -2331,6 +2332,7 @@ watch(multiDragActive, (active) => {
                       <input
                         ref="searchInputRef"
                         v-model="searchQuery"
+                        name="storage-search"
                         type="text"
                         :placeholder="t('storage.toolbar.searchPlaceholder')"
                         class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
@@ -2610,6 +2612,7 @@ watch(multiDragActive, (active) => {
                   v-if="isPendingRow(file) && pendingDuplicate"
                   :ref="bindDuplicateInputRef"
                   v-model="pendingDuplicate.draftName"
+                  name="duplicate-name"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onDuplicateInputFocus"
@@ -2622,6 +2625,7 @@ watch(multiDragActive, (active) => {
                   v-if="isPendingRow(file) && pendingNewFolder"
                   :ref="bindNewFolderInputRef"
                   v-model="pendingNewFolder.draftName"
+                  name="new-folder-name"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onNewFolderInputFocus"
@@ -2634,6 +2638,7 @@ watch(multiDragActive, (active) => {
                   v-else-if="isRenaming && selectedItemId === file.id"
                   ref="renameInputRef"
                   v-model="renameInput"
+                  name="file-rename"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onRenameInputFocus"
@@ -2775,6 +2780,7 @@ watch(multiDragActive, (active) => {
                         v-if="isPendingRow(file) && pendingDuplicate"
                         :ref="bindDuplicateInputRef"
                         v-model="pendingDuplicate.draftName"
+                        name="duplicate-name"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onDuplicateInputFocus"
@@ -2787,6 +2793,7 @@ watch(multiDragActive, (active) => {
                         v-if="isPendingRow(file) && pendingNewFolder"
                         :ref="bindNewFolderInputRef"
                         v-model="pendingNewFolder.draftName"
+                        name="new-folder-name"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onNewFolderInputFocus"
@@ -2799,6 +2806,7 @@ watch(multiDragActive, (active) => {
                         v-else-if="isRenaming && selectedItemId === file.id"
                         ref="renameInputRef"
                         v-model="renameInput"
+                        name="file-rename"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onRenameInputFocus"

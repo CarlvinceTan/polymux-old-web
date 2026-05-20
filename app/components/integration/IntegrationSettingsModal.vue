@@ -29,6 +29,7 @@ const categoryLabel = computed<Record<ItemCategory, string>>(() => ({
   workflow: t('integrations.categoryWorkflow'),
   plugin: t('integrations.categoryPlugin'),
   integration: t('integrations.categoryConnection'),
+  layout: t('integrations.categoryLayout'),
 }))
 
 const icon = computed(() =>
@@ -141,10 +142,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     <h2 class="truncate text-title-sm font-semibold tracking-tight text-neutral-950">
                       {{ item.name }}
                     </h2>
-                    <p class="mt-1 text-body-md text-neutral-500">
-                      {{ t('integrations.byAuthor', { author: item.author }) }}
+                    <p class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-body-md text-neutral-500">
+                      <span>{{ t('integrations.byAuthor', { author: item.author }) }}</span>
                       <span class="text-neutral-300">·</span>
-                      {{ categoryLabel[item.category] }}
+                      <span>{{ categoryLabel[item.category] }}</span>
+                      <!-- "Official" first-party chip, right of the type label. -->
+                      <span
+                        v-if="item.isFirstParty"
+                        class="rounded-md bg-neutral-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                      >
+                        {{ t('integrations.official') }}
+                      </span>
                     </p>
                   </div>
                 </div>

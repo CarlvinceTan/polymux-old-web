@@ -106,6 +106,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('vault.passwords.urlLabel') }}</label>
                   <input
                     v-model="url"
+                    name="vault-url"
+                    autocomplete="url"
                     :placeholder="t('vault.passwords.urlPlaceholder')"
                     class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                   />
@@ -115,6 +117,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('vault.passwords.usernameLabel') }}</label>
                   <input
                     v-model="username"
+                    name="vault-username"
+                    autocomplete="username"
                     :placeholder="t('vault.passwords.usernamePlaceholder')"
                     class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                   />
@@ -125,6 +129,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <div class="relative">
                     <input
                       v-model="password"
+                      name="vault-password"
+                      autocomplete="new-password"
                       :type="showPassword ? 'text' : 'password'"
                       :placeholder="t('vault.passwords.newPasswordPlaceholder')"
                       class="w-full rounded-lg border border-neutral-200 bg-white py-2 px-3 pr-10 text-sm text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"

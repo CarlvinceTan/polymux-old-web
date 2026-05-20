@@ -1,21 +1,13 @@
 import { googleDriveConnector } from './google-drive'
-import { gmailConnector } from './gmail'
-import { githubConnector } from './github'
-import { slackConnector } from './slack'
-import { notionConnector } from './notion'
-import { linearConnector } from './linear'
 import type { ConnectorHandler } from './types'
 
 // Source of truth for which providers have a first-party OAuth handler.
-// Adding a new in-tree connector means: implement `ConnectorHandler`, register
-// it here, seed a row in the `integrations` catalog (Phase 1+).
+// Google Drive is the only one — it powers the workspace storage backbone.
+// Other code-based integrations live in the marketplace catalog as
+// kind='integration' rows pointing at third-party manifests; see
+// `web/server/api/marketplace/integrations/index.post.ts`.
 const CONNECTORS: Record<string, ConnectorHandler> = {
   'google-drive': googleDriveConnector,
-  'gmail': gmailConnector,
-  'github': githubConnector,
-  'slack': slackConnector,
-  'notion': notionConnector,
-  'linear': linearConnector,
 }
 
 export function getConnector(id: string): ConnectorHandler | null {

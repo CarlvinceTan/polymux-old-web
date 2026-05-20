@@ -1,6 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { serverSupabaseUser } from '#supabase/server'
-import { isValidCurrency } from '~~/server/utils/billing/pricing'
 import { useStripe } from '~~/server/utils/billing/stripe'
 
 export default defineEventHandler(async (event) => {
@@ -12,33 +11,26 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     workspaceId?: unknown
     amountCents?: unknown
-    currency?: unknown
   }>(event)
 
   const workspaceId = body.workspaceId as string | undefined
   const amountCents = body.amountCents as number | undefined
-  const currency = (typeof body.currency === 'string' ? body.currency : 'usd').toLowerCase()
 
   if (!workspaceId) {
     throw createError({ statusCode: 400, statusMessage: 'workspace_id is required.' })
   }
 
-  if (!isValidCurrency(currency)) {
-    throw createError({ statusCode: 400, statusMessage: 'Unsupported currency.' })
-  }
-
-  const zeroDecimal = ['jpy', 'krw'].includes(currency)
-  const minAmount = zeroDecimal ? 100 : 100
-  const maxAmount = zeroDecimal ? 1_000_000 : 100_000
+  const MIN_AMOUNT = 100
+  const MAX_AMOUNT = 100_000
   if (
     typeof amountCents !== 'number'
     || !Number.isInteger(amountCents)
-    || amountCents < minAmount
-    || amountCents > maxAmount
+    || amountCents < MIN_AMOUNT
+    || amountCents > MAX_AMOUNT
   ) {
     throw createError({
       statusCode: 400,
-      statusMessage: `Invalid amount. Must be an integer between ${minAmount} and ${maxAmount} minor units.`,
+      statusMessage: `Invalid amount. Must be an integer between ${MIN_AMOUNT} and ${MAX_AMOUNT} cents.`,
     })
   }
 
@@ -68,20 +60,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Only workspace owners or admins can top up.' })
   }
 
+  const displayAmount = `$${(amountCents / 100).toFixed(2)}`
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: user.email,
     line_items: [{
       price_data: {
-        currency,
+        currency: 'usd',
         product_data: {
-          name: `Polymux Credits — ${formatCents(amountCents, currency as any)}`,
-          description: `${formatCents(amountCents, currency as any)} credit top-up for your Polymux workspace.`,
+          name: `Polymux Credits — ${displayAmount}`,
+          description: `${displayAmount} credit top-up for your Polymux workspace.`,
         },
         unit_amount: amountCents,
       },
       quantity: 1,
     }],
+    adaptive_pricing: { enabled: true },
     metadata: {
       userId: user.sub,
       workspaceId,
@@ -99,9 +94,3 @@ export default defineEventHandler(async (event) => {
 
   return { url: session.url }
 })
-
-function formatCents(cents: number, currency: string): string {
-  const zeroDecimal = ['jpy', 'krw'].includes(currency)
-  if (zeroDecimal) return `${cents.toLocaleString()} ${currency.toUpperCase()}`
-  return `$${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`
-}
