@@ -4,7 +4,6 @@
 // with the IP, user agent, and timestamp for audit purposes.
 const AGREEMENT = 'beta'
 const VERSION = '2026-05-03'
-const STORAGE_KEY = `polymux:betaAgreementAccepted:${VERSION}`
 
 const accepted = ref(false)
 const ready = ref(false)
@@ -14,20 +13,26 @@ export function useBetaAgreement() {
   const { locale } = useI18n()
   const user = useSupabaseUser()
 
-  function readCache(): boolean {
+  // Key is scoped to both version and user ID so a prior user's acceptance on
+  // the same device doesn't carry over to a new account.
+  function storageKey(userId: string): string {
+    return `polymux:betaAgreementAccepted:${VERSION}:${userId}`
+  }
+
+  function readCache(userId: string): boolean {
     if (!import.meta.client) return false
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'true'
+      return localStorage.getItem(storageKey(userId)) === 'true'
     }
     catch {
       return false
     }
   }
 
-  function writeCache() {
+  function writeCache(userId: string) {
     if (!import.meta.client) return
     try {
-      localStorage.setItem(STORAGE_KEY, 'true')
+      localStorage.setItem(storageKey(userId), 'true')
     }
     catch {
       // localStorage unavailable — keep the in-memory flag so the modal
@@ -39,13 +44,14 @@ export function useBetaAgreement() {
   // accepted on another device we still want to skip the modal here, even
   // though localStorage is empty.
   async function checkServerStatus() {
+    const userId = user.value?.id
     try {
       const res = await $fetch<{ accepted: boolean }>('/api/account/agreements/status', {
         query: { agreement: AGREEMENT, version: VERSION },
       })
-      if (res.accepted) {
+      if (res.accepted && userId) {
         accepted.value = true
-        writeCache()
+        writeCache(userId)
       }
     }
     catch (err) {
@@ -56,8 +62,9 @@ export function useBetaAgreement() {
   async function init() {
     if (!import.meta.client) return
 
-    // Cache hit — trust it and skip the round trip.
-    if (readCache()) {
+    // Cache hit — trust it and skip the round trip. Only check the cache once
+    // we know the user ID so a prior user's cached acceptance isn't reused.
+    if (user.value && readCache(user.value.id)) {
       accepted.value = true
       ready.value = true
       return
@@ -79,6 +86,10 @@ export function useBetaAgreement() {
       if (!newUser) return
       stop()
       if (accepted.value) return
+      if (readCache(newUser.id)) {
+        accepted.value = true
+        return
+      }
       ready.value = false
       await checkServerStatus()
       ready.value = true
@@ -89,7 +100,7 @@ export function useBetaAgreement() {
     accepted.value = true
     if (!import.meta.client) return
 
-    writeCache()
+    if (user.value) writeCache(user.value.id)
 
     try {
       await $fetch('/api/account/agreements/accept', {
