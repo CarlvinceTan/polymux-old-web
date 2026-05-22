@@ -62,7 +62,15 @@ async function onRename(title: string) {
   await renameSession(sessionId.value, title)
 }
 
-const USER_NAME = 'Carlvince'
+const supabaseUser = useSupabaseUser()
+const userName = computed(() => {
+  const meta = supabaseUser.value?.user_metadata
+  const full = (meta?.full_name as string | undefined)
+    || (meta?.name as string | undefined)
+    || supabaseUser.value?.email?.split('@')[0]
+    || ''
+  return full.trim().split(/\s+/)[0] || ''
+})
 const welcomeSuggestion = 'Show me something cool'
 
 const presetPrompt = pickWelcomePrompt()
@@ -631,7 +639,7 @@ provide('chat-title', workflowTitle)
 provide('chat-is-new', isNewWorkflow)
 provide('chat-welcome', welcome)
 provide('chat-viewport-list', viewportList)
-provide('chat-user-name', USER_NAME)
+provide('chat-user-name', userName)
 provide('chat-welcome-suggestion', welcomeSuggestion)
 provide('chat-preset-prompt', presetPrompt)
 provide('chat-title-requested', titleRequested)

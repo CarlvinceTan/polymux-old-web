@@ -45,7 +45,15 @@ const command = ref('')
 const viewportList = ref<ViewportState[]>([])
 const emptyMessages: ChatMessage[] = []
 
-const USER_NAME = 'Carlvince'
+const supabaseUser = useSupabaseUser()
+const userName = computed(() => {
+  const meta = supabaseUser.value?.user_metadata
+  const full = (meta?.full_name as string | undefined)
+    || (meta?.name as string | undefined)
+    || supabaseUser.value?.email?.split('@')[0]
+    || ''
+  return full.trim().split(/\s+/)[0] || ''
+})
 const welcomeSuggestion = 'Show me something cool'
 const presetPrompt = pickWelcomePrompt()
 
@@ -112,7 +120,7 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
         v-model:browser-mode="browserMode"
         :welcome="true"
         :chat-title="'New Workflow'"
-        :user-name="USER_NAME"
+        :user-name="userName"
         :welcome-suggestion="welcomeSuggestion"
         :messages="emptyMessages"
         :session-id="sessionId"
