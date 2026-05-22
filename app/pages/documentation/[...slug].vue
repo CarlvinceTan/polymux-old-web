@@ -4,7 +4,6 @@ import { marked, Renderer as MarkedRenderer } from 'marked'
 definePageMeta({ layout: false })
 
 const route = useRoute()
-const user = useSupabaseUser()
 const { t, locale, locales, setLocale } = useI18n()
 const { sections, findEntry, neighbours } = useDocsNav()
 
@@ -541,6 +540,7 @@ onBeforeUnmount(() => {
              side of the icon is governed by matching `px-*` (left of icon)
              and `gap-*` (right of icon) tokens, so both gaps stay equal. -->
         <label
+          for="docs-search"
           class="flex h-9 w-full items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-2 text-sm transition-colors focus-within:border-neutral-400 focus-within:bg-white"
         >
           <UIcon
@@ -549,8 +549,10 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           />
           <input
+            id="docs-search"
             ref="searchInputRef"
             v-model="searchQuery"
+            name="docs-search"
             type="search"
             :placeholder="t('docs.searchPlaceholder')"
             class="min-w-0 flex-1 bg-transparent text-neutral-900 placeholder:text-neutral-400 outline-none"
@@ -595,7 +597,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Account / sign-in -->
       <div class="flex shrink-0 items-center gap-3 justify-self-end">
         <!-- Language picker — labelled button + chevron + dropdown -->
         <div ref="localeTriggerRef" class="relative">
@@ -649,17 +650,6 @@ onBeforeUnmount(() => {
             </div>
           </Transition>
         </div>
-
-        <!-- Sign-in CTA shown to signed-out users only; signed-in users see no
-             account chip in the docs header (the dashboard is one click away
-             from the logo's home link). -->
-        <NuxtLink
-          v-if="!user"
-          to="/sign-in?redirect=/documentation"
-          class="inline-flex h-9 items-center rounded-md bg-neutral-950 px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          {{ t('docs.signIn') }}
-        </NuxtLink>
       </div>
     </header>
 
