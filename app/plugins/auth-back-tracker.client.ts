@@ -5,14 +5,9 @@
  *
  * Stored per-tab so concurrent tabs don't leak back targets between each other.
  */
+import { AUTH_PREFIXES, PROTECTED_PREFIXES, hasPrefix } from '~/utils/routeGroups'
+
 const AUTH_BACK_KEY = 'polymux_auth_back'
-
-const AUTH_PREFIXES = ['/sign-in', '/sign-up', '/confirm', '/forgot-password', '/reset-password']
-const PROTECTED_PREFIXES = ['/workflow', '/dashboard', '/storage', '/vault', '/integrations', '/session']
-
-function hasPrefix(path: string, prefixes: string[]): boolean {
-  return prefixes.some(p => path === p || path.startsWith(p + '/'))
-}
 
 export default defineNuxtPlugin((nuxtApp) => {
   const router = nuxtApp.$router as ReturnType<typeof useRouter>

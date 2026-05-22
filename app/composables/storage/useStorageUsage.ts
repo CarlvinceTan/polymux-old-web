@@ -1,14 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StorageProvider } from '~/types/storage'
-
-const PLAN_STORAGE_BYTES: Record<string, number | null> = {
-  free: 100 * 1024 * 1024,
-  pro: 5 * 1024 * 1024 * 1024,
-  max: 50 * 1024 * 1024 * 1024,
-  enterprise: null,
-}
-
-const BUCKET = 'workspace-files'
 
 export interface ProviderUsageCard {
   provider: StorageProvider
@@ -26,45 +16,18 @@ interface LocalProbeState {
   quota: number
 }
 
-async function computeBucketBytes(
-  supabase: SupabaseClient,
-  workspaceId: string,
-): Promise<number> {
-  let total = 0
-  const queue: string[] = [`${workspaceId}/main`, `${workspaceId}/shared`]
-  const MAX_FOLDERS = 500
-  let visited = 0
-  while (queue.length > 0 && visited < MAX_FOLDERS) {
-    const prefix = queue.shift()!
-    visited += 1
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 })
-    if (error || !data) continue
-    for (const item of data) {
-      if (item.name === '.keep') continue
-      if (item.id === null) {
-        queue.push(`${prefix}/${item.name}`)
-      }
-      else {
-        const size = (item.metadata as { size?: number } | null | undefined)?.size
-        if (typeof size === 'number') total += size
-      }
-    }
-  }
-  return total
+function isDriveUsageConflict(err: unknown): boolean {
+  const e = err as { statusCode?: number }
+  return e.statusCode === 409
 }
 
 export function useStorageUsage() {
-  const supabase = useSupabaseClient()
-  const { currentWorkspaceId, currentWorkspace } = useWorkspaces()
+  const { currentWorkspaceId } = useWorkspaces()
   const { isInstalled } = useMarketplace()
   const { probe: probeLocal } = useLocalFileStorage()
   const { providerStatus } = useStoragePreferences()
   const { t } = useI18n()
 
-  // Shared session-level state so probes don't repeat across pages/components
-  const cloudBytes = useState<number>('storage-usage-cloud-bytes', () => 0)
-  const cloudLoaded = useState<boolean>('storage-usage-cloud-loaded', () => false)
-  const cloudLoading = useState<boolean>('storage-usage-cloud-loading', () => false)
   const localProbe = useState<LocalProbeState>(
     'storage-usage-local-probe',
     () => ({ supported: false, usage: 0, quota: 0 }),
@@ -79,22 +42,18 @@ export function useStorageUsage() {
   )
   const driveLoaded = useState<boolean>('storage-usage-drive-loaded', () => false)
   const driveLoading = useState<boolean>('storage-usage-drive-loading', () => false)
+  /** Set when usage GET returns 409 (broken OAuth row / refresh failure). Stops retry storms until force or reconnect. */
+  const driveConnectionBroken = useState<boolean>('storage-usage-drive-broken', () => false)
 
-  async function refreshCloud(force = false) {
-    if (!force && (cloudLoaded.value || cloudLoading.value)) return
-    if (!currentWorkspaceId.value) return
-    cloudLoading.value = true
-    try {
-      cloudBytes.value = await computeBucketBytes(supabase, currentWorkspaceId.value)
-      cloudLoaded.value = true
-    }
-    catch {
-      cloudBytes.value = 0
-    }
-    finally {
-      cloudLoading.value = false
-    }
-  }
+  // Cloud (Backblaze-backed, plan-gated) usage. limit = 0 means Cloud is not
+  // available on the current plan; the cards computed below render that as
+  // 'locked' rather than a tracked-but-empty bar.
+  const cloudUsage = useState<{ usage: number, limit: number | null } | null>(
+    'storage-usage-cloud-quota',
+    () => null,
+  )
+  const cloudLoaded = useState<boolean>('storage-usage-cloud-loaded', () => false)
+  const cloudLoading = useState<boolean>('storage-usage-cloud-loading', () => false)
 
   async function refreshLocal(force = false) {
     if (!force && (localLoaded.value || localLoading.value)) return
@@ -111,6 +70,11 @@ export function useStorageUsage() {
   }
 
   async function refreshDrive(force = false) {
+    if (force) {
+      driveConnectionBroken.value = false
+      driveLoaded.value = false
+    }
+    if (!force && driveConnectionBroken.value) return
     if (!force && (driveLoaded.value || driveLoading.value)) return
     if (!currentWorkspaceId.value) return
     if (!isInstalled('google-drive')) return
@@ -121,27 +85,57 @@ export function useStorageUsage() {
       )
       driveQuota.value = { usage: res.usage, limit: res.limit }
       driveLoaded.value = true
+      driveConnectionBroken.value = false
     }
     catch (err) {
-      console.warn('[useStorageUsage] drive quota fetch failed', err)
       driveQuota.value = null
+      if (isDriveUsageConflict(err)) {
+        driveConnectionBroken.value = true
+        driveLoaded.value = true
+      }
+      else {
+        console.warn('[useStorageUsage] drive quota fetch failed', err)
+      }
     }
     finally {
       driveLoading.value = false
     }
   }
 
-  async function refresh(force = false) {
-    await Promise.all([refreshCloud(force), refreshLocal(force), refreshDrive(force)])
+  async function refreshCloud(force = false) {
+    if (!force && (cloudLoaded.value || cloudLoading.value)) return
+    if (!currentWorkspaceId.value) return
+    cloudLoading.value = true
+    try {
+      const res = await $fetch<{ usage: number, limit: number | null }>(
+        `/api/workspaces/${currentWorkspaceId.value}/cloud-usage`,
+      )
+      cloudUsage.value = { usage: res.usage, limit: res.limit }
+      cloudLoaded.value = true
+    }
+    catch (err) {
+      console.warn('[useStorageUsage] cloud quota fetch failed', err)
+      cloudUsage.value = null
+    }
+    finally {
+      cloudLoading.value = false
+    }
   }
 
-  const planStorageBytes = computed<number | null>(() => {
-    const plan = (currentWorkspace.value?.plan ?? 'free').toLowerCase()
-    if (plan in PLAN_STORAGE_BYTES) return PLAN_STORAGE_BYTES[plan]!
-    return PLAN_STORAGE_BYTES.free!
-  })
+  async function refresh(force = false) {
+    await Promise.all([refreshLocal(force), refreshDrive(force), refreshCloud(force)])
+  }
 
   const driveConnected = computed(() => isInstalled('google-drive'))
+  const cloudAvailable = computed(() => providerStatus.value['b2'] === 'available')
+
+  watch(currentWorkspaceId, () => {
+    driveQuota.value = null
+    driveLoaded.value = false
+    driveConnectionBroken.value = false
+    cloudUsage.value = null
+    cloudLoaded.value = false
+  })
 
   // useMarketplace's `connections` hydrates via useAsyncData, so isInstalled()
   // may be false when useStorageUsage first mounts and only flip to true once
@@ -149,28 +143,25 @@ export function useStorageUsage() {
   // probe's initial `isInstalled` guard bails and we never retry — tooltip
   // stays on "—" forever.
   watch(driveConnected, (installed) => {
-    if (installed) refreshDrive().catch(() => {})
+    if (!installed) {
+      driveQuota.value = null
+      driveLoaded.value = false
+      driveConnectionBroken.value = false
+      return
+    }
+    refreshDrive().catch(() => {})
+  }, { immediate: true })
+
+  // Cloud availability depends on plan (via providerStatus.b2 = 'available'
+  // for paid plans, 'locked' for Free). Same retry-on-hydration pattern as
+  // Drive — currentWorkspace's plan flips from null to its real value once
+  // the workspace fetch resolves.
+  watch(cloudAvailable, (available) => {
+    if (available) refreshCloud().catch(() => {})
   }, { immediate: true })
 
   const cards = computed<ProviderUsageCard[]>(() => {
     const out: ProviderUsageCard[] = []
-
-    if (providerStatus.value['supabase'] === 'available') {
-      const total = planStorageBytes.value
-      const used = cloudBytes.value
-      const percent = total != null && total > 0
-        ? Math.min(100, (used / total) * 100)
-        : null
-      out.push({
-        provider: 'supabase',
-        label: t('storage.settings.providerCloud'),
-        state: total == null ? 'unlimited' : 'tracked',
-        used,
-        total,
-        percent,
-        loading: cloudLoading.value,
-      })
-    }
 
     if (driveConnected.value) {
       const q = driveQuota.value
@@ -229,15 +220,54 @@ export function useStorageUsage() {
       })
     }
 
+    if (cloudAvailable.value) {
+      const c = cloudUsage.value
+      if (c == null) {
+        out.push({
+          provider: 'b2',
+          label: t('storage.settings.providerCloud'),
+          state: 'connected-untracked',
+          used: null,
+          total: null,
+          percent: null,
+          loading: cloudLoading.value,
+        })
+      }
+      else if (c.limit == null) {
+        out.push({
+          provider: 'b2',
+          label: t('storage.settings.providerCloud'),
+          state: 'unlimited',
+          used: c.usage,
+          total: null,
+          percent: null,
+          loading: cloudLoading.value,
+        })
+      }
+      else {
+        const percent = c.limit > 0 ? Math.min(100, (c.usage / c.limit) * 100) : null
+        out.push({
+          provider: 'b2',
+          label: t('storage.settings.providerCloud'),
+          state: 'tracked',
+          used: c.usage,
+          total: c.limit,
+          percent,
+          loading: cloudLoading.value,
+        })
+      }
+    }
+
     return out
   })
 
   return {
     cards,
     refresh,
-    refreshCloud,
     refreshLocal,
     refreshDrive,
+    refreshCloud,
+    driveConnectionBroken: readonly(driveConnectionBroken),
   }
 }
 

@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('workspace_integrations')
-    .select('id, workspace_id, provider, connected_by, account_email, account_display_name, scopes, expires_at, root_folder_id, root_folder_name, metadata, created_at, updated_at')
+    .select('id, workspace_id, provider, connected_by, account_email, account_display_name, scopes, expires_at, root_folder_id, root_folder_name, metadata, installed_via_plugin_id, status, created_at, updated_at')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: true })
 

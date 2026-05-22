@@ -1,0 +1,31 @@
+# Polymux
+
+> Polymux orchestrates AI agents for browser automation. Deploy and coordinate multi-agent workflows with live browser sessions, a secure vault for credentials, and replayable runs. Built for teams who need reliable, observable automation on the live web.
+
+## Product
+
+- [Home](https://polymux.com/): Hero, features, pricing, and reviews.
+- [Pricing](https://polymux.com/pricing): Per-workspace pricing for Free, Pro, Max, and Enterprise plans.
+- [Install Apps](https://polymux.com/install-apps): Download Polymux for macOS, Windows, and Linux.
+
+## Docs
+
+- [Documentation](https://polymux.com/documentation): Guides for installing, configuring, and building agents and workflows.
+- [API Reference](https://polymux.com/api-reference): REST endpoints for agents, workflows, sessions, vault, and storage.
+
+## Community
+
+- [Community](https://polymux.com/community): Hub for shared workflows, support, and discussion.
+- [Forum](https://polymux.com/forum): Ask questions, share builds, and troubleshoot with other users.
+- [Blog](https://polymux.com/blog): Updates, deep-dives, and case studies.
+
+## Company
+
+- [About Us](https://polymux.com/about-us): Mission, team, and story.
+- [Contact](https://polymux.com/contact): Sales, partnerships, support, and press.
+
+## Legal
+
+- [Privacy Policy](https://polymux.com/privacy-policy)
+- [Terms of Service](https://polymux.com/terms-of-service)
+- [Cookie Policy](https://polymux.com/cookie-policy)

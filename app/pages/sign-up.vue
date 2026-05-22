@@ -4,12 +4,13 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `${t('common.signUp')} — Polymux`,
+  title: () => `${t('common.signUp')}`,
 })
 
 const supabase = useSupabaseClient()
 const router = useRouter()
 const route = useRoute()
+const { $posthog } = useNuxtApp()
 
 const redirectTo = computed(() => (route.query.redirect as string) || '/')
 
@@ -66,6 +67,7 @@ async function onSubmit() {
       error.value = authError.message
     }
     else {
+      $posthog?.capture('user_signed_up', { provider: 'email' })
       emailSent.value = true
     }
   }

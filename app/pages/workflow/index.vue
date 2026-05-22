@@ -3,14 +3,12 @@
 
 import { DRAFT_WORKFLOW_ID } from '~/composables/workflows/useWorkflowList'
 
+const { t } = useI18n()
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
 
-const { sessions, draft, createDraft, restoreDraft, fetchSessions } = useWorkflowList()
+const { sessions, draft, createDraft, fetchSessions } = useWorkflowList()
 
 onMounted(async () => {
-  await fetchSessions()
-  await restoreDraft()
-
   // Per-tab memory: within the same tab, `/workflow` restores the last-viewed workflow.
   const stored = sessionStorage.getItem(TAB_LAST_WORKFLOW_KEY)
   if (stored && sessions.value.some(s => s.id === stored)) {
@@ -29,7 +27,7 @@ onMounted(async () => {
       <TabPanel class="min-h-0 min-w-0 flex-1">
         <div class="p-4 sm:p-5">
           <Placeholder
-            message="Placeholder — open a workflow from the sidebar to get started."
+            :message="t('workflow.listEmptyPlaceholder')"
           >
             <template #icon>
               <svg

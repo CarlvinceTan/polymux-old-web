@@ -1,6 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
-import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { normalizePath, resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/internal/workspaces/[id]/files/delete
 // Body: { paths: string[] }  (one or many)
@@ -14,7 +14,7 @@ interface Body {
 }
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event)

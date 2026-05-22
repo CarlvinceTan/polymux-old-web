@@ -1,7 +1,7 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { assertMembership, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { fetchDriveStorageQuota } from '~~/server/utils/googleOAuth'
+import { assertMembership, resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { fetchDriveStorageQuota } from '~~/server/utils/oauth/googleOAuth'
 
 // GET /api/workspaces/[id]/integrations/google-drive/usage
 // Returns the connected Google account's overall storage quota (Drive + Gmail

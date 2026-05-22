@@ -1,35 +1,64 @@
 <script setup lang="ts">
-import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
-import type { SessionHandle } from '~/composables/auth/useSession'
+// Cache this page when hopping to Schedule / Artifacts so ChatLayout + WorkflowNodeCanvas
+// stay warm — flow pan/zoom, selection, collapsed parallels, undo stack survive tab swaps.
+definePageMeta({ keepalive: true })
+
+import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
+import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
+import type { AgentChatsHandle } from '~/composables/chat/useAgentChats'
+import type { ViewportsHandle } from '~/composables/viewport/useViewports'
+import type { ScreencastHandle } from '~/composables/viewport/useScreencast'
 import type { ViewMode } from '~/components/chat/ChatLayout.vue'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
-const chats = inject<any>('chat-chats')!
-const vp = inject<any>('chat-vp')!
-const screencast = inject<any>('chat-screencast')!
+const chats = inject<AgentChatsHandle>('chat-chats')!
+const messageFeedback = inject<{
+  feedback: Ref<Map<string, 'up' | 'down'>>
+  setRating: (id: string, rating: 'up' | 'down' | null) => Promise<void>
+}>('chat-message-feedback')!
+const vp = inject<ViewportsHandle>('chat-vp')!
+const screencast = inject<ScreencastHandle>('chat-screencast')!
 const chatTitle = inject<Ref<string>>('chat-title')!
 const isNewChat = inject<Ref<boolean>>('chat-is-new')!
 const welcome = inject<Ref<boolean>>('chat-welcome')!
 const viewportList = inject<Ref<any>>('chat-viewport-list')!
-const browserMode = inject<Ref<boolean>>('chat-browser-mode')!
 const userName = inject<string>('chat-user-name')!
 const welcomeSuggestion = inject<string>('chat-welcome-suggestion')!
 const presetPrompt = inject<string>('chat-preset-prompt')!
 const titleRequested = inject<Ref<boolean>>('chat-title-requested')!
 const viewMode = inject<Ref<ViewMode>>('chat-view-mode')!
+const browserMode = inject<Ref<'server' | 'extension'>>('chat-browser-mode')!
 const armAutoSwitch = inject<() => void>('chat-arm-auto-switch')!
 const onRename = inject<(title: string) => Promise<void>>('chat-on-rename')!
-const onPromoteViewport = inject<(agentId: string) => void>('chat-on-promote-viewport')!
-const onDemoteActive = inject<() => void>('chat-on-demote-active')!
 const onCloseViewport = inject<(agentId: string) => void>('chat-on-close-viewport')!
 const onSpawnBrowserAgent = inject<() => void>('chat-on-spawn-browser-agent')!
 const session = inject<SessionHandle>('chat-session')!
+const workflowWorkspaceId = inject(
+  'workflow-workspace-id',
+  computed(() => ''),
+) as ComputedRef<string>
+const workspacePlan = inject(
+  'workflow-workspace-plan',
+  computed(() => null as string | null),
+) as ComputedRef<string | null>
+const budgetRestorePrompt = inject(
+  'chat-budget-restore-prompt',
+  ref<string | null>(null),
+)
 
 const reconnecting = computed(
   () => session.status.value === 'connecting' || session.status.value === 'reconnecting',
 )
 
-// Drives the typing indicator across silent gaps: while the orchestrator is
+const { canSendPromptSync, canSendPromptAsync } = useChatPromptSendGuard(
+  computed(() => workflowWorkspaceId.value ?? ''),
+  computed(() => workspacePlan.value),
+)
+
+const { settings: userSettings } = useUserSettings()
+const showCursor = computed(() => userSettings.value.show_cursor_overlay)
+
+// Drives the working indicator across silent gaps: while the orchestrator is
 // waiting on a browser sub-agent's result, no agent_thinking / agent_message
 // events fire on the orchestrator, but work is still happening — the dots
 // should keep pulsing.
@@ -50,6 +79,33 @@ const command = computed({
   },
 })
 
+watch(budgetRestorePrompt, (v) => {
+  if (v == null || v === '') return
+  command.value = v
+  budgetRestorePrompt.value = null
+})
+
+// Pre-emit gate is sync-only so the optimistic chat UI (user bubble + working
+// dots) can apply the instant the user clicks send. The async weekly-cap RPC
+// runs after the optimistic apply, inside the wireGuard passed to
+// sendMessage/editMessage — if it rejects, the chat handle rolls the bubble
+// back and restores the prompt to the composer.
+function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
+  const t = text.trim()
+  if (!t) return false
+  return canSendPromptSync(t)
+}
+
+function beforeEditMessage(text: string, _attachments: ChatMessageAttachment[]) {
+  return canSendPromptSync(text.trim())
+}
+
+async function onWelcomeSuggestion() {
+  const t = presetPrompt.trim()
+  if (!canSendPromptSync(t)) return
+  onSend(presetPrompt)
+}
+
 function onSend(value: string, attachments?: ChatMessageAttachment[]) {
   const t = value.trim()
   if (!t) return
@@ -61,35 +117,49 @@ function onSend(value: string, attachments?: ChatMessageAttachment[]) {
   }
 
   armAutoSwitch()
-  currentChat.value.sendMessage(t, attachments)
+  currentChat.value.sendMessage(t, attachments, () => canSendPromptAsync(t))
 }
 
 function onEditMessage(index: number, text: string, attachments: ChatMessageAttachment[]) {
   armAutoSwitch()
-  currentChat.value.editMessage(index, text, attachments)
+  currentChat.value.editMessage(index, text, attachments, () => canSendPromptAsync(text.trim()))
 }
 
-function onRetryMessage(index: number) {
-  armAutoSwitch()
-  currentChat.value.retryFromMessage(index)
+function onFeedbackChange(messageId: string, rating: 'up' | 'down' | null) {
+  void messageFeedback.setRating(messageId, rating)
 }
 
-// Pick up a draft stashed during session promotion and fire it once the
-// WebSocket is actually connected.
+// Stop a single browser agent's current work. Routes through the chat layer
+// because `stop_agent` is processed via the orchestrator's StopSubagent path
+// (cancel mid-task + release the pool slot) — same primitive the orchestrator
+// itself uses, just user-triggered from the viewport's run/stop control.
+function onStopAgent(agentId: string) {
+  chats.stopAgent(agentId)
+}
+
+// "Continue" / re-run hook for an idle viewport. No first-class server API
+// exists for resuming a sub-agent yet, so this is intentionally a no-op
+// scaffold — the Viewport's onRun prop is still wired so the play button
+// renders enabled in the UI, but the click doesn't drive any backend action
+// until a continue/resume message type lands on the protocol.
+function onRunAgent(_agentId: string) {
+  // TODO: wire to a server-side "continue agent" message when available.
+}
+
+// Pick up a draft stashed during session promotion and fire it immediately.
+// Calling onSend now pushes the optimistic user bubble into orchestrator
+// state synchronously — the welcome view goes away on the same tick the
+// page mounts. The WS frame itself is buffered inside useWorkflowSession until the
+// socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
   const pending = consumePendingPrompt(sessionId.value)
   if (!pending) return
-  const send = () => onSend(pending.text, pending.attachments)
-  if (session.status.value === 'connected') {
-    send()
-    return
-  }
-  const stop = watch(session.status, (s) => {
-    if (s === 'connected') {
-      stop()
-      send()
-    }
-  })
+  const trimmed = pending.text.trim()
+  // Sync gate only — onSend itself folds the async weekly-cap check into the
+  // wireGuard it passes to sendMessage, so awaiting it here would re-introduce
+  // the delay we just eliminated and the welcome view would linger past mount.
+  if (!canSendPromptSync(trimmed)) return
+  onSend(pending.text, pending.attachments)
 })
 </script>
 
@@ -98,30 +168,34 @@ onMounted(() => {
     v-model:command="command"
     v-model:viewport-list="viewportList"
     v-model:view-mode="viewMode"
-    show-header-divider
-    :browser-mode="browserMode"
+    v-model:browser-mode="browserMode"
     :welcome="welcome"
     :chat-title="chatTitle"
     :renameable="!isNewChat"
     :user-name="userName"
     :welcome-suggestion="welcomeSuggestion"
     :messages="(currentChat.messages.value as ChatMessage[])"
-    :is-thinking="currentChat.thinking.value != null"
     :is-streaming="currentChat.isStreaming.value"
+    :waiting-for-agent="currentChat.waitingForAgent.value"
     :browser-agents-active="browserAgentsActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
+    :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
+    :show-cursor="showCursor"
     :session-id="sessionId"
+    :workspace-id="workflowWorkspaceId"
     :browser-agent-cap="vp.browserAgentCap.value"
-    :active-agent-id="vp.activeAgentId.value"
     :reconnecting="reconnecting"
-    @welcome-suggestion="onSend(presetPrompt)"
+    :feedback="messageFeedback.feedback.value"
+    :before-send-prompt="beforeSendPrompt"
+    :before-edit="beforeEditMessage"
+    @welcome-suggestion="onWelcomeSuggestion"
     @send="onSend"
     @rename="onRename"
-    @promote-viewport="onPromoteViewport"
-    @demote-active="onDemoteActive"
     @close-viewport="onCloseViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"
+    @stop-agent="onStopAgent"
+    @run-agent="onRunAgent"
     @edit-message="onEditMessage"
-    @retry-message="onRetryMessage"
+    @feedback-change="onFeedbackChange"
   />
 </template>

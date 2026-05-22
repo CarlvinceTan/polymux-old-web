@@ -1,24 +1,28 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
-import { artifactCap, fileCap, pullFolderCap } from '~~/server/utils/planLimits'
-import { decryptToken } from '~~/server/utils/tokenCrypto'
-import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { artifactCap, cloudCap, fileCap } from '~~/server/utils/billing/planLimits'
+import { decryptToken } from '~~/server/utils/security/tokenCrypto'
+import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/internal/workspaces/[id]/filesystem/session-open
 // Body: { user_id: string }  (the invoking user — for autonomous runs this is the workspace owner)
 //
-// Called by Go at session start. Returns everything needed to populate the
-// stub tree and evaluate permissions for the duration of the session:
+// Called by Go at session start. Returns everything needed to seed the
+// in-memory file index and evaluate permissions for the duration of the
+// session:
 //
-// - `files`: every file row for the workspace (metadata only — no bytes)
+// - `files`: every file row for the workspace (metadata only — no bytes;
+//   the agent fetches bytes on demand via ReadFile)
 // - `permissions`: user role + raw grants, so Go can compute effective
 //   permission for any path using the same walk-toward-root algorithm as the
 //   `effective_file_permission` RPC
 // - `drive`: decrypted Drive access token, if a connection exists
-// - `plan` + `plan_limits`: drives `max_file_bytes` / `max_pull_folder_bytes`
+// - `plan` + `plan_limits`: drives `max_file_bytes`, `max_artifact_bytes`,
+//   and `max_cloud_bytes`
 //
-// Supabase access keys are not included — Go already has the service role key
-// in its own config and talks to Storage directly for Supabase-backed files.
+// Supabase access keys are not included — Go already has its own credentials
+// for any backend it talks to directly (B2 today; Drive via the token above).
 
 interface Body {
   user_id?: unknown
@@ -34,7 +38,7 @@ interface FileRow {
   path: string
   kind: 'file' | 'folder'
   size_bytes: number | null
-  backend: 'supabase' | 'google-drive' | 'local'
+  backend: 'google-drive' | 'local' | 'b2'
   backend_ref: string | null
   etag: string | null
   backend_mtime: string | null
@@ -42,7 +46,7 @@ interface FileRow {
 }
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event)
@@ -64,7 +68,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'User is not a member of this workspace.' })
   }
 
-  // 2. Workspace plan (drives max_file_bytes / max_pull_folder_bytes).
+  // 2. Workspace plan (drives max_file_bytes / max_artifact_bytes / max_cloud_bytes).
   const { data: workspace, error: wsErr } = await admin
     .from('workspaces')
     .select('plan')
@@ -136,6 +140,35 @@ export default defineEventHandler(async (event) => {
     if (Number.isFinite(n) && n > 0) artifactUsage += Math.floor(n)
   }
 
+  // 7. Current Cloud (B2-backed workspace files) usage. Counted separately
+  // from total files because Drive / OPFS bytes don't compete with the
+  // polymux-managed cap.
+  let cloudUsage = 0
+  for (const file of files) {
+    if (file.backend === 'b2' && file.size_bytes != null) {
+      cloudUsage += Math.floor(file.size_bytes)
+    }
+  }
+  const planCloudCap = cloudCap(plan)
+
+  // 8. Per-workspace B2 sub-key. Auto-mints on first session-open if the
+  // workspace doesn't have one yet. The decrypted credential ships in this
+  // response so the Go agent's B2Backend can use it (instead of the env-var
+  // master key) — every B2 call from a session is scoped to its workspace
+  // via the key's namePrefix. Non-fatal on failure: Go falls back to the
+  // env-var master key for backward compat during deploy.
+  let b2: { application_key_id: string, application_key: string } | null = null
+  try {
+    const key = await ensureWorkspaceKey(admin, workspaceId, userId)
+    b2 = {
+      application_key_id: key.applicationKeyId,
+      application_key: key.applicationKey,
+    }
+  }
+  catch (err) {
+    console.error('[internal/session-open] b2 key mint failed; Go will use master key fallback', err)
+  }
+
   return {
     files,
     permissions: {
@@ -143,12 +176,18 @@ export default defineEventHandler(async (event) => {
       grants,
     },
     drive,
+    b2,
     plan,
     plan_limits: {
       max_file_bytes: fileCap(plan),
-      max_pull_folder_bytes: pullFolderCap(plan),
       max_artifact_bytes: artifactCap(plan),
+      max_cloud_bytes: planCloudCap,
     },
     artifact_usage_bytes: artifactUsage,
+    cloud_usage_bytes: cloudUsage,
+    // Cloud is available when the plan grants a non-zero cap. Workspaces
+    // opt-in via the storage-settings UI for ordering, but availability is
+    // plan-driven — there's no separate DB toggle yet.
+    cloud_enabled: planCloudCap > 0,
   }
 })

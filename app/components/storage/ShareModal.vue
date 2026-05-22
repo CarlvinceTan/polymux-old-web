@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
+import type { SelectedItem } from '~/types/storage'
 
 const props = defineProps<{
   items: SelectedItem[]
@@ -11,7 +11,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { workspaces, currentWorkspace } = useWorkspaces()
-const { validateSubdirectoryShare } = useStorage()
+const { validateSubdirectoryShare } = useStorageFiles()
 const user = useSupabaseUser()
 
 type PermissionLevel = 'viewer' | 'editor'
@@ -224,6 +224,7 @@ onMounted(() => {
                 >
                   <input
                     type="checkbox"
+                    :name="`share-workspace-${workspace.id}`"
                     :checked="isWorkspaceSelected(workspace.id)"
                     class="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
                     @change="toggleWorkspace(workspace.id)"

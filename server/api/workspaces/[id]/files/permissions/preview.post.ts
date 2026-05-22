@@ -4,7 +4,7 @@ import {
   effectivePermission,
   normalizePath,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/permissions/preview
 // Body: { path, user_id }

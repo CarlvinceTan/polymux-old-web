@@ -1,21 +1,16 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import {
-  STORAGE_BUCKET,
-  resolveWorkspaceId,
-  storageKey,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { deleteDriveFile } from '~~/server/utils/googleOAuth'
+import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { deleteDriveFile } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workspaces/[id]/files/finalize-local-migration
-// Body: { source: 'supabase'|'google-drive', device_id: string, items: [{ file_id }] }
+// Body: { source: 'google-drive', device_id: string, items: [{ file_id }] }
 //
-// Flips a batch of file rows from their current remote backend to
-// backend='local', with `backend_ref` set to the caller's device id so
-// /download-url can tell whether this browser is the device that holds
-// the bytes. Best-effort cleans up the remote storage; cleanup failures
-// are logged but don't fail the flip — the row already says "local" and
-// orphaned remote bytes only waste quota.
+// Flips a batch of file rows from Drive to backend='local', with `backend_ref`
+// set to the caller's device id so /download-url can tell whether this browser
+// is the device that holds the bytes. Best-effort cleans up the Drive file;
+// cleanup failures are logged but don't fail the flip — the row already says
+// "local" and an orphaned Drive file only wastes quota.
 
 interface Body {
   source?: unknown
@@ -36,7 +31,12 @@ export default defineEventHandler(async (event) => {
 
   const workspaceId = resolveWorkspaceId(event)
   const body = await readBody<Body>(event).catch(() => ({})) as Body
-  const source = body?.source === 'google-drive' ? 'google-drive' : 'supabase'
+  // Only Drive remains as a remote source. Reject anything else explicitly so
+  // a stale client can't silently no-op.
+  if (body?.source !== 'google-drive') {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid source.' })
+  }
+  const source = 'google-drive' as const
   const deviceId = typeof body?.device_id === 'string' ? body.device_id : ''
   if (!deviceId) {
     throw createError({ statusCode: 400, statusMessage: 'device_id is required.' })
@@ -81,9 +81,6 @@ export default defineEventHandler(async (event) => {
   const errors: ItemReport[] = []
   let migrated = 0
 
-  // Drive access is lazy — only resolved if we actually need to delete a
-  // Drive file, so the endpoint still works when source=supabase and Drive
-  // isn't connected.
   let driveAccess: Awaited<ReturnType<typeof resolveDriveAccess>> | null = null
   async function driveAccessOrThrow() {
     if (!driveAccess) driveAccess = await resolveDriveAccess(admin, workspaceId)
@@ -97,7 +94,6 @@ export default defineEventHandler(async (event) => {
       continue
     }
     if (row.backend !== source) {
-      // Already flipped (concurrent run) or on the wrong backend — skip.
       errors.push({ file_id: item.file_id, reason: `unexpected_backend:${row.backend}` })
       continue
     }
@@ -116,18 +112,10 @@ export default defineEventHandler(async (event) => {
       continue
     }
 
-    // Best-effort remote cleanup.
     try {
-      if (source === 'supabase') {
-        const key = row.backend_ref || storageKey(workspaceId, row.path)
-        const { error: rmError } = await admin.storage.from(STORAGE_BUCKET).remove([key])
-        if (rmError) console.warn('[finalize-local-migration] supabase cleanup failed', key, rmError)
-      }
-      else {
-        if (row.backend_ref) {
-          const access = await driveAccessOrThrow()
-          await deleteDriveFile(access.accessToken, row.backend_ref, workspaceId)
-        }
+      if (row.backend_ref) {
+        const access = await driveAccessOrThrow()
+        await deleteDriveFile(access.accessToken, row.backend_ref, workspaceId)
       }
     }
     catch (err) {

@@ -1,6 +1,7 @@
 import { serverSupabaseUser, serverSupabaseClient, serverSupabaseServiceRole } from '#supabase/server'
-import { validateManifest } from '~~/server/utils/integrationManifest'
+import { validateManifest } from '~~/server/utils/integrations/integrationManifest'
 import { isConnectorId } from '~~/server/connectors/registry'
+import { useServerPostHog } from '~~/server/utils/posthog'
 
 // POST /api/workspaces/[id]/integrations/install
 //
@@ -198,6 +199,20 @@ export default defineEventHandler(async (event) => {
       if (!r?.data) missing.push(rc.provider)
     }
   }
+
+  const sessionId = getHeader(event, 'x-posthog-session-id')
+  const distinctId = getHeader(event, 'x-posthog-distinct-id')
+  useServerPostHog().capture({
+    distinctId: distinctId ?? user.sub,
+    event: 'integration_installed',
+    properties: {
+      $session_id: sessionId,
+      integration_slug: slug,
+      integration_version: manifest.identity.version,
+      workspace_id: workspaceId,
+      missing_required_connectors: missing,
+    },
+  })
 
   return {
     ok: true as const,

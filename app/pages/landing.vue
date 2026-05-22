@@ -1,5 +1,17 @@
 <script setup lang="ts">
 /** Marketing home body: hero, features, pricing, reviews, CTA. Imported by `index.vue` for `/`; not a file-based route (see `nuxt.config` `pages:extend`). */
+
+useHead({
+  title: 'AI Agents for Browser Automation',
+  meta: [
+    {
+      name: 'description',
+      content: 'Polymux orchestrates AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs — built for teams.',
+    },
+  ],
+})
+
+const { t } = useI18n()
 const route = useRoute()
 
 function scrollToHash() {
@@ -67,16 +79,57 @@ type BillingPeriod = 'annual' | 'monthly'
 
 const billingPeriod = ref<BillingPeriod>('annual')
 
-const { currency, prices, detect } = useCurrency()
+interface PriceData {
+  free: { monthly: string; annualPerMonth: string }
+  pro: { monthly: string; annualPerMonth: string }
+  max: { monthly: string; annualPerMonth: string }
+  enterprise: { monthly: string; annualPerMonth: string }
+}
 
-onMounted(() => { detect() })
+const prices = useState<PriceData | null>('pricing-prices', () => null)
 
-const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean; isSpecial: boolean }[] = [
-  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false, isSpecial: false },
-  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true, isSpecial: true },
-  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false, isSpecial: false },
-  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false, isSpecial: false },
+onMounted(async () => {
+  try {
+    prices.value = await $fetch<PriceData>('/api/prices')
+  }
+  catch {
+    prices.value = null
+  }
+})
+
+const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
+  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
+  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true },
+  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false },
+  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false },
 ]
+
+const planOrder: PlanKey[] = ['free', 'pro', 'max', 'enterprise']
+const user = useSupabaseUser()
+const { currentWorkspace } = useWorkspaces()
+
+const currentUserPlan = computed<PlanKey | null>(() => {
+  if (!user.value) return null
+  const raw = (currentWorkspace.value?.plan as string | undefined)?.toLowerCase().trim()
+  if (raw && planOrder.includes(raw as PlanKey)) return raw as PlanKey
+  return 'free'
+})
+
+function isPlanCurrent(key: PlanKey) {
+  return currentUserPlan.value === key
+}
+
+function isPlanDowngrade(key: PlanKey) {
+  const cur = currentUserPlan.value
+  if (!cur) return false
+  return planOrder.indexOf(key) < planOrder.indexOf(cur)
+}
+
+function nextTierUp(key: PlanKey): PlanKey {
+  const idx = planOrder.indexOf(key)
+  if (idx < 0 || idx >= planOrder.length - 1) return key
+  return planOrder[idx + 1] ?? key
+}
 
 function planPriceDisplay(key: PlanKey): {
   price: string
@@ -117,11 +170,21 @@ function planItemsForKey(key: PlanKey) {
   })
 }
 
-const selectedPlanKey = ref<PlanKey>('free')
+const selectedPlanKey = ref<PlanKey>(
+  currentUserPlan.value ? nextTierUp(currentUserPlan.value) : 'free',
+)
 
-function onPlanPanelSelect(key: PlanKey) {
+watch(currentUserPlan, (cur) => {
+  if (cur) selectedPlanKey.value = nextTierUp(cur)
+})
+
+function onTierSelect(key: PlanKey) {
   if (key === 'enterprise') {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
+  }
+  if (isPlanCurrent(key) || isPlanDowngrade(key)) return
+  if (!user.value) {
+    return navigateTo({ path: '/sign-up', query: { redirect: '/pricing' } })
   }
   selectedPlanKey.value = key
   nextTick(() => {
@@ -132,30 +195,15 @@ function onPlanPanelSelect(key: PlanKey) {
   })
 }
 
-const purchaseLoading = ref(false)
-const purchaseError = ref('')
-
-async function onPurchaseNow() {
+function onPurchaseNow() {
   const key = selectedPlanKey.value
   if (key === 'enterprise') {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
   }
-  if (key === 'free') return
-
-  purchaseLoading.value = true
-  purchaseError.value = ''
-
-  try {
-    const { url } = await $fetch<{ url: string }>('/api/stripe/checkout', {
-      method: 'POST',
-      body: { planKey: key, billingPeriod: billingPeriod.value, currency: currency.value },
-    })
-    window.location.href = url
+  if (!user.value) {
+    return navigateTo({ path: '/sign-up', query: { redirect: '/pricing' } })
   }
-  catch (err: unknown) {
-    purchaseError.value = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-    purchaseLoading.value = false
-  }
+  return navigateTo('/pricing')
 }
 
 /** One entry forces ViewportDemo into single-slide mode (no carousel). */
@@ -279,11 +327,11 @@ const featureDemoSources: string[] = ['']
             Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
           </p>
         </div>
-        <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">
+        <div class="mb-5 flex justify-center sm:mb-6">
           <div
             class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
             role="group"
-            aria-label="Billing period"
+            :aria-label="t('pricing.billingPeriod')"
           >
             <button
               type="button"
@@ -314,35 +362,32 @@ const featureDemoSources: string[] = ['']
           </div>
         </div>
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <PlanPanel
+          <PricingTierCard
             v-for="plan in planMeta"
             :key="plan.key"
             :name="plan.name"
             v-bind="planPriceDisplay(plan.key)"
             :cta="plan.cta"
             :highlighted="plan.highlighted"
-            :is-special="plan.isSpecial"
             :selected="selectedPlanKey === plan.key"
+            :is-current="isPlanCurrent(plan.key)"
+            :disabled="isPlanDowngrade(plan.key)"
             :items="planItemsForKey(plan.key)"
             :panel-id="`plan-panel-${plan.key}`"
-            @select="onPlanPanelSelect(plan.key)"
+            @select="onTierSelect(plan.key)"
           />
         </div>
         <div
-          v-if="selectedPlanKey !== 'free'"
+          v-if="selectedPlanKey !== 'free' && !isPlanCurrent(selectedPlanKey) && !isPlanDowngrade(selectedPlanKey)"
           class="mt-10 flex flex-col items-center gap-3 sm:mt-12"
         >
           <button
             type="button"
-            :disabled="purchaseLoading"
-            class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
             @click="onPurchaseNow"
           >
-            {{ purchaseLoading ? 'Redirecting…' : 'Purchase now' }}
+            Purchase now
           </button>
-          <p v-if="purchaseError" class="text-sm text-red-600">
-            {{ purchaseError }}
-          </p>
         </div>
       </div>
     </div>

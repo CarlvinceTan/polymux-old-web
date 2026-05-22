@@ -1,5 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
-import { isForumCategory } from '~~/server/utils/forumAuthor'
+import { isForumCategory } from '~~/server/utils/forum/forumAuthor'
 
 const ALLOWED_SORTS = ['latest', 'top', 'unanswered'] as const
 type Sort = typeof ALLOWED_SORTS[number]
@@ -17,10 +17,10 @@ function clamp(n: number, min: number, max: number): number {
 export default defineEventHandler(async (event) => {
   const q = getQuery(event)
 
-  const category = typeof q.category === 'string' && isForumCategory(q.category) ? q.category : null
+  const category = typeof q.category === 'string' && isForumCategory(q.category) ? q.category : undefined
   const sort = normaliseSort(q.sort)
   const rawSearch = typeof q.search === 'string' ? q.search.trim() : ''
-  const search = rawSearch.length > 0 && rawSearch.length <= 200 ? rawSearch : null
+  const search = rawSearch.length > 0 && rawSearch.length <= 200 ? rawSearch : undefined
   const limit = clamp(Number(q.limit ?? 50) || 50, 1, 100)
   const offset = clamp(Number(q.offset ?? 0) || 0, 0, 10000)
 

@@ -1,10 +1,18 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
-const route = useRoute()
+useHead({
+  title: 'Contact',
+  meta: [
+    {
+      name: 'description',
+      content: 'Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries.',
+    },
+  ],
+})
 
-/** Set when redirecting from the pricing Enterprise panel only. */
-const ENTERPRISE_PLAN_TITLE = 'Interest in Entreprise Plan'
+const { t } = useI18n()
+const route = useRoute()
 
 const title = ref('')
 const email = ref('')
@@ -23,20 +31,20 @@ async function onSubmit() {
   errorMessage.value = null
   success.value = false
 
-  const t = title.value.trim()
-  const e = email.value.trim()
-  const c = content.value.trim()
+  const titleTrimmed = title.value.trim()
+  const emailTrimmed = email.value.trim()
+  const contentTrimmed = content.value.trim()
 
-  if (!t) {
-    errorMessage.value = 'Please enter a title.'
+  if (!titleTrimmed) {
+    errorMessage.value = t('contact.errorTitle')
     return
   }
-  if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
-    errorMessage.value = 'Please enter a valid email address.'
+  if (!emailTrimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+    errorMessage.value = t('contact.errorEmail')
     return
   }
-  if (!c) {
-    errorMessage.value = 'Please enter your message.'
+  if (!contentTrimmed) {
+    errorMessage.value = t('contact.errorContent')
     return
   }
 
@@ -44,7 +52,7 @@ async function onSubmit() {
   try {
     await $fetch('/api/contact', {
       method: 'POST',
-      body: { title: t, email: e, content: c },
+      body: { title: titleTrimmed, email: emailTrimmed, content: contentTrimmed },
     })
     success.value = true
     title.value = ''
@@ -57,8 +65,7 @@ async function onSubmit() {
       if (typeof d.statusMessage === 'string') msg = d.statusMessage
       else if (typeof d.message === 'string') msg = d.message
     }
-    errorMessage.value =
-      msg || 'Something went wrong. Please try again in a moment.'
+    errorMessage.value = msg || t('contact.error')
   } finally {
     submitting.value = false
   }
@@ -66,7 +73,7 @@ async function onSubmit() {
 
 function applyEnterprisePlanPrefill() {
   if (route.query.from === 'enterprise-plan') {
-    title.value = ENTERPRISE_PLAN_TITLE
+    title.value = t('contact.enterprisePrefill')
   }
 }
 
@@ -82,10 +89,10 @@ watch(
     <div class="w-full max-w-[680px]">
       <header class="text-center">
         <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
-          Contact us
+          {{ t('contact.title') }}
         </h1>
         <p class="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-          Send a note for sales, support, or partnerships. We read every message.
+          {{ t('contact.subtitle') }}
         </p>
       </header>
 
@@ -96,7 +103,7 @@ watch(
       >
         <div>
           <label for="contact-title" class="block text-sm font-medium text-neutral-800">
-            Title
+            {{ t('contact.titleField') }}
           </label>
           <input
             id="contact-title"
@@ -104,7 +111,7 @@ watch(
             type="text"
             name="title"
             autocomplete="off"
-            placeholder="What is this about?"
+            :placeholder="t('contact.titlePlaceholder')"
             class="mt-2 min-h-11"
             :class="fieldClass"
             :disabled="submitting"
@@ -113,7 +120,7 @@ watch(
 
         <div>
           <label for="contact-email" class="block text-sm font-medium text-neutral-800">
-            Email
+            {{ t('common.email') }}
           </label>
           <input
             id="contact-email"
@@ -121,7 +128,7 @@ watch(
             type="email"
             name="email"
             autocomplete="email"
-            placeholder="youremail@example.com"
+            :placeholder="t('contact.emailPlaceholder')"
             class="mt-2 min-h-11"
             :class="fieldClass"
             :disabled="submitting"
@@ -130,14 +137,14 @@ watch(
 
         <div>
           <label for="contact-content" class="block text-sm font-medium text-neutral-800">
-            Content
+            {{ t('contact.contentField') }}
           </label>
           <textarea
             id="contact-content"
             v-model="content"
             name="content"
             rows="6"
-            placeholder="How can we help?"
+            :placeholder="t('contact.contentPlaceholder')"
             class="mt-2 min-h-[9.5rem] resize-y py-3"
             :class="fieldClass"
             :disabled="submitting"
@@ -156,7 +163,7 @@ watch(
           class="text-sm text-green-700"
           role="status"
         >
-          Thanks — your message was sent. We will get back to you soon.
+          {{ t('contact.success') }}
         </p>
 
         <div class="flex justify-center">
@@ -165,7 +172,7 @@ watch(
             class="min-h-11 w-full rounded-lg bg-neutral-950 px-6 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-36"
             :disabled="submitting"
           >
-            {{ submitting ? 'Sending…' : 'Send' }}
+            {{ submitting ? t('contact.sending') : t('contact.send') }}
           </button>
         </div>
       </form>

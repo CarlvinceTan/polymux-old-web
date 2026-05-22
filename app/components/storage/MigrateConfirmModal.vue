@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StorageProvider } from '~/types/storage'
-import type { FileIconName } from '~/composables/useFileIcons'
+import type { FileIconName } from '~/composables/ui/useFileIcons'
 
 // One row of the modal's list — a top-level item the user is about to migrate.
 // Folder descendants are intentionally NOT enumerated (the user already saw
@@ -19,6 +19,8 @@ export interface MigrateConfirmGroup {
   items: MigrateConfirmItem[]
 }
 
+const { t } = useI18n()
+
 const props = defineProps<{
   groups: MigrateConfirmGroup[]
   targetProvider: StorageProvider
@@ -31,14 +33,14 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const providerLabels: Record<StorageProvider, string> = {
-  'supabase': 'Workspace cloud',
+const providerLabels = computed<Record<StorageProvider, string>>(() => ({
   'google-drive': 'Google Drive',
   'local': 'This device',
-}
+  'b2': t('storage.settings.providerCloud'),
+}))
 
 function providerLabel(p: StorageProvider): string {
-  return providerLabels[p]
+  return providerLabels.value[p]
 }
 
 const totalItems = computed(() =>

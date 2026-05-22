@@ -1,11 +1,12 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
-import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
+import { nextTick, ref, watch } from 'vue'
+import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 
 export type { ChatMessage, ViewportState }
 
-export type ViewMode = 'chat' | 'viewport' | 'workflow' | 'node'
+export type ViewMode = 'chat' | 'viewport' | 'flow'
 
 const { t } = useI18n()
 
@@ -16,18 +17,29 @@ const props = defineProps<{
   welcomeSuggestion: string
   messages: ChatMessage[]
   frameUrls?: Map<string, string>
+  cursorPositions?: Map<string, CursorState>
+  showCursor?: boolean
   renameable?: boolean
   sessionId: string
-  isThinking?: boolean
+  workspaceId?: string | null
   isStreaming?: boolean
+  waitingForAgent?: boolean
   browserAgentsActive?: boolean
   browserAgentCap?: number
-  activeAgentId: string | null
-  browserMode: boolean
   hideViewSwitch?: boolean
   hideTitle?: boolean
-  showHeaderDivider?: boolean
   reconnecting?: boolean
+  feedback?: Map<string, 'up' | 'down'>
+  /**
+   * When set, invoked before emitting `send`; return false (or Promise<false>)
+   * to abort (attachments stay, no toast here — caller shows its own hint).
+   */
+  beforeSendPrompt?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
+  /**
+   * When set, invoked before forwarding `edit-message`; return false to keep
+   * the user message in edit mode.
+   */
+  beforeEdit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -35,17 +47,23 @@ const { attachments, addFiles, removeFile, clearAll } = useAttachments()
 const command = defineModel<string>('command', { required: true })
 const viewportList = defineModel<ViewportState[]>('viewportList', { required: true })
 const viewMode = defineModel<ViewMode>('viewMode', { default: 'chat' })
+// Per-workflow browser-mode selection. Owned by the workflow page so it
+// persists across the chat/viewport/flow sub-tabs (see workflow/[id].vue).
+// Defaults to 'server' for fresh sessions; the page hydrates the v-model
+// from sessionStorage/localStorage and from the server's session_state
+// echo, then writes back through set_browser_mode on every change.
+const browserMode = defineModel<'server' | 'extension'>('browserMode', { default: 'server' })
 
 const emit = defineEmits<{
   send: [value: string, attachments: ChatMessageAttachment[]]
   welcomeSuggestion: []
-  promoteViewport: [agentId: string]
-  demoteActive: []
   closeViewport: [agentId: string]
   spawnBrowserAgent: []
+  stopAgent: [agentId: string]
+  runAgent: [agentId: string]
   rename: [value: string]
   'edit-message': [index: number, text: string, attachments: ChatMessageAttachment[]]
-  'retry-message': [index: number]
+  'feedback-change': [messageId: string, rating: 'up' | 'down' | null]
 }>()
 
 // View-mode state (persistence + auto-switch on browser-agent activation) is
@@ -54,179 +72,77 @@ const emit = defineEmits<{
 // the v-model.
 const inChat = computed(() => props.hideViewSwitch || viewMode.value === 'chat')
 const inViewport = computed(() => !props.hideViewSwitch && viewMode.value === 'viewport')
-const inWorkflow = computed(() => !props.hideViewSwitch && viewMode.value === 'workflow')
-const inNode = computed(() => !props.hideViewSwitch && viewMode.value === 'node')
+const inFlow = computed(() => !props.hideViewSwitch && viewMode.value === 'flow')
 
 const showSwitch = computed(() => !props.hideViewSwitch)
+const showFloatingTop = computed(() => !props.hideTitle || showSwitch.value)
 
-// Welcome only makes sense in the chat view; switching to viewport/workflow
+// Welcome only makes sense in the chat view; switching to viewport/flow
 // means the user is opting into a different layout, even on a fresh session.
 const showWelcome = computed(() => props.welcome && inChat.value)
 
-const layoutContainer = ref<HTMLElement | null>(null)
-const chatPanelWidth = ref<number | null>(null)
-const initialChatPanelWidth = ref<number | null>(null)
-const isDragging = ref(false)
-
-let resizeObs: ResizeObserver | null = null
-
-// Keep the chat panel sized against the container's *current* width. The old
-// one-shot watch captured `clientWidth` at first mount and never recomputed,
-// so any later container size change (window resize, sidebar toggle, or the
-// laptop waking on a different display than it slept on) left `chatPanelWidth`
-// stuck at a stale absolute value — the panel would be wider than the new
-// container could afford, which squashed the chat content and pushed the
-// inline PromptInput off-screen until a reload re-derived the width.
-function syncWidthBounds(el: HTMLElement) {
-  const containerWidth = el.clientWidth
-  if (containerWidth === 0) return
-  const minWidth = Math.round(containerWidth * 0.38)
-  const maxWidth = Math.round(containerWidth / 2)
-  initialChatPanelWidth.value = minWidth
-  // Don't fight an in-progress drag; the user is setting the width directly.
-  if (isDragging.value && chatPanelWidth.value !== null) return
-  const current = chatPanelWidth.value
-  if (current === null) {
-    chatPanelWidth.value = minWidth
-    return
-  }
-  // Only re-clamp when the saved width no longer fits — otherwise preserve
-  // whatever width the user dragged to so transient resizes don't reset it.
-  if (current < minWidth || current > maxWidth) {
-    chatPanelWidth.value = Math.max(minWidth, Math.min(maxWidth, current))
-  }
-}
-
-watch(layoutContainer, (el) => {
-  if (resizeObs) {
-    resizeObs.disconnect()
-    resizeObs = null
-  }
-  if (!el) return
-  syncWidthBounds(el)
-  resizeObs = new ResizeObserver(() => {
-    if (layoutContainer.value) syncWidthBounds(layoutContainer.value)
-  })
-  resizeObs.observe(el)
-})
-
-onUnmounted(() => {
-  if (resizeObs) {
-    resizeObs.disconnect()
-    resizeObs = null
-  }
-})
-
-function startResize(e: PointerEvent) {
-  if (!layoutContainer.value) return
-  isDragging.value = true
-  e.preventDefault()
-  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-
-  const container = layoutContainer.value
-  const minX = initialChatPanelWidth.value ?? Math.round(container.clientWidth * 0.38)
-  const maxX = container.clientWidth / 2
-
-  function onMove(ev: PointerEvent) {
-    const containerRect = container.getBoundingClientRect()
-    const newWidth = containerRect.right - ev.clientX
-    chatPanelWidth.value = Math.max(minX, Math.min(maxX, newWidth))
-  }
-
-  function onUp() {
-    isDragging.value = false
-    document.removeEventListener('pointermove', onMove)
-    document.removeEventListener('pointerup', onUp)
-  }
-
-  document.addEventListener('pointermove', onMove)
-  document.addEventListener('pointerup', onUp)
-}
-
 function onAttachFiles(files: FileList) {
-  addFiles(props.sessionId, files)
+  addFiles(props.sessionId, files, props.workspaceId ?? undefined)
 }
 
 function onRemoveFile(id: string) {
   removeFile(id, props.sessionId)
 }
 
-function onSend(value: string) {
-  const files: ChatMessageAttachment[] = attachments.value
-    .filter(a => a.status === 'done')
-    .map(a => ({ id: a.id, name: a.name }))
+async function onSend(value: string, files: ChatMessageAttachment[]) {
+  if (props.beforeSendPrompt) {
+    const ok = await props.beforeSendPrompt(value.trim(), files)
+    if (!ok) return
+  }
   emit('send', value, files)
   clearAll()
+  // Jump to the bottom so the just-sent bubble (and the streaming reply) is
+  // in view regardless of where the user had scrolled. nextTick waits for
+  // the parent to append the user message and Vue to flush the DOM update.
+  nextTick(() => {
+    chatMessagesRef.value?.scrollToBottom('auto')
+  })
+}
+
+async function relayEdit(index: number, text: string, att: ChatMessageAttachment[]) {
+  if (props.beforeEdit) {
+    const ok = await props.beforeEdit(text, att)
+    if (!ok) return
+  }
+  emit('edit-message', index, text, att)
+}
+
+// Jump-to-latest button. ChatMessages owns the scroll viewport and reports
+// when the user has scrolled meaningfully above the bottom; we render the
+// affordance here so it can hover above the floating prompt overlay.
+type ChatMessagesExpose = { scrollToBottom: (behavior?: ScrollBehavior) => void }
+const chatMessagesRef = ref<ChatMessagesExpose | null>(null)
+const showJumpButton = ref(false)
+
+// Defensively clear the button whenever the chat view goes away. ChatMessages
+// also emits `false` on unmount, but resetting here closes the race on tab
+// switches where the new view mounts before the prior emit lands.
+watch(inChat, (next) => {
+  if (!next) showJumpButton.value = false
+})
+
+function onJumpButtonState(show: boolean) {
+  showJumpButton.value = show
+}
+
+function onJumpClick() {
+  chatMessagesRef.value?.scrollToBottom()
 }
 </script>
 
 <template>
-  <TabPanel v-bind="$attrs" class="min-h-0 min-w-0 flex-1" :hide-header-divider="!props.showHeaderDivider">
-    <template v-if="!hideTitle" #title>
-      <EditableTitle
-        :model-value="chatTitle"
-        :disabled="renameable === false"
-        @update:model-value="emit('rename', $event)"
-      />
-    </template>
-
-    <template v-if="showSwitch" #actions>
-      <div class="flex items-center rounded-lg bg-neutral-100 p-0.5">
-        <button
-          type="button"
-          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="inChat
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-700'"
-          :aria-label="t('chat.chatView')"
-          @click="viewMode = 'chat'"
-        >
-          <UIcon name="i-heroicons-chat-bubble-left-right-20-solid" class="size-3.5" />
-          <span class="hidden sm:inline">{{ t('chat.chatView') }}</span>
-        </button>
-        <button
-          type="button"
-          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="inViewport
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-700'"
-          :aria-label="t('chat.viewportView')"
-          @click="viewMode = 'viewport'"
-        >
-          <UIcon name="i-heroicons-computer-desktop-20-solid" class="size-3.5" />
-          <span class="hidden sm:inline">{{ t('chat.viewportView') }}</span>
-        </button>
-        <button
-          type="button"
-          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="inWorkflow
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-700'"
-          :aria-label="t('chat.workflowView')"
-          @click="viewMode = 'workflow'"
-        >
-          <UIcon name="i-heroicons-square-3-stack-3d-20-solid" class="size-3.5" />
-          <span class="hidden sm:inline">{{ t('chat.workflowView') }}</span>
-        </button>
-        <button
-          type="button"
-          class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
-          :class="inNode
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-700'"
-          :aria-label="t('chat.nodeView')"
-          @click="viewMode = 'node'"
-        >
-          <UIcon name="i-heroicons-share-20-solid" class="size-3.5" />
-          <span class="hidden sm:inline">{{ t('chat.nodeView') }}</span>
-        </button>
-      </div>
-    </template>
-
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+  <TabPanel v-bind="$attrs" class="min-h-0 min-w-0 flex-1" transparent>
+    <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <!-- Chat: padded column so messages clear the floating top/bottom overlays. -->
       <div
         v-if="inChat"
-        class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-5"
+        class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
+        :class="{ 'pt-[75px]': showFloatingTop }"
       >
         <ChatWelcome
           v-if="showWelcome"
@@ -236,94 +152,158 @@ function onSend(value: string) {
         />
         <ChatMessages
           v-else
+          ref="chatMessagesRef"
           :messages="messages"
-          :is-thinking="isThinking"
           :is-streaming="isStreaming"
+          :waiting-for-agent="waitingForAgent"
           :browser-agents-active="browserAgentsActive"
           :session-id="sessionId"
-          @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
-          @retry-message="(i) => emit('retry-message', i)"
+          :workspace-id="workspaceId"
+          :feedback="feedback"
+          :before-edit-submit="beforeEdit"
+          @edit-message="relayEdit"
+          @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
+          @jump-button-state="onJumpButtonState"
         />
-        <div class="shrink-0 pb-3 sm:pb-4" :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'">
+      </div>
+
+      <!-- Viewport: ViewportGallery only, with the same horizontal +
+           vertical constraints as the chat column so messages and viewports
+           sit in the same rhythm when the user toggles between views. -->
+      <div
+        v-else-if="inViewport"
+        class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
+        :class="{ 'pt-[75px]': showFloatingTop }"
+      >
+        <ViewportGallery
+          :viewport-list="viewportList"
+          :frame-urls="frameUrls"
+          :cursor-positions="cursorPositions"
+          :show-cursor="showCursor"
+          :browser-agent-cap="props.browserAgentCap"
+          :reconnecting="props.reconnecting"
+          class="min-h-0 flex-1"
+          @close-viewport="emit('closeViewport', $event)"
+          @spawn-browser-agent="emit('spawnBrowserAgent')"
+          @stop-agent="emit('stopAgent', $event)"
+          @run-agent="emit('runAgent', $event)"
+        />
+      </div>
+
+      <!-- Flow: canvas fills the panel. KeepAlive keeps WorkflowNodeCanvas state
+           (viewport, dragged positions loaded from LS, undo, selection) across
+           chat/viewport toggles instead of tearing it down each time — the pane
+           is deactivated while hidden so watchers stay quiet compared to v-show.
+           Cross-tab hydration is handled in WorkflowNodeCanvas (session viewport)
+           plus page keep-alive on workflow/[id]/agent.vue. -->
+      <KeepAlive>
+        <WorkflowNodeCanvas
+          v-if="inFlow"
+          :session-id="sessionId"
+          class="min-h-0 flex-1"
+        />
+      </KeepAlive>
+
+      <!-- Floating top row: title + view switcher overlay. Top/left/right
+           padding match so the content sits inset by the same gutter from
+           every panel edge. The wrapper is pointer-events-none so the
+           transparent gutter around the visible row doesn't intercept hover
+           on content beneath (e.g. canvas controls / gallery overlays);
+           interactive children opt back in via pointer-events-auto. -->
+      <div
+        v-if="showFloatingTop"
+        class="pointer-events-none absolute inset-x-0 top-0 z-50 p-3 sm:p-4"
+      >
+        <div class="pointer-events-auto flex items-center justify-between gap-5">
+          <div class="min-w-0 flex-1">
+            <EditableTitle
+              v-if="!hideTitle"
+              :model-value="chatTitle"
+              :disabled="renameable === false"
+              @update:model-value="emit('rename', $event)"
+            />
+          </div>
+          <div v-if="showSwitch" class="flex shrink-0 items-center rounded-lg bg-neutral-100 p-0.5">
+            <button
+              type="button"
+              class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+              :class="inChat
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'"
+              :aria-label="t('chat.chatView')"
+              @click="viewMode = 'chat'"
+            >
+              <UIcon name="i-heroicons-chat-bubble-left-right-20-solid" class="size-3.5" />
+              <span class="hidden sm:inline">{{ t('chat.chatView') }}</span>
+            </button>
+            <button
+              type="button"
+              class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+              :class="inViewport
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'"
+              :aria-label="t('chat.viewportView')"
+              @click="viewMode = 'viewport'"
+            >
+              <UIcon name="i-heroicons-computer-desktop-20-solid" class="size-3.5" />
+              <span class="hidden sm:inline">{{ t('chat.viewportView') }}</span>
+            </button>
+            <button
+              type="button"
+              class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+              :class="inFlow
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'"
+              :aria-label="t('chat.flowView')"
+              @click="viewMode = 'flow'"
+            >
+              <UIcon name="i-heroicons-share-20-solid" class="size-3.5" />
+              <span class="hidden sm:inline">{{ t('chat.flowView') }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating bottom prompt input overlay. Wrapper is pointer-events-
+           none so the transparent gutter to the left and right of the
+           centered PromptInput doesn't capture hover on content beneath
+           (e.g. the gallery zoom slider sitting just above the bottom). -->
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 z-50">
+        <div
+          class="pointer-events-auto relative mx-auto w-full max-w-3xl px-4 pb-3 pt-3 sm:px-5 sm:pb-4 sm:pt-4"
+        >
+          <!-- Jump-to-latest: floats just above the prompt input box,
+               horizontally centered. Visible only in chat view, and only
+               while ChatMessages reports the user is scrolled meaningfully
+               above the bottom of the message log. -->
+          <Transition
+            enter-active-class="transition duration-150 ease-out"
+            leave-active-class="transition duration-100 ease-in"
+            enter-from-class="opacity-0 translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-1"
+          >
+            <button
+              v-if="inChat && showJumpButton"
+              type="button"
+              class="absolute bottom-full left-1/2 mb-2 flex size-9 -translate-x-1/2 items-center justify-center rounded-full bg-white text-neutral-700 shadow-md ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 active:bg-neutral-100"
+              :aria-label="t('chat.scrollToLatest')"
+              @click="onJumpClick"
+            >
+              <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4.5" />
+            </button>
+          </Transition>
+
           <PromptInput
             v-model="command"
-            full-width
+            v-model:browser-mode="browserMode"
             :hint="t('chat.messagePlaceholder')"
             :attachments="attachments"
             @send="onSend"
             @attach-files="onAttachFiles"
             @remove-file="onRemoveFile"
           />
-        </div>
-      </div>
-
-      <WorkflowDock
-        v-else-if="inWorkflow"
-        :session-id="sessionId"
-        class="min-h-0 flex-1"
-      />
-
-      <WorkflowNodeCanvas
-        v-else-if="inNode"
-        :session-id="sessionId"
-        class="min-h-0 flex-1"
-      />
-
-      <div
-        v-else
-        ref="layoutContainer"
-        class="flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-out md:flex-row md:gap-0"
-      >
-        <BrowserDock
-          :viewport-list="viewportList"
-          :frame-urls="frameUrls"
-          :browser-agent-cap="props.browserAgentCap"
-          :active-agent-id="props.activeAgentId"
-          :reconnecting="props.reconnecting"
-          class="flex-1 min-w-0"
-          @promote-viewport="emit('promoteViewport', $event)"
-          @demote-active="emit('demoteActive')"
-          @close-viewport="emit('closeViewport', $event)"
-          @spawn-browser-agent="emit('spawnBrowserAgent')"
-        />
-
-        <div
-          class="relative z-10 hidden shrink-0 cursor-col-resize items-center justify-center md:flex"
-          :class="isDragging ? 'bg-neutral-200' : 'hover:bg-neutral-100'"
-          @pointerdown="startResize"
-        >
-          <div class="absolute inset-y-0 -left-2 -right-2" />
-          <div class="h-full w-px bg-neutral-200" />
-        </div>
-
-        <div
-          class="flex min-h-0 shrink-0 flex-col px-4 sm:px-5"
-          :style="chatPanelWidth ? { width: chatPanelWidth + 'px' } : {}"
-        >
-          <ChatMessages
-            :messages="messages"
-            :is-thinking="isThinking"
-            :is-streaming="isStreaming"
-            :browser-agents-active="browserAgentsActive"
-            :session-id="sessionId"
-            @edit-message="(i, text, att) => emit('edit-message', i, text, att)"
-            @retry-message="(i) => emit('retry-message', i)"
-          />
-
-          <div
-            class="shrink-0 bg-white pb-3 sm:pb-4"
-            :class="attachments.length > 0 ? 'pt-2.5' : 'pt-3 sm:pt-4'"
-          >
-            <PromptInput
-              v-model="command"
-              full-width
-              :hint="t('chat.messagePlaceholder')"
-              :attachments="attachments"
-              @send="onSend"
-              @attach-files="onAttachFiles"
-              @remove-file="onRemoveFile"
-            />
-          </div>
         </div>
       </div>
     </div>

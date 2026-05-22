@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { MarketplaceItem, ItemCategory } from '~/composables/wallet/useMarketplace'
+import type { MarketplaceItem, ItemCategory } from '~/composables/integrations/useMarketplace'
 import type { StorageProvider } from '~/types/storage'
 
 const props = defineProps<{
@@ -14,7 +14,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { isAdmin, isInstalled, install, uninstall, connectionFor } = useMarketplace()
-const { state: migrationState, run: runDriveMigration } = useDriveMigration()
 
 // Marketplace ids that map 1:1 to a StorageProvider. Disconnecting these
 // might strand workspace files, so we route them through the disconnect
@@ -29,7 +28,8 @@ const pendingDisconnectProvider = ref<StorageProvider | null>(null)
 const categoryLabel = computed<Record<ItemCategory, string>>(() => ({
   workflow: t('integrations.categoryWorkflow'),
   plugin: t('integrations.categoryPlugin'),
-  integration: t('integrations.categoryIntegration'),
+  integration: t('integrations.categoryConnection'),
+  layout: t('integrations.categoryLayout'),
 }))
 
 const icon = computed(() =>
@@ -38,7 +38,6 @@ const icon = computed(() =>
 
 const installed = computed(() => (props.item ? isInstalled(props.item.id) : false))
 const requiresOauth = computed(() => props.item?.requiresOauth === true)
-const isDrive = computed(() => props.item?.id === 'google-drive')
 
 const connection = computed(() =>
   props.item ? connectionFor(props.item.id) : null,
@@ -52,12 +51,6 @@ const primaryActionLabel = computed(() => {
   }
   return requiresOauth.value ? t('integrations.connect') : t('integrations.install')
 })
-
-const migrateDisabled = computed(
-  () => !isAdmin.value || migrationState.status === 'running',
-)
-
-const hasConfigSection = computed(() => installed.value && isDrive.value)
 
 function close() {
   emit('update:open', false)
@@ -88,11 +81,6 @@ async function onConfirmDisconnect() {
   await uninstall(props.item.id)
   pendingDisconnectProvider.value = null
   close()
-}
-
-function onMigrateClick() {
-  if (migrateDisabled.value) return
-  runDriveMigration()
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -154,10 +142,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     <h2 class="truncate text-title-sm font-semibold tracking-tight text-neutral-950">
                       {{ item.name }}
                     </h2>
-                    <p class="mt-1 text-body-md text-neutral-500">
-                      {{ t('integrations.byAuthor', { author: item.author }) }}
+                    <p class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-body-md text-neutral-500">
+                      <span>{{ t('integrations.byAuthor', { author: item.author }) }}</span>
                       <span class="text-neutral-300">·</span>
-                      {{ categoryLabel[item.category] }}
+                      <span>{{ categoryLabel[item.category] }}</span>
+                      <!-- "Official" first-party chip, right of the type label. -->
+                      <span
+                        v-if="item.isFirstParty"
+                        class="rounded-md bg-neutral-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                      >
+                        {{ t('integrations.official') }}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -234,43 +229,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </div>
                 </section>
 
-                <section v-if="hasConfigSection" class="mt-6">
-                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
-                    {{ t('integrations.settingsSectionData') }}
-                  </h3>
-                  <DriveMigrationStatus
-                    v-if="migrationState.status !== 'idle'"
-                    :state="migrationState"
-                    class="mb-3"
-                  />
-                  <div class="ghost-panel rounded-lg bg-white p-4">
-                    <div class="flex items-start gap-4">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-body-md font-medium text-neutral-950">
-                          {{ t('integrations.settingsMigrateLabel') }}
-                        </p>
-                        <p class="mt-1 text-label-md text-neutral-500">
-                          {{ t('integrations.settingsMigrateDescription') }}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 rounded-lg bg-neutral-950 px-3 py-1.5 text-label-md font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        :disabled="migrateDisabled"
-                        :title="!isAdmin ? t('integrations.adminOnly') : undefined"
-                        @click="onMigrateClick"
-                      >
-                        {{
-                          migrationState.status === 'running'
-                            ? t('integrations.settingsMigrateBusy')
-                            : t('integrations.settingsMigrateNow')
-                        }}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <section v-else-if="installed" class="mt-6">
+                <section v-if="installed" class="mt-6">
                   <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
                     {{ t('integrations.settingsHeading') }}
                   </h3>

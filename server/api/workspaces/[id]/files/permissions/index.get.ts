@@ -3,7 +3,7 @@ import {
   assertMembership,
   normalizePath,
   resolveWorkspaceId,
-} from '~~/server/utils/workspaceFiles'
+} from '~~/server/utils/workspace/workspaceFiles'
 
 // GET /api/workspaces/[id]/files/permissions?path=reports/Q1
 // Admin-only. Returns the explicit grants at this exact path (not ancestors).

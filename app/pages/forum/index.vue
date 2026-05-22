@@ -9,10 +9,18 @@ import {
 
 definePageMeta({ layout: 'landing' })
 
-useHead({ title: 'Forum — Polymux' })
+const { t } = useI18n()
+useHead({
+  title: t('forum.pageTitle'),
+  meta: [
+    {
+      name: 'description',
+      content: 'Polymux community forum. Ask questions, share workflows, troubleshoot issues, and discuss AI agent builds.',
+    },
+  ],
+})
 
 const user = useSupabaseUser()
-const route = useRoute()
 const { relativeTime } = useRelativeTime()
 
 type Sort = 'latest' | 'top' | 'unanswered'
@@ -31,7 +39,7 @@ const { data, pending, error, refresh } = await useAsyncData<{
   discussions: ForumDiscussionSummary[]
 }>(
   'forum-discussions',
-  () => $fetch('/api/forum/discussions', { query: queryParams.value }),
+  () => apiFetch<{ discussions: ForumDiscussionSummary[] }>('/api/forum/discussions', { query: queryParams.value }),
   { watch: [queryParams], default: () => ({ discussions: [] }) },
 )
 
@@ -43,26 +51,23 @@ const startDiscussionTarget = computed(() =>
     : { path: '/sign-in', query: { redirect: '/forum/new' } },
 )
 
-const guidelineCards = [
+const guidelineCards = computed(() => [
   {
     icon: 'i-heroicons-magnifying-glass-20-solid',
-    title: 'Search before you post',
-    description:
-      'Chances are someone already hit the same wall. A quick search often answers your question in seconds.',
+    title: t('forum.guideline1Title'),
+    description: t('forum.guideline1Desc'),
   },
   {
     icon: 'i-heroicons-tag-20-solid',
-    title: 'Pick the right category',
-    description:
-      'Accurate categories put your post in front of the people most likely to help. Mods nudge posts that land in the wrong spot.',
+    title: t('forum.guideline2Title'),
+    description: t('forum.guideline2Desc'),
   },
   {
     icon: 'i-heroicons-hand-raised-20-solid',
-    title: 'Be kind, be specific',
-    description:
-      'Describe what you tried, what you expected, and what happened. Screenshots and snippets go a long way.',
+    title: t('forum.guideline3Title'),
+    description: t('forum.guideline3Desc'),
   },
-]
+])
 
 function clearFilters() {
   activeCategory.value = 'all'
@@ -81,10 +86,10 @@ const hasActiveFilters = computed(
     <div class="w-full max-w-5xl">
       <header class="text-center">
         <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
-          Polymux Forum
+          {{ t('forum.heading') }}
         </h1>
         <p class="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-          Ask questions, share workflows, and connect with other teams building on Polymux.
+          {{ t('forum.subtitle') }}
         </p>
 
         <div class="mx-auto mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
@@ -93,13 +98,13 @@ const hasActiveFilters = computed(
             class="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
             <UIcon name="i-heroicons-pencil-square-20-solid" class="size-4" />
-            Start a discussion
+            {{ t('forum.startDiscussion') }}
           </NuxtLink>
           <a
             href="#guidelines"
             class="text-sm text-neutral-600 underline decoration-neutral-300 underline-offset-2 transition-colors hover:text-neutral-900"
           >
-            Read the guidelines
+            {{ t('forum.readGuidelines') }}
           </a>
         </div>
 
@@ -107,8 +112,9 @@ const hasActiveFilters = computed(
           <div class="relative">
             <input
               v-model="search"
+              name="forum-search"
               type="text"
-              placeholder="Search discussions..."
+              :placeholder="t('forum.searchPlaceholder')"
               class="w-full rounded-lg border border-neutral-200 bg-white py-3 pl-[3.75rem] pr-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
             >
             <UIcon
@@ -121,10 +127,10 @@ const hasActiveFilters = computed(
 
       <hr class="my-12 border-neutral-200 sm:border-neutral-200/[.85]" />
 
-      <section aria-label="Browse categories">
+      <section :aria-label="t('forum.browseCategoriesAria')">
         <div class="flex items-baseline justify-between">
           <h2 class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            Browse by category
+            {{ t('forum.browseByCategoryHeading') }}
           </h2>
           <button
             v-if="hasActiveFilters"
@@ -132,7 +138,7 @@ const hasActiveFilters = computed(
             class="text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-900"
             @click="clearFilters"
           >
-            Reset filters
+            {{ t('forum.resetFilters') }}
           </button>
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
@@ -146,7 +152,7 @@ const hasActiveFilters = computed(
             ]"
             @click="activeCategory = 'all'"
           >
-            All posts
+            {{ t('forum.allPosts') }}
           </button>
           <button
             v-for="cat in FORUM_CATEGORY_META"
@@ -165,7 +171,7 @@ const hasActiveFilters = computed(
               class="size-4 shrink-0"
               :class="activeCategory === cat.slug ? 'text-white' : 'text-neutral-500'"
             />
-            {{ cat.label }}
+            {{ t(`forum.categories.${cat.slug}.label`) }}
           </button>
         </div>
       </section>
@@ -173,36 +179,32 @@ const hasActiveFilters = computed(
       <div class="mt-10 flex flex-col gap-3 border-b border-neutral-200 sm:flex-row sm:items-end sm:justify-between">
         <div class="flex items-center gap-1 overflow-x-auto">
           <button
-            v-for="tab in ([
-              { id: 'latest', label: 'Latest' },
-              { id: 'top', label: 'Top' },
-              { id: 'unanswered', label: 'Unanswered' },
-            ] as const)"
-            :key="tab.id"
+            v-for="tab in (['latest', 'top', 'unanswered'] as const)"
+            :key="tab"
             type="button"
             :class="[
               'relative px-3 pb-3 pt-1 text-sm font-medium transition-colors',
-              sort === tab.id
+              sort === tab
                 ? 'text-neutral-950 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-neutral-950'
                 : 'text-neutral-500 hover:text-neutral-800',
             ]"
-            @click="sort = tab.id"
+            @click="sort = tab"
           >
-            {{ tab.label }}
+            {{ t(`forum.sort.${tab}`) }}
           </button>
         </div>
         <p class="pb-3 text-xs text-neutral-500">
-          <template v-if="pending">Loading…</template>
-          <template v-else-if="error">Unable to load discussions</template>
+          <template v-if="pending">{{ t('forum.loading') }}</template>
+          <template v-else-if="error">{{ t('forum.unableToLoad') }}</template>
           <template v-else>
-            {{ discussions.length }} discussion<template v-if="discussions.length !== 1">s</template>
+            {{ discussions.length === 1 ? t('forum.discussionCountOne') : t('forum.discussionCountMany', { n: discussions.length }) }}
           </template>
         </p>
       </div>
 
       <div class="flex flex-col">
         <div v-if="pending && !discussions.length" class="py-16 text-center text-sm text-neutral-500">
-          Loading discussions…
+          {{ t('forum.loadingDiscussions') }}
         </div>
 
         <div
@@ -211,7 +213,7 @@ const hasActiveFilters = computed(
         >
           <UIcon name="i-heroicons-exclamation-triangle-20-solid" class="mx-auto size-8 text-neutral-400" />
           <p class="mt-3 text-sm text-neutral-700">
-            Couldn't load the forum. The database may still be warming up.
+            {{ t('forum.couldntLoadForum') }}
           </p>
           <button
             type="button"
@@ -219,7 +221,7 @@ const hasActiveFilters = computed(
             @click="refresh()"
           >
             <UIcon name="i-heroicons-arrow-path-20-solid" class="size-4" />
-            Retry
+            {{ t('forum.retry') }}
           </button>
         </div>
 
@@ -232,7 +234,7 @@ const hasActiveFilters = computed(
             <NuxtLink :to="`/forum/${d.id}`" class="flex gap-4">
               <div
                 class="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-xs font-semibold text-white"
-                :aria-label="`Started by ${d.author_name}`"
+                :aria-label="t('forum.startedBy', { name: d.author_name })"
               >
                 {{ d.author_initials }}
               </div>
@@ -244,7 +246,7 @@ const hasActiveFilters = computed(
                     class="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 font-medium text-white"
                   >
                     <UIcon name="i-heroicons-bookmark-20-solid" class="size-3" />
-                    Pinned
+                    {{ t('forum.pinned') }}
                   </span>
                   <span
                     v-if="forumCategoryBySlug(d.category)"
@@ -254,14 +256,14 @@ const hasActiveFilters = computed(
                     ]"
                   >
                     <UIcon :name="forumCategoryBySlug(d.category)!.icon" class="size-3" />
-                    {{ forumCategoryBySlug(d.category)!.label }}
+                    {{ t(`forum.categories.${d.category}.label`) }}
                   </span>
                   <span
                     v-if="d.answered"
                     class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-emerald-700"
                   >
                     <UIcon name="i-heroicons-check-circle-20-solid" class="size-3.5" />
-                    Answered
+                    {{ t('forum.answered') }}
                   </span>
                 </div>
 
@@ -280,7 +282,7 @@ const hasActiveFilters = computed(
                   <time :datetime="d.last_activity_at">{{ relativeTime(d.last_activity_at) }}</time>
                   <span class="sm:hidden">
                     <span aria-hidden="true" class="text-neutral-300">&middot;</span>
-                    {{ d.reply_count }} repl<template v-if="d.reply_count !== 1">ies</template><template v-else>y</template>
+                    {{ d.reply_count === 1 ? t('forum.replyCountOne') : t('forum.replyCountMany', { n: d.reply_count }) }}
                   </span>
                 </div>
               </div>
@@ -304,8 +306,8 @@ const hasActiveFilters = computed(
           >
             <UIcon name="i-heroicons-inbox-20-solid" class="size-8 text-neutral-300" />
             <p class="mt-3 text-sm text-neutral-600">
-              <template v-if="hasActiveFilters">No discussions match your filters.</template>
-              <template v-else>No discussions yet. Be the first to start one.</template>
+              <template v-if="hasActiveFilters">{{ t('forum.noMatchingDiscussions') }}</template>
+              <template v-else>{{ t('forum.noDiscussions') }}</template>
             </p>
             <div class="mt-4 flex gap-3">
               <button
@@ -314,7 +316,7 @@ const hasActiveFilters = computed(
                 class="text-sm font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-2 transition-colors hover:decoration-neutral-500"
                 @click="clearFilters"
               >
-                Clear filters
+                {{ t('forum.clearFilters') }}
               </button>
               <NuxtLink
                 v-else
@@ -322,7 +324,7 @@ const hasActiveFilters = computed(
                 class="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
                 <UIcon name="i-heroicons-pencil-square-20-solid" class="size-4" />
-                Start a discussion
+                {{ t('forum.startDiscussion') }}
               </NuxtLink>
             </div>
           </div>
@@ -332,13 +334,13 @@ const hasActiveFilters = computed(
       <section id="guidelines" class="mt-24 scroll-mt-24">
         <div class="text-center">
           <span class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            New here?
+            {{ t('forum.guidelinesEyebrow') }}
           </span>
           <h2 class="mt-3 font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-            Before you post
+            {{ t('forum.beforeYouPost') }}
           </h2>
           <p class="mx-auto mt-3 max-w-lg text-[0.9375rem] leading-relaxed text-neutral-600">
-            A few minutes of context means faster, friendlier answers from the community.
+            {{ t('forum.guidelinesSubtitle') }}
           </p>
         </div>
         <div class="mt-10 grid gap-5 sm:grid-cols-3">

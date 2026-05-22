@@ -1,12 +1,17 @@
 ## Package Management
 
-Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do not manually edit `package.json` or `bun.lock` unless strictly necessary—request approval and provide justification before doing so.
+Use npm (`npm install`, `npm install <pkg>`, `npm uninstall <pkg>`) for all dependency changes. Do not manually edit `package.json` or `package-lock.json` unless strictly necessary—request approval and provide justification before doing so.
 
 ## Environment Variables
 
 * `web/.env` (gitignored) is the single local source of truth. All local dev reads from it. New required vars must be added to `web/.env.example` so a fresh checkout boots from a clear template.
 * Use `vercel env pull` ONLY to inspect what's currently set on Vercel — never as the runtime source. It writes to `.env.local`, which Nuxt loads after `.env` and silently overrides it. After running it, copy across whatever you needed to check, then **delete `.env.local`**.
 * When a value should also exist on Vercel (Production / Preview / Development), mirror it via the dashboard or `vercel env add` after editing `.env`. Don't round-trip through `vercel env pull`.
+
+## Test Credentials
+
+Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these for login flows and manual testing:
+- `TEST_USERNAME` / `TEST_PASSWORD`
 
 ## Project Structure
 
@@ -22,6 +27,7 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * All colours must be defined in `main.css`.
 * When introducing new colours, add them to `main.css` and maintain a consistent, standardised palette.
+* For visual/interaction patterns, hover states, component styling conventions, and all design decisions, consult `DESIGN.md`.
 
 ## Components
 
@@ -48,13 +54,10 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
 
 * Shorthand references:
 
-  * `workflow/orchestrator` → `app/pages/workflow/[id]/orchestrator.vue`
-  * `workflow/browser` → `app/pages/workflow/[id]/browser.vue`
+  * `workflow/agent` → `app/pages/workflow/[id]/agent.vue` (chat + viewport + flow in one ChatLayout)
+  * `workflow/schedule` → `app/pages/workflow/[id]/schedule.vue`
   * `workflow/artifacts` → `app/pages/workflow/[id]/artifacts.vue`
-  * `dashboard/home` → `app/pages/dashboard/home.vue`
-  * `dashboard/team` → `app/pages/dashboard/team.vue`
-  * `dashboard/usage` → `app/pages/dashboard/usage.vue`
-  * `dashboard/settings` → `app/pages/dashboard/settings.vue`
+  * `dashboard/console` → `app/pages/dashboard/console.vue`
   * `integrations/installed` → `app/pages/integrations/installed.vue`
   * `integrations/marketplace` → `app/pages/integrations/marketplace.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
@@ -67,10 +70,9 @@ Use the Bun CLI (`bun add`, `bun remove`, etc.) for all dependency changes. Do n
   * `TabPanel` — scrollable tab content container
   * `PageHeader` — top navigation with tabs
   * `SidePanel` — persistent left sidebar
-  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition
+  * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition (ChatLayout embeds ViewportGallery and WorkflowNodeCanvas via its view-mode switcher)
   * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
   * `Menu` / `MenuItem` — anchored menu surface (opens up or down) with row items
-  * `DashboardStatCard` / `DashboardSpending` / `DashboardWelcome` / `DashboardRecentSessions` — dashboard widgets
   * `SearchModal` — global search overlay
-  * `ToastContainer` — toast notifications
+  * `AppToastContainer` — toast notifications (renders `useAppToast` queue)
 * Before creating new UI elements, check for existing implementations and align with their design and behaviour.

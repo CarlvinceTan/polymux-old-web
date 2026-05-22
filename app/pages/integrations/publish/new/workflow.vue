@@ -15,7 +15,7 @@ interface PublishResponse {
 }
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 const toast = useAppToast()
 const router = useRouter()
 const user = useSupabaseUser()
@@ -110,7 +110,7 @@ async function onSubmit() {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
@@ -137,6 +137,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorPickWorkflow') }}</span>
             <select
               v-model="workflowId"
+              name="workflow-id"
               required
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
             >
@@ -151,6 +152,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorPickWorkflowVersion') }}</span>
             <select
               v-model="workflowVersionId"
+              name="workflow-version-id"
               required
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
             >
@@ -171,6 +173,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorName') }}</span>
             <input
               v-model="name"
+              name="workflow-name"
               type="text"
               required
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -192,6 +195,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorDescription') }}</span>
             <textarea
               v-model="description"
+              name="workflow-description"
               rows="3"
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
             />
@@ -201,6 +205,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorTags') }}</span>
             <input
               v-model="tagsCsv"
+              name="workflow-tags"
               type="text"
               :placeholder="t('integrations.editorTagsPlaceholder')"
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
@@ -211,6 +216,7 @@ async function onSubmit() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorIcon') }}</span>
             <input
               v-model="iconUrl"
+              name="workflow-icon-url"
               type="url"
               class="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-body-md text-neutral-950 outline-none focus:border-neutral-950"
             >

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useWallet, CREDIT_PACKS } from '~/composables/wallet/useWallet'
-import { CURRENCY_OPTIONS, type SupportedCurrency } from '~/composables/wallet/useCurrency'
-import { onClickOutside, useLocalStorage } from '@vueuse/core'
+import { useIntersectionObserver, useLocalStorage } from '@vueuse/core'
+import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 
 const { t } = useI18n()
-const { headerTabs } = useVaultNavTabs()
+const { headerTabs, customTabs } = useVaultNavTabs()
+
+const { isEnabled: isFeatureEnabled, ready: flagsReady } = useMeFeatures()
+const walletEnabled = computed(() => isFeatureEnabled('wallet'))
 
 const {
-  wallet,
   transactions,
   budgets,
   balanceDisplay,
@@ -23,32 +25,18 @@ const route = useRoute()
 const topUpSuccess = computed(() => route.query.top_up === 'success')
 const topUpCancelled = computed(() => route.query.top_up === 'cancelled')
 
-// Top-up currency (drives Stripe checkout) — seeded from wallet, persisted locally.
-// `initOnMounted` defers reading localStorage until after hydration, so SSR
-// markup matches the initial client render.
-const topUpCurrency = useLocalStorage<SupportedCurrency>('wallet:topup_currency', 'usd', { initOnMounted: true })
-watch(wallet, (w) => {
-  if (w?.currency && (CURRENCY_OPTIONS.some(o => o.value === w.currency))) {
-    topUpCurrency.value = w.currency as SupportedCurrency
-  }
-}, { immediate: true })
-
-function loadWallet(opts?: { force?: boolean }) {
-  fetchWallet(opts)
-  fetchTransactions(opts)
-  fetchBudgets(undefined, opts)
+function refreshAll() {
+  fetchWallet({ force: true })
+  fetchTransactions({ force: true })
+  fetchBudgets(undefined, { force: true })
 }
 
-onMounted(() => loadWallet())
 // Reconnect: ignore the in-memory freshness window — the network was just
 // down, so the cache may not reflect server state.
-useOnReconnect(() => loadWallet({ force: true }))
+useOnReconnect(() => refreshAll())
 
 watch(topUpSuccess, (v) => {
-  if (v) {
-    fetchWallet({ force: true })
-    fetchTransactions({ force: true })
-  }
+  if (v) refreshAll()
 })
 
 // ---- Inner tab navigation ----
@@ -69,12 +57,9 @@ const isToppingUp = ref(false)
 const packs = CREDIT_PACKS
 const MIN_USD = 1
 const MAX_USD = 1000
-const MIN_ZERO_DEC = 100
-const MAX_ZERO_DEC = 1_000_000
 
-const isZeroDec = computed(() => ['jpy', 'krw'].includes(topUpCurrency.value))
-const minInput = computed(() => isZeroDec.value ? MIN_ZERO_DEC : MIN_USD)
-const maxInput = computed(() => isZeroDec.value ? MAX_ZERO_DEC : MAX_USD)
+const minInput = computed(() => MIN_USD)
+const maxInput = computed(() => MAX_USD)
 
 function openTopUp() {
   topUpError.value = null
@@ -83,7 +68,7 @@ function openTopUp() {
 }
 
 function selectPreset(cents: number) {
-  topUpAmountInput.value = isZeroDec.value ? cents : cents / 100
+  topUpAmountInput.value = cents / 100
   topUpError.value = null
 }
 
@@ -97,9 +82,9 @@ async function submitTopUp() {
     })
     return
   }
-  const cents = isZeroDec.value ? Math.round(v) : Math.round(v * 100)
+  const cents = Math.round(v * 100)
   isToppingUp.value = true
-  const res = await topUp(cents, topUpCurrency.value)
+  const res = await topUp(cents)
   if (!res) {
     isToppingUp.value = false
     topUpError.value = t('vault.wallet.topUpModal.checkoutError')
@@ -107,7 +92,6 @@ async function submitTopUp() {
 }
 
 function formatAmount(val: number) {
-  if (isZeroDec.value) return `${val.toLocaleString()} ${topUpCurrency.value.toUpperCase()}`
   return `$${val}`
 }
 
@@ -116,16 +100,6 @@ const autoTopUpModalOpen = ref(false)
 const autoTopUpEnabled = useLocalStorage('wallet:auto_topup_enabled', false, { initOnMounted: true })
 const autoTopUpThreshold = useLocalStorage('wallet:low_balance_threshold', 5, { initOnMounted: true })
 const autoTopUpAmount = useLocalStorage('wallet:auto_topup_amount', 25, { initOnMounted: true })
-
-// ---- Currency dropdown ----
-const currencyDropdownOpen = ref(false)
-const currencyDropdownRef = ref<HTMLElement | null>(null)
-onClickOutside(currencyDropdownRef, () => { currencyDropdownOpen.value = false })
-
-function selectCurrency(c: SupportedCurrency) {
-  topUpCurrency.value = c
-  currencyDropdownOpen.value = false
-}
 
 // ---- Activity bar chart ----
 type Range = 7 | 30 | 90
@@ -278,6 +252,29 @@ const filteredTransactions = computed(() => {
   })
 })
 
+const walletTabPanelRef = ref<{ bodyScrollEl: HTMLElement | null } | null>(null)
+const walletScrollRoot = computed(() => walletTabPanelRef.value?.bodyScrollEl ?? undefined)
+
+const { visibleItems: visibleWorkflowRows, hasMore: workflowHasMore, loadMore: loadMoreWorkflow } = useInfiniteList(workflowBreakdown, 15)
+const workflowScrollSentinel = ref<HTMLElement | null>(null)
+useIntersectionObserver(
+  workflowScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && workflowHasMore.value) loadMoreWorkflow()
+  },
+  { root: walletScrollRoot, rootMargin: '100px' },
+)
+
+const { visibleItems: visibleFilteredTx, hasMore: txHasMore, loadMore: loadMoreTx } = useInfiniteList(filteredTransactions, 45)
+const txScrollSentinel = ref<HTMLElement | null>(null)
+useIntersectionObserver(
+  txScrollSentinel,
+  ([e]) => {
+    if (e?.isIntersecting && txHasMore.value) loadMoreTx()
+  },
+  { root: walletScrollRoot, rootMargin: '120px' },
+)
+
 // ---- Policies (remaining — auto top-up now promoted to a top-level button) ----
 const defaultWorkflowBudget = useLocalStorage('wallet:default_session_budget', 5, { initOnMounted: true })
 const defaultOperationMax = useLocalStorage('wallet:default_operation_max', 0.5, { initOnMounted: true })
@@ -366,20 +363,28 @@ function usageBarColor(p: number) {
   return 'bg-neutral-900'
 }
 
-const currencyLabel = computed(
-  () => CURRENCY_OPTIONS.find(c => c.value === topUpCurrency.value)?.label ?? 'USD ($)',
-)
 </script>
 
 <template>
   <FeatureGate name="vault">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
-    <TabPanel class="min-h-0 min-w-0 flex-1">
-      <div class="flex min-w-0 flex-col">
+    <TabPanel ref="walletTabPanelRef" class="min-h-0 min-w-0 flex-1">
+      <div v-if="!walletEnabled" class="flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
+        <div class="flex size-14 items-center justify-center rounded-2xl border border-neutral-200/80 bg-white text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <UIcon name="i-heroicons-wallet" class="size-6" />
+        </div>
+        <h2 class="mt-6 font-serif text-2xl tracking-tight text-neutral-950">
+          {{ t('vault.wallet.comingSoon.title') }}
+        </h2>
+        <p class="mt-3 max-w-md text-sm leading-relaxed text-neutral-600">
+          {{ t('vault.wallet.comingSoon.description') }}
+        </p>
+      </div>
+      <div v-else-if="walletEnabled" class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
             class="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm sm:px-6"
@@ -430,46 +435,9 @@ const currencyLabel = computed(
                   <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.overview.availableBalance') }}</span>
                   <div class="mt-1 flex items-baseline gap-3">
                     <span class="font-mono text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
-                      {{ loading && !wallet ? '…' : balanceDisplay }}
+                      {{ balanceDisplay }}
                     </span>
-                    <div ref="currencyDropdownRef" class="relative">
-                      <button
-                        type="button"
-                        class="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
-                        @click="currencyDropdownOpen = !currencyDropdownOpen"
-                      >
-                        {{ topUpCurrency }}
-                        <UIcon name="i-heroicons-chevron-down" class="size-3" />
-                      </button>
-                      <Menu
-                        :open="currencyDropdownOpen"
-                        align="left"
-                        width="w-44"
-                      >
-                        <MenuItem
-                          v-for="c in CURRENCY_OPTIONS"
-                          :key="c.value"
-                          :text="c.label"
-                          @click="selectCurrency(c.value)"
-                        >
-                          <template #icon-right>
-                            <UIcon
-                              v-if="c.value === topUpCurrency"
-                              name="i-heroicons-check"
-                              class="size-4"
-                            />
-                          </template>
-                        </MenuItem>
-                      </Menu>
-                    </div>
                   </div>
-                  <p class="mt-1 text-xs text-neutral-500">
-                    <i18n-t keypath="vault.wallet.overview.newTopUpsCharged">
-                      <template #currency>
-                        <span class="font-medium text-neutral-700">{{ currencyLabel }}</span>
-                      </template>
-                    </i18n-t>
-                  </p>
                 </div>
                 <div class="flex items-center gap-2">
                   <button
@@ -523,15 +491,15 @@ const currencyLabel = computed(
                 <div class="mt-5 grid grid-cols-2 gap-4 border-b border-neutral-100 pb-5 sm:grid-cols-4">
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.activity.spentN', { n: chartRange }) }}</span>
-                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(totalSpent, topUpCurrency) }}</div>
+                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(totalSpent) }}</div>
                   </div>
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.activity.toppedN', { n: chartRange }) }}</span>
-                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(totalTopped, topUpCurrency) }}</div>
+                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(totalTopped) }}</div>
                   </div>
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.activity.dailyAverage') }}</span>
-                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(averageDaily, topUpCurrency) }}</div>
+                    <div class="mt-0.5 font-mono text-xl font-bold text-neutral-950">{{ formatCents(averageDaily) }}</div>
                   </div>
                   <div>
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.activity.activeDays') }}</span>
@@ -544,8 +512,8 @@ const currencyLabel = computed(
                   <div
                     class="pointer-events-none absolute inset-x-0 top-0 flex h-40 flex-col justify-between text-[10px] font-mono text-neutral-300"
                   >
-                    <span>{{ formatCents(maxSpentDay, topUpCurrency) }}</span>
-                    <span>{{ formatCents(Math.round(maxSpentDay / 2), topUpCurrency) }}</span>
+                    <span>{{ formatCents(maxSpentDay) }}</span>
+                    <span>{{ formatCents(Math.round(maxSpentDay / 2)) }}</span>
                     <span>0</span>
                   </div>
                   <div class="flex h-40 items-end gap-[2px] border-b border-l border-neutral-100 pl-1 pr-12">
@@ -573,11 +541,11 @@ const currencyLabel = computed(
                         </p>
                         <div class="mt-1 flex items-center justify-between text-[11px]">
                           <span class="text-neutral-500">{{ t('vault.wallet.activity.tooltipSpent') }}</span>
-                          <span class="font-mono font-semibold text-neutral-950">{{ formatCents(d.spent, topUpCurrency) }}</span>
+                          <span class="font-mono font-semibold text-neutral-950">{{ formatCents(d.spent) }}</span>
                         </div>
                         <div class="flex items-center justify-between text-[11px]">
                           <span class="text-neutral-500">{{ t('vault.wallet.activity.tooltipTopped') }}</span>
-                          <span class="font-mono font-semibold text-green-600">{{ formatCents(d.topped, topUpCurrency) }}</span>
+                          <span class="font-mono font-semibold text-green-600">{{ formatCents(d.topped) }}</span>
                         </div>
                       </div>
                     </button>
@@ -601,6 +569,7 @@ const currencyLabel = computed(
                     <span class="text-xs text-neutral-400">{{ t('vault.wallet.spendingByWorkflow.count', { n: workflowBreakdown.length }) }}</span>
                     <select
                       v-model="sortKey"
+                      name="workflow-spend-sort"
                       class="rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-950"
                     >
                       <option v-for="o in sortOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
@@ -608,16 +577,13 @@ const currencyLabel = computed(
                   </div>
                 </header>
 
-                <div v-if="loading && !workflowBreakdown.length" class="flex items-center justify-center py-10 text-sm text-neutral-400">
-                  {{ t('vault.wallet.spendingByWorkflow.loading') }}
-                </div>
-                <div v-else-if="workflowBreakdown.length === 0" class="flex flex-col items-center justify-center gap-2 py-12 text-neutral-400">
+                <div v-if="workflowBreakdown.length === 0" class="flex flex-col items-center justify-center gap-2 py-12 text-neutral-400">
                   <UIcon name="i-heroicons-chart-bar" class="size-6 text-neutral-300" />
                   <span class="text-sm">{{ t('vault.wallet.spendingByWorkflow.empty') }}</span>
                 </div>
                 <div v-else>
                   <button
-                    v-for="w in workflowBreakdown"
+                    v-for="w in visibleWorkflowRows"
                     :key="w.sessionId"
                     class="grid w-full grid-cols-[minmax(0,160px)_1fr_auto] items-center gap-4 border-b border-neutral-50 px-5 py-3 text-left last:border-0 transition-colors hover:bg-neutral-50/70 sm:px-6"
                     @click="openWorkflow(w.sessionId)"
@@ -644,12 +610,18 @@ const currencyLabel = computed(
                       </span>
                     </div>
                     <div class="flex shrink-0 items-baseline gap-1.5">
-                      <span class="font-mono text-sm font-semibold text-neutral-950">{{ formatCents(w.spent, topUpCurrency) }}</span>
+                      <span class="font-mono text-sm font-semibold text-neutral-950">{{ formatCents(w.spent) }}</span>
                       <span v-if="w.allocated" class="font-mono text-[11px] text-neutral-400">
-                        / {{ formatCents(w.allocated, topUpCurrency) }}
+                        / {{ formatCents(w.allocated) }}
                       </span>
                     </div>
                   </button>
+                  <div
+                    v-if="workflowHasMore"
+                    ref="workflowScrollSentinel"
+                    class="h-2 w-full shrink-0"
+                    aria-hidden="true"
+                  />
                 </div>
               </section>
             </div>
@@ -661,18 +633,21 @@ const currencyLabel = computed(
                   <UIcon name="i-heroicons-magnifying-glass" class="size-4 text-neutral-400" />
                   <input
                     v-model="txSearch"
+                    name="tx-search"
                     class="w-full bg-transparent text-sm outline-none placeholder:text-neutral-400"
                     :placeholder="t('vault.wallet.txTable.searchPlaceholder')"
                   >
                 </div>
                 <select
                   v-model="txTypeFilter"
+                  name="tx-type-filter"
                   class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-950"
                 >
                   <option v-for="o in txTypeOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
                 </select>
                 <select
                   v-model="txWorkflowFilter"
+                  name="tx-workflow-filter"
                   class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-950"
                 >
                   <option value="all">{{ t('vault.wallet.txTable.allSources') }}</option>
@@ -682,7 +657,7 @@ const currencyLabel = computed(
                   </option>
                 </select>
                 <span class="ml-auto text-xs text-neutral-500">
-                  {{ t('vault.wallet.txTable.countSummary', { shown: filteredTransactions.length, total: transactions.length }) }}
+                  {{ t('vault.wallet.txTable.countSummary', { shown: visibleFilteredTx.length, total: filteredTransactions.length }) }}
                 </span>
               </div>
 
@@ -700,51 +675,54 @@ const currencyLabel = computed(
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-if="loading && !transactions.length">
-                        <td colspan="6" class="px-5 py-10 text-center text-sm text-neutral-400">{{ t('vault.wallet.txTable.loading') }}</td>
-                      </tr>
-                      <tr v-else-if="filteredTransactions.length === 0">
+                      <tr v-if="filteredTransactions.length === 0">
                         <td colspan="6" class="px-5 py-10 text-center text-sm text-neutral-400">
                           {{ t('vault.wallet.txTable.empty') }}
                         </td>
                       </tr>
-                      <tr
-                        v-for="tx in filteredTransactions"
-                        v-else
-                        :key="tx.id"
-                        class="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60"
-                      >
-                        <td class="px-5 py-3 align-middle">
-                          <span
-                            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
-                            :class="[TX_TYPE_CONFIG[tx.type]?.bg, TX_TYPE_CONFIG[tx.type]?.text, TX_TYPE_CONFIG[tx.type]?.ring]"
-                          >
-                            <span>{{ TX_TYPE_CONFIG[tx.type]?.icon }}</span>
-                            {{ TX_TYPE_CONFIG[tx.type]?.label }}
-                          </span>
-                        </td>
-                        <td class="px-5 py-3 align-middle text-sm text-neutral-800">{{ tx.description || '—' }}</td>
-                        <td class="px-5 py-3 align-middle text-sm">
-                          <button
-                            v-if="tx.session_id"
-                            class="font-mono text-xs text-neutral-950 hover:underline"
-                            @click="openWorkflow(tx.session_id!)"
-                          >
-                            {{ sessionShort(tx.session_id) }}
-                          </button>
-                          <span v-else class="text-xs text-neutral-400">{{ t('vault.wallet.txTable.workspaceTag') }}</span>
-                        </td>
-                        <td class="px-5 py-3 align-middle text-sm text-neutral-500">{{ formatDate(tx.created_at, true) }}</td>
-                        <td
-                          class="px-5 py-3 text-right align-middle font-mono text-sm font-semibold"
-                          :class="tx.amount_cents >= 0 ? 'text-green-600' : 'text-neutral-900'"
+                      <template v-else>
+                        <tr
+                          v-for="tx in visibleFilteredTx"
+                          :key="tx.id"
+                          class="border-b border-neutral-50 last:border-0 hover:bg-neutral-50/60"
                         >
-                          {{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents), topUpCurrency) }}
-                        </td>
-                        <td class="px-5 py-3 text-right align-middle font-mono text-xs text-neutral-500">
-                          {{ formatCents(tx.balance_after_cents, topUpCurrency) }}
-                        </td>
-                      </tr>
+                          <td class="px-5 py-3 align-middle">
+                            <span
+                              class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
+                              :class="[TX_TYPE_CONFIG[tx.type]?.bg, TX_TYPE_CONFIG[tx.type]?.text, TX_TYPE_CONFIG[tx.type]?.ring]"
+                            >
+                              <span>{{ TX_TYPE_CONFIG[tx.type]?.icon }}</span>
+                              {{ TX_TYPE_CONFIG[tx.type]?.label }}
+                            </span>
+                          </td>
+                          <td class="px-5 py-3 align-middle text-sm text-neutral-800">{{ tx.description || '—' }}</td>
+                          <td class="px-5 py-3 align-middle text-sm">
+                            <button
+                              v-if="tx.session_id"
+                              class="font-mono text-xs text-neutral-950 hover:underline"
+                              @click="openWorkflow(tx.session_id!)"
+                            >
+                              {{ sessionShort(tx.session_id) }}
+                            </button>
+                            <span v-else class="text-xs text-neutral-400">{{ t('vault.wallet.txTable.workspaceTag') }}</span>
+                          </td>
+                          <td class="px-5 py-3 align-middle text-sm text-neutral-500">{{ formatDate(tx.created_at, true) }}</td>
+                          <td
+                            class="px-5 py-3 text-right align-middle font-mono text-sm font-semibold"
+                            :class="tx.amount_cents >= 0 ? 'text-green-600' : 'text-neutral-900'"
+                          >
+                            {{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents)) }}
+                          </td>
+                          <td class="px-5 py-3 text-right align-middle font-mono text-xs text-neutral-500">
+                            {{ formatCents(tx.balance_after_cents) }}
+                          </td>
+                        </tr>
+                        <tr v-if="txHasMore" aria-hidden="true">
+                          <td colspan="6" class="h-2 p-0">
+                            <div ref="txScrollSentinel" class="h-1" />
+                          </td>
+                        </tr>
+                      </template>
                     </tbody>
                   </table>
                 </div>
@@ -776,10 +754,10 @@ const currencyLabel = computed(
                   >
                     <div class="flex items-center justify-between">
                       <span class="flex items-center gap-1.5 text-sm">
-                        <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[b.status].dot" />
+                        <span class="size-1.5 rounded-full" :class="STATUS_CONFIG[b.status]?.dot" />
                         <span class="font-mono text-xs text-neutral-950">{{ sessionShort(b.session_id) }}</span>
                       </span>
-                      <span class="text-[10px] uppercase tracking-widest text-neutral-400">{{ STATUS_CONFIG[b.status].label }}</span>
+                      <span class="text-[10px] uppercase tracking-widest text-neutral-400">{{ STATUS_CONFIG[b.status]?.label }}</span>
                     </div>
                     <div class="h-1 overflow-hidden rounded-full bg-neutral-100">
                       <div
@@ -789,8 +767,8 @@ const currencyLabel = computed(
                       />
                     </div>
                     <div class="flex items-center justify-between font-mono text-[11px]">
-                      <span class="text-neutral-500">{{ formatCents(b.spent_cents, topUpCurrency) }}</span>
-                      <span class="text-neutral-900">{{ formatCents(b.allocated_cents, topUpCurrency) }}</span>
+                      <span class="text-neutral-500">{{ formatCents(b.spent_cents) }}</span>
+                      <span class="text-neutral-900">{{ formatCents(b.allocated_cents) }}</span>
                     </div>
                   </button>
                 </div>
@@ -813,10 +791,10 @@ const currencyLabel = computed(
                           <span class="font-mono text-lg font-bold text-neutral-950">{{ sessionShort(selectedWorkflow.session_id) }}</span>
                           <span
                             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1"
-                            :class="STATUS_CONFIG[selectedWorkflow.status].chip"
+                            :class="STATUS_CONFIG[selectedWorkflow.status]?.chip"
                           >
-                            <span class="size-1 rounded-full" :class="STATUS_CONFIG[selectedWorkflow.status].dot" />
-                            {{ STATUS_CONFIG[selectedWorkflow.status].label }}
+                            <span class="size-1 rounded-full" :class="STATUS_CONFIG[selectedWorkflow.status]?.dot" />
+                            {{ STATUS_CONFIG[selectedWorkflow.status]?.label }}
                           </span>
                         </div>
                         <p class="mt-1 text-[11px] text-neutral-400">{{ t('vault.wallet.workflowsView.createdAt', { date: formatDate(selectedWorkflow.created_at, true) }) }}</p>
@@ -824,15 +802,15 @@ const currencyLabel = computed(
                       <div class="flex gap-6">
                         <div>
                           <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.workflowsView.spent') }}</span>
-                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(selectedWorkflow.spent_cents, topUpCurrency) }}</span>
+                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(selectedWorkflow.spent_cents) }}</span>
                         </div>
                         <div>
                           <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.workflowsView.remaining') }}</span>
-                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(Math.max(0, selectedWorkflow.allocated_cents - selectedWorkflow.spent_cents), topUpCurrency) }}</span>
+                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(Math.max(0, selectedWorkflow.allocated_cents - selectedWorkflow.spent_cents)) }}</span>
                         </div>
                         <div>
                           <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.workflowsView.allocated') }}</span>
-                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(selectedWorkflow.allocated_cents, topUpCurrency) }}</span>
+                          <span class="mt-0.5 block font-mono text-sm font-bold text-neutral-950">{{ formatCents(selectedWorkflow.allocated_cents) }}</span>
                         </div>
                       </div>
                     </div>
@@ -875,7 +853,7 @@ const currencyLabel = computed(
                         <span
                           class="shrink-0 font-mono text-sm font-semibold"
                           :class="tx.amount_cents >= 0 ? 'text-green-600' : 'text-neutral-900'"
-                        >{{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents), topUpCurrency) }}</span>
+                        >{{ tx.amount_cents >= 0 ? '+' : '' }}{{ formatCents(Math.abs(tx.amount_cents)) }}</span>
                       </li>
                     </ul>
                   </div>
@@ -901,7 +879,7 @@ const currencyLabel = computed(
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.workflowTotal') }}</label>
                       <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                         <span class="pl-3 text-sm text-neutral-400">$</span>
-                        <input v-model.number="defaultWorkflowBudget" type="number" min="0" step="0.5" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                        <input v-model.number="defaultWorkflowBudget" name="default-workflow-budget" type="number" min="0" step="0.5" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                       </div>
                       <span class="text-[10px] text-neutral-400">{{ t('vault.wallet.policies.workflowTotalHint') }}</span>
                     </div>
@@ -909,7 +887,7 @@ const currencyLabel = computed(
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.perOpMax') }}</label>
                       <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                         <span class="pl-3 text-sm text-neutral-400">$</span>
-                        <input v-model.number="defaultOperationMax" type="number" min="0" step="0.1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                        <input v-model.number="defaultOperationMax" name="default-operation-max" type="number" min="0" step="0.1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                       </div>
                       <span class="text-[10px] text-neutral-400">{{ t('vault.wallet.policies.perOpMaxHint') }}</span>
                     </div>
@@ -917,7 +895,7 @@ const currencyLabel = computed(
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.llmCap') }}</label>
                       <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                         <span class="pl-3 text-sm text-neutral-400">$</span>
-                        <input v-model.number="defaultLlmCap" type="number" min="0" step="0.05" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                        <input v-model.number="defaultLlmCap" name="default-llm-cap" type="number" min="0" step="0.05" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                       </div>
                       <span class="text-[10px] text-neutral-400">{{ t('vault.wallet.policies.llmCapHint') }}</span>
                     </div>
@@ -925,7 +903,7 @@ const currencyLabel = computed(
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.approvalThreshold') }}</label>
                       <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                         <span class="pl-3 text-sm text-neutral-400">$</span>
-                        <input v-model.number="approvalThreshold" type="number" min="0" step="0.25" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                        <input v-model.number="approvalThreshold" name="approval-threshold" type="number" min="0" step="0.25" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                       </div>
                       <span class="text-[10px] text-neutral-400">{{ t('vault.wallet.policies.approvalThresholdHint') }}</span>
                     </div>
@@ -945,26 +923,26 @@ const currencyLabel = computed(
                   <div class="grid grid-cols-2 gap-4">
                     <div class="flex flex-col gap-1.5">
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.maxSteps') }}</label>
-                      <input v-model.number="maxStepsPerSession" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
+                      <input v-model.number="maxStepsPerSession" name="max-steps-per-session" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.maxScreenshots') }}</label>
-                      <input v-model.number="maxScreenshots" type="number" min="0" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
+                      <input v-model.number="maxScreenshots" name="max-screenshots" type="number" min="0" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.maxDuration') }}</label>
-                      <input v-model.number="maxDurationMinutes" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
+                      <input v-model.number="maxDurationMinutes" name="max-duration-minutes" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.concurrent') }}</label>
-                      <input v-model.number="maxConcurrent" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
+                      <input v-model.number="maxConcurrent" name="max-concurrent" type="number" min="1" step="1" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950">
                     </div>
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.policies.dailyCap') }}</label>
                     <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                       <span class="pl-3 text-sm text-neutral-400">$</span>
-                      <input v-model.number="dailyWorkspaceCap" type="number" min="0" step="5" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                      <input v-model.number="dailyWorkspaceCap" name="daily-workspace-cap" type="number" min="0" step="5" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                     </div>
                     <span class="text-[10px] text-neutral-400">{{ t('vault.wallet.policies.dailyCapHint') }}</span>
                   </div>
@@ -973,7 +951,7 @@ const currencyLabel = computed(
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.blockAfterHours') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.blockAfterHoursDesc') }}</span>
                     </div>
-                    <USwitch v-model="blockAfterHours" size="sm" color="black" />
+                    <USwitch v-model="blockAfterHours" size="sm" color="neutral" />
                   </div>
                 </section>
 
@@ -992,28 +970,28 @@ const currencyLabel = computed(
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.pauseOnExhaustion') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.pauseOnExhaustionDesc') }}</span>
                     </div>
-                    <USwitch v-model="pauseOnExhaustion" size="sm" color="black" />
+                    <USwitch v-model="pauseOnExhaustion" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.lowBalance') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.lowBalanceDesc') }}</span>
                     </div>
-                    <USwitch v-model="notifyLowBalance" size="sm" color="black" />
+                    <USwitch v-model="notifyLowBalance" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.overrun') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.overrunDesc') }}</span>
                     </div>
-                    <USwitch v-model="notifyOverrun" size="sm" color="black" />
+                    <USwitch v-model="notifyOverrun" size="sm" color="neutral" />
                   </div>
                   <div class="flex items-center justify-between border-t border-neutral-100 pt-4">
                     <div>
                       <span class="text-sm font-medium text-neutral-900">{{ t('vault.wallet.policies.approveExternal') }}</span>
                       <span class="block text-[11px] text-neutral-400">{{ t('vault.wallet.policies.approveExternalDesc') }}</span>
                     </div>
-                    <USwitch v-model="requireApprovalExternal" size="sm" color="black" />
+                    <USwitch v-model="requireApprovalExternal" size="sm" color="neutral" />
                   </div>
                 </section>
 
@@ -1041,6 +1019,7 @@ const currencyLabel = computed(
                       </div>
                       <textarea
                         v-model="domainList"
+                        name="domain-list"
                         :placeholder="domainPolicy === 'any' ? t('vault.wallet.policies.domainPlaceholderAny') : t('vault.wallet.policies.domainPlaceholderList')"
                         :disabled="domainPolicy === 'any'"
                         rows="5"
@@ -1086,17 +1065,18 @@ const currencyLabel = computed(
             <div class="flex flex-col gap-2">
               <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.topUpModal.amount') }}</label>
               <div class="flex items-center overflow-hidden rounded-xl border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
-                <span v-if="!isZeroDec" class="pl-4 font-mono text-2xl text-neutral-300">$</span>
+                <span class="pl-4 font-mono text-2xl text-neutral-300">$</span>
                 <input
                   v-model.number="topUpAmountInput"
+                  name="top-up-amount"
                   type="number"
                   :min="minInput"
                   :max="maxInput"
-                  :step="isZeroDec ? 100 : 0.01"
+                  step="0.01"
                   placeholder="0.00"
                   class="w-full bg-transparent px-2 py-3 text-2xl font-bold tabular-nums text-neutral-950 outline-none placeholder:text-neutral-300"
                 >
-                <span class="pr-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">{{ topUpCurrency }}</span>
+                <span class="pr-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">USD</span>
               </div>
               <div class="flex flex-wrap gap-1.5">
                 <button
@@ -1107,16 +1087,6 @@ const currencyLabel = computed(
                   @click="selectPreset(p.cents)"
                 >{{ p.label }}</button>
               </div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.topUpModal.chargeCurrency') }}</label>
-              <select
-                v-model="topUpCurrency"
-                class="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-950 outline-none focus:border-neutral-950"
-              >
-                <option v-for="c in CURRENCY_OPTIONS" :key="c.value" :value="c.value">{{ c.label }}</option>
-              </select>
             </div>
 
             <p v-if="topUpError" class="rounded-lg border border-red-100 bg-red-50/60 px-3 py-2 text-xs text-red-700">
@@ -1176,7 +1146,7 @@ const currencyLabel = computed(
                 <span class="text-sm font-semibold text-neutral-950">{{ t('vault.wallet.autoTopUpModal.enable') }}</span>
                 <p class="text-[11px] text-neutral-500">{{ t('vault.wallet.autoTopUpModal.enableDesc') }}</p>
               </div>
-              <USwitch v-model="autoTopUpEnabled" size="sm" color="black" />
+              <USwitch v-model="autoTopUpEnabled" size="sm" color="neutral" />
             </div>
             <div
               class="grid grid-cols-2 gap-3 transition-opacity"
@@ -1186,20 +1156,17 @@ const currencyLabel = computed(
                 <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.autoTopUpModal.triggerBelow') }}</label>
                 <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                   <span class="pl-3 text-sm text-neutral-400">$</span>
-                  <input v-model.number="autoTopUpThreshold" type="number" min="0" step="1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                  <input v-model.number="autoTopUpThreshold" name="auto-top-up-threshold" type="number" min="0" step="1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                 </div>
               </div>
               <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-medium text-neutral-500">{{ t('vault.wallet.autoTopUpModal.addAmount') }}</label>
                 <div class="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-950 focus-within:ring-1 focus-within:ring-neutral-950">
                   <span class="pl-3 text-sm text-neutral-400">$</span>
-                  <input v-model.number="autoTopUpAmount" type="number" min="5" step="1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
+                  <input v-model.number="autoTopUpAmount" name="auto-top-up-amount" type="number" min="5" step="1" class="w-full bg-transparent px-2 py-2 text-sm outline-none">
                 </div>
               </div>
             </div>
-            <p class="text-[11px] text-neutral-500">
-              {{ t('vault.wallet.autoTopUpModal.note') }}
-            </p>
           </div>
           <footer class="flex items-center justify-end gap-2 border-t border-neutral-100 px-6 py-4">
             <button

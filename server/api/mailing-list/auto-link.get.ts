@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const { data: subscriber } = await supabase
     .from('mailing_list')
     .select('id, user_id, is_verified')
-    .eq('email', user.email)
+    .eq('email', user.email ?? '')
     .is('user_id', null)
     .single()
 

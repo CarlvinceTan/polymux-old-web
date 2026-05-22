@@ -1,16 +1,24 @@
 import { ref } from 'vue'
-import { useAppToast } from '../useAppToast'
+import { useAppToast } from '../ui/useAppToast'
 
 export interface FileAttachmentState {
   id: string
+  /** Stable identifier minted at creation and preserved across the `id` swap
+   *  when an upload finishes (localId → server-assigned id). Inline editors
+   *  use this to keep the chip's DOM node in place. */
+  localId: string
   name: string
   size: number
   progress: number
   status: 'uploading' | 'done' | 'error'
+  /** Optional initial character offset in the editor text. Only meaningful at
+   *  seed time (edit-mode rehydration); after the chip is in the DOM, its
+   *  live offset is the source of truth. */
+  position?: number
 }
 
 const maxUploadSize = ref<number | null>(null)
-let configFetched = false
+const configFetchCache = new Map<string, Promise<void>>()
 
 export function useAttachments() {
   const attachments = ref<FileAttachmentState[]>([])
@@ -26,34 +34,34 @@ export function useAttachments() {
     return session.access_token
   }
 
-  async function fetchUploadConfig() {
-    if (configFetched) return
-    configFetched = true
-    try {
-      const token = await getAuthToken()
-      const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
-      const res = await fetch(`${baseURL}/upload-config`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (typeof data.max_upload_size === 'number') {
-          maxUploadSize.value = data.max_upload_size
+  function fetchUploadConfig(workspaceId?: string): Promise<void> {
+    const key = workspaceId ?? '_default'
+    const existing = configFetchCache.get(key)
+    if (existing) return existing
+    const p = (async () => {
+      try {
+        const token = await getAuthToken()
+        const baseURL = config.public.serverUrl as string
+        const params = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
+        const res = await fetch(`${baseURL}/upload-config${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (typeof data.max_upload_size === 'number') {
+            maxUploadSize.value = data.max_upload_size
+          }
         }
+      } catch {
+        // Silently fall back to no client-side check
       }
-    } catch {
-      // Silently fall back to no client-side check
-    }
+    })()
+    configFetchCache.set(key, p)
+    return p
   }
 
-  function formatSize(bytes: number): string {
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
-    return `${bytes} B`
-  }
-
-  function addFiles(sessionId: string, files: FileList) {
-    fetchUploadConfig()
+  async function addFiles(sessionId: string, files: FileList, workspaceId?: string) {
+    await fetchUploadConfig(workspaceId)
 
     for (const file of Array.from(files)) {
       if (maxUploadSize.value && file.size > maxUploadSize.value) {
@@ -67,6 +75,7 @@ export function useAttachments() {
       const localId = crypto.randomUUID()
       const entry: FileAttachmentState = {
         id: localId,
+        localId,
         name: file.name,
         size: file.size,
         progress: 0,
@@ -141,7 +150,7 @@ export function useAttachments() {
       xhrMap.delete(localId)
     })
 
-    const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+    const baseURL = config.public.serverUrl as string
     xhr.open('POST', `${baseURL}/sessions/${sessionId}/files`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.send(formData)
@@ -159,7 +168,7 @@ export function useAttachments() {
 
     if (entry && entry.status === 'done' && sessionId) {
       getAuthToken().then((token) => {
-        const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+        const baseURL = config.public.serverUrl as string
         fetch(`${baseURL}/sessions/${sessionId}/files/${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
@@ -176,13 +185,15 @@ export function useAttachments() {
     attachments.value = []
   }
 
-  function seed(existing: { id: string; name: string }[]) {
+  function seed(existing: { id: string; name: string; position?: number }[]) {
     attachments.value = existing.map(a => ({
       id: a.id,
+      localId: crypto.randomUUID(),
       name: a.name,
       size: 0,
       progress: 100,
       status: 'done' as const,
+      position: a.position,
     }))
   }
 

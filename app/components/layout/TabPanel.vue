@@ -14,10 +14,18 @@ withDefaults(defineProps<{
   compactFooter?: boolean
   hideFooterDivider?: boolean
   hideHeaderDivider?: boolean
+  /**
+   * Drop the white panel chrome. Use when the panel hosts a full-bleed
+   * content layer (e.g. a canvas) and a floating header / footer overlay
+   * pair — without this, the floating overlays sit over a white strip even
+   * when their wrappers are transparent.
+   */
+  transparent?: boolean
 }>(), {
   compactFooter: false,
   hideFooterDivider: false,
   hideHeaderDivider: false,
+  transparent: false,
 })
 
 defineSlots<{
@@ -27,11 +35,17 @@ defineSlots<{
   default?: () => unknown
   footer?: () => unknown
 }>()
+
+const bodyScrollEl = ref<HTMLElement | null>(null)
+defineExpose({ bodyScrollEl })
 </script>
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-    <div class="ghost-panel flex min-h-0 min-w-0 flex-1 flex-col rounded-[1.25rem] bg-white">
+    <div
+      class="ghost-panel flex min-h-0 min-w-0 flex-1 flex-col rounded-[1.25rem]"
+      :class="transparent ? 'bg-transparent' : 'bg-white'"
+    >
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem]">
         <template v-if="$slots.header || $slots.title || $slots.actions">
           <div class="shrink-0">
@@ -52,7 +66,7 @@ defineSlots<{
           </div>
         </template>
 
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div ref="bodyScrollEl" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <!-- Sole body child (typical padded wrapper) becomes a flex column so children like Placeholder can use flex-1. -->
           <div class="flex min-h-0 min-w-0 flex-1 flex-col *:only:flex *:only:min-h-0 *:only:flex-1 *:only:flex-col">
             <slot />

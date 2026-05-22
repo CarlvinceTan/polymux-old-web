@@ -1,27 +1,23 @@
-import type { WorkflowStep } from '~/composables/workflows/useWorkflows'
+import type { WorkflowGraph, WorkflowNode, WorkflowWire } from '~/composables/workflows/useWorkflows'
 
-// The layout-time set of kinds. The runtime data model emits 'directive',
-// 'sequence', 'loop', and 'parallel' (see
-// polymux/internal/agent/tools_orchestrator.go); 'conditional' is accepted here
-// so the renderer is ready when the orchestrator starts emitting it.
-export type LayoutNodeKind = 'directive' | 'sequence' | 'loop' | 'parallel' | 'conditional'
+// Generic DAG layout for the graph model. Nodes are laid out in columns by
+// longest forward path from the synthetic Start; back-wires (target column
+// < source column) are rendered as curved arrows so cycles read naturally.
+// Within each column nodes are ordered by insertion order so the graph
+// stays deterministic across re-layouts.
 
 export type DisplayState = 'active' | 'dimmed'
 
 export interface NodeModel {
   id: string
-  step: WorkflowStep
-  kind: LayoutNodeKind
+  node: WorkflowNode
   col: number
   row: number
   displayState: DisplayState
-  // Synthetic terminal anchor injected by the layout engine. Not present in
-  // the persisted WorkflowStep JSON — purely a UI marker so column 0 always
-  // reads "Start of workflow → … → End of workflow".
   terminal?: 'start' | 'end'
 }
 
-export type WireStyle = 'straight' | 'fork-right' | 'join-left' | 'back-edge'
+export type WireStyle = 'forward' | 'back-wire'
 
 export interface WireModel {
   id: string
@@ -29,6 +25,8 @@ export interface WireModel {
   toId: string
   style: WireStyle
   label?: string
+  condition?: string
+  maxIterations?: number
 }
 
 export interface LayoutModel {
@@ -38,300 +36,184 @@ export interface LayoutModel {
   wires: WireModel[]
 }
 
-interface BuildState {
-  nodes: NodeModel[]
-  wires: WireModel[]
-  pending: PendingJoin[]
-}
-
-interface PendingJoin {
-  fromIds: string[]
-  parentCol: number
-  bottomRow: number
-}
-
-interface FrameResult {
-  height: number
-  firstId: string | null
-  lastId: string | null
-}
-
-const EMPTY_FRAME: FrameResult = { height: 0, firstId: null, lastId: null }
-
-function resolveKind(step: WorkflowStep): LayoutNodeKind {
-  const k = (step.kind ?? 'directive') as string
-  if (k === 'directive' || k === 'sequence' || k === 'loop' || k === 'parallel' || k === 'conditional') return k
-  return 'directive'
-}
-
-function nodeIdFor(step: WorkflowStep, fallback: string): string {
-  return step.id && step.id.length > 0 ? step.id : fallback
-}
-
-// Deterministic wire IDs so the same logical edge keeps its identity across
-// layout passes (e.g. when expandedIds toggles). The wire animation engine
-// in WorkflowGraphWires looks up `animations.get(wire.id)` to interpolate
-// from the current visual position to the new endpoints; a sequence-based
-// id reshuffles every rebuild, so animations would snap instead of glide.
-function wireId(fromId: string, toId: string, style: WireStyle, suffix?: string): string {
-  return suffix
-    ? `${style}:${fromId}->${toId}:${suffix}`
-    : `${style}:${fromId}->${toId}`
-}
-
 export const WORKFLOW_START_ID = '__workflow_start__'
 export const WORKFLOW_END_ID = '__workflow_end__'
 
-export function buildLayout(steps: WorkflowStep[], expandedIds: ReadonlySet<string>): LayoutModel {
-  const state: BuildState = { nodes: [], wires: [], pending: [] }
+// buildAdjacency returns a forward-only adjacency map. Wires with a
+// non-zero max_iterations are treated as back-wires for layering purposes
+// (they're allowed to cycle so they can't drive column assignment).
+function buildAdjacency(wires: readonly WorkflowWire[]): Map<string, WorkflowWire[]> {
+  const out = new Map<string, WorkflowWire[]>()
+  for (const w of wires) {
+    if (!out.has(w.from_id)) out.set(w.from_id, [])
+    out.get(w.from_id)!.push(w)
+  }
+  return out
+}
 
-  // Always-present "Start of workflow" terminal at the top of column 0.
-  state.nodes.push({
+// assignLayers walks the graph from the entry set, treating capped wires
+// (max_iterations > 0) as if they didn't exist for layering. The remaining
+// graph is layered by longest forward path: each layer is the set of nodes
+// whose forward-incoming wires have all already been placed. Cycles (where
+// no zero-incoming node remains but the worklist still has entries) are
+// broken by force-promoting the node with the fewest remaining incoming
+// wires — that edge becomes effectively a back-wire for layout purposes,
+// which is the same treatment that an explicit `max_iterations` wire gets.
+function assignLayers(nodes: WorkflowNode[], wires: readonly WorkflowWire[]): Map<string, number> {
+  const forwardWires = wires.filter(w => !(w.max_iterations && w.max_iterations > 0))
+
+  const incoming = new Map<string, number>()
+  const outgoing = new Map<string, string[]>()
+  for (const n of nodes) {
+    incoming.set(n.id, 0)
+    outgoing.set(n.id, [])
+  }
+  for (const w of forwardWires) {
+    // Detached endpoints (either end's id is empty, persisted via
+    // from_pos / to_pos instead) aren't part of the flow graph — they
+    // can't contribute layering pressure. Skipping also avoids the
+    // `outgoing.get("")` undefined-push crash that previously took out
+    // the whole layout when a draw-wire-tool sketch was on the canvas.
+    if (!w.from_id || !w.to_id) continue
+    const outList = outgoing.get(w.from_id)
+    if (!outList) continue
+    incoming.set(w.to_id, (incoming.get(w.to_id) ?? 0) + 1)
+    outList.push(w.to_id)
+  }
+
+  const layer = new Map<string, number>()
+  const remaining = new Set(nodes.map(n => n.id))
+  let currentLayer = 1
+
+  while (remaining.size > 0) {
+    // Nodes with all forward in-wires already placed are ready for the
+    // current layer.
+    let layerIds = [...remaining].filter(id => (incoming.get(id) ?? 0) === 0)
+
+    if (layerIds.length === 0) {
+      // Pure-cycle blockage: nothing has zero remaining incoming. Force
+      // one node onto this layer to unblock — picking the one with the
+      // fewest remaining incoming so we break the smallest cycle.
+      let minInc = Infinity
+      let pick: string | null = null
+      for (const id of remaining) {
+        const inc = incoming.get(id) ?? 0
+        if (inc < minInc) {
+          minInc = inc
+          pick = id
+        }
+      }
+      if (pick != null) layerIds = [pick]
+      else break
+    }
+
+    for (const id of layerIds) {
+      layer.set(id, currentLayer)
+      remaining.delete(id)
+      for (const t of outgoing.get(id) ?? []) {
+        if (remaining.has(t)) incoming.set(t, (incoming.get(t) ?? 0) - 1)
+      }
+    }
+    currentLayer++
+  }
+
+  // Defensive: anything still unlayered (shouldn't happen) gets layer 1 so
+  // it still renders.
+  for (const n of nodes) if (!layer.has(n.id)) layer.set(n.id, 1)
+  return layer
+}
+
+function wireId(wire: WorkflowWire): string {
+  return `wire:${wire.id}`
+}
+
+export function buildLayout(graph: WorkflowGraph): LayoutModel {
+  const nodes: NodeModel[] = []
+  const wires: WireModel[] = []
+
+  // Layer real nodes by longest forward path. Layer 0 is the Start
+  // terminal; real nodes start at layer 1; End sits at the deepest layer + 1.
+  const layer = assignLayers(graph.nodes, graph.wires)
+  const byLayer = new Map<number, WorkflowNode[]>()
+  for (const n of graph.nodes) {
+    const l = layer.get(n.id)!
+    if (!byLayer.has(l)) byLayer.set(l, [])
+    byLayer.get(l)!.push(n)
+  }
+
+  // Place the Start terminal at (0, 0).
+  nodes.push({
     id: WORKFLOW_START_ID,
-    step: {},
-    kind: 'directive',
+    node: { id: WORKFLOW_START_ID },
     col: 0,
     row: 0,
     displayState: 'active',
     terminal: 'start',
   })
 
-  // Real top-level steps occupy rows 1..(1+r.height-1) so the start terminal
-  // can sit at row 0.
-  const r = layoutInto(steps, 0, 1, expandedIds, state, 'r')
+  // Compute the maximum layer for End placement.
+  let maxLayer = 0
+  for (const l of byLayer.keys()) if (l > maxLayer) maxLayer = l
 
-  // Always-present "End of workflow" terminal at the bottom of column 0,
-  // immediately after the deepest real row consumed by the top-level pass.
-  const endRow = 1 + r.height
-  state.nodes.push({
+  // Place real nodes column-by-column. Within a column, row is insertion
+  // order from graph.nodes (stable, deterministic).
+  const placement = new Map<string, NodeModel>()
+  const layerOrder = [...byLayer.keys()].sort((a, b) => a - b)
+  for (const l of layerOrder) {
+    const layerNodes = byLayer.get(l) ?? []
+    for (let i = 0; i < layerNodes.length; i++) {
+      const n = layerNodes[i]!
+      const model: NodeModel = {
+        id: n.id,
+        node: n,
+        col: l,
+        row: i,
+        displayState: 'active',
+      }
+      nodes.push(model)
+      placement.set(n.id, model)
+    }
+  }
+
+  // Place End terminal one column past the deepest real layer.
+  const endCol = Math.max(maxLayer + 1, 1)
+  nodes.push({
     id: WORKFLOW_END_ID,
-    step: {},
-    kind: 'directive',
-    col: 0,
-    row: endRow,
+    node: { id: WORKFLOW_END_ID },
+    col: endCol,
+    row: 0,
     displayState: 'active',
     terminal: 'end',
   })
 
-  // Wire the terminals into the spine. Straight wires only — terminals
-  // share column 0 with the top-level real steps.
-  if (r.firstId) {
-    state.wires.push({ id: wireId(WORKFLOW_START_ID, r.firstId, 'straight'), fromId: WORKFLOW_START_ID, toId: r.firstId, style: 'straight' })
-  }
-  if (r.lastId) {
-    state.wires.push({ id: wireId(r.lastId, WORKFLOW_END_ID, 'straight'), fromId: r.lastId, toId: WORKFLOW_END_ID, style: 'straight' })
-  }
-  else {
-    // Empty workflow: connect Start directly to End so the spine still reads.
-    state.wires.push({ id: wireId(WORKFLOW_START_ID, WORKFLOW_END_ID, 'straight'), fromId: WORKFLOW_START_ID, toId: WORKFLOW_END_ID, style: 'straight' })
-  }
+  // No spine / auto-inferred wires. Start + End are pure visual anchors
+  // — execution doesn't need an edge to either — and silently inserting
+  // Start→entry connections behind the user's back made it look like
+  // creating one wire created two. Connectivity warnings surface at
+  // save time as a toast instead (see `connectivityWarnings`).
 
-  // Resolve pending join-left wires. The target is the placed node sitting at
-  // (parentCol, bottomRow) — i.e. the next sibling in the parent's column.
-  // For a control-flow parent that is the last top-level step, this resolves
-  // naturally to the End terminal sitting at (0, endRow).
-  const placement = new Map<string, NodeModel>()
-  for (const n of state.nodes) placement.set(`${n.col}:${n.row}`, n)
-
-  for (const p of state.pending) {
-    const target = placement.get(`${p.parentCol}:${p.bottomRow}`)
-    if (!target) continue
-    for (const fromId of p.fromIds) {
-      state.wires.push({
-        id: wireId(fromId, target.id, 'join-left'),
-        fromId,
-        toId: target.id,
-        style: 'join-left',
-      })
-    }
-  }
-
-  const columnCount = state.nodes.reduce((m, n) => Math.max(m, n.col), 0) + 1
-  const rowCount = state.nodes.reduce((m, n) => Math.max(m, n.row), 0) + 1
-  return {
-    columnCount,
-    rowCount,
-    nodes: state.nodes,
-    wires: state.wires,
-  }
-}
-
-function layoutInto(
-  steps: WorkflowStep[],
-  col: number,
-  startRow: number,
-  expandedIds: ReadonlySet<string>,
-  state: BuildState,
-  pathPrefix: string,
-): FrameResult {
-  let row = startRow
-  let prevId: string | null = null
-  let firstId: string | null = null
-  let lastId: string | null = null
-
-  steps.forEach((step, idx) => {
-    const synthId = `${pathPrefix}/${idx}`
-    const id = nodeIdFor(step, synthId)
-    const kind = resolveKind(step)
-    const childCount = step.children?.length ?? 0
-    const expanded = childCount > 0 && expandedIds.has(id)
-    // Only control-flow kinds dim themselves on expansion — their action
-    // lives in their subnodes. A directive expanded inline (playwright
-    // actions list inside the card) is still itself the active step.
-    const dimsWhenExpanded = kind === 'sequence' || kind === 'loop' || kind === 'parallel' || kind === 'conditional'
-
-    state.nodes.push({
-      id,
-      step,
-      kind,
-      col,
-      row,
-      displayState: expanded && dimsWhenExpanded ? 'dimmed' : 'active',
+  // Real wires: forward or back-wire depending on layer direction.
+  for (const w of graph.wires) {
+    const from = placement.get(w.from_id)
+    const to = placement.get(w.to_id)
+    const isBackWire = (w.max_iterations ?? 0) > 0 || (from && to && to.col <= from.col)
+    wires.push({
+      id: wireId(w),
+      fromId: w.from_id,
+      toId: w.to_id,
+      style: isBackWire ? 'back-wire' : 'forward',
+      label: w.label,
+      condition: w.condition,
+      maxIterations: w.max_iterations,
     })
-
-    if (prevId) {
-      state.wires.push({ id: wireId(prevId, id, 'straight'), fromId: prevId, toId: id, style: 'straight' })
-    }
-
-    let h = 0
-    if (expanded) {
-      h = expandSubtree(step, kind, id, col, row, expandedIds, state, synthId)
-    }
-
-    if (firstId === null) firstId = id
-    lastId = id
-    prevId = id
-    row += 1 + h
-  })
-
-  return { height: row - startRow, firstId, lastId }
-}
-
-function expandSubtree(
-  step: WorkflowStep,
-  kind: LayoutNodeKind,
-  parentId: string,
-  parentCol: number,
-  parentRow: number,
-  expandedIds: ReadonlySet<string>,
-  state: BuildState,
-  pathPrefix: string,
-): number {
-  const children = step.children ?? []
-
-  switch (kind) {
-    case 'directive':
-      // Directive children are playwright-level actions, rendered as an
-      // expandable details list inside the parent card (see
-      // WorkflowGraphNode). They are not separate graph nodes, so
-      // expansion adds no rows / wires here.
-      return 0
-
-    case 'sequence': {
-      // A sequence renders its children as a straight vertical chain in the
-      // next column, connected by straight wires (layoutInto wires sibling
-      // nodes within the chain). The sequence header forks right into the
-      // first child; the last child rejoins the parent flow via the
-      // pending-join queue, mirroring how a single-branch parallel returns.
-      const r = layoutInto(children, parentCol + 1, parentRow + 1, expandedIds, state, `${pathPrefix}.s`)
-      if (r.firstId) {
-        state.wires.push({
-          id: wireId(parentId, r.firstId, 'fork-right'),
-          fromId: parentId,
-          toId: r.firstId,
-          style: 'fork-right',
-        })
-      }
-      if (r.lastId) {
-        state.pending.push({
-          fromIds: [r.lastId],
-          parentCol,
-          bottomRow: parentRow + 1 + r.height,
-        })
-      }
-      return r.height
-    }
-
-    case 'loop': {
-      const mid = Math.ceil(children.length / 2)
-      const left = children.slice(0, mid)
-      const right = children.slice(mid)
-
-      const leftR = layoutInto(left, parentCol + 1, parentRow + 1, expandedIds, state, `${pathPrefix}.l1`)
-      const rightR: FrameResult = right.length
-        ? layoutInto(right, parentCol + 2, parentRow + 1, expandedIds, state, `${pathPrefix}.l2`)
-        : EMPTY_FRAME
-
-      if (leftR.firstId) {
-        state.wires.push({ id: wireId(parentId, leftR.firstId, 'fork-right'), fromId: parentId, toId: leftR.firstId, style: 'fork-right' })
-      }
-      if (leftR.lastId && rightR.firstId) {
-        // Mid-hop: drawn as a smooth diagonal so the body still reads in
-        // document order. Same wire style as fork-right; the renderer
-        // distinguishes by source/target columns.
-        state.wires.push({ id: wireId(leftR.lastId, rightR.firstId, 'fork-right', 'midhop'), fromId: leftR.lastId, toId: rightR.firstId, style: 'fork-right' })
-      }
-
-      const bodyLastId = rightR.lastId ?? leftR.lastId
-      const bodyFirstId = leftR.firstId
-      if (bodyLastId && bodyFirstId && bodyLastId !== bodyFirstId) {
-        state.wires.push({
-          id: wireId(bodyLastId, bodyFirstId, 'back-edge'),
-          fromId: bodyLastId,
-          toId: bodyFirstId,
-          style: 'back-edge',
-          label: step.condition,
-        })
-      }
-
-      const h = Math.max(leftR.height, rightR.height)
-      if (bodyLastId) {
-        state.pending.push({
-          fromIds: [bodyLastId],
-          parentCol,
-          bottomRow: parentRow + 1 + h,
-        })
-      }
-      return h
-    }
-
-    case 'parallel':
-    case 'conditional': {
-      const branchResults: FrameResult[] = []
-      let maxH = 0
-      for (let i = 0; i < children.length; i++) {
-        const branchCol = parentCol + 1 + i
-        const tag = kind === 'conditional' ? 'c' : 'p'
-        const r = layoutInto([children[i]], branchCol, parentRow + 1, expandedIds, state, `${pathPrefix}.${tag}${i}`)
-        branchResults.push(r)
-        if (r.firstId) {
-          state.wires.push({
-            id: wireId(parentId, r.firstId, 'fork-right'),
-            fromId: parentId,
-            toId: r.firstId,
-            style: 'fork-right',
-            label: kind === 'conditional' ? caseLabel(children[i], i) : undefined,
-          })
-        }
-        if (r.height > maxH) maxH = r.height
-      }
-      const branchLasts = branchResults
-        .map(r => r.lastId)
-        .filter((x): x is string => !!x)
-      if (branchLasts.length > 0) {
-        state.pending.push({
-          fromIds: branchLasts,
-          parentCol,
-          bottomRow: parentRow + 1 + maxH,
-        })
-      }
-      return maxH
-    }
   }
-}
 
-function caseLabel(step: WorkflowStep, idx: number): string {
-  const trimmed = (step.annotation ?? step.description ?? '').trim()
-  if (trimmed.length > 0) return trimmed.length > 28 ? `${trimmed.slice(0, 27)}…` : trimmed
-  return `case ${idx + 1}`
+  // Build the unused adjacency map only for completeness; not currently used
+  // beyond layering. Kept as a hook for future styling decisions.
+  void buildAdjacency(graph.wires)
+
+  const columnCount = endCol + 1
+  let rowCount = 1
+  for (const n of nodes) if (n.row + 1 > rowCount) rowCount = n.row + 1
+  return { columnCount, rowCount, nodes, wires }
 }

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-const { t } = useI18n()
-
 const props = defineProps<{
   modelValue: string
   disabled?: boolean
@@ -54,9 +52,9 @@ function cancel() {
   />
   <h2
     v-else
-    class="min-w-0 text-7xl font-extrabold leading-snug text-neutral-950 sm:text-panel-title select-none"
+    class="min-w-0 w-full truncate text-7xl font-extrabold leading-snug text-neutral-950 sm:text-panel-title select-none"
     :class="!disabled ? 'cursor-text' : 'cursor-default'"
-    :title="!disabled ? t('chat.doubleClickToRename') : undefined"
+    :title="modelValue"
     @dblclick="startEdit"
   >
     {{ modelValue }}

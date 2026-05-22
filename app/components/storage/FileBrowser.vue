@@ -1,19 +1,29 @@
 <script setup lang="ts">
 import { vDraggable } from 'vue-draggable-plus'
-import type { StorageFile, StorageFolder } from '~/composables/storage/useStorage'
-import type { SelectedItem } from '~/components/storage/ContextualActionBar.vue'
-import type { FileIconName } from '~/composables/useFileIcons'
+import type { StorageFile, StorageFolder } from '~/composables/storage/useStorageFiles'
+import type { SelectedItem } from '~/types/storage'
+import type { FileIconName } from '~/composables/ui/useFileIcons'
 import type { StorageProvider } from '~/types/storage'
 import type { MigrateConfirmGroup } from '~/components/storage/MigrateConfirmModal.vue'
 
 const props = withDefaults(defineProps<{
   storageName?: string
+  /** Open the browser at this directory on mount / when the prop changes.
+   *  Used by the storage page to honour `?path=...` deeplinks from polymux://
+   *  chips in agent replies. Empty array (default) means the workspace root. */
+  initialPath?: string[]
+  /** When set, select the file with this name once the directory finishes
+   *  loading. Cleared after a match lands or when the user navigates away. */
+  highlightFileName?: string
 }>(), {
   storageName: 'Workspace',
+  initialPath: () => [],
+  highlightFileName: undefined,
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, shareDirectory, unshareDirectory, provider: storageProvider, isLoading, error: storageError, folderOpMessage } = useStorage()
-const { getIconForFile, getIconForFolder } = useFileIcons()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
+const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
+const { getIconForFile } = useFileIcons()
 const { t, locale } = useI18n()
 const toast = useAppToast()
 
@@ -60,9 +70,12 @@ const searchExpanded = ref(false)
 const searchFocused = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-const currentPath = ref<string[]>([])
-const pathHistory = ref<string[][]>([[]])
+const currentPath = ref<string[]>([...props.initialPath])
+const pathHistory = ref<string[][]>([[...props.initialPath]])
 const historyIndex = ref(0)
+// Name of the file the deeplink wants to select once the active directory's
+// listing arrives. Cleared once we find a match (or when the user navigates).
+const pendingHighlightName = ref<string | null>(props.highlightFileName ?? null)
 
 const folders = ref<StorageFolder[]>([])
 const files = ref<StorageFile[]>([])
@@ -168,6 +181,14 @@ const moveTreeRoot = ref<MoveTreeNode>({
 })
 const moveSelectedPath = ref<string[]>([])
 
+// Explicit destination-provider override for the Move modal. When the user
+// picks a non-root folder we lock this to the folder's provider (per the
+// invariant "everything inside a folder must share one provider"). At root,
+// the user is free to choose any connected provider via the dropdown.
+const moveTargetProviderOverride = ref<StorageProvider | null>(null)
+const moveProviderMenuOpen = ref(false)
+const moveProviderMenuRef = ref<HTMLElement | null>(null)
+
 const visibleMoveNodes = computed<Array<{ node: MoveTreeNode; depth: number }>>(() => {
   const out: Array<{ node: MoveTreeNode; depth: number }> = []
   const visit = (node: MoveTreeNode, depth: number) => {
@@ -190,6 +211,61 @@ function isMoveDestinationSelected(node: MoveTreeNode): boolean {
     if (node.path[i] !== moveSelectedPath.value[i]) return false
   }
   return true
+}
+
+// Provider menu options for the Move modal — only providers ready to accept
+// writes show up. Defined here next to other move-related state.
+const availableMoveProviders = computed<StorageProvider[]>(() => storageResolvedOrder.value)
+
+const moveProviderLabels: Record<StorageProvider, string> = {
+  'google-drive': 'Google Drive',
+  'local': 'Local',
+  'b2': t('storage.settings.providerCloud'),
+}
+
+function moveProviderLabel(provider: StorageProvider): string {
+  return moveProviderLabels[provider] ?? provider
+}
+
+// The folder selection's intrinsic provider — undefined for the workspace
+// root (the root has no inherent provider; items at root can live anywhere).
+const moveSelectedFolderProvider = computed<StorageProvider | undefined>(() => {
+  if (moveSelectedPath.value.length === 0) return undefined
+  const node = findMoveNode(moveSelectedPath.value)
+  return node?.provider
+})
+
+// Effective destination provider for the move/migrate operation. Locked to
+// the destination folder's provider when a non-root folder is selected (per
+// the per-folder invariant). At root the user picks via the dropdown override.
+const effectiveMoveTargetProvider = computed<StorageProvider>(() => {
+  const folderProvider = moveSelectedFolderProvider.value
+  if (folderProvider) return folderProvider
+  if (moveTargetProviderOverride.value && availableMoveProviders.value.includes(moveTargetProviderOverride.value)) {
+    return moveTargetProviderOverride.value
+  }
+  return availableMoveProviders.value[0] ?? storageProvider.value
+})
+
+const moveProviderLocked = computed(() => moveSelectedFolderProvider.value !== undefined)
+const moveProviderInteractive = computed(() => !moveProviderLocked.value && availableMoveProviders.value.length > 1)
+
+function selectMoveProvider(provider: StorageProvider) {
+  moveTargetProviderOverride.value = provider
+  moveProviderMenuOpen.value = false
+}
+
+function toggleMoveProviderMenu() {
+  if (!moveProviderInteractive.value) return
+  moveProviderMenuOpen.value = !moveProviderMenuOpen.value
+}
+
+function handleMoveProviderClickOutside(event: MouseEvent) {
+  if (!moveProviderMenuOpen.value) return
+  const target = event.target as Node
+  if (moveProviderMenuRef.value && !moveProviderMenuRef.value.contains(target)) {
+    moveProviderMenuOpen.value = false
+  }
 }
 
 const pendingNewFolder = ref<{ draftName: string } | null>(null)
@@ -354,12 +430,12 @@ async function persistOrder(orderedNames: string[]) {
   if (!ok) toast.show(t('storage.orderSaveFailed'), 'error')
 }
 
-async function refreshFiles() {
+async function refreshFiles(force = false) {
   // Snapshot the target path so a late-arriving response for the previous
   // directory can't clobber the current one when the user navigates quickly.
   const targetPath = [...currentPath.value]
   const key = pathKey(targetPath)
-  const result = await listFiles(targetPath)
+  const result = await listFiles(targetPath, force ? { force: true } : undefined)
   if (pathKey(currentPath.value) !== key) return
   folders.value = result.folders
   files.value = result.files
@@ -370,6 +446,34 @@ async function refreshFiles() {
     order: result.order ?? [],
   })
 }
+
+// Deeplink sync: when the storage page re-passes a different initialPath
+// (the user clicked another polymux:// chip in chat without remounting this
+// component), navigate to it and queue up the new highlight target. The
+// initial mount is already handled by seeding currentPath from the prop
+// above, so this watch is `not` immediate.
+watch(
+  () => props.initialPath,
+  (path) => {
+    const next = [...(path ?? [])]
+    const same = next.length === currentPath.value.length && next.every((s, i) => s === currentPath.value[i])
+    if (!same) {
+      pathHistory.value = pathHistory.value.slice(0, historyIndex.value + 1)
+      pathHistory.value.push(next)
+      historyIndex.value = pathHistory.value.length - 1
+      currentPath.value = next
+    }
+    pendingHighlightName.value = props.highlightFileName ?? null
+  },
+  { deep: true },
+)
+
+watch(
+  () => props.highlightFileName,
+  (name) => {
+    pendingHighlightName.value = name ?? null
+  },
+)
 
 // Also watch the active workspace id: `listFiles` silently returns an empty
 // directory when the workspace isn't loaded yet, and workspaces arrive
@@ -396,15 +500,20 @@ watch(
 // previous workspace never shows up in the new one.
 watch(() => currentWorkspace.value?.id, () => {
   directoryCache.clear()
+  clearStorageListCache()
 })
 
-// Refresh when a Drive migration finishes so provider icons reflect the
+// Refresh when a local migration finishes so provider icons reflect the
 // new backend without requiring a manual reload.
-const { state: driveMigrationState } = useDriveMigration()
-watch(() => driveMigrationState.status, (status, prev) => {
+const { state: localMigrationState } = useLocalMigration()
+watch(() => localMigrationState.status, (status, prev) => {
   if (prev === 'running' && (status === 'done' || status === 'failed')) {
-    refreshFiles()
+    refreshFiles(true)
   }
+})
+
+useOnReconnect(() => {
+  void refreshFiles(true)
 })
 
 function toggleSearch() {
@@ -421,7 +530,7 @@ function toggleSearch() {
 const isFilterOpen = ref(false)
 const filterRef = ref<HTMLElement | null>(null)
 const searchRef = ref<HTMLElement | null>(null)
-const activeFilter = ref('All files')
+const activeFilter = ref<'all' | 'images' | 'documents' | 'videos'>('all')
 
 function toggleFilter() {
   isFilterOpen.value = !isFilterOpen.value
@@ -431,8 +540,8 @@ function closeFilter() {
   isFilterOpen.value = false
 }
 
-function setFilter(label: string) {
-  activeFilter.value = label
+function setFilter(id: 'all' | 'images' | 'documents' | 'videos') {
+  activeFilter.value = id
   closeFilter()
 }
 
@@ -456,17 +565,19 @@ function handleClickOutside(event: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', handleMoveProviderClickOutside)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleMoveProviderClickOutside)
 })
 
 const filterItems = [
-  { label: 'All files', icon: 'file' },
-  { label: 'Images', icon: 'image' },
-  { label: 'Documents', icon: 'file-text' },
-  { label: 'Videos', icon: 'video' },
+  { id: 'all' as const, icon: 'file' },
+  { id: 'images' as const, icon: 'image' },
+  { id: 'documents' as const, icon: 'file-text' },
+  { id: 'videos' as const, icon: 'video' },
 ]
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -507,11 +618,11 @@ const filteredFiles = computed(() => {
   let resultFolders = folders.value.filter(f => !f.name.startsWith('.'))
   let resultFiles = files.value.filter(f => !f.name.startsWith('.'))
 
-  if (activeFilter.value !== 'All files') {
+  if (activeFilter.value !== 'all') {
     const typeMap: Record<string, string[]> = {
-      'Images': ['image'],
-      'Documents': ['document', 'calendar', 'spreadsheet', 'presentation', 'file-text', 'file-code'],
-      'Videos': ['video'],
+      images: ['image'],
+      documents: ['document', 'calendar', 'spreadsheet', 'presentation', 'file-text', 'file-code'],
+      videos: ['video'],
     }
     const allowed = typeMap[activeFilter.value]
     if (allowed) {
@@ -531,7 +642,7 @@ const filteredFiles = computed(() => {
   }
 
   const allItems = [
-    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFolder() as FileIconName, id: `folder-${f.name}` })),
+    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: 'folder' as FileIconName, id: `folder-${f.name}` })),
     ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt })),
   ]
 
@@ -580,7 +691,7 @@ const listItemsForView = computed(() => {
         name: '',
         path: '',
         provider: storageProvider.value,
-        icon: getIconForFolder() as FileIconName,
+        icon: 'folder' as FileIconName,
       },
       ...base,
     ]
@@ -590,7 +701,7 @@ const listItemsForView = computed(() => {
 
 /** Icon + copy centred in the whole white panel (behind the toolbar), not only below it */
 const showEmptyFolderOverlay = computed(() => {
-  if (isLoading.value && filteredFiles.value.length === 0 && !pendingNewFolder.value && !pendingDuplicate.value) return false
+  if (listingLoading.value && filteredFiles.value.length === 0 && !pendingNewFolder.value && !pendingDuplicate.value) return false
   if (storageError.value) return false
   return listItemsForView.value.length === 0
 })
@@ -610,8 +721,11 @@ function resolveNewFolderFinalName(draft: string): string {
   return nextDefaultFolderName()
 }
 
-function isPendingRow(item: { isPendingNew?: boolean; isPendingDuplicate?: boolean }): boolean {
-  return item.isPendingNew === true || item.isPendingDuplicate === true
+type MaybePendingRow = { isPendingNew?: boolean; isPendingDuplicate?: boolean }
+
+function isPendingRow<T>(item: T): item is T & ({ isPendingNew: true } | { isPendingDuplicate: true }) {
+  const r = item as MaybePendingRow
+  return r.isPendingNew === true || r.isPendingDuplicate === true
 }
 
 function toSelectedItem(item: typeof filteredFiles.value[number]): SelectedItem {
@@ -687,6 +801,23 @@ function deselectItem() {
   selectedFileExtra.value = null
   isRenaming.value = false
 }
+
+// Deeplink highlight: when the storage page passes highlightFileName (set
+// from `?path=&kind=file` on the URL), wait for the file's directory to
+// finish loading and select it the moment it appears. The watch clears
+// pendingHighlightName after a successful match so subsequent navigation
+// inside the browser doesn't keep snapping the user back.
+watch(
+  [filteredFiles, pendingHighlightName],
+  ([items, name]) => {
+    if (!name) return
+    const match = items.find(i => i.kind === 'file' && i.name === name)
+    if (!match) return
+    selectItem(match)
+    pendingHighlightName.value = null
+  },
+  { immediate: true },
+)
 
 function handleItemClick(item: typeof filteredFiles.value[number]) {
   if (item.kind === 'folder') {
@@ -794,7 +925,7 @@ async function handleFileUpload(event: Event) {
 
   isUploading.value = false
   input.value = ''
-  if (stillOnTarget()) await refreshFiles()
+  if (stillOnTarget()) await refreshFiles(true)
 }
 
 function startNewFolder() {
@@ -849,7 +980,7 @@ async function commitPendingNewFolder() {
     if (persistedOrder) {
       await reorderFiles(parentJoined, persistedOrder)
     }
-    await refreshFiles()
+    await refreshFiles(true)
   })()
 }
 
@@ -910,7 +1041,7 @@ function startDuplicate() {
         if (!ok) anyFailed = true
       }
       if (anyFailed) toast.show(t('storage.orderSaveFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
     })()
     return
   }
@@ -990,7 +1121,7 @@ async function commitPendingDuplicate() {
     if (ok) {
       pendingDuplicate.value = null
       await persistOrder(nextOrder)
-      await refreshFiles()
+      await refreshFiles(true)
     }
   } else {
     const sourceSegments = [...currentPath.value, state.sourceName]
@@ -998,7 +1129,7 @@ async function commitPendingDuplicate() {
     if (ok) {
       pendingDuplicate.value = null
       await persistOrder(nextOrder)
-      await refreshFiles()
+      await refreshFiles(true)
     }
   }
 }
@@ -1077,11 +1208,11 @@ async function confirmRename() {
       : await renameFile(relativePath, newName)
     if (!ok) {
       toast.show(t('storage.renameFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
       return
     }
     await persistOrder(renamedOrder)
-    await refreshFiles()
+    await refreshFiles(true)
   })()
 }
 
@@ -1125,7 +1256,7 @@ async function handleDelete() {
     const allOk = results.every(Boolean)
     if (!allOk) {
       toast.show(t('storage.deleteFailed'), 'error')
-      await refreshFiles()
+      await refreshFiles(true)
       return
     }
     if (orderChanged) await persistOrder(pruned)
@@ -1143,6 +1274,12 @@ async function openMoveModal() {
     expanded: false,
   }
   moveSelectedPath.value = initialPath
+  // Default the provider override to whichever provider holds the current
+  // folder we open into, falling back to the first selected item's provider
+  // (for root) so the dropdown reflects the items' "home" before any move.
+  const firstSelected = selectedItemsMap.value.values().next().value
+  moveTargetProviderOverride.value = (firstSelected?.provider as StorageProvider | undefined) ?? null
+  moveProviderMenuOpen.value = false
   isMoveModalOpen.value = true
   await expandMoveNode(moveTreeRoot.value)
   let cursor: MoveTreeNode = moveTreeRoot.value
@@ -1350,6 +1487,7 @@ async function confirmMigration() {
     // repopulated on next listing — and sidesteps any partial-invalidation
     // bugs.
     directoryCache.clear()
+    clearStorageListCache()
     await onComplete()
   }
 }
@@ -1364,10 +1502,10 @@ async function confirmMove() {
   const targets = Array.from(selectedItemsMap.value.values())
   if (targets.length === 0) return
   const destDir = moveSelectedPath.value.join('/')
-  // Resolve destination provider from the picked node. Root falls back to the
-  // user's preferred provider — there's no single "root provider".
-  const destNode = findMoveNode(moveSelectedPath.value)
-  const destProvider: StorageProvider = destNode?.provider ?? storageProvider.value
+  // Destination provider comes from `effectiveMoveTargetProvider`: locked to
+  // the chosen folder's provider when one is selected, otherwise driven by
+  // the explicit provider dropdown (root case).
+  const destProvider: StorageProvider = effectiveMoveTargetProvider.value
   const destName = moveSelectedPath.value.length === 0
     ? 'Home'
     : (moveSelectedPath.value[moveSelectedPath.value.length - 1] ?? 'Home')
@@ -1391,7 +1529,7 @@ async function confirmMove() {
     destName,
     async () => {
       deselectItem()
-      await refreshFiles()
+      await refreshFiles(true)
     },
   )
 }
@@ -1409,6 +1547,8 @@ function findMoveNode(path: string[]): MoveTreeNode | null {
 function cancelMove() {
   isMoveModalOpen.value = false
   moveSelectedPath.value = []
+  moveTargetProviderOverride.value = null
+  moveProviderMenuOpen.value = false
 }
 
 async function handleDownload() {
@@ -1495,11 +1635,12 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
     if (dragged.kind === 'folder' && target.path.startsWith(`${dragged.path}/`)) return false
   }
 
-  // Drop-into-folder zone. In LIST view the middle ~30% of a row's height is
-  // the trigger; top/bottom edges pass through to a reorder swap. In ICON
-  // (grid) view we need BOTH axes: otherwise dragging horizontally across a
-  // row puts the cursor at the vertical midline of every cell it passes, so
-  // every folder along the way returned `false` from onMove and blocked the
+  // Drop-into-folder zone. List rows are short (~37px) so a tight middle
+  // band is hard to land in — use the middle 66% there, leaving thin
+  // top/bottom strips for reorder. In ICON (grid) view we need BOTH axes
+  // with a tighter band: otherwise dragging horizontally across a row puts
+  // the cursor at the vertical midline of every cell it passes, so every
+  // folder along the way returned `false` from onMove and blocked the
   // reorder swap — which looked like "siblings never shift".
   if (target.kind === 'folder' && related) {
     const rect: DOMRect = (evt.relatedRect as DOMRect | undefined) ?? related.getBoundingClientRect()
@@ -1514,8 +1655,9 @@ function onSortableMove(evt: any, originalEvent?: Event): boolean {
         y = (originalEvent as TouchEvent).touches[0]!.clientY
       }
     }
-    const inMidY = y >= rect.top + rect.height * 0.35 && y <= rect.bottom - rect.height * 0.35
-    const inMidX = x >= rect.left + rect.width * 0.35 && x <= rect.right - rect.width * 0.35
+    const yMargin = viewMode.value === 'icon' ? 0.3 : 0.17
+    const inMidY = y >= rect.top + rect.height * yMargin && y <= rect.bottom - rect.height * yMargin
+    const inMidX = x >= rect.left + rect.width * 0.3 && x <= rect.right - rect.width * 0.3
     const inMid = viewMode.value === 'icon' ? (inMidX && inMidY) : inMidY
     if (inMid) {
       related.classList.add('fb-drop-into')
@@ -1551,10 +1693,11 @@ function onDragPointerMove(ev: PointerEvent) {
   }
   if (!pendingDropInto) return
   const rect = pendingDropInto.element.getBoundingClientRect()
-  const inMidY = ev.clientY >= rect.top + rect.height * 0.35 &&
-                 ev.clientY <= rect.bottom - rect.height * 0.35
-  const inMidX = ev.clientX >= rect.left + rect.width * 0.35 &&
-                 ev.clientX <= rect.right - rect.width * 0.35
+  const yMargin = viewMode.value === 'icon' ? 0.3 : 0.17
+  const inMidY = ev.clientY >= rect.top + rect.height * yMargin &&
+                 ev.clientY <= rect.bottom - rect.height * yMargin
+  const inMidX = ev.clientX >= rect.left + rect.width * 0.3 &&
+                 ev.clientX <= rect.right - rect.width * 0.3
   // Mirror onSortableMove's zone: 2D in grid view, Y-only in list view.
   const inside = viewMode.value === 'icon'
     ? (inMidX && inMidY)
@@ -1651,7 +1794,7 @@ async function onSortableEnd(evt: any) {
       droppedInto.name,
       async () => {
         if (hasCrossProvider) deselectItem()
-        await refreshFiles()
+        await refreshFiles(true)
       },
     )
     return
@@ -1668,7 +1811,7 @@ async function onSortableEnd(evt: any) {
     const draggedProvider: StorageProvider = (dragged.provider as StorageProvider) ?? storageProvider.value
     const kind = dragged.kind
     const icon: FileIconName = kind === 'folder'
-      ? (getIconForFolder() as FileIconName)
+      ? ('folder' as FileIconName)
       : (getIconForFile(dragged.name) as FileIconName)
 
     const planned: PlannedMigrationItem = {
@@ -1699,7 +1842,7 @@ async function onSortableEnd(evt: any) {
       dropTarget.name,
       async () => {
         if (isCrossProvider) deselectItem()
-        await refreshFiles()
+        await refreshFiles(true)
       },
     )
     return
@@ -1719,7 +1862,7 @@ async function onSortableEnd(evt: any) {
   const ok = await reorderFiles(parentPath, orderedNames)
   if (!ok) {
     toast.show(t('storage.orderSaveFailed'), 'error')
-    await refreshFiles()
+    await refreshFiles(true)
   }
 }
 
@@ -2017,7 +2160,7 @@ watch(multiDragActive, (active) => {
                 <button
                   class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
                   :disabled="!canGoBack"
-                  aria-label="Go back"
+                  :aria-label="t('storage.toolbar.back')"
                   @click="goBack"
                 >
                   <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2038,7 +2181,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
                       :class="viewMode === 'icon' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
-                      aria-label="Icon view"
+                      :aria-label="t('storage.toolbar.iconView')"
                       @click="viewMode = 'icon'"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2051,7 +2194,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
                       :class="viewMode === 'list' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
-                      aria-label="List view"
+                      :aria-label="t('storage.toolbar.listView')"
                       @click="viewMode = 'list'"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2069,7 +2212,7 @@ watch(multiDragActive, (active) => {
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="pendingNewFolder ? 'bg-neutral-100 text-neutral-950' : ''"
-                      aria-label="New folder"
+                      :aria-label="t('storage.toolbar.newFolder')"
                       @click="startNewFolder"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2078,14 +2221,14 @@ watch(multiDragActive, (active) => {
                         <line x1="9" y1="14" x2="15" y2="14" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">New folder</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.newFolder') }}</span>
                   </div>
 
                   <div class="group/action relative">
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="isUploading ? 'opacity-50 pointer-events-none' : ''"
-                      aria-label="Upload"
+                      :aria-label="t('storage.toolbar.upload')"
                       @click="triggerUpload"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2094,11 +2237,12 @@ watch(multiDragActive, (active) => {
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Upload</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.upload') }}</span>
                   </div>
 
                   <input
                     ref="fileInputRef"
+                    name="file-upload"
                     type="file"
                     multiple
                     class="hidden"
@@ -2108,8 +2252,8 @@ watch(multiDragActive, (active) => {
                   <div ref="filterRef" class="group/action relative">
                     <button
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
-                      :class="activeFilter !== 'All files' ? 'text-neutral-950 bg-neutral-100' : ''"
-                      aria-label="Filter files"
+                      :class="activeFilter !== 'all' ? 'text-neutral-950 bg-neutral-100' : ''"
+                      :aria-label="t('storage.toolbar.filterFiles')"
                       @click="toggleFilter"
                     >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2124,7 +2268,7 @@ watch(multiDragActive, (active) => {
                         <line x1="16" y1="18" x2="16" y2="22" />
                       </svg>
                     </button>
-                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Filter</span>
+                    <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.filter') }}</span>
 
                     <div
                       v-if="isFilterOpen"
@@ -2132,14 +2276,14 @@ watch(multiDragActive, (active) => {
                     >
                       <button
                         v-for="item in filterItems"
-                        :key="item.icon"
+                        :key="item.id"
                         class="flex w-full items-center justify-between gap-2 px-3 py-2 text-body-md hover:bg-neutral-100 transition-colors cursor-pointer"
-                        :class="activeFilter === item.label ? 'text-neutral-950 font-medium' : 'text-neutral-700'"
-                        @click="setFilter(item.label)"
+                        :class="activeFilter === item.id ? 'text-neutral-950 font-medium' : 'text-neutral-700'"
+                        @click="setFilter(item.id)"
                       >
-                        <span>{{ item.label }}</span>
+                        <span>{{ t(`storage.filters.${item.id}`) }}</span>
                         <svg
-                          v-if="activeFilter === item.label"
+                          v-if="activeFilter === item.id"
                           class="size-4 shrink-0"
                           viewBox="0 0 24 24"
                           fill="none"
@@ -2171,9 +2315,9 @@ watch(multiDragActive, (active) => {
                     ]"
                   >
 <button
-  class="shrink-0 flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
-  :class="searchExpanded ? 'text-neutral-950 bg-neutral-100' : ''"
-  aria-label="Search files"
+  class="shrink-0 flex items-center justify-center size-8 rounded-lg transition-colors"
+  :class="searchExpanded ? 'text-neutral-500' : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100'"
+  :aria-label="t('storage.toolbar.searchFiles')"
   @click="toggleSearch"
 >
                       <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2188,8 +2332,9 @@ watch(multiDragActive, (active) => {
                       <input
                         ref="searchInputRef"
                         v-model="searchQuery"
+                        name="storage-search"
                         type="text"
-                        placeholder="Search..."
+                        :placeholder="t('storage.toolbar.searchPlaceholder')"
                         class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
                         @focus="searchFocused = true"
                         @blur="searchFocused = false"
@@ -2197,7 +2342,7 @@ watch(multiDragActive, (active) => {
                       >
                     </div>
                   </div>
-                  <span v-if="!searchExpanded" class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Search</span>
+                  <span v-if="!searchExpanded" class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.search') }}</span>
                 </div>
               </template>
               <div v-else ref="selectionActionsRef" class="flex items-center gap-1 shrink-0">
@@ -2205,7 +2350,7 @@ watch(multiDragActive, (active) => {
                   v-if="isMultiSelection"
                   class="mr-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-700"
                 >
-                  {{ selectedItemIds.size }} selected
+                  {{ t('storage.toolbar.selectedCount', { n: selectedItemIds.size }) }}
                 </span>
                 <!-- Share -->
                 <div class="group/action relative">
@@ -2213,7 +2358,7 @@ watch(multiDragActive, (active) => {
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isShareModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                     </svg>
                   </button>
@@ -2225,7 +2370,7 @@ watch(multiDragActive, (active) => {
                     class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isPermissionsModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
                   </button>
@@ -2339,11 +2484,14 @@ watch(multiDragActive, (active) => {
             >
               {{ folderOpMessage }}
             </p>
-            <!-- Loading state: fill area below toolbar, centred -->
-            <div v-if="isLoading && filteredFiles.length === 0 && !pendingNewFolder" class="flex min-h-0 flex-1 flex-col items-center justify-center p-4 sm:p-5">
-              <svg class="size-5 text-neutral-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
+            <!-- Initial directory fetch: reserve space only — listing uses `listingLoading`, not upload/move `isLoading`. -->
+            <div
+              v-if="listingLoading && filteredFiles.length === 0 && !pendingNewFolder"
+             class="flex min-h-[40vh] flex-1 flex-col items-center justify-center p-4 sm:p-5"
+              role="status"
+              aria-live="polite"
+            >
+              <span class="sr-only">{{ t('common.loading') }}</span>
             </div>
 
             <!-- Error state -->
@@ -2351,7 +2499,7 @@ watch(multiDragActive, (active) => {
               <p class="text-body-md text-red-500 font-medium">{{ storageError }}</p>
               <button
                 class="mt-2 text-body-md text-neutral-700 hover:text-neutral-950 font-medium underline"
-                @click="refreshFiles"
+                @click="refreshFiles(true)"
               >
                 Retry
               </button>
@@ -2364,7 +2512,7 @@ watch(multiDragActive, (active) => {
             <div
               v-else-if="viewMode === 'icon'"
               ref="marqueeContainer"
-              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6"
+              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6 sm:pb-6"
               @pointerdown="onMarqueePointerDown"
               @click.capture="onMarqueeClick"
             >
@@ -2464,6 +2612,7 @@ watch(multiDragActive, (active) => {
                   v-if="isPendingRow(file) && pendingDuplicate"
                   :ref="bindDuplicateInputRef"
                   v-model="pendingDuplicate.draftName"
+                  name="duplicate-name"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onDuplicateInputFocus"
@@ -2476,6 +2625,7 @@ watch(multiDragActive, (active) => {
                   v-if="isPendingRow(file) && pendingNewFolder"
                   :ref="bindNewFolderInputRef"
                   v-model="pendingNewFolder.draftName"
+                  name="new-folder-name"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onNewFolderInputFocus"
@@ -2488,6 +2638,7 @@ watch(multiDragActive, (active) => {
                   v-else-if="isRenaming && selectedItemId === file.id"
                   ref="renameInputRef"
                   v-model="renameInput"
+                  name="file-rename"
                   type="text"
                   class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onRenameInputFocus"
@@ -2497,7 +2648,11 @@ watch(multiDragActive, (active) => {
                 >
                 <div v-else class="flex items-center justify-center gap-1 w-full min-w-0">
                   <span :title="file.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ file.name }}</span>
-                  <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                  <StorageProviderIcon
+                    v-if="file.provider !== 'local'"
+                    :provider="file.provider as StorageProvider"
+                    inline
+                  />
                 </div>
                 </div>
               </div>
@@ -2510,7 +2665,7 @@ watch(multiDragActive, (active) => {
             </div>
 
             <!-- List view: Finder-style table with column headers -->
-            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pt-4 pb-5 sm:px-6 sm:pt-5 sm:pb-6">
+            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
               <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
                 <!-- Column headers -->
                 <div
@@ -2535,14 +2690,16 @@ watch(multiDragActive, (active) => {
                     v-for="file in displayItems"
                     :key="file.id"
                     data-file-item
-                    data-fb-handle
                     :data-id="file.id"
                     :data-kind="file.kind"
                     :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path, provider: file.provider })"
-                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer last:border-b-0"
+                    :class="isPendingRow(file) ? 'fb-pending-row' : ''"
+                  >
+                  <div
+                    data-fb-handle
+                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer"
                     :class="[
                       isSelected(file.id) ? 'bg-neutral-50' : '',
-                      isPendingRow(file) ? 'fb-pending-row' : '',
                       isDragging ? '' : 'hover:bg-neutral-100',
                       multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
                     ]"
@@ -2623,6 +2780,7 @@ watch(multiDragActive, (active) => {
                         v-if="isPendingRow(file) && pendingDuplicate"
                         :ref="bindDuplicateInputRef"
                         v-model="pendingDuplicate.draftName"
+                        name="duplicate-name"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onDuplicateInputFocus"
@@ -2635,6 +2793,7 @@ watch(multiDragActive, (active) => {
                         v-if="isPendingRow(file) && pendingNewFolder"
                         :ref="bindNewFolderInputRef"
                         v-model="pendingNewFolder.draftName"
+                        name="new-folder-name"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onNewFolderInputFocus"
@@ -2647,6 +2806,7 @@ watch(multiDragActive, (active) => {
                         v-else-if="isRenaming && selectedItemId === file.id"
                         ref="renameInputRef"
                         v-model="renameInput"
+                        name="file-rename"
                         type="text"
                         class="flex-1 min-w-0 text-sm text-neutral-950 bg-neutral-100 border border-neutral-400 rounded px-2 py-0.5 outline-none focus:border-neutral-950 font-medium"
                         @focus="onRenameInputFocus"
@@ -2656,7 +2816,11 @@ watch(multiDragActive, (active) => {
                       >
                       <template v-else>
                         <span :title="file.name" class="truncate text-sm text-neutral-950 font-medium min-w-0">{{ file.name }}</span>
-                        <StorageProviderIcon :provider="file.provider as StorageProvider" inline />
+                        <StorageProviderIcon
+                          v-if="file.provider !== 'local'"
+                          :provider="file.provider as StorageProvider"
+                          inline
+                        />
                       </template>
                     </div>
 
@@ -2676,6 +2840,7 @@ watch(multiDragActive, (active) => {
                     </div>
                   </div>
                   </div>
+                  </div>
                   <div
                     v-if="marqueeBoxStyle"
                     class="pointer-events-none absolute z-10 rounded-sm border border-neutral-950/50 bg-neutral-950/10"
@@ -2693,11 +2858,14 @@ watch(multiDragActive, (active) => {
     <FilePreviewModal
       v-if="isPreviewOpen && typedPreviewFile"
       :item="typedPreviewFile"
+      :can-manage-access="canManageAccess"
       @close="closePreview()"
       @download="handleDownload"
       @share="() => { closePreview(false); isShareModalOpen = true }"
+      @permissions="() => { closePreview(false); isPermissionsModalOpen = true }"
       @rename="() => { closePreview(false); nextTick(() => startRename()) }"
       @move="() => { closePreview(false); openMoveModal() }"
+      @duplicate="() => { closePreview(false); startDuplicate() }"
       @info="() => { closePreview(false); isInfoModalOpen = true }"
       @delete="async () => { await handleDelete(); closePreview(false) }"
     />
@@ -2710,7 +2878,7 @@ watch(multiDragActive, (active) => {
     />
 
     <!-- Permissions Modal -->
-    <FilePermissionsModal
+    <ManageMemberAccessModal
       v-if="isPermissionsModalOpen && selectedItemsArray.length > 0 && currentWorkspace"
       :items="selectedItemsArray"
       :workspace-id="currentWorkspace.id"
@@ -2769,7 +2937,7 @@ watch(multiDragActive, (active) => {
                   >
                     <svg
                       v-if="node.loadingPromise !== null"
-                      class="size-3 text-neutral-400 animate-spin"
+                      class="size-3 shrink-0 rounded-full bg-neutral-200 text-neutral-200"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2813,6 +2981,60 @@ watch(multiDragActive, (active) => {
               class="py-4 text-center text-body-md text-neutral-500"
             >
               No subfolders
+            </div>
+          </div>
+          <!-- Storage provider picker -->
+          <div class="px-4 py-3 border-t border-neutral-200">
+            <span class="block text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+              Storage provider
+            </span>
+            <div ref="moveProviderMenuRef" class="relative mt-1.5">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-800 transition-colors"
+                :class="moveProviderInteractive ? 'hover:bg-neutral-100 cursor-pointer' : 'cursor-default'"
+                :aria-haspopup="moveProviderInteractive"
+                :aria-expanded="moveProviderMenuOpen"
+                :disabled="!moveProviderInteractive"
+                @click.stop="toggleMoveProviderMenu"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-white">
+                    <StorageProviderIcon :provider="effectiveMoveTargetProvider" tile />
+                  </span>
+                  <span class="truncate">{{ moveProviderLabel(effectiveMoveTargetProvider) }}</span>
+                </span>
+                <svg
+                  v-if="moveProviderInteractive"
+                  class="size-4 shrink-0 text-neutral-400 transition-transform"
+                  :class="moveProviderMenuOpen ? 'rotate-180' : ''"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <Menu :open="moveProviderMenuOpen && moveProviderInteractive" align="left" width="w-full">
+                <button
+                  v-for="p in availableMoveProviders"
+                  :key="p"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-neutral-100"
+                  :class="p === effectiveMoveTargetProvider ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                  @click.stop="selectMoveProvider(p)"
+                >
+                  <span class="flex min-w-0 items-center gap-2">
+                    <span class="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-50">
+                      <StorageProviderIcon :provider="p" tile />
+                    </span>
+                    <span class="truncate">{{ moveProviderLabel(p) }}</span>
+                  </span>
+                </button>
+              </Menu>
             </div>
           </div>
           <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-end gap-2">
@@ -2898,6 +3120,11 @@ watch(multiDragActive, (active) => {
   outline: 2px solid var(--color-neutral-950);
   outline-offset: -2px;
   background-color: var(--color-neutral-100) !important;
+}
+/* List view: drop the bottom border on the last row's inner handle so it
+   doesn't double up against the scroll container's border. */
+[data-file-item]:last-child > [data-fb-handle] {
+  border-bottom-width: 0;
 }
 </style>
 

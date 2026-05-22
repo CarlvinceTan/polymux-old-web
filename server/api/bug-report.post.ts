@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { escapeHtml, renderTeamMessageLayout, sendEmail } from "../utils/email";
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,28 +29,20 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Message is required." });
   }
 
-  const config = useRuntimeConfig();
-  const resend = new Resend(config.resendApiKey);
-
   const prefixedTitle = `Bug: ${title}`;
 
-  const { error } = await resend.emails.send({
+  await sendEmail({
     from: "Polymux Bug Report <onboarding@resend.dev>",
     to: ["team@polymux.com"],
     replyTo: email,
     subject: prefixedTitle,
-    html: `
-      <p><strong>From:</strong> ${email}</p>
-      <p><strong>Subject:</strong> ${prefixedTitle}</p>
-      <hr />
-      <p>${content.replace(/\n/g, "<br>")}</p>
-    `,
+    html: renderTeamMessageLayout({
+      title: "New bug report",
+      fromEmail: email,
+      subjectLine: prefixedTitle,
+      bodyHtml: escapeHtml(content).replace(/\n/g, "<br>"),
+    }),
   });
-
-  if (error) {
-    console.error("[bug-report] email error", error);
-    throw createError({ statusCode: 500, statusMessage: "Failed to send bug report. Please try again." });
-  }
 
   return { ok: true as const };
 });

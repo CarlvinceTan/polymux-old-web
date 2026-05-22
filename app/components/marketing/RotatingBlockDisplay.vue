@@ -90,9 +90,14 @@ watch(
   },
 )
 
-const cubeStyle = computed(() => ({
-  transitionDuration: instantReset.value ? '0ms' : `${props.flipMs}ms`,
-}))
+// Skip inline style in the default-render case so the SSR HTML stays
+// inline-style-free (SEO auditors flag inline styles). The CSS default
+// matches the prop default below.
+const cubeStyle = computed(() => {
+  if (instantReset.value) return { transitionDuration: '0ms' }
+  if (props.flipMs === 720) return null
+  return { transitionDuration: `${props.flipMs}ms` }
+})
 
 const liveLabel = computed(() => frontText.value || topText.value)
 </script>
@@ -154,6 +159,8 @@ const liveLabel = computed(() => frontText.value || topText.value)
   transform-style: preserve-3d;
   transform: rotateX(0deg);
   transition-property: transform;
+  /* Matches `flipMs` prop default; cubeStyle override kicks in only on instant-reset or non-default flipMs. */
+  transition-duration: 720ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 

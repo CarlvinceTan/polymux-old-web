@@ -105,7 +105,7 @@ body {
   --text-nav: 0.8125rem;
   --text-nav--line-height: 1.25;
 
-  --text-panel-title: 0.9375rem;
+  --text-panel-title: 1.0625rem;
   --text-panel-title--line-height: 1.375;
 
   /* Spacing scale */
@@ -148,6 +148,23 @@ body {
      visually. Stay subtle since the surrounding UI is monochrome. */
   --color-google-drive: #1d6f42;
   --color-google-drive-tint: #e8f4ee;
+
+  /* Gold accent — used for the "running workflow" dot-matrix loader in the
+     SidePanel. Muted enough to live alongside the otherwise monochrome list
+     without screaming. */
+  --color-gold: #c9941f;
+
+  /* Loop wire — used by the workflow canvas for back-wire strokes,
+     iteration-count pills, and loop-body highlights so loops read
+     distinctly from forward flow without leaving the muted palette. */
+  --color-loop-wire: #8b5cf6;
+  --color-loop-wire-strong: #6d28d9;
+  --color-loop-wire-soft: rgba(139, 92, 246, 0.18);
+
+  /* Embed border — used by the workflow canvas for nodes that delegate
+     to another workflow via workflow_ref. Distinct from the loop palette
+     so a node that loops AND embeds reads as two separate semantics. */
+  --color-embed-border: #6366f1;
 }
 
 /* SidePanel collapse: drive column width and panel translate from the same
@@ -208,6 +225,27 @@ body {
     0 4px 18px rgba(26, 28, 28, 0.09);
 }
 
+/* Opt-in hover state for clickable .ghost-panel surfaces: same shadow shape,
+   deeper opacity. No translation — the surface stays put. */
+.ghost-panel-hover {
+  transition: box-shadow 150ms ease;
+}
+.ghost-panel-hover:hover {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 6px 24px rgba(26, 28, 28, 0.18);
+}
+
+/* Same soft lift as .ghost-panel but without the hairline border. Use when
+   the surface should float visually but shouldn't gain a 1px outline — e.g.
+   the viewport screenshare panel, where the bar+preview chrome is already
+   self-framing and the outer border read as a stray edge on the sides. */
+.ghost-shadow {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 4px 18px rgba(26, 28, 28, 0.09);
+}
+
 /* StatusLine.vue — global keyframes so scoped CSS + Tailwind don’t strip/mismatch names.
    Dot bloom: each dot fades in to peak, settles, then fades out — staggered by
    Manhattan distance from the matrix center (see StatusLine.vue). */
@@ -248,3 +286,28 @@ body {
     transform: translateX(300%);
   }
 }
+
+/* SidePanel workflow-list "running" progress arc (workflow-run kind):
+   indeterminate clockwise fill from the top of a 16×16 ring. The circle
+   is authored with `pathLength="100"` so the dasharray/offset can be
+   reasoned about as percentages regardless of the actual circumference,
+   and the parent SVG carries `-rotate-90` to move the dash start from
+   3 o'clock (SVG default) to 12 o'clock. The keyframes hold "full" for
+   a few frames at the end of each cycle so the loop reads as fill-then-
+   reset rather than continuous motion (which would feel like a spinner
+   and defeat the visual contrast with the chat-kind variant). */
+.wf-progress-arc {
+  animation: wf-progress-arc 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes wf-progress-arc {
+  0%   { stroke-dashoffset: 100; }
+  85%  { stroke-dashoffset: 0;   }
+  100% { stroke-dashoffset: 0;   }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-progress-arc {
+    animation: none;
+    stroke-dashoffset: 50;
+  }
+}
+

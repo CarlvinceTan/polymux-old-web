@@ -1,4 +1,7 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { useStripe, isValidPlan, isValidPeriod } from '~~/server/utils/billing/stripe'
+import { getStripePriceId } from '~~/server/utils/billing/pricing'
+import { useServerPostHog } from '~~/server/utils/posthog'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -9,13 +12,11 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     planKey?: unknown
     billingPeriod?: unknown
-    currency?: unknown
     workspaceId?: unknown
   }>(event)
 
   const planKey = body.planKey as string | undefined
   const billingPeriod = body.billingPeriod as string | undefined
-  const currencyRaw = ((body.currency as string) || 'usd').toLowerCase().trim()
   const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
 
   if (!workspaceId) {
@@ -28,8 +29,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid billing period.' })
   }
 
-  const currency = isValidCurrency(currencyRaw) ? currencyRaw : 'usd'
-  const priceId = getStripePriceId(currency, planKey, billingPeriod)
+  const priceId = getStripePriceId(planKey, billingPeriod)
   if (!priceId) {
     throw createError({ statusCode: 500, statusMessage: 'Price not configured for this plan.' })
   }
@@ -63,6 +63,7 @@ export default defineEventHandler(async (event) => {
     mode: 'subscription',
     customer_email: user.email,
     line_items: [{ price: priceId, quantity: 1 }],
+    adaptive_pricing: { enabled: true },
     metadata: {
       userId: user.sub,
       workspaceId,
@@ -82,6 +83,21 @@ export default defineEventHandler(async (event) => {
   if (!session.url) {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create checkout session.' })
   }
+
+  const sessionId = getHeader(event, 'x-posthog-session-id')
+  const distinctId = getHeader(event, 'x-posthog-distinct-id')
+  const posthog = useServerPostHog()
+  posthog.capture({
+    distinctId: distinctId ?? user.sub,
+    event: 'subscription_checkout_started',
+    properties: {
+      $session_id: sessionId,
+      plan_key: planKey,
+      billing_period: billingPeriod,
+      workspace_id: workspaceId,
+      current_plan: workspace.plan,
+    },
+  })
 
   return { url: session.url }
 })

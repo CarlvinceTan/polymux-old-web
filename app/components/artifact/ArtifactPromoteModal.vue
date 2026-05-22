@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SandboxArtifact } from '~/composables/chat/useArtifacts'
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
@@ -112,6 +112,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </label>
                   <input
                     v-model="path"
+                    name="artifact-path"
                     type="text"
                     :placeholder="artifact?.name ?? ''"
                     autofocus

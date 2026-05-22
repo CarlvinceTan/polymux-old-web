@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FileIconName } from '~/composables/useFileIcons'
+import type { FileIconName } from '~/composables/ui/useFileIcons'
 import type { StorageProvider } from '~/types/storage'
 
 const props = defineProps<{
@@ -10,19 +10,22 @@ const props = defineProps<{
     icon: FileIconName
     provider: StorageProvider
   }
+  canManageAccess?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
   download: []
   share: []
+  permissions: []
   move: []
   rename: []
+  duplicate: []
   delete: []
   info: []
 }>()
 
-const { getSignedUrl, stripUserPrefix } = useStorage()
+const { getSignedUrl, stripUserPrefix } = useStorageFiles()
 
 const previewUrl = ref<string | null>(null)
 const textContent = ref<string | null>(null)
@@ -97,20 +100,26 @@ const canDisplay = computed(() => {
     <div class="absolute inset-0 bg-black/40" @click="emit('close')" />
     <div class="absolute inset-6 flex flex-col bg-white rounded-xl border border-neutral-200 shadow-2xl overflow-hidden">
       <!-- Header -->
-      <div class="flex items-center gap-3 px-4 py-3 border-b-2 border-neutral-200 shrink-0">
+      <div class="flex items-center gap-3 px-4 py-3 shrink-0">
         <span class="text-headline-md font-semibold text-neutral-950 truncate flex-1 min-w-0">{{ item.name }}</span>
         <div class="flex items-center gap-1 shrink-0">
           <!-- Share -->
           <div class="group/action relative">
             <button class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors" @click="emit('share')">
               <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="16" y1="11" x2="22" y2="11" />
+                <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
               </svg>
             </button>
             <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Share</span>
+          </div>
+          <!-- Manage access (permissions) -->
+          <div v-if="canManageAccess" class="group/action relative">
+            <button class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors" @click="emit('permissions')">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+              </svg>
+            </button>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Manage access</span>
           </div>
           <!-- Rename -->
           <div class="group/action relative">
@@ -132,6 +141,16 @@ const canDisplay = computed(() => {
               </svg>
             </button>
             <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Move</span>
+          </div>
+          <!-- Duplicate -->
+          <div class="group/action relative">
+            <button class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors" @click="emit('duplicate')">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Duplicate</span>
           </div>
           <!-- Download -->
           <div class="group/action relative">

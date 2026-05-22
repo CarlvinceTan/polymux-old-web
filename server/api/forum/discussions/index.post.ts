@@ -1,5 +1,5 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import { forumDisplayName, forumInitials, isForumCategory } from '~~/server/utils/forumAuthor'
+import { forumDisplayName, forumInitials, isForumCategory } from '~~/server/utils/forum/forumAuthor'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)

@@ -1,4 +1,5 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { useServerPostHog } from '~~/server/utils/posthog'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -28,6 +29,17 @@ export default defineEventHandler(async (event) => {
   }
 
   console.info('[account/delete] user deleted', { userId: user.sub, reason, detail })
+
+  const sessionId = getHeader(event, 'x-posthog-session-id')
+  const distinctId = getHeader(event, 'x-posthog-distinct-id')
+  useServerPostHog().capture({
+    distinctId: distinctId ?? user.sub,
+    event: 'account_deleted',
+    properties: {
+      $session_id: sessionId,
+      reason,
+    },
+  })
 
   return { ok: true as const }
 })

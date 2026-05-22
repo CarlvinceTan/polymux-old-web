@@ -51,7 +51,7 @@ export function useAuthFetch() {
     if (!token) throw new Error('Not authenticated')
 
     const { headers: optsHeaders, ...rest } = opts
-    return $fetch<T>(path, {
+    return apiFetch<T>(path, {
       baseURL,
       headers: {
         Authorization: `Bearer ${token}`,

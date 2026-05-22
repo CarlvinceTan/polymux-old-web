@@ -7,7 +7,8 @@ import {
 
 definePageMeta({ layout: 'landing' })
 
-useHead({ title: 'Start a discussion — Polymux Forum' })
+const { t } = useI18n()
+useHead({ title: t('forum.newPageTitle') })
 
 const user = useSupabaseUser()
 const route = useRoute()
@@ -60,7 +61,7 @@ async function onSubmit() {
       = anyErr?.data?.statusMessage
         || anyErr?.statusMessage
         || anyErr?.message
-        || 'Something went wrong. Please try again.'
+        || t('forum.newErrorGeneric')
     submitting.value = false
   }
 }
@@ -83,20 +84,20 @@ function goBack() {
           @click="goBack"
         >
           <UIcon name="i-heroicons-arrow-left-20-solid" class="size-4" />
-          Back to forum
+          {{ t('forum.backToForum') }}
         </button>
         <h1 class="mt-4 font-serif text-[2.25rem] leading-[1.1] tracking-tight text-neutral-950 sm:text-4xl">
-          Start a discussion
+          {{ t('forum.startDiscussion') }}
         </h1>
         <p class="mt-3 text-[0.9375rem] leading-relaxed text-neutral-600">
-          Share a question, show what you shipped, or kick off a conversation with other teams using Polymux.
+          {{ t('forum.newSubtitle') }}
         </p>
       </header>
 
       <form class="mt-10 space-y-6" novalidate @submit.prevent="onSubmit">
         <fieldset>
           <legend class="block text-sm font-medium text-neutral-800">
-            Category
+            {{ t('forum.categoryLegend') }}
           </legend>
           <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <label
@@ -122,8 +123,8 @@ function goBack() {
                 :class="category === cat.slug ? 'text-neutral-950' : 'text-neutral-500'"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-medium text-neutral-950">{{ cat.label }}</span>
-                <span class="mt-0.5 block text-xs leading-snug text-neutral-500">{{ cat.description }}</span>
+                <span class="block text-sm font-medium text-neutral-950">{{ t(`forum.categories.${cat.slug}.label`) }}</span>
+                <span class="mt-0.5 block text-xs leading-snug text-neutral-500">{{ t(`forum.categories.${cat.slug}.description`) }}</span>
               </span>
             </label>
           </div>
@@ -131,7 +132,7 @@ function goBack() {
 
         <div>
           <label for="forum-title" class="block text-sm font-medium text-neutral-800">
-            Title
+            {{ t('forum.titleLabel') }}
           </label>
           <input
             id="forum-title"
@@ -140,18 +141,18 @@ function goBack() {
             name="title"
             autocomplete="off"
             maxlength="200"
-            placeholder="What's this about?"
+            :placeholder="t('forum.titlePlaceholder')"
             class="mt-2 min-h-11 w-full rounded-lg border border-neutral-200 bg-white px-4 text-base text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
             :disabled="submitting"
           >
           <p class="mt-1.5 text-xs text-neutral-500">
-            {{ titleTrimmed.length }}/200 &middot; at least 3 characters
+            {{ t('forum.titleHint', { n: titleTrimmed.length }) }}
           </p>
         </div>
 
         <div>
           <label for="forum-body" class="block text-sm font-medium text-neutral-800">
-            Body
+            {{ t('forum.bodyLabel') }}
           </label>
           <textarea
             id="forum-body"
@@ -159,12 +160,12 @@ function goBack() {
             name="body"
             rows="10"
             maxlength="20000"
-            placeholder="Describe what you tried, what you expected, and what happened. Snippets and screenshots go a long way."
+            :placeholder="t('forum.bodyPlaceholder')"
             class="mt-2 min-h-[12rem] w-full resize-y rounded-lg border border-neutral-200 bg-white px-4 py-3 text-base leading-relaxed text-neutral-950 placeholder-neutral-500 transition-colors focus:border-neutral-300 focus:outline-none"
             :disabled="submitting"
           />
           <p class="mt-1.5 text-xs text-neutral-500">
-            {{ bodyTrimmed.length }}/20,000 &middot; at least 10 characters
+            {{ t('forum.bodyHint', { n: bodyTrimmed.length }) }}
           </p>
         </div>
 
@@ -174,7 +175,7 @@ function goBack() {
 
         <div class="flex items-center justify-between gap-3 border-t border-neutral-200 pt-6">
           <p class="text-xs text-neutral-500">
-            Posting as <span class="font-medium text-neutral-700">{{ user?.email ?? 'you' }}</span>
+            {{ t('forum.postingAs', { who: user?.email ?? t('forum.you') }) }}
           </p>
           <div class="flex gap-2">
             <button
@@ -183,14 +184,14 @@ function goBack() {
               :disabled="submitting"
               @click="goBack"
             >
-              Cancel
+              {{ t('common.cancel') }}
             </button>
             <button
               type="submit"
               class="inline-flex min-h-10 items-center rounded-lg bg-neutral-950 px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canSubmit"
             >
-              {{ submitting ? 'Publishing…' : 'Publish discussion' }}
+              {{ submitting ? t('forum.publishing') : t('forum.publish') }}
             </button>
           </div>
         </div>

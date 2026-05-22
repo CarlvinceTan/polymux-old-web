@@ -4,7 +4,7 @@
 -- knowing the integration exists and who connected it).
 --
 -- OAuth tokens are stored encrypted via AES-256-GCM in the Nuxt server
--- (server/utils/tokenCrypto.ts); this table only holds the ciphertext, never
+-- (server/utils/security/tokenCrypto.ts); this table only holds the ciphertext, never
 -- plaintext. Clients must never read access_token_enc / refresh_token_enc —
 -- the RLS policy allows select on all columns for convenience, but Nuxt
 -- routes project only the safe columns when returning to clients.

@@ -27,13 +27,7 @@ onMounted(async () => {
   const code = route.query.code as string | undefined
   const type = route.query.type as string | undefined
 
-  // Signup email confirmation: Supabase has already marked the email confirmed before redirecting here. Skip the session exchange so the user stays signed out and lands on the "please sign in" page.
-  if (type === 'signup') {
-    sessionStorage.removeItem('auth_redirect')
-    router.replace('/verification-successful')
-    return
-  }
-
+  // PKCE flow: exchanging the code is what marks the email confirmed in Supabase. Skipping this leaves email_confirmed_at unset and the next sign-in fails with "email not confirmed".
   if (code) {
     await supabase.auth.exchangeCodeForSession(code)
     await waitForUser()
@@ -44,6 +38,13 @@ onMounted(async () => {
   }
   catch (err) {
     console.error('Failed to auto-link mailing list subscriber:', err)
+  }
+
+  if (type === 'signup') {
+    await supabase.auth.signOut()
+    sessionStorage.removeItem('auth_redirect')
+    router.replace('/verification-successful')
+    return
   }
 
   const redirect = sessionStorage.getItem('auth_redirect')

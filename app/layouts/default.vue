@@ -4,6 +4,7 @@ const { isCollapsed } = useSidePanel()
 
 <template>
   <div class="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
+    <MaintenanceBanner />
     <UPage
       class="min-h-0 flex-1 overflow-hidden"
       :ui="{
@@ -29,7 +30,7 @@ const { isCollapsed } = useSidePanel()
       <slot />
     </UPage>
 
-    <ToastContainer />
+    <AppToastContainer />
     <NotificationsToast />
     <MigrationProgressToast />
   </div>

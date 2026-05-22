@@ -14,6 +14,7 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { fetchWorkspaces, switchWorkspace } = useWorkspaces()
+const { $posthog } = useNuxtApp()
 
 const token = computed(() => (route.query.token as string | undefined) ?? '')
 
@@ -50,7 +51,7 @@ async function loadPreview() {
     return
   }
 
-  preview.value = data as Preview
+  preview.value = data as unknown as Preview
 
   if (preview.value.accepted_at) {
     status.value = 'error'
@@ -84,6 +85,11 @@ async function acceptInvitation() {
     await fetchWorkspaces()
     switchWorkspace(result.workspace_id)
   }
+  $posthog?.capture('invitation_accepted', {
+    workspace_name: preview.value?.workspace_name,
+    role: preview.value?.role,
+    workspace_id: result?.workspace_id,
+  })
   status.value = 'accepted'
 }
 
@@ -96,7 +102,7 @@ function friendlyAcceptError(raw: string): string {
 }
 
 function continueToDashboard() {
-  router.replace('/dashboard/home')
+  router.replace('/dashboard/console')
 }
 
 onMounted(loadPreview)
@@ -137,7 +143,7 @@ useOnReconnect(() => {
           <button
             type="button"
             class="flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-body-md font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            @click="router.replace('/dashboard/home')"
+            @click="router.replace('/dashboard/console')"
           >
             Decline
           </button>
@@ -192,7 +198,7 @@ useOnReconnect(() => {
         <button
           type="button"
           class="w-full rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800"
-          @click="router.replace('/dashboard/home')"
+          @click="router.replace('/dashboard/console')"
         >
           Go to dashboard
         </button>

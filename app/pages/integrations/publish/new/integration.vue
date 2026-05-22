@@ -11,7 +11,7 @@ interface PublishResponse {
 }
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
 const toast = useAppToast()
 const router = useRouter()
 
@@ -57,7 +57,7 @@ function done() {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
@@ -84,6 +84,7 @@ function done() {
             <span class="text-sm font-medium text-neutral-950">{{ t('integrations.editorManifestUrl') }}</span>
             <input
               v-model="manifestUrl"
+              name="manifest-url"
               type="url"
               required
               placeholder="https://github.com/you/repo/raw/main/polymux.json"

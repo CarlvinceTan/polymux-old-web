@@ -5,8 +5,8 @@ import {
   fetchUserInfo,
   refreshAccessToken,
   createDriveFolder,
-} from '~~/server/utils/googleOAuth'
-import { encryptToken } from '~~/server/utils/tokenCrypto'
+} from '~~/server/utils/oauth/googleOAuth'
+import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 import type { ConnectorHandler, ConnectorTokens } from './types'
 
 export const googleDriveConnector: ConnectorHandler = {

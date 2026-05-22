@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const { t } = useI18n()
+</script>
+
 <template>
   <div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-white px-6">
     <div class="flex max-w-md flex-col items-center text-center">
@@ -32,11 +36,11 @@
       </div>
 
       <h1 class="text-xl font-semibold tracking-tight text-neutral-950">
-        Server Unavailable
+        {{ t('serverUnavailableTitle') }}
       </h1>
 
       <p class="mt-3 max-w-sm text-body-md leading-relaxed text-neutral-500">
-        Unable to reach the server. This may be due to maintenance or a network issue.
+        {{ t('serverUnavailableBody') }}
       </p>
     </div>
   </div>

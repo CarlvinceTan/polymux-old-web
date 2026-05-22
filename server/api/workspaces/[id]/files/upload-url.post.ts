@@ -1,7 +1,9 @@
 import { serverSupabaseClient, serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { fileCap, storageCap } from '~~/server/utils/planLimits'
+import { b2GetUploadURL, b2WorkspaceKey } from '~~/server/utils/storage/b2'
+import { ensureWorkspaceKey } from '~~/server/utils/storage/b2KeyManager'
+import { cloudCap, fileCap } from '~~/server/utils/billing/planLimits'
+import { planLimitsEnforce } from '~~/server/utils/billing/planLimitsEnforce'
 import {
-  STORAGE_BUCKET,
   assertMembership,
   basenameOf,
   normalizePath,
@@ -9,18 +11,23 @@ import {
   requireWrite,
   resolveWorkspaceId,
   sanitizeSegment,
-  storageKey,
-} from '~~/server/utils/workspaceFiles'
-import { resolveDriveAccess } from '~~/server/utils/driveTokens'
-import { createResumableUploadSession } from '~~/server/utils/googleOAuth'
+} from '~~/server/utils/workspace/workspaceFiles'
+import { resolveDriveAccess } from '~~/server/utils/oauth/driveTokens'
+import { createResumableUploadSession } from '~~/server/utils/oauth/googleOAuth'
 
 // POST /api/workspaces/[id]/files/upload-url
-// Body: { path, size, content_type? }
-// Returns: { url, token, path, backend, expires_at }
+// Body: { path, size, content_type?, preferred_backend? }
+// Returns:
+//   Drive: { url, token: '', path, backend: 'google-drive', method: 'PUT', expires_at }
+//   B2:    { url, token: <authToken>, path, key, backend: 'b2', method: 'POST', expires_at }
 //
-// Mints a signed upload URL for direct-to-storage upload. Caller must have
-// write permission on the target parent path. Enforces per-file size cap and
-// workspace total storage cap based on workspace plan.
+// Mints a signed upload URL for direct upload. Caller must have write
+// permission on the target parent path. Enforces per-file size cap and,
+// for B2 uploads, the per-workspace Cloud cap (cloudCap(plan)).
+//
+// `preferred_backend` selects the target:
+//   • 'google-drive' (default) — resumable Drive session, requires the workspace to have Drive connected.
+//   • 'b2' — Polymux-managed Cloud storage. Requires plan with cloudCap > 0.
 
 interface Body {
   path?: unknown
@@ -70,43 +77,22 @@ export default defineEventHandler(async (event) => {
 
   const plan = typeof workspace.plan === 'string' ? workspace.plan : 'free'
 
-  if (size > fileCap(plan)) {
+  const enforcePlanLimits = await planLimitsEnforce()
+  if (enforcePlanLimits && size > fileCap(plan)) {
     throw createError({
       statusCode: 413,
       statusMessage: 'File exceeds your plan\'s per-file size limit.',
     })
   }
 
-  // Approximate used-bytes check from the metadata table. Files written before
-  // Phase B didn't populate rows, so this under-counts until the Phase F
-  // backfill runs — acceptable for launch.
-  const { data: usedRow } = await supabase
-    .from('files')
-    .select('size_bytes')
-    .eq('workspace_id', workspaceId)
-  const used = (usedRow ?? []).reduce((acc, r) => acc + (r.size_bytes ?? 0), 0)
-  if (used + size > storageCap(plan)) {
-    throw createError({
-      statusCode: 413,
-      statusMessage: 'Workspace storage cap reached for your plan.',
-    })
-  }
+  const preferred = typeof body.preferred_backend === 'string' ? body.preferred_backend : ''
+  const targetBackend: 'google-drive' | 'b2' = preferred === 'b2' ? 'b2' : 'google-drive'
+
+  const contentType = typeof body.content_type === 'string' && body.content_type
+    ? body.content_type
+    : 'application/octet-stream'
 
   const admin = serverSupabaseServiceRole(event)
-
-  // Backend selection:
-  //  - If the caller passed `preferred_backend` (used by local→remote
-  //    migrations), honour it over any existing row — migration's whole point
-  //    is to change the backend.
-  //  - Else if a row already exists for this path, mint an upload URL on the
-  //    same backend (overwrites in place; preserves Drive file id, etc.).
-  //  - Else for new files, prefer Drive if a connection exists (matches the
-  //    saveOrder "top-available provider"); otherwise Supabase.
-  const preferred = body.preferred_backend === 'google-drive'
-    ? 'google-drive'
-    : body.preferred_backend === 'supabase'
-      ? 'supabase'
-      : null
 
   const { data: existing } = await admin
     .from('files')
@@ -115,64 +101,99 @@ export default defineEventHandler(async (event) => {
     .eq('path', logicalPath)
     .maybeSingle()
 
-  let backend: 'supabase' | 'google-drive' = 'supabase'
-  if (preferred) {
-    backend = preferred
-  }
-  else if (existing?.backend === 'google-drive' || existing?.backend === 'supabase') {
-    backend = existing.backend
-  } else {
-    const { data: driveRow } = await admin
-      .from('workspace_integrations')
-      .select('id')
+  if (targetBackend === 'b2') {
+    // Cloud (B2) upload path. Plan-gated: free workspaces are sent here only
+    // if the client explicitly asked for Cloud, so we reject with a 412 so
+    // the caller knows to either upgrade or pick a different backend. When
+    // plan_limits is off, the cap check is skipped but the bucket itself
+    // still rejects uploads if there's no provisioned B2 key — that's an
+    // infrastructure gate, not a plan gate.
+    const cap = cloudCap(plan)
+    if (enforcePlanLimits && cap <= 0) {
+      throw createError({
+        statusCode: 412,
+        statusMessage: 'Upgrade to Pro or Max to use Cloud storage.',
+      })
+    }
+    // Sum existing B2-backed bytes for this workspace; reject if the new
+    // upload would push past the cap. Source of truth is the `files` table —
+    // matches the agent-side check in pushFile.
+    const { data: cloudRows } = await admin
+      .from('files')
+      .select('size_bytes')
       .eq('workspace_id', workspaceId)
-      .eq('provider', 'google-drive')
-      .maybeSingle()
-    if (driveRow) backend = 'google-drive'
-  }
-
-  const contentType = typeof body.content_type === 'string' && body.content_type
-    ? body.content_type
-    : 'application/octet-stream'
-
-  if (backend === 'google-drive') {
-    const access = await resolveDriveAccess(admin, workspaceId)
-    const url = await createResumableUploadSession(
-      access.accessToken,
-      {
-        name: basenameOf(logicalPath),
-        parents: existing?.backend_ref ? undefined : [access.rootFolderId],
-        mimeType: contentType,
-      },
-      size,
-      workspaceId,
-    )
+      .eq('backend', 'b2')
+    let cloudUsed = 0
+    for (const row of cloudRows ?? []) {
+      const n = Number((row as { size_bytes?: number | null }).size_bytes ?? 0)
+      if (Number.isFinite(n) && n > 0) cloudUsed += Math.floor(n)
+    }
+    // Replacing an existing file at this path shouldn't double-count.
+    let previousSize = 0
+    if (existing?.backend === 'b2') {
+      const { data: existingSize } = await admin
+        .from('files')
+        .select('size_bytes')
+        .eq('workspace_id', workspaceId)
+        .eq('path', logicalPath)
+        .single()
+      previousSize = Number(existingSize?.size_bytes ?? 0) || 0
+    }
+    if (enforcePlanLimits && cap > 0 && cloudUsed - previousSize + size > cap) {
+      throw createError({
+        statusCode: 413,
+        statusMessage: 'Cloud storage cap reached for your plan.',
+        data: { used: cloudUsed, size, cap, plan },
+      })
+    }
+    const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
+    const { uploadUrl, authorizationToken } = await b2GetUploadURL(wsKey)
+    const key = b2WorkspaceKey(workspaceId, logicalPath)
     return {
-      url,
-      token: '',
+      url: uploadUrl,
+      token: authorizationToken,
       path: logicalPath,
-      backend: 'google-drive' as const,
-      method: 'PUT' as const,
+      key,
+      backend: 'b2' as const,
+      method: 'POST' as const,
+      content_type: contentType,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     }
   }
 
-  const objectName = storageKey(workspaceId, logicalPath)
-  const { data: signed, error: signError } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUploadUrl(objectName, { upsert: true })
-
-  if (signError || !signed) {
-    console.error('[files] createSignedUploadUrl error', signError)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to mint upload URL.' })
+  // Default: Google Drive resumable upload. No polymux-wide bytes cap —
+  // the underlying quota is the user's own Drive. Local (OPFS) uploads
+  // don't reach this endpoint; they're handled entirely client-side.
+  const { data: driveRow } = await admin
+    .from('workspace_integrations')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('provider', 'google-drive')
+    .maybeSingle()
+  if (!driveRow) {
+    throw createError({
+      statusCode: 412,
+      statusMessage: 'Connect Google Drive to upload files.',
+    })
   }
 
+  const access = await resolveDriveAccess(admin, workspaceId)
+  const url = await createResumableUploadSession(
+    access.accessToken,
+    {
+      name: basenameOf(logicalPath),
+      parents: existing?.backend_ref ? undefined : [access.rootFolderId],
+      mimeType: contentType,
+    },
+    size,
+    workspaceId,
+  )
   return {
-    url: signed.signedUrl,
-    token: signed.token,
+    url,
+    token: '',
     path: logicalPath,
-    backend: 'supabase' as const,
-    method: 'POST' as const,
-    expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+    backend: 'google-drive' as const,
+    method: 'PUT' as const,
+    expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }
 })

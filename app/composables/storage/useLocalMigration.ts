@@ -1,9 +1,7 @@
-import { useAppToast } from '~/composables/useAppToast'
+import { useAppToast } from '~/composables/ui/useAppToast'
 
 export type LocalMigrationDirection =
-  | 'supabase-to-local'
   | 'drive-to-local'
-  | 'local-to-supabase'
   | 'local-to-drive'
 
 interface PrepareItem {
@@ -15,7 +13,7 @@ interface PrepareItem {
 
 interface PrepareResponse {
   ok: true
-  source: 'supabase' | 'google-drive' | 'local'
+  source: 'google-drive' | 'local'
   items: PrepareItem[]
   remaining: number
   done: boolean
@@ -29,7 +27,7 @@ interface FinalizeLocalResponse {
 
 interface DownloadUrlRemote {
   url: string
-  backend: 'supabase' | 'google-drive'
+  backend: 'google-drive'
   expires_at: string
 }
 
@@ -37,7 +35,7 @@ interface UploadUrlResponse {
   url: string
   token: string
   path: string
-  backend: 'supabase' | 'google-drive'
+  backend: 'google-drive'
   method?: 'PUT' | 'POST'
   expires_at: string
 }
@@ -46,7 +44,7 @@ interface FinalizeUploadResponse {
   ok: true
   path: string
   size: number
-  backend: 'supabase' | 'google-drive' | 'local'
+  backend: 'google-drive' | 'local'
 }
 
 interface MigrationState {
@@ -58,11 +56,9 @@ interface MigrationState {
   errors: { path: string; reason: string }[]
 }
 
-// Module-scoped singleton, same pattern as useDriveMigration, so observers
-// (FileBrowser, the settings page progress card) stay in sync.
 const state = reactive<MigrationState>({
   status: 'idle',
-  direction: 'supabase-to-local',
+  direction: 'drive-to-local',
   totalMigrated: 0,
   totalSkipped: 0,
   remaining: null,
@@ -75,22 +71,16 @@ export function useLocalMigration() {
   const { currentWorkspace } = useWorkspaces()
   const toast = useAppToast()
 
-  function remoteFromDir(direction: LocalMigrationDirection): 'supabase' | 'google-drive' {
-    if (direction === 'supabase-to-local' || direction === 'local-to-supabase') return 'supabase'
-    return 'google-drive'
-  }
-
-  async function runToLocal(direction: LocalMigrationDirection, workspaceId: string) {
-    const source = remoteFromDir(direction)
+  async function runToLocal(workspaceId: string) {
     const deviceId = useDeviceId()
     if (!deviceId) throw new Error('Device id unavailable')
-    const opfs = useWorkspaceLocalFiles()
+    const opfs = useLocalFiles()
     if (!opfs.supported()) throw new Error('LOCAL_STORAGE_UNSUPPORTED')
 
     while (true) {
       const prep = await $fetch<PrepareResponse>(
         `/api/workspaces/${workspaceId}/files/prepare-local-migration`,
-        { method: 'POST', body: { source, batch_size: BATCH_SIZE } },
+        { method: 'POST', body: { source: 'google-drive', batch_size: BATCH_SIZE } },
       )
       if (prep.items.length === 0) {
         state.remaining = prep.remaining
@@ -122,15 +112,13 @@ export function useLocalMigration() {
       }
 
       if (committed.length === 0) {
-        // Nothing in the batch made it — stop to avoid an infinite loop when
-        // e.g. all files are too big or the network is down.
         state.remaining = prep.remaining
         break
       }
 
       const fin = await $fetch<FinalizeLocalResponse>(
         `/api/workspaces/${workspaceId}/files/finalize-local-migration`,
-        { method: 'POST', body: { source, device_id: deviceId, items: committed } },
+        { method: 'POST', body: { source: 'google-drive', device_id: deviceId, items: committed } },
       )
       state.totalMigrated += fin.migrated
       for (const e of fin.errors) {
@@ -141,11 +129,10 @@ export function useLocalMigration() {
     }
   }
 
-  async function runFromLocal(direction: LocalMigrationDirection, workspaceId: string) {
-    const target = remoteFromDir(direction)
+  async function runFromLocal(workspaceId: string) {
     const deviceId = useDeviceId()
     if (!deviceId) throw new Error('Device id unavailable')
-    const opfs = useWorkspaceLocalFiles()
+    const opfs = useLocalFiles()
     if (!opfs.supported()) throw new Error('LOCAL_STORAGE_UNSUPPORTED')
 
     while (true) {
@@ -176,35 +163,21 @@ export function useLocalMigration() {
                 path: item.path,
                 size: entry.blob.size,
                 content_type: item.content_type || entry.blob.type || undefined,
-                preferred_backend: target,
+                preferred_backend: 'google-drive',
               },
             },
           )
 
-          let backendRef: string | undefined
-          if (signed.backend === 'google-drive') {
-            const proxyUrl = `/api/workspaces/${workspaceId}/files/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
-            const driveRes = await fetch(proxyUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': item.content_type || entry.blob.type || 'application/octet-stream' },
-              body: entry.blob,
-            })
-            if (!driveRes.ok) throw new Error(`drive_upload_failed:${driveRes.status}`)
-            const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
-            if (!driveJson?.id) throw new Error('drive_file_id_missing')
-            backendRef = driveJson.id
-          }
-          else {
-            const formData = new FormData()
-            formData.append('cacheControl', '3600')
-            formData.append('', entry.blob)
-            const putRes = await fetch(signed.url, {
-              method: 'PUT',
-              headers: { 'x-upsert': 'true' },
-              body: formData,
-            })
-            if (!putRes.ok) throw new Error(`supabase_upload_failed:${putRes.status}`)
-          }
+          const proxyUrl = `/api/workspaces/${workspaceId}/files/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
+          const driveRes = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': item.content_type || entry.blob.type || 'application/octet-stream' },
+            body: entry.blob,
+          })
+          if (!driveRes.ok) throw new Error(`drive_upload_failed:${driveRes.status}`)
+          const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
+          if (!driveJson?.id) throw new Error('drive_file_id_missing')
+          const backendRef = driveJson.id
 
           await $fetch<FinalizeUploadResponse>(
             `/api/workspaces/${workspaceId}/files/finalize-upload`,
@@ -215,7 +188,7 @@ export function useLocalMigration() {
                 size: entry.blob.size,
                 content_type: item.content_type ?? undefined,
                 backend: signed.backend,
-                ...(backendRef ? { backend_ref: backendRef } : {}),
+                backend_ref: backendRef,
               },
             },
           )
@@ -237,12 +210,10 @@ export function useLocalMigration() {
   }
 
   function backendsFor(direction: LocalMigrationDirection): {
-    source: 'supabase' | 'google-drive' | 'local'
-    target: 'supabase' | 'google-drive' | 'local'
+    source: 'google-drive' | 'local'
+    target: 'google-drive' | 'local'
   } {
-    if (direction === 'supabase-to-local') return { source: 'supabase', target: 'local' }
     if (direction === 'drive-to-local') return { source: 'google-drive', target: 'local' }
-    if (direction === 'local-to-supabase') return { source: 'local', target: 'supabase' }
     return { source: 'local', target: 'google-drive' }
   }
 
@@ -259,19 +230,16 @@ export function useLocalMigration() {
     state.errors = []
 
     try {
-      if (direction === 'supabase-to-local' || direction === 'drive-to-local') {
-        await runToLocal(direction, workspaceId)
+      if (direction === 'drive-to-local') {
+        await runToLocal(workspaceId)
       }
       else {
-        await runFromLocal(direction, workspaceId)
+        await runFromLocal(workspaceId)
       }
 
-      // Folders are metadata anchors for the FileBrowser's provider icon.
-      // The drive ↔ supabase bulk endpoints flip folder rows inline once
-      // their file batch drains; the local flow is client-driven, so we
-      // poke the dedicated endpoint here when the file pass cleared the
-      // source. Skipping this leaves orphan folders displaying a
-      // now-disconnected backend's icon.
+      // Folders are metadata anchors for the FileBrowser's provider icon. Once
+      // a file pass clears the source, flip any orphan folder rows so they
+      // display the new backend's icon instead of the disconnected one.
       if (state.remaining === 0) {
         const { source, target } = backendsFor(direction)
         const deviceId = target === 'local' ? useDeviceId() : undefined
@@ -288,10 +256,10 @@ export function useLocalMigration() {
 
       state.status = 'done'
       if (state.totalMigrated > 0) {
-        const msg = direction.endsWith('to-local')
+        const msg = direction === 'drive-to-local'
           ? `Moved ${state.totalMigrated} files to this device.`
           : `Moved ${state.totalMigrated} files off this device.`
-        toast.show(msg, 'success')
+        toast.show(msg, 'info')
       }
     }
     catch (err) {

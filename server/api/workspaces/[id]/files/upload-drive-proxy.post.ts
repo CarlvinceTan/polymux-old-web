@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream'
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import { assertMembership, resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
+import { assertMembership, resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 
 // POST /api/workspaces/[id]/files/upload-drive-proxy?session_url=...
 //

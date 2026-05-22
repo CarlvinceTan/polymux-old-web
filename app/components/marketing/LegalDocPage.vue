@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { marked } from 'marked'
 
-const props = defineProps<{
-  docSlug: string
-  pageTitle: string
-  pageSubtitle: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    docSlug: string
+    pageTitle: string
+    pageSubtitle: string
+    showBack?: boolean
+  }>(),
+  { showBack: true },
+)
+
+const { t } = useI18n()
 
 const { data, error } = await useAsyncData(
   `legal-${props.docSlug}`,
@@ -38,10 +44,10 @@ function goBack() {
   <div class="flex w-full justify-center px-4 pb-20 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-20">
     <div class="w-full max-w-[680px]">
       <button
-        v-if="canGoBack"
+        v-if="showBack && canGoBack"
         type="button"
         class="mb-6 flex size-9 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
-        aria-label="Go back"
+        :aria-label="t('common.back')"
         @click="goBack"
       >
         <svg
@@ -70,7 +76,7 @@ function goBack() {
         class="mt-12 text-center text-sm text-red-600"
         role="alert"
       >
-        This document could not be loaded. Please try again later.
+        {{ t('legalDocs.loadError') }}
       </div>
 
       <article

@@ -8,46 +8,106 @@ const props = withDefaults(
     align?: 'left' | 'right' | 'center'
     /** Override the default `w-full` with a fixed width class e.g. `"w-40"`. */
     width?: string
+    /** Lighter chrome (smaller radius, softer shadow) for small floating panels. */
+    compact?: boolean
   }>(),
-  { placement: 'below', align: 'left' },
+  { placement: 'below', align: 'left', compact: false },
 )
 
 const dropdownRef = ref<HTMLElement | null>(null)
 const autoPlacement = ref<'below' | 'above' | null>(null)
 const measured = ref(false)
+const posStyle = ref<Record<string, string>>({})
+const anchorRef = ref<HTMLElement | null>(null)
 
-const effectivePlacement = computed(() => autoPlacement.value ?? props.placement)
+let repositionQueue = Promise.resolve()
 
-async function measureAndFlip() {
+function reposition() {
+  repositionQueue = repositionQueue.then(doReposition)
+}
+
+async function doReposition() {
   await nextTick()
+  const anchor = anchorRef.value
   const el = dropdownRef.value
-  if (!el) return
-  const parent = el.parentElement
+  if (!anchor || !el) return
+
+  const parent = anchor.parentElement
   if (!parent) {
     measured.value = true
     return
   }
-  if (props.placement === 'below') {
-    const rect = el.getBoundingClientRect()
-    if (rect.bottom > window.innerHeight) {
-      const parentRect = parent.getBoundingClientRect()
-      if (parentRect.top >= rect.height + 8) {
-        autoPlacement.value = 'above'
-        await nextTick()
-      }
-    }
+  const parentRect = parent.getBoundingClientRect()
+  const isFullWidth = props.width === 'w-full'
+
+  // Position below parent, invisible, so we can measure natural height
+  let tempLeft = parentRect.left
+  if (props.align === 'right') tempLeft = parentRect.right - parentRect.width
+  if (props.align === 'center') tempLeft = parentRect.left
+
+  posStyle.value = {
+    position: 'fixed',
+    top: `${parentRect.bottom + 4}px`,
+    left: `${tempLeft}px`,
+    ...(isFullWidth ? { width: `${parentRect.width}px` } : {}),
+    visibility: 'hidden',
   }
+  measured.value = false
+  await nextTick()
+
+  const dropdownRect = el.getBoundingClientRect()
+
+  let placement: 'below' | 'above' = props.placement
+  const belowTop = parentRect.bottom + 4
+  const aboveTop = parentRect.top - dropdownRect.height - 4
+
+  if (placement === 'below' && belowTop + dropdownRect.height > window.innerHeight && aboveTop >= 0) {
+    placement = 'above'
+  }
+
+  const top = placement === 'above' ? aboveTop : belowTop
+  autoPlacement.value = placement === 'above' ? 'above' : null
+
+  let left: number
+  if (props.align === 'right') {
+    left = parentRect.right - dropdownRect.width
+  } else if (props.align === 'center') {
+    left = parentRect.left + parentRect.width / 2 - dropdownRect.width / 2
+  } else {
+    left = parentRect.left
+  }
+
+  const style: Record<string, string> = {
+    position: 'fixed',
+    top: `${top}px`,
+    left: `${left}px`,
+  }
+  if (isFullWidth) {
+    style.width = `${parentRect.width}px`
+  }
+  posStyle.value = style
   measured.value = true
 }
 
 watch(() => props.open, (isOpen) => {
   autoPlacement.value = null
   measured.value = false
-  if (isOpen) measureAndFlip()
+  if (isOpen) reposition()
 })
 
 onMounted(() => {
-  if (props.open) measureAndFlip()
+  if (props.open) reposition()
+})
+
+watchEffect((onCleanup) => {
+  if (!props.open) return
+  const handler = () => reposition()
+  window.addEventListener('resize', handler)
+  window.addEventListener('scroll', handler, true)
+  onCleanup(() => {
+    window.removeEventListener('resize', handler)
+    window.removeEventListener('scroll', handler, true)
+  })
 })
 
 defineExpose({
@@ -56,17 +116,22 @@ defineExpose({
 </script>
 
 <template>
-  <div
-    v-if="open"
-    ref="dropdownRef"
-    :class="[
-      'absolute rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden z-50',
-      align === 'center' ? 'left-1/2 -translate-x-1/2' : align === 'right' ? 'right-0' : 'left-0',
-      width ?? 'w-full',
-      effectivePlacement === 'above' ? 'bottom-full mb-1' : 'top-full mt-1',
-    ]"
-    :style="!measured ? { visibility: 'hidden' } : undefined"
-  >
-    <slot />
+  <div ref="anchorRef" class="contents">
+    <Teleport to="body">
+      <div
+        v-if="open"
+        ref="dropdownRef"
+        :class="[
+          'fixed bg-white overflow-y-auto max-h-[80vh] z-[60]',
+          compact
+            ? 'rounded-xl py-0.5 shadow-md shadow-black/[0.06] ring-1 ring-neutral-200/70'
+            : 'rounded-2xl py-1 shadow-lg ring-1 ring-neutral-200',
+          width ?? '',
+        ]"
+        :style="measured ? posStyle : { ...posStyle, visibility: 'hidden' }"
+      >
+        <slot />
+      </div>
+    </Teleport>
   </div>
 </template>

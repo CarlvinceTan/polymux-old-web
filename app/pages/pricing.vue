@@ -4,7 +4,13 @@ import { useI18n } from '#imports'
 definePageMeta({ layout: 'landing' })
 
 useHead({
-  title: 'Pricing — Polymux',
+  title: 'Pricing',
+  meta: [
+    {
+      name: 'description',
+      content: 'Simple, transparent pricing for AI agent workspaces. Start free, scale as you grow with Pro, Max, and Enterprise plans.',
+    },
+  ],
 })
 
 const { t } = useI18n()
@@ -30,18 +36,18 @@ interface PlanFeatureRow {
   enterprise: string | boolean
 }
 
-// Storage rows are sourced from server/utils/planLimits.ts. When you bump the
+// Storage rows are sourced from server/utils/billing/planLimits.ts. When you bump the
 // caps there, mirror the change here — there's no shared module because the
 // landing page intentionally avoids importing server utils.
 const planFeatures = computed<PlanFeatureRow[]>(() => [
-  { name: 'AI Agents per workspace', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
-  { name: 'Monthly Tasks per workspace', free: '100', pro: '1,000', max: '10,000', enterprise: 'Unlimited' },
-  { name: 'Browser Sessions per workspace', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
-  { name: t('pricing.storage.total'), free: '5 GB', pro: '100 GB', max: '1 TB', enterprise: '10 TB' },
+  { name: 'AI Agents per workspace', free: '2', pro: '8', max: '20', enterprise: '50' },
+  { name: 'Weekly Token Budget', free: '100K', pro: '2M', max: '5M', enterprise: 'Unlimited' },
+  { name: 'Monthly Workflow Runs', free: '50', pro: '500', max: '5,000', enterprise: 'Unlimited' },
+  { name: 'Cloud Storage', free: '—', pro: '2 GB', max: '20 GB', enterprise: '200 GB' },
   { name: t('pricing.storage.file'), free: '100 MB', pro: '5 GB', max: '20 GB', enterprise: '100 GB' },
-  { name: t('pricing.storage.pullFolder'), free: '500 MB', pro: '10 GB', max: '100 GB', enterprise: '1 TB' },
-  { name: t('pricing.storage.artifacts'), free: '2 GB', pro: '20 GB', max: '100 GB', enterprise: '1 TB' },
+  { name: t('pricing.storage.artifacts'), free: '50 MB', pro: '200 MB', max: '2 GB', enterprise: '20 GB' },
   { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
+  { name: 'Bring Your Own LLM Keys', free: false, pro: true, max: true, enterprise: true },
   { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
   { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
 ])
@@ -50,15 +56,29 @@ type BillingPeriod = 'annual' | 'monthly'
 
 const billingPeriod = ref<BillingPeriod>('annual')
 
-const { currency, prices, detect } = useCurrency()
+interface PriceData {
+  free: { monthly: string; annualPerMonth: string }
+  pro: { monthly: string; annualPerMonth: string }
+  max: { monthly: string; annualPerMonth: string }
+  enterprise: { monthly: string; annualPerMonth: string }
+}
 
-onMounted(() => { detect() })
+const prices = useState<PriceData | null>('pricing-prices', () => null)
 
-const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean; isSpecial: boolean }[] = [
-  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false, isSpecial: false },
-  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true, isSpecial: true },
-  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false, isSpecial: false },
-  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false, isSpecial: false },
+async function fetchPrices() {
+  try {
+    prices.value = await $fetch<PriceData>('/api/prices')
+  }
+  catch {
+    prices.value = null
+  }
+}
+
+const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
+  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
+  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true },
+  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false },
+  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false },
 ]
 
 function planPriceDisplay(key: PlanKey): {
@@ -105,13 +125,46 @@ const route = useRoute()
 const planOrder: PlanKey[] = ['free', 'pro', 'max', 'enterprise']
 
 const { workspaces, currentWorkspace, currentWorkspaceId, switchWorkspace, fetchWorkspaces } = useWorkspaces()
+const { $posthog } = useNuxtApp()
+
+const workspacePickerRef = ref<HTMLElement | null>(null)
+const workspaceDropdownOpen = ref(false)
+
+function formatWorkspacePlanLabel(ws: { plan?: string | null }) {
+  const p = (ws.plan || 'free').toLowerCase()
+  return p.charAt(0).toUpperCase() + p.slice(1)
+}
+
+function onWorkspaceChange(id: string) {
+  switchWorkspace(id)
+  const plan = targetWorkspacePlan.value
+  selectedPlanKey.value = nextTierUp(plan)
+}
+
+function selectWorkspaceFromPicker(id: string) {
+  workspaceDropdownOpen.value = false
+  onWorkspaceChange(id)
+}
+
+function onWorkspacePickerClickOutside(event: MouseEvent) {
+  if (!workspaceDropdownOpen.value) return
+  const el = workspacePickerRef.value
+  if (el && !el.contains(event.target as Node))
+    workspaceDropdownOpen.value = false
+}
 
 onMounted(async () => {
+  fetchPrices()
+  document.addEventListener('click', onWorkspacePickerClickOutside)
   if (workspaces.value.length === 0) await fetchWorkspaces()
   const qsWorkspace = (route.query.workspaceId as string | undefined)?.trim()
   if (qsWorkspace && workspaces.value.some(w => w.id === qsWorkspace)) {
     switchWorkspace(qsWorkspace)
   }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onWorkspacePickerClickOutside)
 })
 
 useOnReconnect(() => {
@@ -136,25 +189,24 @@ function nextTierUp(key: PlanKey): PlanKey {
   return planOrder[idx + 1] ?? key
 }
 
-const selectedPlanKey = ref<PlanKey>(
-  currentUserPlan.value ? nextTierUp(currentUserPlan.value) : 'free',
-)
-
-function onWorkspaceChange(id: string) {
-  switchWorkspace(id)
-  const plan = targetWorkspacePlan.value
-  selectedPlanKey.value = nextTierUp(plan)
+function isPlanDowngrade(key: PlanKey) {
+  const cur = currentUserPlan.value
+  if (!cur) return false
+  return planOrder.indexOf(key) < planOrder.indexOf(cur)
 }
+
+const selectedPlanKey = ref<PlanKey>(nextTierUp(targetWorkspacePlan.value))
 
 watch(targetWorkspacePlan, (plan) => {
   selectedPlanKey.value = nextTierUp(plan)
 })
 
-function onPlanPanelSelect(key: PlanKey) {
+function onTierSelect(key: PlanKey) {
   if (key === 'enterprise') {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
   }
   if (currentUserPlan.value === key) return
+  if (isPlanDowngrade(key)) return
   selectedPlanKey.value = key
   nextTick(() => {
     const el = document.getElementById(`plan-panel-${key}`)
@@ -189,9 +241,13 @@ async function onPurchaseNow() {
       body: {
         planKey: key,
         billingPeriod: billingPeriod.value,
-        currency: currency.value,
         workspaceId,
       },
+    })
+    $posthog?.capture('plan_upgrade_initiated', {
+      plan_key: key,
+      billing_period: billingPeriod.value,
+      workspace_id: workspaceId,
     })
     window.location.href = url
   }
@@ -213,12 +269,12 @@ async function onPurchaseNow() {
     "
   >
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <header class="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:gap-4">
-        <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+      <header class="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-start lg:gap-6">
+        <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
           <button
             type="button"
-            class="flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
-            aria-label="Go back"
+            class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+            :aria-label="t('common.back')"
             @click="goBack"
           >
             <svg
@@ -232,27 +288,75 @@ async function onPurchaseNow() {
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
             </svg>
           </button>
-          <h1 class="min-w-0 truncate text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
+          <h1 class="min-w-0 flex-1 text-pretty text-3xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-4xl">
             <template v-if="currentWorkspace">
-              Upgrade <span class="text-neutral-700">{{ currentWorkspace.name }}</span>'s plan
+              Upgrade <span class="break-words text-neutral-700">{{ currentWorkspace.name }}</span>'s plan
             </template>
             <template v-else>
               Pricing
             </template>
           </h1>
         </div>
-        <div v-if="workspaces.length > 1 && currentWorkspace" class="sm:ml-auto sm:shrink-0">
-          <label for="pricing-workspace-select" class="sr-only">Switch workspace</label>
-          <select
-            id="pricing-workspace-select"
-            :value="currentWorkspace.id"
-            class="block w-full rounded-md border border-neutral-200 bg-white py-2 pl-3 pr-8 text-sm text-neutral-900 shadow-sm outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 sm:w-56"
-            @change="onWorkspaceChange(($event.target as HTMLSelectElement).value)"
+        <div
+          v-if="workspaces.length > 1 && currentWorkspace"
+          ref="workspacePickerRef"
+          class="relative w-full shrink-0 lg:ml-auto lg:w-auto lg:min-w-[15rem]"
+        >
+          <button
+            type="button"
+            class="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 text-left text-body-md text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-950"
+            :aria-expanded="workspaceDropdownOpen"
+            aria-haspopup="listbox"
+            :aria-label="`${t('workspaceMenu.otherWorkspaces')}: ${currentWorkspace.name}`"
+            @click.stop="workspaceDropdownOpen = !workspaceDropdownOpen"
           >
-            <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
-              {{ ws.name }} · {{ (ws.plan || 'free').charAt(0).toUpperCase() + (ws.plan || 'free').slice(1) }}
-            </option>
-          </select>
+            <span class="min-w-0 truncate">
+              {{ currentWorkspace.name }} · {{ formatWorkspacePlanLabel(currentWorkspace) }}
+            </span>
+            <svg
+              class="size-3.5 shrink-0 text-neutral-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <div
+            v-if="workspaceDropdownOpen"
+            class="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(24rem,70vh)] overflow-y-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200 lg:left-auto lg:right-0 lg:min-w-[16rem]"
+            role="listbox"
+          >
+            <button
+              v-for="ws in workspaces"
+              :key="ws.id"
+              type="button"
+              role="option"
+              :aria-selected="ws.id === currentWorkspace.id"
+              class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-body-md transition-colors hover:bg-neutral-100"
+              :class="ws.id === currentWorkspace.id ? 'font-medium text-neutral-950' : 'text-neutral-600'"
+              @click="selectWorkspaceFromPicker(ws.id)"
+            >
+              <span class="min-w-0 truncate">{{ ws.name }} · {{ formatWorkspacePlanLabel(ws) }}</span>
+              <svg
+                v-if="ws.id === currentWorkspace.id"
+                class="size-4 shrink-0 text-neutral-950"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -260,11 +364,11 @@ async function onPurchaseNow() {
         Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
       </p>
 
-      <div class="mb-5 flex justify-center sm:mb-6 lg:justify-end lg:portrait:justify-center">
+      <div class="mb-5 flex justify-center sm:mb-6">
         <div
           class="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/90 p-0.5"
           role="group"
-          aria-label="Billing period"
+          :aria-label="t('pricing.billingPeriod')"
         >
           <button
             type="button"
@@ -296,23 +400,23 @@ async function onPurchaseNow() {
       </div>
 
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <PlanPanel
+        <PricingTierCard
           v-for="plan in planMeta"
           :key="plan.key"
           :name="plan.name"
           v-bind="planPriceDisplay(plan.key)"
           :cta="plan.cta"
           :highlighted="plan.highlighted"
-          :is-special="plan.isSpecial"
           :selected="selectedPlanKey === plan.key"
           :is-current="currentUserPlan === plan.key"
+          :disabled="isPlanDowngrade(plan.key)"
           :items="planItemsForKey(plan.key)"
           :panel-id="`plan-panel-${plan.key}`"
-          @select="onPlanPanelSelect(plan.key)"
+          @select="onTierSelect(plan.key)"
         />
       </div>
       <div
-        v-if="selectedPlanKey !== 'free'"
+        v-if="selectedPlanKey !== 'free' && currentUserPlan !== selectedPlanKey && !isPlanDowngrade(selectedPlanKey)"
         class="mt-10 flex flex-col items-center gap-3 sm:mt-12"
       >
         <button

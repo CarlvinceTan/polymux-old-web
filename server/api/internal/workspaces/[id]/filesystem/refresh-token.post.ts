@@ -1,8 +1,11 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { requireInternalToken } from '~~/server/utils/internalAuth'
-import { decryptToken, encryptToken } from '~~/server/utils/tokenCrypto'
-import { resolveWorkspaceId } from '~~/server/utils/workspaceFiles'
-import { refreshAccessToken } from '~~/server/utils/googleOAuth'
+import type { Database } from '~~/app/types/database.types'
+import { requirePolymuxSecret } from '~~/server/utils/security/internalAuth'
+import { decryptToken, encryptToken } from '~~/server/utils/security/tokenCrypto'
+import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
+import { refreshAccessToken } from '~~/server/utils/oauth/googleOAuth'
+
+type IntegrationUpdate = Database['public']['Tables']['workspace_integrations']['Update']
 
 // POST /api/internal/workspaces/[id]/filesystem/refresh-token?provider=google-drive
 //
@@ -15,7 +18,7 @@ import { refreshAccessToken } from '~~/server/utils/googleOAuth'
 // a clean error instead of a generic 500.
 
 export default defineEventHandler(async (event) => {
-  await requireInternalToken(event)
+  await requirePolymuxSecret(event)
 
   const workspaceId = resolveWorkspaceId(event)
   const query = getQuery(event)
@@ -51,7 +54,7 @@ export default defineEventHandler(async (event) => {
     console.warn('[internal/refresh-token] provider refused refresh', { workspace: workspaceId, err })
     return {
       error: 'CONNECTION_BROKEN',
-      detail: (err as { statusMessage?: string })?.statusMessage ?? 'Refresh failed.',
+      detail: (err as { message?: string; statusMessage?: string })?.message ?? (err as { statusMessage?: string })?.statusMessage ?? 'Refresh failed.',
     }
   }
 
@@ -59,7 +62,7 @@ export default defineEventHandler(async (event) => {
     Date.now() + Math.max(60, refreshed.expires_in - 60) * 1000,
   ).toISOString()
 
-  const update: Record<string, unknown> = {
+  const update: IntegrationUpdate = {
     access_token_enc: encryptToken(refreshed.access_token),
     expires_at: expiresAt,
   }

@@ -15,42 +15,34 @@ const {
   currentWorkspace,
   currentWorkspaceId,
   switchWorkspace,
-  fetchWorkspaces
+  fetchWorkspaces,
+  members: workspaceMembers,
+  fetchMembers: fetchWorkspaceMembers,
 } = useWorkspaces()
 
-type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
-
-const planKey = computed<PlanKey>(() => {
-  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
-  const normalised = raw.toLowerCase().trim()
-  if (['pro', 'max', 'enterprise'].includes(normalised)) return normalised as PlanKey
-  return 'free'
-})
-
-const upgradeQuery = computed(() => {
-  const q: Record<string, string> = { current: planKey.value }
-  if (currentWorkspaceId.value) q.workspaceId = currentWorkspaceId.value
-  return q
-})
+const { navigateToPricing } = usePlanUpgradeNavigation()
 
 const {
   sessions,
   realSessions,
   draft,
+  runningOverrides,
   fetchSessions,
   createDraft,
-  restoreDraft,
+  ensureAtLeastOneWorkflow,
   renameSession,
+  reorderWorkflows,
   deleteSession,
 } = useWorkflowList()
 
 // Writable list bound to the draggable directive. Derived from `realSessions`
-// (source of truth) + `draft` + a per-workspace saved order. SortableJS
-// mutates this in place during drag; on drop we persist the new order to
-// localStorage. IMPORTANT: always mutate this array in place (splice) —
-// `vue-draggable-plus` captures the array reference at mount time and has no
-// `updated` hook, so reassigning `.value = newArray` leaves the library
-// pointing at a stale reference and drag reorders silently fail.
+// (source of truth, already sorted server-side by workflows.position desc) +
+// the pinned `draft`. SortableJS mutates this in place during drag; on drop
+// we persist the new order via reorderWorkflows. IMPORTANT: always mutate
+// this array in place (splice) — `vue-draggable-plus` captures the array
+// reference at mount time and has no `updated` hook, so reassigning
+// `.value = newArray` leaves the library pointing at a stale reference and
+// drag reorders silently fail.
 const displaySessions = ref<WorkflowSummary[]>([])
 
 // Stable per-row keys for the workflow `<TransitionGroup>`. Without this, the
@@ -73,45 +65,8 @@ function rowKey(session: WorkflowSummary): string {
   return getOrCreateSlotKey(session.id)
 }
 
-const workflowOrderKey = computed(
-  () => `polymux_workflow_order:${currentWorkspaceId.value ?? ''}`,
-)
-
-function loadSavedOrder(): string[] {
-  if (!import.meta.client) return []
-  try {
-    const raw = localStorage.getItem(workflowOrderKey.value)
-    return raw ? (JSON.parse(raw) as string[]) : []
-  } catch {
-    return []
-  }
-}
-
-function saveOrder(ids: string[]) {
-  if (!import.meta.client) return
-  try {
-    localStorage.setItem(workflowOrderKey.value, JSON.stringify(ids))
-  } catch {}
-}
-
-// Sort real sessions by the saved order. Sessions not yet in the saved order
-// (e.g. a freshly-promoted draft) keep their position from `list` and land at
-// the top — so a draft that upgrades to a real workflow stays in place.
-function applySavedOrder(list: WorkflowSummary[]): WorkflowSummary[] {
-  const saved = loadSavedOrder()
-  if (saved.length === 0) return list.slice()
-  const savedSet = new Set(saved)
-  const byId = new Map(list.map(s => [s.id, s]))
-  const unknowns = list.filter(s => !savedSet.has(s.id))
-  const knowns = saved.flatMap(id => {
-    const s = byId.get(id)
-    return s ? [s] : []
-  })
-  return [...unknowns, ...knowns]
-}
-
 watch(
-  [realSessions, draft, currentWorkspaceId],
+  [realSessions, draft, currentWorkspaceId, runningOverrides],
   () => {
     // Drafts now carry a real uuid that survives commit (see useWorkflowList:
     // markDraftCommitted reuses the same id), so the row's v-for key stays
@@ -124,8 +79,24 @@ watch(
       if (!liveIds.has(id)) slotKeyForId.delete(id)
     }
 
-    const ordered = applySavedOrder(realSessions.value)
-    const next = draft.value ? [draft.value, ...ordered] : ordered
+    // Merge runningOverrides over server data when projecting rows for the
+    // template. The override map is the workflow page's authoritative read of
+    // which engine is driving the row (chat vs. workflow_run); without it,
+    // server `/sessions` refreshes would wipe `running_kind` back to undefined
+    // and the indicator would default to the workflow_run progress arc even
+    // for plain chat-driven activity.
+    const overrides = runningOverrides.value
+    const project = (s: WorkflowSummary): WorkflowSummary => {
+      const o = overrides[s.id]
+      return o ? { ...s, is_running: o.is_running, running_kind: o.running_kind } : s
+    }
+
+    // realSessions already comes back ordered by workflows.position desc, so
+    // the server is the only source of order — no client-side resort and no
+    // localStorage layer to reconcile.
+    const ordered = realSessions.value.map(project)
+    const projectedDraft = draft.value ? project(draft.value) : null
+    const next = projectedDraft ? [projectedDraft, ...ordered] : ordered
     displaySessions.value.splice(0, displaySessions.value.length, ...next)
   },
   { deep: true, immediate: true },
@@ -150,9 +121,12 @@ let dragRaf: number | null = null
 let listEl: HTMLElement | null = null
 let naturalY = 0
 let lastClampedY = 0
-// Reactive: drag-in-progress flag. Used to suppress per-row hover affordances
-// (e.g. the 3-dot menu trigger) on rows the cursor passes over during drag.
+// Drag-in-progress flag. Suppresses per-row hover affordances (e.g. the
+// 3-dot menu trigger) on rows the cursor passes over during drag.
 const isDragging = ref(false)
+// True for the one render that commits a drop, so `move-class` swaps to the
+// no-transition variant — see `onDragEnd` for why a swap is needed.
+const isDropping = ref(false)
 
 function constrainDragPreview() {
   const el = document.querySelector<HTMLElement>('.wf-drag')
@@ -218,7 +192,19 @@ function onDragEnd() {
   }
   listEl = null
   isDragging.value = false
-  saveOrder(
+
+  // vue-draggable-plus reverts SortableJS's in-place DOM mutation and
+  // re-emits the new array order, so Vue's TransitionGroup runs FLIP and
+  // would slide every shifted row from its pre-drop position to the new
+  // slot at our 500ms `.wf-move` duration. Suppress that single tween by
+  // swapping `move-class` to the no-transition variant for the commit
+  // render only; during-drag sibling shifts are unaffected.
+  isDropping.value = true
+  nextTick(() => {
+    isDropping.value = false
+  })
+
+  void reorderWorkflows(
     displaySessions.value
       .filter(s => !s.is_draft)
       .map(s => s.id),
@@ -230,8 +216,9 @@ onBeforeUnmount(() => {
 })
 
 const draggableOptions = {
-  // Match the enter/leave transitions (220ms ease) so siblings shifting for a
-  // drag reorder move with the same feel as when a workflow is added/deleted.
+  // SortableJS animation duration for sibling shifts as the cursor passes
+  // over rows during the drag. The post-drop tween is suppressed in
+  // `onDragEnd` — see `isDropping`.
   animation: 220,
   easing: 'ease',
   direction: 'vertical',
@@ -251,12 +238,7 @@ const draggableOptions = {
   onEnd: onDragEnd,
 }
 
-async function ensureAtLeastOneWorkflow() {
-  if (!currentWorkspaceId.value) return
-  if (sessions.value.length === 0) {
-    await createDraft()
-  }
-}
+const bootstrapping = ref(true)
 
 async function bootstrapData() {
   // For returning users currentWorkspaceId hydrates from localStorage, so the
@@ -265,15 +247,19 @@ async function bootstrapData() {
   // resets it and the watch on currentWorkspaceId re-fetches sessions for the
   // new id. First-time users have no cached id and would otherwise issue an
   // unfiltered /sessions request, so wait for the workspace list in that case.
-  if (currentWorkspaceId.value) {
-    await Promise.all([fetchWorkspaces(), fetchSessions()])
+  try {
+    if (currentWorkspaceId.value) {
+      await Promise.all([fetchWorkspaces(), fetchSessions()])
+    }
+    else {
+      await fetchWorkspaces()
+      await fetchSessions()
+    }
   }
-  else {
-    await fetchWorkspaces()
-    await fetchSessions()
+  finally {
+    await ensureAtLeastOneWorkflow()
+    bootstrapping.value = false
   }
-  await restoreDraft()
-  await ensureAtLeastOneWorkflow()
 }
 
 // Initial data fetch
@@ -287,12 +273,7 @@ onMounted(async () => {
 // state.
 useOnReconnect(bootstrapData)
 
-// Re-fetch sessions when workspace changes
-watch(currentWorkspaceId, async () => {
-  await fetchSessions()
-  await restoreDraft()
-  await ensureAtLeastOneWorkflow()
-})
+
 
 // User data
 const userEmail = computed(() => user.value?.email ?? 'user@example.com')
@@ -333,7 +314,7 @@ const navItems = computed(() => {
 const isSearchOpen = ref(false)
 
 const isProfileDropdownOpen = ref(false)
-const profileDropdownRef = ref<InstanceType<typeof Menu> | null>(null)
+const profileDropdownRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
 const isLanguageOpen = ref(false)
 const isHelpOpen = ref(false)
 const isSettingsModalOpen = ref(false)
@@ -353,14 +334,14 @@ const availableLocales = computed(() =>
 )
 
 const helpMenuItems = computed(() => [
-  { key: 'terms', label: computed(() => 'Terms and Conditions') },
-  { key: 'privacy', label: computed(() => 'Privacy Policy') },
-  { key: 'cookies', label: computed(() => 'Cookies Policy') },
-  { key: 'bug', label: computed(() => 'Bug Report') },
+  { key: 'terms', label: t('common.termsAndConditions') },
+  { key: 'privacy', label: t('common.privacyPolicy') },
+  { key: 'cookies', label: t('common.cookiesPolicy') },
+  { key: 'bug', label: t('common.reportBug') },
 ])
 
 function isActive(path: string) {
-  if (path === '/dashboard' || path === '/dashboard/home') {
+  if (path === '/dashboard' || path === '/dashboard/console') {
     return route.path.startsWith('/dashboard')
   }
   if (path === '/integrations/installed') {
@@ -408,13 +389,55 @@ function openWorkflow(id: string) {
   navigateTo(target?.is_draft ? `/workflow/${DRAFT_WORKFLOW_ID}` : `/workflow/${id}`)
 }
 
-const activeDropdownIndex = ref<number | null>(null)
+const activeDropdownIndex = ref<string | null>(null)
 const hoveredWorkflowId = ref<string | null>(null)
 
 // Workspace dropdown state
 const isWorkspaceDropdownOpen = ref(false)
 const isCreateWorkspaceOpen = ref(false)
+const isWorkspaceSettingsOpen = ref(false)
+const isManageMembersOpen = ref(false)
 const workspaceDropdownRef = ref<{ dropdownRef: HTMLElement | null } | null>(null)
+
+const otherWorkspaces = computed(() =>
+  workspaces.value.filter(w => w.id !== currentWorkspace.value?.id),
+)
+
+const memberCountText = computed(() => {
+  const count = workspaceMembers.value.length
+  return count === 1 ? t('workspaceMenu.memberCountOne') : t('workspaceMenu.memberCountMany', { n: count })
+})
+
+// Member data is only visible inside the workspace dropdown — defer the
+// fetch to when the dropdown actually opens (handled by the
+// isWorkspaceDropdownOpen watcher below) to avoid a blocking request
+// during bootstrap.
+
+watch(isWorkspaceDropdownOpen, async (open) => {
+  if (open && currentWorkspaceId.value) {
+    await fetchWorkspaceMembers(currentWorkspaceId.value)
+  }
+})
+
+const workspacePlanLabel = computed(() => {
+  locale.value
+  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
+  const k = raw.toLowerCase().trim()
+  if (k === 'pro') return t('settings.proPlan')
+  if (k === 'max') return t('settings.maxPlan')
+  if (k === 'enterprise') return t('settings.enterprisePlan')
+  return t('settings.freePlan')
+})
+
+function openWorkspaceSettings() {
+  isWorkspaceSettingsOpen.value = true
+  isWorkspaceDropdownOpen.value = false
+}
+
+function openManageMembers() {
+  isManageMembersOpen.value = true
+  isWorkspaceDropdownOpen.value = false
+}
 
 function toggleWorkspaceDropdown() {
   isWorkspaceDropdownOpen.value = !isWorkspaceDropdownOpen.value
@@ -592,12 +615,12 @@ function handleSettings() {
 
 function handleInstallApp() {
   closeProfileDropdown()
-  navigateTo('/install-app')
+  navigateTo('/install-apps')
 }
 
 function handleUpgradePlan() {
   closeProfileDropdown()
-  navigateTo({ path: '/pricing', query: upgradeQuery.value })
+  void navigateToPricing()
 }
 
 async function handleLogout() {
@@ -625,7 +648,7 @@ function handleClickOutside(event: MouseEvent) {
   }
 
   // Close profile dropdown
-  const profileDropdown = profileDropdownRef.value?.$el
+  const profileDropdown = profileDropdownRef.value?.dropdownRef
   const isInsideProfile = profileDropdown && profileDropdown.contains(event.target as Node)
   const isInsideLanguage = languagePanelRef.value && languagePanelRef.value.contains(event.target as Node)
   const isInsideHelp = helpPanelRef.value && helpPanelRef.value.contains(event.target as Node)
@@ -635,10 +658,6 @@ function handleClickOutside(event: MouseEvent) {
     closeProfileDropdown()
   }
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
@@ -676,27 +695,62 @@ onUnmounted(() => {
         </div>
 
         <!-- Workspace Dropdown -->
-        <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen">
-          <MenuItem
-            v-for="ws in workspaces"
-            :key="ws.id"
-            :text="ws.name"
-            @click="handleWorkspaceSwitch(ws.id)"
-          >
+        <Menu v-if="isWorkspaceDropdownOpen" ref="workspaceDropdownRef" :open="isWorkspaceDropdownOpen" width="w-full">
+          <!-- Current workspace header -->
+          <div class="min-w-0 px-3 pb-2 pt-1.5">
+            <p class="truncate text-sm font-semibold text-neutral-950">
+              {{ currentWorkspace?.name || 'Workspace' }}
+            </p>
+            <p class="truncate text-[11px] text-neutral-500">
+              {{ workspacePlanLabel }} · {{ memberCountText }}
+            </p>
+          </div>
+          <div class="my-0.5 mx-2 h-px bg-neutral-200" />
+
+          <!-- Settings -->
+          <MenuItem :text="t('common.settings')" @click="openWorkspaceSettings">
             <template #icon>
-              <div v-if="ws.avatar_url" class="h-4 w-4 shrink-0 overflow-hidden rounded-md">
-                <img :src="ws.avatar_url" alt="" class="h-full w-full object-cover" />
-              </div>
-              <AccountIcon v-else :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
-            </template>
-            <template v-if="ws.id === currentWorkspace?.id" #icon-right>
-              <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6 9 17l-5-5" />
+              <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </template>
           </MenuItem>
-          
-          <MenuItem :text="t('nav.addWorkspace')" :has-divider="workspaces.length > 0" @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false">
+
+          <!-- Manage members (icon mirrors FileBrowser's "Manage access") -->
+          <MenuItem :text="t('workspaceMenu.manageMembers')" @click="openManageMembers">
+            <template #icon>
+              <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+              </svg>
+            </template>
+          </MenuItem>
+
+          <!-- Other workspaces (only when there are any) -->
+          <template v-if="otherWorkspaces.length > 0">
+            <div class="my-0.5 mx-2 h-px bg-neutral-200" />
+            <p class="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              {{ t('workspaceMenu.otherWorkspaces') }}
+            </p>
+            <MenuItem
+              v-for="ws in otherWorkspaces"
+              :key="ws.id"
+              :text="ws.name"
+              @click="handleWorkspaceSwitch(ws.id)"
+            >
+              <template #icon>
+                <div v-if="ws.avatar_url" class="h-4 w-4 shrink-0 overflow-hidden rounded-md">
+                  <img :src="ws.avatar_url" alt="" class="h-full w-full object-cover" />
+                </div>
+                <AccountIcon v-else :initials="ws.name.substring(0, 2).toUpperCase()" size="sm" color="bg-neutral-800" />
+              </template>
+            </MenuItem>
+          </template>
+
+          <MenuItem
+            :text="t('nav.addWorkspace')"
+            @click="isCreateWorkspaceOpen = true; isWorkspaceDropdownOpen = false"
+          >
             <template #icon>
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -706,39 +760,21 @@ onUnmounted(() => {
           </MenuItem>
         </Menu>
       </div>
-      <button type="button" @click="createWorkflow"
-        class="w-full h-9.5 flex items-center justify-center gap-2 rounded-md bg-neutral-950 px-4 text-center text-body-md font-normal text-white transition-opacity hover:opacity-90 outline-none">
-        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        {{ t('nav.newWorkflow') }}
-      </button>
     </div>
 
     <!-- Navigation (scrollable) -->
-    <nav class="mt-10 flex-1 flex flex-col min-h-0 overflow-hidden" aria-label="Main">
+    <nav class="mt-6 flex-1 flex flex-col min-h-0 overflow-hidden" aria-label="Main">
       <ul class="flex flex-col gap-1 shrink-0">
-        <!-- Dashboard First -->
+        <!-- New Workflow -->
         <li>
-          <NuxtLink to="/dashboard"
-            class="relative flex items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none"
-            :class="(!isSearchOpen && isMainNavItemActive('/dashboard'))
-              ? 'font-semibold'
-              : 'hover:bg-neutral-200/60'">
-            <span v-if="!isSearchOpen && isMainNavItemActive('/dashboard')"
-              class="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-neutral-950"
-              aria-hidden="true" />
-            <!-- Dashboard: layout grid -->
+          <button type="button" @click="createWorkflow"
+            class="relative flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none hover:bg-neutral-200/60">
             <svg class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
+              <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>{{ t('nav.dashboard') }}</span>
-          </NuxtLink>
+            <span>{{ t('nav.newWorkflow') }}</span>
+          </button>
         </li>
 
         <!-- Search - Between Dashboard and Workspace -->
@@ -803,10 +839,20 @@ onUnmounted(() => {
       <div class="mt-6 flex flex-col flex-1 min-h-0 relative">
         <h3 class="mb-2 pl-2.5 text-meta font-semibold uppercase tracking-wide text-neutral-500 shrink-0">{{ t('nav.workflows') }}
         </h3>
+
+        <!-- Skeleton rows while bootstrapping -->
+        <ul v-if="bootstrapping" class="flex flex-col gap-0.5 flex-1 overflow-hidden pb-4" aria-busy="true">
+          <li v-for="n in 5" :key="n" class="flex items-center rounded-md py-1.5 pl-2.5 pr-2">
+            <span class="h-3.5 rounded bg-neutral-200 animate-pulse" :style="{ width: `${50 + (n * 13) % 40}%` }" />
+          </li>
+        </ul>
+
         <TransitionGroup
+          v-else
           v-draggable="[displaySessions, draggableOptions]"
           tag="ul"
           name="wf"
+          :move-class="isDropping ? 'wf-move-static' : 'wf-move'"
           class="flex flex-col gap-0.5 flex-1 overflow-y-auto scrollbar-hide relative pb-4"
         >
           <li
@@ -827,10 +873,75 @@ onUnmounted(() => {
               >{{ session.title }}</span>
               <div
                 class="shrink-0 overflow-hidden"
-                :class="(!isDragging && (hoveredWorkflowId === session.id || activeDropdownIndex === session.id)) ? 'w-4 ml-1.5' : 'w-0'"
+                :class="(!isDragging && (hoveredWorkflowId === session.id || activeDropdownIndex === session.id || session.is_running)) ? 'w-4 ml-1.5' : 'w-0'"
                 @click.stop
               >
-                <svg @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
+                <!-- Running indicator: shown only when the row isn't being
+                     hovered and its menu isn't open, so the three-dot trigger
+                     can take over the slot the moment the user moves a cursor
+                     over the row (preserving the existing menu interaction).
+                     Two visual modes — they are NOT cosmetic variants of the
+                     same state, they signal which engine is driving the row:
+                       - `running_kind === 'workflow'` → progress arc. The
+                         workflow_run engine is executing the persisted node
+                         graph (dock Run or scheduled cron). The definition
+                         is read-only for the duration of the run.
+                       - `running_kind === 'chat'` (default for any other
+                         is_running case) → spinner. Orchestrator/agent
+                         activity in service of a chat turn — including
+                         background orchestrator-spawned agents on workflows
+                         the user is no longer focused on. The workflow
+                         definition may be mutating right now.
+                     The progress arc is the OPT-IN mode: only render it when
+                     the server (or focused-workflow override) explicitly
+                     reports 'workflow'. Defaulting unknown is_running rows
+                     to the progress arc misrepresents background chat-driven
+                     activity as scheduled/run-from-node executions, which is
+                     the bug this comment intentionally guards against. See
+                     `runningKind` in pages/workflow/[id].vue and
+                     Session.RunningKind in the Go server for the
+                     authoritative mapping. -->
+
+                <span
+                  v-if="session.is_running && !isDragging && hoveredWorkflowId !== session.id && activeDropdownIndex !== session.id"
+                  class="flex size-4 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <svg
+                    v-if="session.running_kind === 'workflow'"
+                    class="size-3.5 -rotate-90"
+                    viewBox="0 0 16 16"
+                  >
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--color-gold)"
+                      stroke-opacity="0.25"
+                      stroke-width="2"
+                    />
+                    <circle
+                      class="wf-progress-arc"
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--color-gold)"
+                      stroke-width="2"
+                      stroke-linecap="butt"
+                      pathLength="100"
+                      stroke-dasharray="100 100"
+                    />
+                  </svg>
+                  <span
+                    v-else
+                    class="size-3.5 animate-spin rounded-full border-2 border-gold/25 border-t-gold"
+                  />
+                </span>
+                <svg
+                  v-else
+                  @click="activeDropdownIndex = activeDropdownIndex === session.id ? null : session.id"
                   class="workflow-list-trigger size-4 text-neutral-400 cursor-pointer hover:text-neutral-950"
                   :data-id="session.id"
                   viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -888,7 +999,7 @@ onUnmounted(() => {
             <div v-else
               class="group relative flex w-full items-center justify-between rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950">
               <input v-model="editingValue" @keyup.enter="confirmRename(session.id)" @keyup.esc="cancelRename"
-                @blur="confirmRename(session.id)" type="text"
+                @blur="confirmRename(session.id)" type="text" name="session-rename"
                 class="flex-1 bg-transparent border-0 outline-none min-w-0 py-0.75 m-0 h-auto leading-normal"
                 autofocus />
             </div>
@@ -924,53 +1035,8 @@ onUnmounted(() => {
             </p>
           </div>
         </button>
-      </div>
 
-      <!-- Language submenu panel — teleported to body to escape overflow-hidden -->
-      <Teleport to="body">
-        <div
-          v-if="isProfileDropdownOpen && isLanguageOpen"
-          ref="languagePanelRef"
-          class="fixed w-44 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
-          :style="languagePanelStyle"
-        >
-          <button
-            v-for="loc in availableLocales"
-            :key="loc.code"
-            type="button"
-            class="flex w-full items-center justify-between px-3 py-1.5 text-sm cursor-pointer transition-colors hover:bg-neutral-100"
-            :class="locale === loc.code ? 'font-medium text-neutral-950' : 'text-neutral-700'"
-            @click="selectLocale(loc.code)"
-          >
-            <span>{{ loc.name }}</span>
-            <svg v-if="locale === loc.code" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 shrink-0 text-neutral-950" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </Teleport>
-
-      <!-- Help submenu panel — teleported to body to escape overflow-hidden -->
-      <Teleport to="body">
-        <div
-          v-if="isProfileDropdownOpen && isHelpOpen"
-          ref="helpPanelRef"
-          class="fixed w-52 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
-          :style="helpPanelStyle"
-        >
-          <button
-            v-for="item in helpMenuItems"
-            :key="item.key"
-            type="button"
-            class="flex w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors text-neutral-700 hover:bg-neutral-100"
-            @click="selectHelpItem(item.key)"
-          >
-            <span>{{ item.label.value }}</span>
-          </button>
-        </div>
-      </Teleport>
-
-      <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above">
+        <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above" width="w-full">
         <div class="px-3 py-1.5 text-xs text-neutral-500 truncate">
           {{ userEmail }}
         </div>
@@ -1041,49 +1107,95 @@ onUnmounted(() => {
             </template>
           </MenuItem>
       </Menu>
+      </div>
+
+      <!-- Language submenu panel — teleported to body to escape overflow-hidden -->
+      <Teleport to="body">
+        <div
+          v-if="isProfileDropdownOpen && isLanguageOpen"
+          ref="languagePanelRef"
+          class="fixed w-44 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          :style="languagePanelStyle"
+        >
+          <button
+            v-for="loc in availableLocales"
+            :key="loc.code"
+            type="button"
+            class="flex w-full items-center justify-between px-3 py-1.5 text-sm cursor-pointer transition-colors hover:bg-neutral-100"
+            :class="locale === loc.code ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+            @click="selectLocale(loc.code)"
+          >
+            <span>{{ loc.name }}</span>
+            <svg v-if="locale === loc.code" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 shrink-0 text-neutral-950" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </Teleport>
+
+      <!-- Help submenu panel — teleported to body to escape overflow-hidden -->
+      <Teleport to="body">
+        <div
+          v-if="isProfileDropdownOpen && isHelpOpen"
+          ref="helpPanelRef"
+          class="fixed w-52 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          :style="helpPanelStyle"
+        >
+          <button
+            v-for="item in helpMenuItems"
+            :key="item.key"
+            type="button"
+            class="flex w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors text-neutral-700 hover:bg-neutral-100"
+            @click="selectHelpItem(item.key)"
+          >
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </Teleport>
     </div>
 
     <SearchModal v-model:open="isSearchOpen" />
-    <SettingsModal v-model:open="isSettingsModalOpen" />
+    <UserSettingsModal v-model:open="isSettingsModalOpen" />
     <BugReportModal v-model:open="isBugReportOpen" />
     <CreateWorkspaceModal v-model:open="isCreateWorkspaceOpen" />
+    <WorkspaceSettingsModal v-model:open="isWorkspaceSettingsOpen" />
+    <ManageMembersModal v-model:open="isManageMembersOpen" />
   </aside>
 </template>
 
 <style scoped>
-/* Leave/enter collapse via the grid-template-rows 1fr→0fr trick: animating a
-   single grid track size is dramatically smoother than transitioning
-   max-height + margin + padding simultaneously (which forced four layout
-   passes per frame). Siblings still slide naturally because the row stays in
-   flow, so SortableJS interactions remain stable. */
-.wf-leave-active,
+/* Workflow-list animations:
+   - Add: new row fades in (.wf-enter-active); siblings slide down via FLIP
+     (.wf-move).
+   - Delete: leaving row drops out of flow and snaps to opacity:0 with no
+     transition — it vanishes instantly while siblings slide up via .wf-move.
+     Vue sees no transition on leave and removes it from the DOM next frame.
+   - Drag-drop commit: .wf-move-static replaces .wf-move for one render so
+     the dropped row doesn't tween from origin to slot (see `isDropping`). */
+.wf-move {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wf-move-static {
+  transition: none;
+}
 .wf-enter-active {
-  transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
-  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.wf-leave-from,
-.wf-enter-to {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.wf-leave-to,
 .wf-enter-from {
-  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.wf-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
   opacity: 0;
 }
 
 /* Drag-to-reorder affordance (real sessions only). Disable text selection on
-   rows so a quick mousedown before the drag threshold can't highlight text.
-   `display: grid` pairs with the leave/enter transitions above; the inner
-   wrapper clips overflow so content collapses cleanly with the track size. */
+   rows so a quick mousedown before the drag threshold can't highlight text. */
 .wf-item {
   user-select: none;
-  display: grid;
-  grid-template-rows: 1fr;
-}
-.wf-item > * {
-  min-height: 0;
-  overflow: hidden;
 }
 .wf-item > div:first-child {
   cursor: grab;

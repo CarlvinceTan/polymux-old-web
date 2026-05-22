@@ -70,6 +70,34 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Not a member of this workspace.' })
   }
 
+  // Block activation when the workflow has no committed version — the Go
+  // scheduler silently skips fires for such workflows, so saving active=true
+  // would create a schedule that can never run. Cheap targeted lookup, not a
+  // full versions fetch: head=true + count returns 0/N without rows.
+  if (Boolean(body.active)) {
+    const versionsCheck = (supabase as unknown as {
+      from: (table: string) => {
+        select: (cols: string, opts: { count: 'exact', head: true }) => {
+          eq: (col: string, val: string) => Promise<{ count: number | null, error: { message: string } | null }>
+        }
+      }
+    })
+      .from('workflow_versions')
+      .select('id', { count: 'exact', head: true })
+      .eq('workflow_id', workflowId)
+    const { count, error: countError } = await versionsCheck
+    if (countError) {
+      console.error('[workflow-schedules] versions count error', countError)
+      throw createError({ statusCode: 500, statusMessage: 'Failed to verify workflow version.' })
+    }
+    if (!count || count === 0) {
+      throw createError({
+        statusCode: 422,
+        statusMessage: 'Save a workflow version before activating its schedule.',
+      })
+    }
+  }
+
   const row = {
     workflow_id: workflowId,
     workspace_id: workspaceId,
@@ -84,7 +112,7 @@ export default defineEventHandler(async (event) => {
 
   // workflow_schedules isn't in the generated Supabase types yet (new table).
   // Cast through unknown to keep the runtime path clean — same pattern as
-  // server/utils/driveTokens.ts.
+  // server/utils/oauth/driveTokens.ts.
   const admin = supabase as unknown as {
     from: (table: string) => {
       upsert: (row: unknown, opts: { onConflict: string }) => {

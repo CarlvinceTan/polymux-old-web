@@ -1,5 +1,20 @@
 <script setup lang="ts">
 const route = useRoute()
+const { locale } = useI18n({ useScope: 'global' })
+
+const siteUrl = 'https://polymux.com'
+const canonical = computed(() => {
+  const path = route.path === '/' ? '' : route.path
+  return `${siteUrl}${path}`
+})
+
+useHead({
+  htmlAttrs: { lang: locale },
+  titleTemplate: (title?: string) =>
+    title ? `${title} | Polymux` : 'Polymux — AI Agents for Browser Automation',
+  link: [{ rel: 'canonical', href: canonical }],
+  meta: [{ property: 'og:url', content: canonical }],
+})
 
 const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/storage', '/vault', '/integrations', '/session']
 

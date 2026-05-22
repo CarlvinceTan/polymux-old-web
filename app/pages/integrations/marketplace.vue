@@ -1,14 +1,40 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import type { ItemCategory, MarketplaceItem } from '~/composables/wallet/useMarketplace'
+import type { ItemCategory, MarketplaceItem } from '~/composables/integrations/useMarketplace'
 
 const { t } = useI18n()
-const { headerTabs } = useIntegrationsNavTabs()
+const { headerTabs, customTabs } = useIntegrationsNavTabs()
+const route = useRoute()
+const router = useRouter()
+
+function normalizeTagQuery(raw: unknown): string | null {
+  const s = Array.isArray(raw) ? raw[0] : raw
+  if (typeof s !== 'string' || !s.trim()) return null
+  return s.trim().toLowerCase()
+}
+
+const activeTagFilter = computed(() => normalizeTagQuery(route.query.tag))
+
+function itemMatchesTagFilter(item: MarketplaceItem, tagNorm: string): boolean {
+  return (item.tags ?? []).some(tag => tag.toLowerCase() === tagNorm)
+}
+
+function setTagFilter(tag: string) {
+  const trimmed = tag.trim().toLowerCase()
+  if (!trimmed) return
+  router.replace({ query: { ...route.query, tag: trimmed } })
+}
+
+function clearTagFilter() {
+  const { tag: _omit, ...rest } = route.query
+  router.replace({ query: rest })
+}
 
 type FilterValue = 'all' | ItemCategory | 'installed'
 type SortValue = 'popularity' | 'nameAZ' | 'nameZA' | 'installedFirst' | 'category'
 
 const { catalog, catalogPending, catalogLoaded, isInstalled } = useMarketplace()
+const { $posthog } = useNuxtApp()
 
 const searchQuery = ref('')
 const filterBy = ref<FilterValue>('all')
@@ -23,6 +49,7 @@ const filterOptions = computed<{ value: FilterValue, label: string }[]>(() => [
   { value: 'all', label: t('integrations.filterAll') },
   { value: 'workflow', label: t('integrations.filterWorkflows') },
   { value: 'plugin', label: t('integrations.filterPlugins') },
+  { value: 'layout', label: t('integrations.filterLayouts') },
   { value: 'integration', label: t('integrations.filterIntegrations') },
   { value: 'installed', label: t('integrations.filterInstalled') },
 ])
@@ -39,6 +66,7 @@ const categoryOrder: Record<ItemCategory, number> = {
   integration: 0,
   plugin: 1,
   workflow: 2,
+  layout: 3,
 }
 
 const filteredItems = computed<MarketplaceItem[]>(() => {
@@ -58,6 +86,11 @@ const filteredItems = computed<MarketplaceItem[]>(() => {
   }
   else if (filterBy.value !== 'all') {
     list = list.filter(i => i.category === filterBy.value)
+  }
+
+  const tagNorm = activeTagFilter.value
+  if (tagNorm) {
+    list = list.filter(i => itemMatchesTagFilter(i, tagNorm))
   }
 
   // Unless the user explicitly chose "Installed first", push installed items
@@ -119,6 +152,13 @@ const detailOpen = ref(false)
 const selectedItem = ref<MarketplaceItem | null>(null)
 
 function openDetail(item: MarketplaceItem) {
+  $posthog?.capture('integration_detail_opened', {
+    integration_id: item.id,
+    integration_name: item.name,
+    category: item.category,
+    is_first_party: item.isFirstParty,
+    is_installed: isInstalled(item.id),
+  })
   selectedItem.value = item
   detailOpen.value = true
 }
@@ -145,11 +185,12 @@ onUnmounted(() => {
   <FeatureGate name="integrations">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
     <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" raw-tab-labels />
+      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
     </header>
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
       <template #header>
+        <div>
         <div class="flex items-center gap-2">
           <div class="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50/50 transition focus-within:border-neutral-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-neutral-950/10">
             <div class="flex size-8 shrink-0 items-center justify-center text-neutral-400">
@@ -157,6 +198,7 @@ onUnmounted(() => {
             </div>
             <input
               v-model="searchQuery"
+              name="marketplace-search"
               type="text"
               :placeholder="t('integrations.searchPlaceholder')"
               class="min-w-0 flex-1 bg-transparent pr-2 text-body-md text-neutral-950 outline-none placeholder:text-neutral-400"
@@ -225,6 +267,20 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <div
+          v-if="activeTagFilter"
+          class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/80 px-3 py-2 text-body-md text-neutral-700"
+        >
+          <span>{{ t('integrations.tagFilterBanner', { tag: activeTagFilter }) }}</span>
+          <button
+            type="button"
+            class="rounded-md bg-white px-2 py-1 text-label-md font-semibold text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100"
+            @click="clearTagFilter"
+          >
+            {{ t('integrations.tagFilterClear') }}
+          </button>
+        </div>
+        </div>
       </template>
 
       <div class="relative" style="padding: 2.5rem 6rem 0">
@@ -243,7 +299,9 @@ onUnmounted(() => {
             :author="item.author"
             :tags="item.tags"
             :popularity="item.popularity"
+            :is-first-party="item.isFirstParty"
             @open="openDetail(item)"
+            @filter-tag="setTagFilter"
           />
         </div>
 
