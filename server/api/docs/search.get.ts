@@ -1,7 +1,3 @@
-import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
-
-const DOCS_ROOT = "content/docs";
 const SUPPORTED_LOCALES = new Set([
   "en",
   "es",
@@ -28,15 +24,13 @@ function pickLocale(value: string | undefined): string {
 }
 
 function stripMarkdown(md: string): string {
-  // Strip enough markdown that snippets read like prose. We don't need a full
-  // parser — the goal is a clean excerpt, not perfect rendering.
   return md
-    .replace(/```[\s\S]*?```/g, " ") // fenced code blocks
-    .replace(/`[^`]*`/g, " ") // inline code
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links → label
-    .replace(/^#{1,6}\s+/gm, "") // heading hashes
-    .replace(/[*_>|]/g, " ") // common emphasis markers + table pipes
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_>|]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -46,7 +40,6 @@ function extractTitle(md: string): string {
   return m?.[1]?.trim() ?? "";
 }
 
-/** First case-insensitive occurrence; returns -1 when no match. */
 function firstIndexCI(haystack: string, needle: string): number {
   if (!needle) return -1;
   return haystack.toLowerCase().indexOf(needle.toLowerCase());
@@ -85,38 +78,34 @@ export default defineEventHandler(async (event) => {
   const cookie = getCookie(event, "i18n_locale");
   const locale = pickLocale(localeParam ?? cookie);
 
-  const dir = join(process.cwd(), DOCS_ROOT, locale);
-  const fallbackDir = join(process.cwd(), DOCS_ROOT, DEFAULT_LOCALE);
+  const storage = useStorage("assets:docs");
 
-  let filenames: string[] = [];
-  try {
-    filenames = (await readdir(dir)).filter((f) => f.endsWith(".md"));
-  } catch {
-    // Locale dir is missing — fall back to English so search still works.
-    try {
-      filenames = (await readdir(fallbackDir)).filter((f) => f.endsWith(".md"));
-    } catch {
-      return { hits: [] satisfies DocHit[] };
-    }
+  // getKeys returns keys like "en:introduction.md" — filter to the requested locale.
+  let keys = (await storage.getKeys(locale)).filter((k) => k.endsWith(".md"));
+  let sourceLocale = locale;
+
+  if (!keys.length && locale !== DEFAULT_LOCALE) {
+    keys = (await storage.getKeys(DEFAULT_LOCALE)).filter((k) => k.endsWith(".md"));
+    sourceLocale = DEFAULT_LOCALE;
   }
 
-  const sourceDir = filenames.length ? dir : fallbackDir;
+  if (!keys.length) return { hits: [] satisfies DocHit[] };
 
   const hits: DocHit[] = [];
 
   await Promise.all(
-    filenames.map(async (name) => {
-      const slug = name.replace(/\.md$/, "");
-      let raw: string;
-      try {
-        raw = await readFile(join(sourceDir, name), "utf-8");
-      } catch {
-        try {
-          raw = await readFile(join(fallbackDir, name), "utf-8");
-        } catch {
-          return;
-        }
+    keys.map(async (key) => {
+      // Key format: "<locale>:<slug>.md" — extract just the slug part.
+      const slug = key
+        .slice(sourceLocale.length + 1)   // strip "locale:"
+        .replace(/\.md$/, "")
+        .replace(/:/g, "/");              // restore path separators
+
+      let raw = await storage.getItem<string>(key);
+      if (!raw && sourceLocale !== DEFAULT_LOCALE) {
+        raw = await storage.getItem<string>(`${DEFAULT_LOCALE}/${slug}.md`);
       }
+      if (!raw) return;
 
       const title = extractTitle(raw) || slug;
       const body = stripMarkdown(raw);
@@ -125,16 +114,9 @@ export default defineEventHandler(async (event) => {
       const bodyHits = countOccurrences(body, q);
       if (titleHits === 0 && bodyHits === 0) return;
 
-      // Title hits weigh much more than body hits — a slug whose name matches
-      // should dominate slugs that merely mention the term.
       const score = titleHits * 100 + Math.min(bodyHits, 20) * 5;
 
-      hits.push({
-        slug,
-        title,
-        snippet: buildSnippet(body, q),
-        score,
-      });
+      hits.push({ slug, title, snippet: buildSnippet(body, q), score });
     }),
   );
 

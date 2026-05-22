@@ -11,12 +11,13 @@ const props = withDefaults(
   { showBack: true },
 )
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const { data, error } = await useAsyncData(
-  `legal-${props.docSlug}`,
+  `legal-${props.docSlug}-${locale.value}`,
   () =>
     $fetch<string>(`/api/legal/${props.docSlug}`, {
+      query: { locale: locale.value },
       responseType: 'text',
     }),
 )

@@ -133,6 +133,12 @@ export default defineNuxtConfig({
       ],
     },
   },
+  nitro: {
+    serverAssets: [
+      { baseName: "docs", dir: "./content/docs" },
+      { baseName: "legal", dir: "./content/legal" },
+    ],
+  },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: false },
   vue: {
