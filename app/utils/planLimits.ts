@@ -41,13 +41,6 @@ export const PLAN_MAX_MEMBERS: Record<string, number> = {
   enterprise: 0, // unlimited
 }
 
-export const PLAN_BYOK: Record<string, boolean> = {
-  free: false,
-  pro: true,
-  max: true,
-  enterprise: true,
-}
-
 export const PLAN_PRIORITY_SUPPORT: Record<string, boolean> = {
   free: false,
   pro: false,
@@ -68,11 +61,6 @@ export function tokenBudgetWeeklyFromPlan(plan?: string | null): number {
 export function maxMembersFromPlan(plan?: string | null): number {
   if (!plan) return PLAN_MAX_MEMBERS.free!
   return PLAN_MAX_MEMBERS[plan] ?? PLAN_MAX_MEMBERS.free!
-}
-
-export function byokAllowedFromPlan(plan?: string | null): boolean {
-  if (!plan) return PLAN_BYOK.free!
-  return PLAN_BYOK[plan] ?? PLAN_BYOK.free!
 }
 
 export function maxFileUploadBytesFromPlan(plan?: string | null): number {

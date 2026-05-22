@@ -11,7 +11,7 @@ import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 // ChatModel without ever needing the encryption key on the Go side.
 //
 // Response shape:
-//   [{ provider: 'anthropic', api_key: 'sk-ant-...', last_used_at: null }, …]
+//   [{ provider: 'anthropic', api_key: 'sk-ant-...', api_base: null, last_used_at: null }, …]
 //
 // Empty list means "use the server's configured key" — handled by the
 // resolver as a fallback. Decryption errors on individual rows are logged
@@ -21,6 +21,7 @@ import { resolveWorkspaceId } from '~~/server/utils/workspace/workspaceFiles'
 interface InternalLLMKey {
   provider: string
   api_key: string
+  api_base: string | null
   last_used_at: string | null
 }
 
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event): Promise<InternalLLMKey[]> => {
 
   const { data, error } = await admin
     .from('workspace_llm_keys')
-    .select('provider, api_key_enc, last_used_at')
+    .select('provider, api_key_enc, api_base, last_used_at')
     .eq('workspace_id', workspaceId)
 
   if (error) {
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event): Promise<InternalLLMKey[]> => {
       out.push({
         provider: row.provider,
         api_key: decryptToken(row.api_key_enc),
+        api_base: row.api_base ?? null,
         last_used_at: row.last_used_at,
       })
     }

@@ -1,19 +1,15 @@
 import { serverSupabaseUser, serverSupabaseClient } from '#supabase/server'
-import { byokAllowed, isValidProvider } from '~~/server/utils/billing/planLimits'
-import { planLimitsEnforce } from '~~/server/utils/billing/planLimitsEnforce'
+import { parseApiBase } from '~~/server/utils/billing/llmKeyValidation'
+import { isValidProvider } from '~~/server/utils/billing/planLimits'
 import { encryptToken } from '~~/server/utils/security/tokenCrypto'
 
 // POST /api/workspaces/[id]/llm-keys
 //
-// Body: { provider: 'anthropic' | 'openai' | 'gemini', api_key: string }
+// Body: { provider: 'anthropic' | 'openai' | 'gemini', api_key: string, api_base?: string | null }
 //
 // Stores an encrypted LLM API key for this workspace + provider. Replaces
 // any existing key for the same (workspace, provider) pair via upsert so
 // rotation is a single round-trip.
-//
-// Plan gate: Pro+ only. Free workspaces hit 402 with a clear "upgrade"
-// message — same status code we use for the other plan-feature gates
-// (members cap, storage cap).
 //
 // Auth: admin/owner of the workspace. Same gate as the other settings
 // surfaces. We do NOT validate the key against the provider here — a
@@ -31,12 +27,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Workspace ID is required.' })
   }
 
-  const body = await readBody<{ provider?: unknown; api_key?: unknown }>(event)
+  const body = await readBody<{ provider?: unknown; api_key?: unknown; api_base?: unknown }>(event)
   const provider = typeof body.provider === 'string' ? body.provider.trim().toLowerCase() : ''
   const apiKey = typeof body.api_key === 'string' ? body.api_key.trim() : ''
+  const apiBase = parseApiBase(body.api_base)
 
   if (!isValidProvider(provider)) {
     throw createError({ statusCode: 400, statusMessage: 'Provider must be anthropic, openai, or gemini.' })
+  }
+  if (apiBase === 'invalid') {
+    throw createError({ statusCode: 400, statusMessage: 'Base URL must be a valid http or https URL.' })
   }
   if (!apiKey || apiKey.length < 16) {
     // 16 is intentionally generous — every real provider key is far longer,
@@ -46,23 +46,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = await serverSupabaseClient(event)
-
-  // Owner/admin check + plan check happen in one workspace lookup.
-  const { data: ws, error: wsError } = await supabase
-    .from('workspaces')
-    .select('plan')
-    .eq('id', workspaceId)
-    .single()
-
-  if (wsError || !ws) {
-    throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' })
-  }
-  if (await planLimitsEnforce() && !byokAllowed(typeof ws.plan === 'string' ? ws.plan : 'free')) {
-    throw createError({
-      statusCode: 402,
-      statusMessage: 'BYOK is available on Pro and above. Upgrade your plan to bring your own LLM API key.',
-    })
-  }
 
   const { data: membership, error: memberError } = await supabase
     .from('workspace_members')
@@ -84,10 +67,11 @@ export default defineEventHandler(async (event) => {
       workspace_id: workspaceId,
       provider,
       api_key_enc: apiKeyEnc,
+      api_base: apiBase,
       last_four: lastFour,
       created_by: user.sub,
     }, { onConflict: 'workspace_id,provider' })
-    .select('id, workspace_id, provider, last_four, created_by, created_at, updated_at, last_used_at')
+    .select('id, workspace_id, provider, api_base, last_four, created_by, created_at, updated_at, last_used_at')
     .single()
 
   if (error) {

@@ -44,9 +44,12 @@ export type BudgetStatus = SessionBudget['status']
 export function useWallet() {
   const { authFetch } = useAuthFetch()
   const { currentWorkspaceId } = useWorkspaces()
+  const { isWalletEnabled } = useMeFeatures()
   const queryClient = useQueryClient()
 
   const wsId = computed(() => currentWorkspaceId.value)
+  const walletFeatureEnabled = computed(() => isWalletEnabled())
+  const queriesEnabled = computed(() => !!wsId.value && walletFeatureEnabled.value)
 
   const walletQuery = useQuery({
     queryKey: computed(() => ['wallet', wsId.value]),
@@ -59,7 +62,7 @@ export function useWallet() {
         return null
       }
     },
-    enabled: computed(() => !!wsId.value),
+    enabled: queriesEnabled,
   })
 
   const transactionsQuery = useQuery({
@@ -73,7 +76,7 @@ export function useWallet() {
         return []
       }
     },
-    enabled: computed(() => !!wsId.value),
+    enabled: queriesEnabled,
   })
 
   const budgetsQuery = useQuery({
@@ -87,7 +90,7 @@ export function useWallet() {
         return []
       }
     },
-    enabled: computed(() => !!wsId.value),
+    enabled: queriesEnabled,
   })
 
   const wallet = computed(() => walletQuery.data.value ?? null)

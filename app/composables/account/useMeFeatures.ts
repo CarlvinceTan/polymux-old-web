@@ -90,6 +90,30 @@ export function useMeFeatures() {
     return Boolean(v)
   }
 
+  // Opt-in flags (wallet, extension_mode) must match the Go server's
+  // IsEnabledStrict semantics: absent/unknown ⇒ off once PostHog is wired.
+  // Generic isEnabled() fail-opens undefined keys to true, which breaks
+  // wallet when PostHog omits disabled keys from the client payload.
+  function isEnabledStrict(key: string, absentResult: boolean): boolean {
+    if (!import.meta.client) return absentResult
+    const nuxtApp = useNuxtApp()
+    const ph = (nuxtApp.$posthog ?? null) as
+      | { isFeatureEnabled?: (k: string) => boolean | undefined }
+      | null
+    if (!ph || typeof ph.isFeatureEnabled !== 'function') {
+      // No PostHog public key — dev fail-open for opt-in features.
+      return absentResult ? false : true
+    }
+    if (!state.value.ready) return absentResult
+    const v = ph.isFeatureEnabled(key)
+    if (v === undefined) return absentResult
+    return Boolean(v)
+  }
+
+  function isWalletEnabled(): boolean {
+    return isEnabledStrict('wallet', false)
+  }
+
   async function refresh() {
     const nuxtApp = useNuxtApp()
     const ph = (nuxtApp.$posthog ?? null) as
@@ -101,17 +125,8 @@ export function useMeFeatures() {
   }
 
   function isExtensionModeGloballyAllowed(): boolean {
-    if (!import.meta.client) return true
-    const nuxtApp = useNuxtApp()
-    const ph = (nuxtApp.$posthog ?? null) as
-      | { isFeatureEnabled?: (k: string) => boolean | undefined }
-      | null
-    if (!ph || typeof ph.isFeatureEnabled !== 'function') {
-      return true
-    }
-    if (!state.value.ready) return false
-    return ph.isFeatureEnabled('extension_mode') === true
+    return isEnabledStrict('extension_mode', false)
   }
 
-  return { ready, isEnabled, refresh, isExtensionModeGloballyAllowed }
+  return { ready, isEnabled, isEnabledStrict, isWalletEnabled, refresh, isExtensionModeGloballyAllowed }
 }

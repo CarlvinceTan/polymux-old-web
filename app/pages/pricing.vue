@@ -47,7 +47,7 @@ const planFeatures = computed<PlanFeatureRow[]>(() => [
   { name: t('pricing.storage.file'), free: '100 MB', pro: '5 GB', max: '20 GB', enterprise: '100 GB' },
   { name: t('pricing.storage.artifacts'), free: '50 MB', pro: '200 MB', max: '2 GB', enterprise: '20 GB' },
   { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
-  { name: 'Bring Your Own LLM Keys', free: false, pro: true, max: true, enterprise: true },
+  { name: 'Bring Your Own LLM Keys', free: true, pro: true, max: true, enterprise: true },
   { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
   { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
 ])

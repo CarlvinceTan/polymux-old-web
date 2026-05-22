@@ -2,7 +2,7 @@
 // LLM API key management panel (BYOK — Bring Your Own Key).
 //
 // Surfaces in the Workspace Settings modal between Members and Administration.
-// Pro+ workspaces can attach an API key per provider; the server uses the
+// Workspaces can attach an API key per provider; the server uses the
 // workspace key for every Chat() call originating from this workspace,
 // silently falling back to the shared server key when no workspace key
 // exists for the provider.
@@ -11,11 +11,9 @@
 // server and only read back last_four/created_at/last_used_at after.
 
 import { isLLMKeyError, useWorkspaceLLMKeys, type WorkspaceLLMKey } from '~/composables/account/useWorkspaceLLMKeys'
-import { byokAllowedFromPlan } from '~/utils/planLimits'
 
 interface Props {
   workspaceId: string | null
-  plan: string | null
   canManage: boolean
 }
 
@@ -27,12 +25,10 @@ const workspaceId = computed(() => props.workspaceId)
 
 const { keys, loading, error, fetchKeys, saveKey, deleteKey } = useWorkspaceLLMKeys(workspaceId)
 
-const planAllowsBYOK = computed(() => byokAllowedFromPlan(props.plan))
-
-const providerOptions: Array<{ value: WorkspaceLLMKey['provider']; label: string; hint: string }> = [
-  { value: 'anthropic', label: 'Anthropic (Claude)', hint: 'sk-ant-…' },
-  { value: 'openai',    label: 'OpenAI (GPT)',       hint: 'sk-…' },
-  { value: 'gemini',    label: 'Google Gemini',      hint: 'AIza…' },
+const providerOptions: Array<{ value: WorkspaceLLMKey['provider']; label: string; hint: string; baseHint: string }> = [
+  { value: 'anthropic', label: 'Anthropic (Claude)', hint: 'sk-ant-…', baseHint: 'https://api.anthropic.com (default)' },
+  { value: 'openai',    label: 'OpenAI (GPT)',       hint: 'sk-…',     baseHint: 'https://api.openai.com/v1 (default)' },
+  { value: 'gemini',    label: 'Google Gemini',      hint: 'AIza…',    baseHint: 'https://generativelanguage.googleapis.com (default)' },
 ]
 
 const providerLabel = (p: WorkspaceLLMKey['provider']) =>
@@ -43,41 +39,37 @@ const providerLabel = (p: WorkspaceLLMKey['provider']) =>
 const isAdding = ref(false)
 const formProvider = ref<WorkspaceLLMKey['provider']>('anthropic')
 const formKey = ref('')
+const formBaseUrl = ref('')
 const submitting = ref(false)
 
 function resetForm() {
   isAdding.value = false
   formKey.value = ''
+  formBaseUrl.value = ''
 }
 
 function openAdd() {
   formProvider.value = 'anthropic'
   formKey.value = ''
+  formBaseUrl.value = ''
   isAdding.value = true
 }
 
 function openRotate(k: WorkspaceLLMKey) {
   formProvider.value = k.provider
   formKey.value = ''
+  formBaseUrl.value = k.api_base ?? ''
   isAdding.value = true
 }
 
 async function handleSubmit() {
   if (!formKey.value.trim() || submitting.value) return
   submitting.value = true
-  const result = await saveKey(formProvider.value, formKey.value.trim())
+  const apiBase = formBaseUrl.value.trim() || null
+  const result = await saveKey(formProvider.value, formKey.value.trim(), apiBase)
   submitting.value = false
 
   if (isLLMKeyError(result)) {
-    if (result.upgradeRequired) {
-      toast.show(
-        result.message || 'BYOK is available on Pro and above. Upgrade your plan to add an LLM key.',
-        'warning',
-        10000,
-      )
-      // Stay on the form — user can dismiss manually.
-      return
-    }
     toast.show(result.message, 'error', 8000)
     return
   }
@@ -134,7 +126,7 @@ watchEffect(() => {
         </p>
       </div>
       <button
-        v-if="canManage && planAllowsBYOK && !isAdding"
+        v-if="canManage && !isAdding"
         type="button"
         class="shrink-0 self-center rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
         @click="openAdd"
@@ -143,111 +135,119 @@ watchEffect(() => {
       </button>
     </div>
 
-    <div
-      v-if="!planAllowsBYOK"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[11px] leading-snug text-amber-900"
-    >
-      <p class="font-medium">BYOK is a Pro feature.</p>
-      <p class="mt-1 text-amber-800">
-        Upgrade your workspace to Pro or Max to plug in your own Anthropic, OpenAI, or Gemini API
-        key. Your tokens won't count against the plan's weekly budget.
-      </p>
+    <div v-if="loading && keys.length === 0" class="rounded-lg border border-neutral-200 bg-white px-3.5 py-4 text-[11px] text-neutral-500">
+      Loading keys…
     </div>
 
-    <div v-else>
-      <div v-if="loading && keys.length === 0" class="rounded-lg border border-neutral-200 bg-white px-3.5 py-4 text-[11px] text-neutral-500">
-        Loading keys…
-      </div>
+    <div v-else-if="keys.length === 0 && !isAdding" class="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3.5 py-4 text-[11px] text-neutral-500">
+      No LLM keys configured yet. Runs in this workspace use the shared server key.
+    </div>
 
-      <div v-else-if="keys.length === 0 && !isAdding" class="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3.5 py-4 text-[11px] text-neutral-500">
-        No LLM keys configured yet. Runs in this workspace use the shared server key.
-      </div>
-
-      <ul v-else-if="keys.length > 0" class="space-y-2">
-        <li
-          v-for="k in keys"
-          :key="k.id"
-          class="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5"
-        >
-          <div class="min-w-0">
-            <p class="truncate text-xs font-medium text-neutral-950">{{ providerLabel(k.provider) }}</p>
-            <p class="mt-0.5 text-[11px] text-neutral-500">
-              <span class="font-mono">…{{ k.last_four }}</span>
-              <span class="mx-1.5">·</span>
-              Last used {{ formatRelative(k.last_used_at) }}
-            </p>
-          </div>
-          <div v-if="canManage" class="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              class="rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-              @click="openRotate(k)"
-            >
-              Rotate
-            </button>
-            <button
-              type="button"
-              class="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50"
-              @click="handleDelete(k)"
-            >
-              Remove
-            </button>
-          </div>
-        </li>
-      </ul>
-
-      <!-- Add / rotate form -->
-      <form
-        v-if="canManage && isAdding"
-        class="mt-3 space-y-3 rounded-lg border border-neutral-200 bg-white p-3.5"
-        @submit.prevent="handleSubmit"
+    <ul v-else-if="keys.length > 0" class="space-y-2">
+      <li
+        v-for="k in keys"
+        :key="k.id"
+        class="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5"
       >
-        <div>
-          <label class="block text-[11px] font-medium text-neutral-700">Provider</label>
-          <select
-            v-model="formProvider"
-            name="llm-provider"
-            class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
-          >
-            <option v-for="p in providerOptions" :key="p.value" :value="p.value">
-              {{ p.label }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[11px] font-medium text-neutral-700">API key</label>
-          <input
-            v-model="formKey"
-            name="llm-api-key"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            :placeholder="providerOptions.find(p => p.value === formProvider)?.hint"
-            class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 font-mono text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
-          >
-          <p class="mt-1 text-[10px] leading-snug text-neutral-500">
-            The key is encrypted at rest. We only display the last four characters back to you;
-            the full key cannot be retrieved.
+        <div class="min-w-0">
+          <p class="truncate text-xs font-medium text-neutral-950">{{ providerLabel(k.provider) }}</p>
+          <p class="mt-0.5 text-[11px] text-neutral-500">
+            <span class="font-mono">…{{ k.last_four }}</span>
+            <span class="mx-1.5">·</span>
+            Last used {{ formatRelative(k.last_used_at) }}
+          </p>
+          <p v-if="k.api_base" class="mt-0.5 truncate font-mono text-[10px] text-neutral-400">
+            {{ k.api_base }}
           </p>
         </div>
-        <div class="flex items-center justify-end gap-2">
+        <div v-if="canManage" class="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
-            class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
-            :disabled="submitting"
-            @click="resetForm"
+            class="rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+            @click="openRotate(k)"
           >
-            Cancel
+            Rotate
           </button>
           <button
-            type="submit"
-            class="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-            :disabled="!formKey.trim() || submitting"
+            type="button"
+            class="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50"
+            @click="handleDelete(k)"
           >
-            {{ submitting ? 'Saving…' : 'Save key' }}
+            Remove
           </button>
         </div>
-      </form>
-    </div>
+      </li>
+    </ul>
+
+    <!-- Add / rotate form -->
+    <form
+      v-if="canManage && isAdding"
+      class="mt-3 space-y-3 rounded-lg border border-neutral-200 bg-white p-3.5"
+      @submit.prevent="handleSubmit"
+    >
+      <div>
+        <label class="block text-[11px] font-medium text-neutral-700">Provider</label>
+        <select
+          v-model="formProvider"
+          name="llm-provider"
+          class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
+        >
+          <option v-for="p in providerOptions" :key="p.value" :value="p.value">
+            {{ p.label }}
+          </option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-medium text-neutral-700">API key</label>
+        <input
+          v-model="formKey"
+          name="llm-api-key"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          :placeholder="providerOptions.find(p => p.value === formProvider)?.hint"
+          class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 font-mono text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
+        >
+        <p class="mt-1 text-[10px] leading-snug text-neutral-500">
+          The key is encrypted at rest. We only display the last four characters back to you;
+          the full key cannot be retrieved.
+        </p>
+      </div>
+      <div>
+        <label class="block text-[11px] font-medium text-neutral-700">
+          Base URL
+          <span class="font-normal text-neutral-400">(optional)</span>
+        </label>
+        <input
+          v-model="formBaseUrl"
+          name="llm-api-base"
+          type="url"
+          autocomplete="off"
+          spellcheck="false"
+          :placeholder="providerOptions.find(p => p.value === formProvider)?.baseHint"
+          class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 font-mono text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
+        >
+        <p class="mt-1 text-[10px] leading-snug text-neutral-500">
+          Leave blank to use the server default. Set a custom URL for proxies, Azure OpenAI, or other compatible endpoints.
+        </p>
+      </div>
+      <div class="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+          :disabled="submitting"
+          @click="resetForm"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+          :disabled="!formKey.trim() || submitting"
+        >
+          {{ submitting ? 'Saving…' : 'Save key' }}
+        </button>
+      </div>
+    </form>
   </section>
 </template>

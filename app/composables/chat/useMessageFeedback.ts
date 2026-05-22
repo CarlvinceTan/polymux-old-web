@@ -6,7 +6,8 @@ import { ref, type Ref } from 'vue'
  * an absent key means "no rating". Mutations write through to the polymux
  * backend (POST/DELETE /sessions/{id}/messages/{messageId}/feedback) and the
  * local map updates optimistically — failures roll back so the UI reflects
- * the durable state.
+ * the durable state. The backend emits a matching PostHog $ai_metric event
+ * when posthog.project_api_key is configured.
  */
 export function useMessageFeedback(sessionId: string) {
   const { authFetch } = useAuthFetch()

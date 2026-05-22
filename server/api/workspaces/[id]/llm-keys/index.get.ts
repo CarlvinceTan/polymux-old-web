@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   // accurate: they can't see the keys, so there's nothing to render.
   const { data, error } = await supabase
     .from('workspace_llm_keys')
-    .select('id, workspace_id, provider, last_four, created_by, created_at, updated_at, last_used_at')
+    .select('id, workspace_id, provider, api_base, last_four, created_by, created_at, updated_at, last_used_at')
     .eq('workspace_id', workspaceId)
     .order('provider', { ascending: true })
 

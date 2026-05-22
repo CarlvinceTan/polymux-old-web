@@ -466,41 +466,40 @@ const linkGroups = computed(() => [
                         </Transition>
                     </div>
 
-                    <!-- Signed-out: download icon + language -->
-                    <div v-if="!user" class="hidden md:flex md:items-center md:gap-2">
-                        <NuxtLink to="/install-apps"
+                    <!-- Signed-out: download icon -->
+                    <NuxtLink v-if="!user" to="/install-apps"
+                        class="hidden cursor-pointer items-center justify-center border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:text-neutral-950 md:inline-flex"
+                        :aria-label="t('landing.nav.installApp')">
+                        <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-[18px] shrink-0" aria-hidden="true" />
+                    </NuxtLink>
+
+                    <!-- Signed-out: language -->
+                    <div v-if="!user" class="relative hidden flex-col items-center text-sm md:inline-flex">
+                        <button ref="localeTriggerRef" type="button"
                             class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:text-neutral-950"
-                            :aria-label="t('landing.nav.installApp')">
-                            <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-[18px] shrink-0" aria-hidden="true" />
-                        </NuxtLink>
+                            :aria-label="t('landing.header.language')" aria-haspopup="menu"
+                            :aria-expanded="isLocaleOpen" @click="toggleLocaleDropdown">
+                            <UIcon name="i-heroicons-globe-alt" class="size-[18px] shrink-0" aria-hidden="true" />
+                        </button>
 
-                        <div class="relative inline-flex flex-col items-center text-sm">
-                            <button ref="localeTriggerRef" type="button"
-                                class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent text-neutral-600 outline-none transition-colors hover:text-neutral-950"
-                                :aria-label="t('landing.header.language')" aria-haspopup="menu"
-                                :aria-expanded="isLocaleOpen" @click="toggleLocaleDropdown">
-                                <UIcon name="i-heroicons-globe-alt" class="size-[18px] shrink-0" aria-hidden="true" />
-                            </button>
-
-                            <Transition enter-active-class="transition duration-100 ease-out"
-                                leave-active-class="transition duration-75 ease-in"
-                                enter-from-class="opacity-0 -translate-y-0.5"
-                                leave-to-class="opacity-0 -translate-y-0.5">
-                                <div v-if="isLocaleOpen" ref="localeMenuRef"
-                                    class="absolute left-1/2 top-full -translate-x-1/2 z-50 mt-2 inline-flex max-h-72 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
-                                    role="menu">
-                                        <button v-for="loc in availableLocales"
-                                            :key="loc.code" type="button" role="menuitem"
-                                            class="whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
-                                            :class="locale === loc.code
-                                                ? 'font-medium text-neutral-950'
-                                                : 'text-neutral-700'"
-                                            @click="selectLandingLocale(loc.code)">
-                                            {{ loc.label }}
-                                        </button>
-                                </div>
-                            </Transition>
-                        </div>
+                        <Transition enter-active-class="transition duration-100 ease-out"
+                            leave-active-class="transition duration-75 ease-in"
+                            enter-from-class="opacity-0 -translate-y-0.5"
+                            leave-to-class="opacity-0 -translate-y-0.5">
+                            <div v-if="isLocaleOpen" ref="localeMenuRef"
+                                class="absolute left-1/2 top-full -translate-x-1/2 z-50 mt-2 inline-flex max-h-72 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                                role="menu">
+                                    <button v-for="loc in availableLocales"
+                                        :key="loc.code" type="button" role="menuitem"
+                                        class="whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
+                                        :class="locale === loc.code
+                                            ? 'font-medium text-neutral-950'
+                                            : 'text-neutral-700'"
+                                        @click="selectLandingLocale(loc.code)">
+                                        {{ loc.label }}
+                                    </button>
+                            </div>
+                        </Transition>
                     </div>
 
                     <!-- Signed-out: sign in button -->

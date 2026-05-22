@@ -2063,6 +2063,7 @@ export type Database = {
       }
       workspace_llm_keys: {
         Row: {
+          api_base: string | null
           api_key_enc: string
           created_at: string
           created_by: string
@@ -2074,6 +2075,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          api_base?: string | null
           api_key_enc: string
           created_at?: string
           created_by: string
@@ -2085,6 +2087,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          api_base?: string | null
           api_key_enc?: string
           created_at?: string
           created_by?: string

@@ -3,10 +3,6 @@
 // The Nuxt REST endpoints under /api/workspaces/[id]/llm-keys handle the
 // encrypted persistence; this composable wraps them in a typed,
 // reactive surface for the settings modal.
-//
-// Workspaces on the Free plan get a 402 from POST. We surface that as a
-// structured error so the UI can render an "Upgrade to Pro" CTA instead
-// of a generic toast.
 
 import type { FetchError } from 'ofetch'
 
@@ -14,6 +10,7 @@ export interface WorkspaceLLMKey {
   id: string
   workspace_id: string
   provider: 'anthropic' | 'openai' | 'gemini'
+  api_base: string | null
   last_four: string
   created_by: string
   created_at: string
@@ -25,9 +22,6 @@ export interface LLMKeyError {
   ok: false
   status: number
   message: string
-  // 402 means "plan does not include BYOK". UI uses this to swap the
-  // submit button for an Upgrade prompt rather than re-showing the form.
-  upgradeRequired: boolean
 }
 
 function parseError(err: unknown, fallback: string): LLMKeyError {
@@ -41,7 +35,6 @@ function parseError(err: unknown, fallback: string): LLMKeyError {
     ok: false,
     status,
     message,
-    upgradeRequired: status === 402,
   }
 }
 
@@ -79,15 +72,20 @@ export function useWorkspaceLLMKeys(workspaceId: Ref<string | null | undefined> 
   async function saveKey(
     provider: WorkspaceLLMKey['provider'],
     apiKey: string,
+    apiBase?: string | null,
   ): Promise<WorkspaceLLMKey | LLMKeyError> {
     const id = unref(workspaceId)
     if (!id) {
-      return { ok: false, status: 0, message: 'No workspace selected.', upgradeRequired: false }
+      return { ok: false, status: 0, message: 'No workspace selected.' }
     }
     try {
       const data = await $fetch<WorkspaceLLMKey>(`/api/workspaces/${id}/llm-keys`, {
         method: 'POST',
-        body: { provider, api_key: apiKey },
+        body: {
+          provider,
+          api_key: apiKey,
+          api_base: apiBase ?? null,
+        },
       })
       // Replace any existing entry for the provider in-place so the UI
       // reflects the new last_four/updated_at without a full refetch.

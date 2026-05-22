@@ -6,8 +6,31 @@ import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 const { t } = useI18n()
 const { headerTabs, customTabs } = useVaultNavTabs()
 
-const { isEnabled: isFeatureEnabled, ready: flagsReady } = useMeFeatures()
-const walletEnabled = computed(() => isFeatureEnabled('wallet'))
+const { isWalletEnabled, ready: flagsReady } = useMeFeatures()
+const walletEnabled = computed(() => isWalletEnabled())
+
+// Mirror FeatureGate: wait for PostHog before choosing placeholder vs UI.
+// isWalletEnabled() uses strict opt-in semantics (matches model.WalletEnabled).
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
+
+const posthogConfigured = computed(() => {
+  if (!import.meta.client) return false
+  const ph = useNuxtApp().$posthog as { isFeatureEnabled?: (k: string) => boolean | undefined } | null
+  return !!ph && typeof ph.isFeatureEnabled === 'function'
+})
+
+const showWalletLoading = computed(
+  () => import.meta.client && (!mounted.value || (posthogConfigured.value && !flagsReady.value)),
+)
+const showWalletPlaceholder = computed(
+  () => import.meta.client && mounted.value && flagsReady.value && !walletEnabled.value,
+)
+const showWalletUI = computed(
+  () => import.meta.client && mounted.value && walletEnabled.value,
+)
 
 const {
   transactions,
@@ -26,6 +49,7 @@ const topUpSuccess = computed(() => route.query.top_up === 'success')
 const topUpCancelled = computed(() => route.query.top_up === 'cancelled')
 
 function refreshAll() {
+  if (!walletEnabled.value) return
   fetchWallet({ force: true })
   fetchTransactions({ force: true })
   fetchBudgets(undefined, { force: true })
@@ -373,7 +397,13 @@ function usageBarColor(p: number) {
     </header>
 
     <TabPanel ref="walletTabPanelRef" class="min-h-0 min-w-0 flex-1">
-      <div v-if="!walletEnabled" class="flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
+      <div
+        v-if="showWalletLoading"
+        class="min-h-[50vh] w-full"
+        aria-busy="true"
+        aria-live="polite"
+      />
+      <div v-else-if="showWalletPlaceholder" class="flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
         <div class="flex size-14 items-center justify-center rounded-2xl border border-neutral-200/80 bg-white text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           <UIcon name="i-heroicons-wallet" class="size-6" />
         </div>
@@ -384,7 +414,7 @@ function usageBarColor(p: number) {
           {{ t('vault.wallet.comingSoon.description') }}
         </p>
       </div>
-      <div v-else-if="walletEnabled" class="flex min-w-0 flex-col">
+      <div v-else-if="showWalletUI" class="flex min-w-0 flex-col">
           <!-- Inner tabs -->
           <nav
             class="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-neutral-100 bg-white/95 px-4 backdrop-blur-sm sm:px-6"

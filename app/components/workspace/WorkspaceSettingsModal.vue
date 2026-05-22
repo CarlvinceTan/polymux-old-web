@@ -779,7 +779,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <!-- BYOK / LLM Keys -->
                 <WorkspaceLLMKeysPanel
                   :workspace-id="currentWorkspaceId"
-                  :plan="currentWorkspace?.plan ?? null"
                   :can-manage="canManageWorkspace"
                 />
 

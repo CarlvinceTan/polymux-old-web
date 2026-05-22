@@ -43,13 +43,6 @@ export const PLAN_MAX_MEMBERS: Record<string, number> = {
   enterprise: 0, // unlimited
 }
 
-export const PLAN_BYOK: Record<string, boolean> = {
-  free: false,
-  pro: true,
-  max: true,
-  enterprise: true,
-}
-
 export const PLAN_PRIORITY_SUPPORT: Record<string, boolean> = {
   free: false,
   pro: false,
@@ -118,10 +111,6 @@ export function workflowRunsMonthly(plan: string): number {
 
 export function maxMembers(plan: string): number {
   return PLAN_MAX_MEMBERS[plan] ?? PLAN_MAX_MEMBERS.free!
-}
-
-export function byokAllowed(plan: string): boolean {
-  return PLAN_BYOK[plan] ?? PLAN_BYOK.free!
 }
 
 // LLM providers supported for BYOK. Keep in sync with the
