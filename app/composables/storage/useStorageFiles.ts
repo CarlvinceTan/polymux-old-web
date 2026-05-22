@@ -257,6 +257,7 @@ export function useStorageFiles() {
             'X-Bz-File-Name': encodeB2FileName(signed.key),
             'Content-Type': signed.content_type || file.type || 'application/octet-stream',
             'X-Bz-Content-Sha1': sha1,
+            'X-Bz-Server-Side-Encryption': 'AES256',
           },
           body: buf,
         })

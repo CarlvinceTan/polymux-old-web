@@ -15,7 +15,7 @@ async function fetchAgentConfig() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+      const baseURL = config.public.serverUrl as string
       const res = await fetch(`${baseURL}/agent-config`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })

@@ -34,6 +34,7 @@ type FilterValue = 'all' | ItemCategory | 'installed'
 type SortValue = 'popularity' | 'nameAZ' | 'nameZA' | 'installedFirst' | 'category'
 
 const { catalog, catalogPending, catalogLoaded, isInstalled } = useMarketplace()
+const { $posthog } = useNuxtApp()
 
 const searchQuery = ref('')
 const filterBy = ref<FilterValue>('all')
@@ -151,6 +152,13 @@ const detailOpen = ref(false)
 const selectedItem = ref<MarketplaceItem | null>(null)
 
 function openDetail(item: MarketplaceItem) {
+  $posthog?.capture('integration_detail_opened', {
+    integration_id: item.id,
+    integration_name: item.name,
+    category: item.category,
+    is_first_party: item.isFirstParty,
+    is_installed: isInstalled(item.id),
+  })
   selectedItem.value = item
   detailOpen.value = true
 }

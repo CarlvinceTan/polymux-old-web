@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
 
   const plan = typeof workspace.plan === 'string' ? workspace.plan : 'free'
 
-  const enforcePlanLimits = planLimitsEnforce()
+  const enforcePlanLimits = await planLimitsEnforce()
   if (enforcePlanLimits && size > fileCap(plan)) {
     throw createError({
       statusCode: 413,

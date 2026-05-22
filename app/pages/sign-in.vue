@@ -10,6 +10,7 @@ useHead({
 const supabase = useSupabaseClient()
 const router = useRouter()
 const route = useRoute()
+const { $posthog } = useNuxtApp()
 
 /**
  * Post-signin redirect:
@@ -65,6 +66,7 @@ async function onSubmit() {
       error.value = authError.message
     }
     else {
+      $posthog?.capture('user_signed_in', { provider: 'email' })
       router.push(redirectTo.value)
     }
   }

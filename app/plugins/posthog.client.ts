@@ -1,7 +1,9 @@
-// Initialises PostHog for feature-flag evaluation. Identifies the current
-// Supabase user (and re-identifies on auth state changes) so flag targeting
-// rules that filter on `email` resolve correctly. Capture is intentionally
-// off — we only use PostHog for flags here, not product analytics.
+// Initialises PostHog for feature-flag evaluation and product analytics.
+// Identifies the current Supabase user (and re-identifies on auth state
+// changes) so flag targeting rules that filter on `email` resolve correctly.
+// Tracing headers (X-POSTHOG-SESSION-ID, X-POSTHOG-DISTINCT-ID) are
+// automatically added to requests to polymux.com and localhost so server
+// routes can correlate client and server events.
 //
 // When POSTHOG_PUBLIC_KEY is empty the plugin is a no-op; useMeFeatures will
 // then resolve every flag as enabled (fail-open) so dev environments without
@@ -23,12 +25,14 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   posthog.init(publicKey, {
-    api_host: host || 'https://us.i.posthog.com',
-    capture_pageview: false,
-    capture_pageleave: false,
+    api_host: host || 'https://h.polymux.com',
+    defaults: '2026-01-30',
+    capture_pageview: 'history_change',
+    capture_pageleave: true,
     autocapture: false,
     person_profiles: 'identified_only',
     persistence: 'localStorage+cookie',
+    __add_tracing_headers: ['localhost', 'polymux.com'],
     loaded: (ph) => {
       // Bridge PostHog's flag callbacks into the useMeFeatures state. We
       // can't import the composable at module load (circular), so we stash

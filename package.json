@@ -23,6 +23,7 @@
     "marked": "^17.0.6",
     "nuxt": "^4.4.2",
     "posthog-js": "^1.372.5",
+    "posthog-node": "^5.34.6",
     "resend": "^6.11.0",
     "stripe": "^22.0.1",
     "tailwindcss": "^4.2.2",

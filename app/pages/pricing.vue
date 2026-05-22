@@ -125,6 +125,7 @@ const route = useRoute()
 const planOrder: PlanKey[] = ['free', 'pro', 'max', 'enterprise']
 
 const { workspaces, currentWorkspace, currentWorkspaceId, switchWorkspace, fetchWorkspaces } = useWorkspaces()
+const { $posthog } = useNuxtApp()
 
 const workspacePickerRef = ref<HTMLElement | null>(null)
 const workspaceDropdownOpen = ref(false)
@@ -242,6 +243,11 @@ async function onPurchaseNow() {
         billingPeriod: billingPeriod.value,
         workspaceId,
       },
+    })
+    $posthog?.capture('plan_upgrade_initiated', {
+      plan_key: key,
+      billing_period: billingPeriod.value,
+      workspace_id: workspaceId,
     })
     window.location.href = url
   }

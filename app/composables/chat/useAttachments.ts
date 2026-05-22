@@ -41,7 +41,7 @@ export function useAttachments() {
     const p = (async () => {
       try {
         const token = await getAuthToken()
-        const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+        const baseURL = config.public.serverUrl as string
         const params = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
         const res = await fetch(`${baseURL}/upload-config${params}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -150,7 +150,7 @@ export function useAttachments() {
       xhrMap.delete(localId)
     })
 
-    const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+    const baseURL = config.public.serverUrl as string
     xhr.open('POST', `${baseURL}/sessions/${sessionId}/files`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.send(formData)
@@ -168,7 +168,7 @@ export function useAttachments() {
 
     if (entry && entry.status === 'done' && sessionId) {
       getAuthToken().then((token) => {
-        const baseURL = (config.public.serverUrl as string).replace(/\/$/, '')
+        const baseURL = config.public.serverUrl as string
         fetch(`${baseURL}/sessions/${sessionId}/files/${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },

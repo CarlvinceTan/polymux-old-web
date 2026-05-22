@@ -1,6 +1,7 @@
 import type Stripe from 'stripe'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { useStripe } from '~~/server/utils/billing/stripe'
+import { useServerPostHog } from '~~/server/utils/posthog'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -79,6 +80,16 @@ export default defineEventHandler(async (event) => {
           console.error('[stripe/webhook] Failed to create top-up transaction', { walletId, error: txError })
         } else {
           console.info('[stripe/webhook] Wallet top-up processed', { walletId, amountCents, userId })
+          useServerPostHog().capture({
+            distinctId: userId ?? walletId,
+            event: 'wallet_top_up_completed',
+            properties: {
+              wallet_id: walletId,
+              amount_cents: amountCents,
+              new_balance_cents: newBalance,
+              workspace_id: wallet.workspace_id,
+            },
+          })
         }
       }
     } else {
@@ -96,6 +107,14 @@ export default defineEventHandler(async (event) => {
         }
         else {
           console.info('[stripe/webhook] Workspace plan updated', { workspaceId, planKey, userId })
+          useServerPostHog().capture({
+            distinctId: userId ?? workspaceId,
+            event: 'subscription_activated',
+            properties: {
+              plan_key: planKey,
+              workspace_id: workspaceId,
+            },
+          })
         }
       }
       else {
@@ -118,6 +137,12 @@ export default defineEventHandler(async (event) => {
       }
       else {
         console.info('[stripe/webhook] Workspace plan reset to free', { workspaceId })
+        const userId = subscription.metadata?.userId
+        useServerPostHog().capture({
+          distinctId: userId ?? workspaceId,
+          event: 'subscription_cancelled',
+          properties: { workspace_id: workspaceId },
+        })
       }
     }
   }

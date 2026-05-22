@@ -332,6 +332,7 @@ export async function b2UploadBytes(
       'X-Bz-File-Name': encodedKey,
       'Content-Type': contentType || 'b2/x-auto',
       'X-Bz-Content-Sha1': sha1,
+      'X-Bz-Server-Side-Encryption': 'AES256',
       'Content-Length': String(bytes.length),
     },
     // fetch() BodyInit excludes Node Buffer in dom lib typings; coerce to U8Array.

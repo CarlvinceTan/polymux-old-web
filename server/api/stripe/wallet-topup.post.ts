@@ -1,8 +1,14 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { serverSupabaseUser } from '#supabase/server'
 import { useStripe } from '~~/server/utils/billing/stripe'
+import { walletEnabled } from '~~/server/utils/billing/walletEnabled'
+import { useServerPostHog } from '~~/server/utils/posthog'
 
 export default defineEventHandler(async (event) => {
+  if (!walletEnabled()) {
+    throw createError({ statusCode: 404, statusMessage: 'Wallet feature is not enabled.' })
+  }
+
   const user = await serverSupabaseUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Not authenticated.' })
@@ -91,6 +97,19 @@ export default defineEventHandler(async (event) => {
   if (!session.url) {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create checkout session.' })
   }
+
+  const sessionId = getHeader(event, 'x-posthog-session-id')
+  const distinctId = getHeader(event, 'x-posthog-distinct-id')
+  const posthog = useServerPostHog()
+  posthog.capture({
+    distinctId: distinctId ?? user.sub,
+    event: 'wallet_top_up_checkout_started',
+    properties: {
+      $session_id: sessionId,
+      amount_cents: amountCents,
+      workspace_id: workspaceId,
+    },
+  })
 
   return { url: session.url }
 })

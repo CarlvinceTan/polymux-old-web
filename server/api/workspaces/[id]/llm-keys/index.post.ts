@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   if (wsError || !ws) {
     throw createError({ statusCode: 404, statusMessage: 'Workspace not found.' })
   }
-  if (planLimitsEnforce() && !byokAllowed(typeof ws.plan === 'string' ? ws.plan : 'free')) {
+  if (await planLimitsEnforce() && !byokAllowed(typeof ws.plan === 'string' ? ws.plan : 'free')) {
     throw createError({
       statusCode: 402,
       statusMessage: 'BYOK is available on Pro and above. Upgrade your plan to bring your own LLM API key.',

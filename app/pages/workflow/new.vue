@@ -53,6 +53,7 @@ const { currentWorkspaceId, currentWorkspace } = useWorkspaces()
 const guardWorkspaceId = computed(() => currentWorkspaceId.value ?? '')
 const guardWorkspacePlan = computed(() => currentWorkspace.value?.plan ?? null)
 const { canSendPrompt } = useChatPromptSendGuard(guardWorkspaceId, guardWorkspacePlan)
+const { $posthog } = useNuxtApp()
 
 async function beforeSendPrompt(text: string, _attachments: ChatMessageAttachment[]) {
   const t = text.trim()
@@ -80,6 +81,10 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
   isSending.value = true
   try {
     const id = draft.value.id
+    $posthog?.capture('workflow_submitted', {
+      workspace_id: currentWorkspaceId.value,
+      has_attachments: attachments.length > 0,
+    })
     setPendingPrompt(id, { text, attachments })
     // Optimistically move the draft into the real-sessions list. The backend
     // commits the workflows row synchronously inside handleUserMessage on the

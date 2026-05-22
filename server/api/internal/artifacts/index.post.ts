@@ -103,7 +103,7 @@ export default defineEventHandler(async (event) => {
     if (Number.isFinite(n) && n > 0) usage += Math.floor(n)
   }
 
-  if (planLimitsEnforce() && cap > 0 && usage + sizeBytes > cap) {
+  if (await planLimitsEnforce() && cap > 0 && usage + sizeBytes > cap) {
     console.warn('[internal/artifacts] cap rejection', {
       workspaceId, plan, usage, size: sizeBytes, cap,
     })

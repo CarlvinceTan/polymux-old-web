@@ -11,7 +11,7 @@ let _initialized = false
 let _baseURL = ''
 
 function _healthUrl() {
-  return `${_baseURL.replace(/\/$/, '')}/health`
+  return `${_baseURL}/health`
 }
 
 async function _check() {

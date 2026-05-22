@@ -118,6 +118,8 @@ export function useWorkflowList() {
   const { currentWorkspaceId, waitForWorkspace } = useWorkspaces()
   const currentUser = useSupabaseUser()
   const queryClient = useQueryClient()
+  const supabase = useSupabaseClient()
+  const serverBaseURL = useRuntimeConfig().public.serverUrl as string
 
   function visibleReal(all: WorkflowSummary[]): WorkflowSummary[] {
     const me = currentUser.value?.id
@@ -138,17 +140,20 @@ export function useWorkflowList() {
 
   const realSessions = computed(() => query.data.value ?? [])
 
-  /** GET /draft-sessions/{id} → 204 when the server draft registry still holds this id. */
+  /** GET /draft-sessions/{id} → 204 when the server draft registry still holds this id.
+   *  Uses native fetch instead of authFetch/$fetch so a stale-draft 404 doesn't
+   *  throw through ofetch and generate a noisy console stack trace via the
+   *  tracing middleware. */
   async function validateDraftSession(id: string): Promise<boolean> {
     try {
-      await authFetch(`/draft-sessions/${encodeURIComponent(id)}`)
-      return true
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return false
+      const res = await fetch(`${serverBaseURL}/draft-sessions/${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      return res.ok
     }
-    catch (err) {
-      const e = err as { status?: number; statusCode?: number }
-      const code = e.status ?? e.statusCode ?? 0
-      if (code === 404) return false
-      console.warn('[useWorkflowList] validateDraftSession failed', err)
+    catch {
       return false
     }
   }
@@ -420,13 +425,10 @@ export function useWorkflowList() {
       dropDraft()
       return
     }
-    const supabase = useSupabaseClient()
-    const config = useRuntimeConfig()
-    const baseURL = config.public.serverUrl as string
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      await fetch(`${baseURL}/sessions/${id}`, {
+      await fetch(`${serverBaseURL}/sessions/${id}`, {
         method: 'DELETE',
         keepalive: true,
         headers: {

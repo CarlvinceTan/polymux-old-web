@@ -14,6 +14,7 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { fetchWorkspaces, switchWorkspace } = useWorkspaces()
+const { $posthog } = useNuxtApp()
 
 const token = computed(() => (route.query.token as string | undefined) ?? '')
 
@@ -84,6 +85,11 @@ async function acceptInvitation() {
     await fetchWorkspaces()
     switchWorkspace(result.workspace_id)
   }
+  $posthog?.capture('invitation_accepted', {
+    workspace_name: preview.value?.workspace_name,
+    role: preview.value?.role,
+    workspace_id: result?.workspace_id,
+  })
   status.value = 'accepted'
 }
 
