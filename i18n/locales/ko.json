@@ -961,6 +961,77 @@
     "deleteError": "아티팩트를 삭제할 수 없습니다."
   },
   "landing": {
+    "useNow": "지금 사용하기",
+    "meta": {
+      "title": "브라우저 자동화를 위한 AI 에이전트",
+      "description": "Polymux는 브라우저 자동화를 위한 AI 에이전트를 오케스트레이션합니다. 라이브 브라우저 세션, 보안 Vault, 재현 가능한 실행을 갖춘 멀티 에이전트 워크플로 — 팀을 위해 만들어졌습니다."
+    },
+    "hero": {
+      "title": "라이브 웹을 위한 AI 에이전트",
+      "subtitle": "워크플로를 자동화하는 지능형 AI 에이전트를 배포, 관리, 확장하세요. 간단한 작업부터 복잡한 멀티 에이전트 오케스트레이션까지 — Polymux가 제어권을 제공합니다.",
+      "joinCommunity": "커뮤니티 참여",
+      "rotatingPhrases": {
+        "liveBrowser": "라이브 브라우저 세션.",
+        "multiAgent": "멀티 에이전트 핸드오프.",
+        "vault": "Vault로 보호된 비밀.",
+        "replayable": "재현 가능한 워크플로."
+      }
+    },
+    "features": {
+      "title": "자동화에 필요한 모든 것",
+      "subtitle": "모든 규모에서 AI 기반 워크플로를 구축, 배포, 관리하는 강력한 기능.",
+      "items": {
+        "orchestration": {
+          "title": "멀티 에이전트 오케스트레이션",
+          "description": "병렬로 작업하는 여러 AI 에이전트를 배포하고 조율하세요. 각 에이전트는 자체 브라우저 세션, 도구, 컨텍스트로 독립적으로 작동 — Polymux가 모두 동기화합니다."
+        },
+        "browser": {
+          "title": "라이브 브라우저 세션",
+          "description": "에이전트가 웹사이트와 실시간으로 상호작용하는 모습을 확인하세요. 모든 클릭, 스크롤, 양식 입력이 대시보드에 라이브로 스트리밍되어 자동화 워크플로를 완전히 파악할 수 있습니다."
+        },
+        "vault": {
+          "title": "보안 Vault",
+          "description": "자격 증명, API 키, 민감한 데이터를 위한 엔터프라이즈급 암호화. 에이전트는 필요한 것만 접근하고 비밀을 노출하지 않으며, 완전한 감사 로그를 제공합니다."
+        },
+        "marketplace": {
+          "title": "스마트 마켓플레이스",
+          "description": "사전 구축된 에이전트, 워크플로, 통합을 발견하고 설치하세요. 좋아하는 도구를 몇 초 만에 연결하거나 자신만의 자동화를 게시하세요."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "워크스페이스당 요금",
+      "title": "간단하고 투명한 요금",
+      "subtitle": "무료로 시작하세요. 성장에 맞춰 확장하세요. 숨겨진 수수료 없음. 각 워크스페이스는 별도로 청구 — 필요한 것만 업그레이드하세요.",
+      "annual": "연간",
+      "monthly": "월간",
+      "purchaseNow": "지금 구매",
+      "plans": {
+        "free": { "name": "Free", "cta": "시작하기" },
+        "pro": { "name": "Pro", "cta": "플랜 선택" },
+        "max": { "name": "Max", "cta": "플랜 선택" },
+        "enterprise": { "name": "Enterprise", "cta": "영업팀 문의" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "워크스페이스당 AI 에이전트",
+        "monthlyTasks": "워크스페이스당 월간 작업",
+        "browserSessions": "워크스페이스당 브라우저 세션",
+        "workspaceStorage": "워크스페이스 스토리지",
+        "workspaceMembers": "워크스페이스 멤버",
+        "customWorkflows": "맞춤 워크플로",
+        "prioritySupport": "우선 지원",
+        "custom": "맞춤",
+        "unlimited": "무제한"
+      }
+    },
+    "reviews": {
+      "title": "전 세계에서 사랑받고 있습니다",
+      "subtitle": "Polymux에 대한 사용자들의 이야기를 확인하세요."
+    },
+    "cta": {
+      "title": "기대되시나요?",
+      "joinCommunity": "커뮤니티 참여"
+    },
     "nav": {
       "home": "홈",
       "features": "기능",
@@ -973,7 +1044,8 @@
       "accountMenu": "계정 메뉴",
       "language": "언어",
       "settings": "설정",
-      "signOut": "로그아웃"
+      "signOut": "로그아웃",
+      "toggleMenu": "메뉴 전환"
     },
     "footer": {
       "tagline": "지능형 AI 에이전트를 구축, 배포 및 관리하여 워크플로우를 자동화하세요.",

@@ -961,6 +961,77 @@
     "deleteError": "Artefakt konnte nicht gelöscht werden."
   },
   "landing": {
+    "useNow": "Jetzt nutzen",
+    "meta": {
+      "title": "KI-Agenten für Browser-Automatisierung",
+      "description": "Polymux orchestriert KI-Agenten für Browser-Automatisierung. Multi-Agenten-Workflows mit Live-Browsersitzungen, sicheren Tresoren und wiederholbaren Runs — entwickelt für Teams."
+    },
+    "hero": {
+      "title": "KI-Agenten für das Live-Web",
+      "subtitle": "Stellen Sie intelligente KI-Agenten bereit, verwalten und skalieren Sie sie, um Ihre Workflows zu automatisieren. Von einfachen Aufgaben bis zur komplexen Multi-Agenten-Orchestrierung — Polymux gibt Ihnen die Kontrolle.",
+      "joinCommunity": "Der Community beitreten",
+      "rotatingPhrases": {
+        "liveBrowser": "Live-Browsersitzungen.",
+        "multiAgent": "Multi-Agenten-Übergaben.",
+        "vault": "Tresor-sichere Geheimnisse.",
+        "replayable": "Wiederholbare Workflows."
+      }
+    },
+    "features": {
+      "title": "Alles, was Sie zur Automatisierung brauchen",
+      "subtitle": "Leistungsstarke Funktionen zum Erstellen, Bereitstellen und Verwalten KI-gestützter Workflows in jeder Größenordnung.",
+      "items": {
+        "orchestration": {
+          "title": "Multi-Agenten-Orchestrierung",
+          "description": "Stellen Sie mehrere parallel arbeitende KI-Agenten bereit und koordinieren Sie sie. Jeder Agent arbeitet unabhängig mit eigener Browsersitzung, Tools und Kontext — während Polymux alle synchron hält."
+        },
+        "browser": {
+          "title": "Live-Browsersitzungen",
+          "description": "Beobachten Sie in Echtzeit, wie Ihre Agenten mit Websites interagieren. Jeder Klick, Scroll und jede Formularausfüllung wird live in Ihr Dashboard gestreamt und gibt volle Transparenz über automatisierte Workflows."
+        },
+        "vault": {
+          "title": "Sicherer Tresor",
+          "description": "Verschlüsselung auf Unternehmensniveau für Anmeldedaten, API-Schlüssel und sensible Daten. Agenten greifen genau auf das zu, was sie brauchen, ohne Ihre Geheimnisse preiszugeben — mit vollständiger Audit-Protokollierung."
+        },
+        "marketplace": {
+          "title": "Intelligenter Marketplace",
+          "description": "Entdecken und installieren Sie vorgefertigte Agenten, Workflows und Integrationen. Verbinden Sie Ihre Lieblingstools in Sekunden oder veröffentlichen Sie eigene Automatisierungen für andere."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Preis pro Workspace",
+      "title": "Einfache, transparente Preise",
+      "subtitle": "Starten Sie kostenlos. Skalieren Sie mit Ihrem Wachstum. Keine versteckten Gebühren. Jeder Workspace wird separat abgerechnet — upgraden Sie nur die, die Sie brauchen.",
+      "annual": "Jährlich",
+      "monthly": "Monatlich",
+      "purchaseNow": "Jetzt kaufen",
+      "plans": {
+        "free": { "name": "Free", "cta": "Loslegen" },
+        "pro": { "name": "Pro", "cta": "Plan wählen" },
+        "max": { "name": "Max", "cta": "Plan wählen" },
+        "enterprise": { "name": "Enterprise", "cta": "Vertrieb kontaktieren" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "KI-Agenten pro Workspace",
+        "monthlyTasks": "Monatliche Aufgaben pro Workspace",
+        "browserSessions": "Browsersitzungen pro Workspace",
+        "workspaceStorage": "Workspace-Speicher",
+        "workspaceMembers": "Workspace-Mitglieder",
+        "customWorkflows": "Eigene Workflows",
+        "prioritySupport": "Prioritäts-Support",
+        "custom": "Individuell",
+        "unlimited": "Unbegrenzt"
+      }
+    },
+    "reviews": {
+      "title": "Weltweit beliebt",
+      "subtitle": "Erfahren Sie, was unsere Nutzer über Polymux sagen."
+    },
+    "cta": {
+      "title": "Begeistert?",
+      "joinCommunity": "Der Community beitreten"
+    },
     "nav": {
       "home": "Startseite",
       "features": "Funktionen",
@@ -973,7 +1044,8 @@
       "accountMenu": "Kontomenü",
       "language": "Sprache",
       "settings": "Einstellungen",
-      "signOut": "Abmelden"
+      "signOut": "Abmelden",
+      "toggleMenu": "Menü umschalten"
     },
     "footer": {
       "tagline": "Erstellen, stellen Sie bereit und verwalten Sie intelligente KI-Agenten, die Ihre Workflows automatisieren.",

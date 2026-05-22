@@ -1,17 +1,18 @@
 <script setup lang="ts">
 /** Marketing home body: hero, features, pricing, reviews, CTA. Imported by `index.vue` for `/`; not a file-based route (see `nuxt.config` `pages:extend`). */
 
+const { t } = useI18n()
+
 useHead({
-  title: 'AI Agents for Browser Automation',
+  title: () => t('landing.meta.title'),
   meta: [
     {
       name: 'description',
-      content: 'Polymux orchestrates AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs — built for teams.',
+      content: () => t('landing.meta.description'),
     },
   ],
 })
 
-const { t } = useI18n()
 const route = useRoute()
 
 function scrollToHash() {
@@ -25,35 +26,31 @@ function scrollToHash() {
 onMounted(scrollToHash)
 watch(() => route.fullPath, scrollToHash)
 
-const heroRotatingPhrases = [
-  'Live browser sessions.',
-  'Multi-agent handoffs.',
-  'Vault-safe secrets.',
-  'Replayable workflows.',
-]
+const heroRotatingPhrases = computed(() => [
+  t('landing.hero.rotatingPhrases.liveBrowser'),
+  t('landing.hero.rotatingPhrases.multiAgent'),
+  t('landing.hero.rotatingPhrases.vault'),
+  t('landing.hero.rotatingPhrases.replayable'),
+])
 
-const features = [
+const features = computed(() => [
   {
-    title: 'Multi-Agent Orchestration',
-    description:
-      'Deploy and coordinate multiple AI agents working in parallel. Each agent operates independently with its own browser session, tools, and context — while Polymux keeps them all in sync.',
+    title: t('landing.features.items.orchestration.title'),
+    description: t('landing.features.items.orchestration.description'),
   },
   {
-    title: 'Live Browser Sessions',
-    description:
-      'Watch your agents interact with websites in real-time. Every click, scroll, and form fill is streamed live to your dashboard, giving you full visibility into automated workflows.',
+    title: t('landing.features.items.browser.title'),
+    description: t('landing.features.items.browser.description'),
   },
   {
-    title: 'Secure Vault',
-    description:
-      'Enterprise-grade encryption for your credentials, API keys, and sensitive data. Agents access exactly what they need without exposing your secrets, with full audit logging.',
+    title: t('landing.features.items.vault.title'),
+    description: t('landing.features.items.vault.description'),
   },
   {
-    title: 'Smart Marketplace',
-    description:
-      'Discover and install pre-built agents, workflows, and integrations. Connect your favourite tools in seconds, or publish your own automations for others to use.',
+    title: t('landing.features.items.marketplace.title'),
+    description: t('landing.features.items.marketplace.description'),
   },
-]
+])
 
 type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
 
@@ -65,15 +62,57 @@ interface PlanFeatureRow {
   enterprise: string | boolean
 }
 
-const planFeatures: PlanFeatureRow[] = [
-  { name: 'AI Agents per workspace', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
-  { name: 'Monthly Tasks per workspace', free: '100', pro: '1,000', max: '10,000', enterprise: 'Unlimited' },
-  { name: 'Browser Sessions per workspace', free: '2', pro: '8', max: '20', enterprise: 'Custom' },
-  { name: 'Workspace Storage', free: '100 MB', pro: '5 GB', max: '50 GB', enterprise: 'Unlimited' },
-  { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
-  { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
-  { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
-]
+const planFeatures = computed<PlanFeatureRow[]>(() => [
+  {
+    name: t('landing.pricing.comparison.agentsPerWorkspace'),
+    free: '3',
+    pro: '10',
+    max: '50',
+    enterprise: t('landing.pricing.comparison.custom'),
+  },
+  {
+    name: t('landing.pricing.comparison.monthlyTasks'),
+    free: '100',
+    pro: '1,000',
+    max: '10,000',
+    enterprise: t('landing.pricing.comparison.unlimited'),
+  },
+  {
+    name: t('landing.pricing.comparison.browserSessions'),
+    free: '2',
+    pro: '8',
+    max: '20',
+    enterprise: t('landing.pricing.comparison.custom'),
+  },
+  {
+    name: t('landing.pricing.comparison.workspaceStorage'),
+    free: '100 MB',
+    pro: '5 GB',
+    max: '50 GB',
+    enterprise: t('landing.pricing.comparison.unlimited'),
+  },
+  {
+    name: t('landing.pricing.comparison.workspaceMembers'),
+    free: '3',
+    pro: '10',
+    max: '50',
+    enterprise: t('landing.pricing.comparison.custom'),
+  },
+  {
+    name: t('landing.pricing.comparison.customWorkflows'),
+    free: false,
+    pro: true,
+    max: true,
+    enterprise: true,
+  },
+  {
+    name: t('landing.pricing.comparison.prioritySupport'),
+    free: false,
+    pro: false,
+    max: true,
+    enterprise: true,
+  },
+])
 
 type BillingPeriod = 'annual' | 'monthly'
 
@@ -97,12 +136,12 @@ onMounted(async () => {
   }
 })
 
-const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
-  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
-  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true },
-  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false },
-  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false },
-]
+const planMeta = computed<{ key: PlanKey; name: string; cta: string; highlighted: boolean }[]>(() => [
+  { key: 'free', name: t('landing.pricing.plans.free.name'), cta: t('landing.pricing.plans.free.cta'), highlighted: false },
+  { key: 'pro', name: t('landing.pricing.plans.pro.name'), cta: t('landing.pricing.plans.pro.cta'), highlighted: true },
+  { key: 'max', name: t('landing.pricing.plans.max.name'), cta: t('landing.pricing.plans.max.cta'), highlighted: false },
+  { key: 'enterprise', name: t('landing.pricing.plans.enterprise.name'), cta: t('landing.pricing.plans.enterprise.cta'), highlighted: false },
+])
 
 const planOrder: PlanKey[] = ['free', 'pro', 'max', 'enterprise']
 const user = useSupabaseUser()
@@ -162,7 +201,7 @@ function planCellDetail(row: PlanFeatureRow, key: PlanKey): string | null {
 }
 
 function planItemsForKey(key: PlanKey) {
-  return planFeatures.map((row) => {
+  return planFeatures.value.map((row) => {
     const included = planCellIncluded(row, key)
     const detail = planCellDetail(row, key)
     const label = detail ? `${row.name} (${detail})` : row.name
@@ -218,16 +257,14 @@ const featureDemoSources: string[] = ['']
         <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div class="flex flex-col gap-6">
             <h1 class="text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
-              <span class="block">AI agents for the live web</span>
+              <span class="block">{{ t('landing.hero.title') }}</span>
               <RotatingBlockDisplay
                 :phrases="heroRotatingPhrases"
                 class="mt-1.5 block font-medium text-neutral-600"
               />
             </h1>
             <p class="max-w-lg text-lg leading-relaxed text-neutral-500">
-              Deploy, manage, and scale intelligent AI agents that automate your
-              workflows. From simple tasks to complex multi-agent orchestration
-              &mdash; Polymux puts you in control.
+              {{ t('landing.hero.subtitle') }}
             </p>
             <div class="flex items-center gap-3 pt-2">
               <NuxtLink
@@ -240,7 +277,7 @@ const featureDemoSources: string[] = ['']
                  to="/community"
                 class="rounded-md border border-neutral-300 px-6 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
               >
-                Join the Community
+            {{ t('landing.cta.joinCommunity') }}
               </NuxtLink>
             </div>
           </div>
@@ -259,11 +296,10 @@ const featureDemoSources: string[] = ['']
       <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div class="mb-16 text-center">
           <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-            Everything you need to automate
+            {{ t('landing.features.title') }}
           </h2>
           <p class="mt-4 text-lg text-neutral-500">
-            Powerful features to build, deploy, and manage AI-powered workflows at
-            any scale.
+            {{ t('landing.features.subtitle') }}
           </p>
         </div>
         <div class="relative">
@@ -318,13 +354,13 @@ const featureDemoSources: string[] = ['']
               <rect x="3" y="3" width="18" height="18" rx="3" />
               <path d="M3 9h18M9 21V9" />
             </svg>
-            Priced per workspace
+            {{ t('landing.pricing.badge') }}
           </span>
           <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-            Simple, transparent pricing
+            {{ t('landing.pricing.title') }}
           </h2>
           <p class="mt-3 max-w-2xl text-lg text-neutral-500 sm:mt-4">
-            Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
+            {{ t('landing.pricing.subtitle') }}
           </p>
         </div>
         <div class="mb-5 flex justify-center sm:mb-6">
@@ -344,7 +380,7 @@ const featureDemoSources: string[] = ['']
               :aria-pressed="billingPeriod === 'annual'"
               @click="billingPeriod = 'annual'"
             >
-              Annual
+              {{ t('landing.pricing.annual') }}
             </button>
             <button
               type="button"
@@ -357,7 +393,7 @@ const featureDemoSources: string[] = ['']
               :aria-pressed="billingPeriod === 'monthly'"
               @click="billingPeriod = 'monthly'"
             >
-              Monthly
+              {{ t('landing.pricing.monthly') }}
             </button>
           </div>
         </div>
@@ -386,7 +422,7 @@ const featureDemoSources: string[] = ['']
             class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
             @click="onPurchaseNow"
           >
-            Purchase now
+            {{ t('landing.pricing.purchaseNow') }}
           </button>
         </div>
       </div>
@@ -398,14 +434,14 @@ const featureDemoSources: string[] = ['']
     <div class="bg-neutral-950 py-16 sm:py-20">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-10 px-4 sm:px-6 lg:flex-row lg:px-8">
         <h2 class="text-center text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-left">
-          Excited?
+          {{ t('landing.cta.title') }}
         </h2>
         <div class="flex flex-col gap-3 sm:min-w-64">
           <NuxtLink
             to="/community"
             class="rounded-lg border border-neutral-600 px-8 py-3.5 text-center text-base font-medium text-white transition-colors hover:border-neutral-400 hover:bg-neutral-800"
           >
-            Join the Community
+            {{ t('landing.cta.joinCommunity') }}
           </NuxtLink>
           <NuxtLink
             to="/workflow/new"

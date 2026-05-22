@@ -961,6 +961,77 @@
     "deleteError": "No se pudo eliminar el artefacto."
   },
   "landing": {
+    "useNow": "Usar ahora",
+    "meta": {
+      "title": "Agentes de IA para automatización del navegador",
+      "description": "Polymux orquesta agentes de IA para automatización del navegador. Flujos multiagente con sesiones de navegador en vivo, bóvedas seguras y ejecuciones reproducibles — diseñado para equipos."
+    },
+    "hero": {
+      "title": "Agentes de IA para la web en vivo",
+      "subtitle": "Implementa, gestiona y escala agentes de IA inteligentes que automatizan tus flujos de trabajo. Desde tareas simples hasta orquestación multiagente compleja — Polymux te da el control.",
+      "joinCommunity": "Unirse a la comunidad",
+      "rotatingPhrases": {
+        "liveBrowser": "Sesiones de navegador en vivo.",
+        "multiAgent": "Transferencias multiagente.",
+        "vault": "Secretos seguros en la bóveda.",
+        "replayable": "Flujos de trabajo reproducibles."
+      }
+    },
+    "features": {
+      "title": "Todo lo que necesitas para automatizar",
+      "subtitle": "Funciones potentes para crear, implementar y gestionar flujos de trabajo impulsados por IA a cualquier escala.",
+      "items": {
+        "orchestration": {
+          "title": "Orquestación multiagente",
+          "description": "Implementa y coordina múltiples agentes de IA trabajando en paralelo. Cada agente opera de forma independiente con su propia sesión de navegador, herramientas y contexto — mientras Polymux los mantiene sincronizados."
+        },
+        "browser": {
+          "title": "Sesiones de navegador en vivo",
+          "description": "Observa cómo tus agentes interactúan con sitios web en tiempo real. Cada clic, desplazamiento y relleno de formulario se transmite en vivo a tu panel, dándote visibilidad total de los flujos automatizados."
+        },
+        "vault": {
+          "title": "Bóveda segura",
+          "description": "Cifrado de nivel empresarial para credenciales, claves API y datos sensibles. Los agentes acceden exactamente a lo que necesitan sin exponer tus secretos, con registro de auditoría completo."
+        },
+        "marketplace": {
+          "title": "Marketplace inteligente",
+          "description": "Descubre e instala agentes, flujos de trabajo e integraciones predefinidos. Conecta tus herramientas favoritas en segundos o publica tus propias automatizaciones para que otros las usen."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Precio por workspace",
+      "title": "Precios simples y transparentes",
+      "subtitle": "Empieza gratis. Escala a medida que creces. Sin tarifas ocultas. Cada workspace se factura por separado — mejora solo los que necesites.",
+      "annual": "Anual",
+      "monthly": "Mensual",
+      "purchaseNow": "Comprar ahora",
+      "plans": {
+        "free": { "name": "Free", "cta": "Empezar" },
+        "pro": { "name": "Pro", "cta": "Seleccionar plan" },
+        "max": { "name": "Max", "cta": "Seleccionar plan" },
+        "enterprise": { "name": "Enterprise", "cta": "Contactar ventas" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "Agentes de IA por workspace",
+        "monthlyTasks": "Tareas mensuales por workspace",
+        "browserSessions": "Sesiones de navegador por workspace",
+        "workspaceStorage": "Almacenamiento del workspace",
+        "workspaceMembers": "Miembros del workspace",
+        "customWorkflows": "Flujos de trabajo personalizados",
+        "prioritySupport": "Soporte prioritario",
+        "custom": "Personalizado",
+        "unlimited": "Ilimitado"
+      }
+    },
+    "reviews": {
+      "title": "Amado en todo el mundo",
+      "subtitle": "Descubre lo que nuestros usuarios dicen sobre Polymux."
+    },
+    "cta": {
+      "title": "¿Emocionado?",
+      "joinCommunity": "Unirse a la comunidad"
+    },
     "nav": {
       "home": "Inicio",
       "features": "Características",
@@ -973,7 +1044,8 @@
       "accountMenu": "Menú de cuenta",
       "language": "Idioma",
       "settings": "Configuración",
-      "signOut": "Cerrar sesión"
+      "signOut": "Cerrar sesión",
+      "toggleMenu": "Alternar menú"
     },
     "footer": {
       "tagline": "Crea, implementa y gestiona agentes de IA inteligentes que automatizan tus flujos de trabajo.",

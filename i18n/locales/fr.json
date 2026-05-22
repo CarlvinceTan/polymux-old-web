@@ -961,6 +961,77 @@
     "deleteError": "Impossible de supprimer l'artefact."
   },
   "landing": {
+    "useNow": "Utiliser maintenant",
+    "meta": {
+      "title": "Agents IA pour l'automatisation du navigateur",
+      "description": "Polymux orchestre des agents IA pour l'automatisation du navigateur. Workflows multi-agents avec sessions navigateur en direct, coffres sécurisés et exécutions rejouables — conçu pour les équipes."
+    },
+    "hero": {
+      "title": "Des agents IA pour le web en direct",
+      "subtitle": "Déployez, gérez et faites évoluer des agents IA intelligents qui automatisent vos workflows. Des tâches simples à l'orchestration multi-agents complexe — Polymux vous garde aux commandes.",
+      "joinCommunity": "Rejoindre la communauté",
+      "rotatingPhrases": {
+        "liveBrowser": "Sessions navigateur en direct.",
+        "multiAgent": "Passages multi-agents.",
+        "vault": "Secrets protégés dans le coffre.",
+        "replayable": "Workflows rejouables."
+      }
+    },
+    "features": {
+      "title": "Tout ce qu'il faut pour automatiser",
+      "subtitle": "Des fonctionnalités puissantes pour créer, déployer et gérer des workflows alimentés par l'IA à toute échelle.",
+      "items": {
+        "orchestration": {
+          "title": "Orchestration multi-agents",
+          "description": "Déployez et coordonnez plusieurs agents IA travaillant en parallèle. Chaque agent opère indépendamment avec sa propre session navigateur, ses outils et son contexte — tandis que Polymux les synchronise."
+        },
+        "browser": {
+          "title": "Sessions navigateur en direct",
+          "description": "Observez vos agents interagir avec les sites web en temps réel. Chaque clic, défilement et saisie de formulaire est diffusé en direct sur votre tableau de bord, pour une visibilité totale sur vos workflows automatisés."
+        },
+        "vault": {
+          "title": "Coffre sécurisé",
+          "description": "Chiffrement de niveau entreprise pour vos identifiants, clés API et données sensibles. Les agents accèdent exactement à ce dont ils ont besoin sans exposer vos secrets, avec journalisation d'audit complète."
+        },
+        "marketplace": {
+          "title": "Marketplace intelligent",
+          "description": "Découvrez et installez des agents, workflows et intégrations prêts à l'emploi. Connectez vos outils favoris en quelques secondes, ou publiez vos propres automatisations pour les autres."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Tarif par workspace",
+      "title": "Des tarifs simples et transparents",
+      "subtitle": "Commencez gratuitement. Évoluez à votre rythme. Pas de frais cachés. Chaque workspace est facturé séparément — mettez à niveau uniquement ceux dont vous avez besoin.",
+      "annual": "Annuel",
+      "monthly": "Mensuel",
+      "purchaseNow": "Acheter maintenant",
+      "plans": {
+        "free": { "name": "Free", "cta": "Commencer" },
+        "pro": { "name": "Pro", "cta": "Choisir ce plan" },
+        "max": { "name": "Max", "cta": "Choisir ce plan" },
+        "enterprise": { "name": "Enterprise", "cta": "Contacter les ventes" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "Agents IA par workspace",
+        "monthlyTasks": "Tâches mensuelles par workspace",
+        "browserSessions": "Sessions navigateur par workspace",
+        "workspaceStorage": "Stockage du workspace",
+        "workspaceMembers": "Membres du workspace",
+        "customWorkflows": "Workflows personnalisés",
+        "prioritySupport": "Support prioritaire",
+        "custom": "Sur mesure",
+        "unlimited": "Illimité"
+      }
+    },
+    "reviews": {
+      "title": "Apprécié partout dans le monde",
+      "subtitle": "Découvrez ce que nos utilisateurs disent de Polymux."
+    },
+    "cta": {
+      "title": "Enthousiaste ?",
+      "joinCommunity": "Rejoindre la communauté"
+    },
     "nav": {
       "home": "Accueil",
       "features": "Fonctionnalités",
@@ -973,7 +1044,8 @@
       "accountMenu": "Menu compte",
       "language": "Langue",
       "settings": "Paramètres",
-      "signOut": "Déconnexion"
+      "signOut": "Déconnexion",
+      "toggleMenu": "Basculer le menu"
     },
     "footer": {
       "tagline": "Créez, déployez et gérez des agents IA intelligents qui automatisent vos workflows.",

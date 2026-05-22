@@ -498,12 +498,12 @@ const linkGroups = computed(() => [
                     <!-- Signed-out: sign in button -->
                     <NuxtLink v-if="!user" to="/sign-in?redirect=/"
                         class="hidden rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90 md:inline-flex md:items-center md:justify-center">
-                        Sign in
+                        {{ t('common.signIn') }}
                     </NuxtLink>
 
                     <button type="button"
                         class="flex size-9 items-center justify-center rounded-md transition-colors hover:bg-neutral-100 md:hidden"
-                        aria-label="Toggle menu" @click="mobileOpen = !mobileOpen">
+                        :aria-label="t('landing.header.toggleMenu')" @click="mobileOpen = !mobileOpen">
                         <svg v-if="!mobileOpen" class="size-5 text-neutral-700" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor" stroke-width="1.5">
                             <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -595,7 +595,7 @@ const linkGroups = computed(() => [
                         <!-- Signed-out: sign in button -->
                         <NuxtLink v-else to="/sign-in?redirect=/"
                             class="inline-flex w-full items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium leading-tight text-white transition-opacity hover:opacity-90">
-                            Sign in
+                            {{ t('common.signIn') }}
                         </NuxtLink>
                     </nav>
                 </div>
@@ -611,7 +611,7 @@ const linkGroups = computed(() => [
                 <div class="grid gap-12 lg:grid-cols-6">
                     <div class="lg:col-span-2">
                         <button type="button" class="inline-flex cursor-pointer items-center border-0 bg-transparent p-0 text-inherit"
-                            aria-label="Home" @click="scrollToHome">
+                            :aria-label="t('landing.nav.home')" @click="scrollToHome">
                             <InlineLogo size="xl" />
                         </button>
                         <p class="mt-4 max-w-xs text-sm leading-relaxed text-neutral-500">

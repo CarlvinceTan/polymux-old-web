@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 interface Review {
   name: string
   handle: string
@@ -23,10 +25,10 @@ const doubledReviews = [...reviews, ...reviews]
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
       <div class="mb-12 text-center">
         <h2 class="text-3xl font-bold tracking-tight text-neutral-950 sm:text-4xl">
-          Loved by people everywhere
+          {{ t('landing.reviews.title') }}
         </h2>
         <p class="mt-4 text-lg text-neutral-500">
-          See what our users have to say about Polymux.
+          {{ t('landing.reviews.subtitle') }}
         </p>
       </div>
     </div>

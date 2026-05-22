@@ -964,6 +964,76 @@
   },
   "landing": {
     "useNow": "Use now",
+    "meta": {
+      "title": "AI Agents for Browser Automation",
+      "description": "Polymux orchestrates AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs — built for teams."
+    },
+    "hero": {
+      "title": "AI agents for the live web",
+      "subtitle": "Deploy, manage, and scale intelligent AI agents that automate your workflows. From simple tasks to complex multi-agent orchestration — Polymux puts you in control.",
+      "joinCommunity": "Join the Community",
+      "rotatingPhrases": {
+        "liveBrowser": "Live browser sessions.",
+        "multiAgent": "Multi-agent handoffs.",
+        "vault": "Vault-safe secrets.",
+        "replayable": "Replayable workflows."
+      }
+    },
+    "features": {
+      "title": "Everything you need to automate",
+      "subtitle": "Powerful features to build, deploy, and manage AI-powered workflows at any scale.",
+      "items": {
+        "orchestration": {
+          "title": "Multi-Agent Orchestration",
+          "description": "Deploy and coordinate multiple AI agents working in parallel. Each agent operates independently with its own browser session, tools, and context — while Polymux keeps them all in sync."
+        },
+        "browser": {
+          "title": "Live Browser Sessions",
+          "description": "Watch your agents interact with websites in real-time. Every click, scroll, and form fill is streamed live to your dashboard, giving you full visibility into automated workflows."
+        },
+        "vault": {
+          "title": "Secure Vault",
+          "description": "Enterprise-grade encryption for your credentials, API keys, and sensitive data. Agents access exactly what they need without exposing your secrets, with full audit logging."
+        },
+        "marketplace": {
+          "title": "Smart Marketplace",
+          "description": "Discover and install pre-built agents, workflows, and integrations. Connect your favourite tools in seconds, or publish your own automations for others to use."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Priced per workspace",
+      "title": "Simple, transparent pricing",
+      "subtitle": "Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.",
+      "annual": "Annual",
+      "monthly": "Monthly",
+      "purchaseNow": "Purchase now",
+      "plans": {
+        "free": { "name": "Free", "cta": "Get Started" },
+        "pro": { "name": "Pro", "cta": "Select Plan" },
+        "max": { "name": "Max", "cta": "Select Plan" },
+        "enterprise": { "name": "Enterprise", "cta": "Contact Sales" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "AI Agents per workspace",
+        "monthlyTasks": "Monthly Tasks per workspace",
+        "browserSessions": "Browser Sessions per workspace",
+        "workspaceStorage": "Workspace Storage",
+        "workspaceMembers": "Workspace Members",
+        "customWorkflows": "Custom Workflows",
+        "prioritySupport": "Priority Support",
+        "custom": "Custom",
+        "unlimited": "Unlimited"
+      }
+    },
+    "reviews": {
+      "title": "Loved by people everywhere",
+      "subtitle": "See what our users have to say about Polymux."
+    },
+    "cta": {
+      "title": "Excited?",
+      "joinCommunity": "Join the Community"
+    },
     "nav": {
       "home": "Home",
       "features": "Features",
@@ -976,7 +1046,8 @@
       "accountMenu": "Account menu",
       "language": "Language",
       "settings": "Settings",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "toggleMenu": "Toggle menu"
     },
     "footer": {
       "tagline": "Build, deploy, and manage intelligent AI agents that automate your workflows.",

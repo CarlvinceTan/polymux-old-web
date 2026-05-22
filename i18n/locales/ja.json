@@ -961,6 +961,77 @@
     "deleteError": "アーティファクトを削除できませんでした。"
   },
   "landing": {
+    "useNow": "今すぐ使う",
+    "meta": {
+      "title": "ブラウザ自動化のためのAIエージェント",
+      "description": "Polymuxはブラウザ自動化のためのAIエージェントをオーケストレーションします。ライブブラウザセッション、安全なVault、再生可能な実行を備えたマルチエージェントワークフロー — チーム向けに構築されています。"
+    },
+    "hero": {
+      "title": "ライブWebのためのAIエージェント",
+      "subtitle": "ワークフローを自動化するインテリジェントなAIエージェントを展開、管理、スケール。シンプルなタスクから複雑なマルチエージェントオーケストレーションまで — Polymuxがあなたをコントロールします。",
+      "joinCommunity": "コミュニティに参加",
+      "rotatingPhrases": {
+        "liveBrowser": "ライブブラウザセッション。",
+        "multiAgent": "マルチエージェント引き継ぎ。",
+        "vault": "Vaultで保護されたシークレット。",
+        "replayable": "再生可能なワークフロー。"
+      }
+    },
+    "features": {
+      "title": "自動化に必要なすべて",
+      "subtitle": "あらゆる規模でAIを活用したワークフローを構築、展開、管理するための強力な機能。",
+      "items": {
+        "orchestration": {
+          "title": "マルチエージェントオーケストレーション",
+          "description": "並列で動作する複数のAIエージェントを展開・調整。各エージェントは独自のブラウザセッション、ツール、コンテキストで独立して動作 — Polymuxがすべてを同期します。"
+        },
+        "browser": {
+          "title": "ライブブラウザセッション",
+          "description": "エージェントがWebサイトとリアルタイムでやり取りする様子を確認。クリック、スクロール、フォーム入力のすべてがダッシュボードにライブ配信され、自動化ワークフローを完全に可視化できます。"
+        },
+        "vault": {
+          "title": "セキュアVault",
+          "description": "認証情報、APIキー、機密データのエンタープライズグレード暗号化。エージェントは必要なものだけにアクセスし、シークレットを公開せず、完全な監査ログを記録します。"
+        },
+        "marketplace": {
+          "title": "スマートマーケットプレイス",
+          "description": "事前構築されたエージェント、ワークフロー、統合を発見してインストール。お気に入りのツールを数秒で接続するか、独自の自動化を公開して他の人に使ってもらえます。"
+        }
+      }
+    },
+    "pricing": {
+      "badge": "ワークスペースごとの料金",
+      "title": "シンプルで透明な料金",
+      "subtitle": "無料で始めましょう。成長に合わせてスケール。隠れた料金はありません。各ワークスペースは個別に請求 — 必要なものだけアップグレード。",
+      "annual": "年払い",
+      "monthly": "月払い",
+      "purchaseNow": "今すぐ購入",
+      "plans": {
+        "free": { "name": "Free", "cta": "始める" },
+        "pro": { "name": "Pro", "cta": "プランを選択" },
+        "max": { "name": "Max", "cta": "プランを選択" },
+        "enterprise": { "name": "Enterprise", "cta": "営業に問い合わせ" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "ワークスペースあたりのAIエージェント",
+        "monthlyTasks": "ワークスペースあたりの月間タスク",
+        "browserSessions": "ワークスペースあたりのブラウザセッション",
+        "workspaceStorage": "ワークスペースストレージ",
+        "workspaceMembers": "ワークスペースメンバー",
+        "customWorkflows": "カスタムワークフロー",
+        "prioritySupport": "優先サポート",
+        "custom": "カスタム",
+        "unlimited": "無制限"
+      }
+    },
+    "reviews": {
+      "title": "世界中で愛されています",
+      "subtitle": "Polymuxについてユーザーが語ることをご覧ください。"
+    },
+    "cta": {
+      "title": "ワクワクしますか？",
+      "joinCommunity": "コミュニティに参加"
+    },
     "nav": {
       "home": "ホーム",
       "features": "機能",
@@ -973,7 +1044,8 @@
       "accountMenu": "アカウントメニュー",
       "language": "言語",
       "settings": "設定",
-      "signOut": "ログアウト"
+      "signOut": "ログアウト",
+      "toggleMenu": "メニューを切り替え"
     },
     "footer": {
       "tagline": "インテリジェントなAIエージェントを構築、デプロイ、管理して、ワークフローを自動化します。",

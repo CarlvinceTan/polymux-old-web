@@ -961,6 +961,77 @@
     "deleteError": "无法删除制品。"
   },
   "landing": {
+    "useNow": "立即使用",
+    "meta": {
+      "title": "用于浏览器自动化的AI代理",
+      "description": "Polymux编排用于浏览器自动化的AI代理。具有实时浏览器会话、安全保险库和可重放运行的多代理工作流 — 为团队打造。"
+    },
+    "hero": {
+      "title": "面向实时网络的AI代理",
+      "subtitle": "部署、管理和扩展智能AI代理，自动化您的工作流程。从简单任务到复杂的多代理编排 — Polymux让您掌控一切。",
+      "joinCommunity": "加入社区",
+      "rotatingPhrases": {
+        "liveBrowser": "实时浏览器会话。",
+        "multiAgent": "多代理交接。",
+        "vault": "保险库安全密钥。",
+        "replayable": "可重放的工作流。"
+      }
+    },
+    "features": {
+      "title": "自动化所需的一切",
+      "subtitle": "强大的功能，可在任何规模下构建、部署和管理AI驱动的工作流。",
+      "items": {
+        "orchestration": {
+          "title": "多代理编排",
+          "description": "部署和协调多个并行工作的AI代理。每个代理独立运行，拥有自己的浏览器会话、工具和上下文 — Polymux保持它们同步。"
+        },
+        "browser": {
+          "title": "实时浏览器会话",
+          "description": "实时观看您的代理与网站交互。每次点击、滚动和表单填写都会实时流式传输到您的仪表板，让您完全了解自动化工作流。"
+        },
+        "vault": {
+          "title": "安全保险库",
+          "description": "为您的凭据、API密钥和敏感数据提供企业级加密。代理仅访问所需内容，不暴露您的秘密，并提供完整的审计日志。"
+        },
+        "marketplace": {
+          "title": "智能市场",
+          "description": "发现并安装预构建的代理、工作流和集成。在几秒钟内连接您喜爱的工具，或发布您自己的自动化供他人使用。"
+        }
+      }
+    },
+    "pricing": {
+      "badge": "按工作区定价",
+      "title": "简单透明的定价",
+      "subtitle": "免费开始。随成长扩展。无隐藏费用。每个工作区单独计费 — 只升级您需要的。",
+      "annual": "年付",
+      "monthly": "月付",
+      "purchaseNow": "立即购买",
+      "plans": {
+        "free": { "name": "Free", "cta": "开始使用" },
+        "pro": { "name": "Pro", "cta": "选择方案" },
+        "max": { "name": "Max", "cta": "选择方案" },
+        "enterprise": { "name": "Enterprise", "cta": "联系销售" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "每个工作区的AI代理",
+        "monthlyTasks": "每个工作区的每月任务",
+        "browserSessions": "每个工作区的浏览器会话",
+        "workspaceStorage": "工作区存储",
+        "workspaceMembers": "工作区成员",
+        "customWorkflows": "自定义工作流",
+        "prioritySupport": "优先支持",
+        "custom": "定制",
+        "unlimited": "无限"
+      }
+    },
+    "reviews": {
+      "title": "深受全球用户喜爱",
+      "subtitle": "看看我们的用户对Polymux的评价。"
+    },
+    "cta": {
+      "title": "心动了吗？",
+      "joinCommunity": "加入社区"
+    },
     "nav": {
       "home": "首页",
       "features": "功能",
@@ -973,7 +1044,8 @@
       "accountMenu": "账户菜单",
       "language": "语言",
       "settings": "设置",
-      "signOut": "登出"
+      "signOut": "登出",
+      "toggleMenu": "切换菜单"
     },
     "footer": {
       "tagline": "构建、部署和管理智能AI代理，自动化您的工作流程。",

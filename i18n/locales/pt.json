@@ -961,6 +961,77 @@
     "deleteError": "Não foi possível excluir o artefacto."
   },
   "landing": {
+    "useNow": "Usar agora",
+    "meta": {
+      "title": "Agentes de IA para automação do navegador",
+      "description": "Polymux orquestra agentes de IA para automação do navegador. Fluxos multiagente com sessões de navegador ao vivo, cofres seguros e execuções reproduzíveis — feito para equipes."
+    },
+    "hero": {
+      "title": "Agentes de IA para a web ao vivo",
+      "subtitle": "Implante, gerencie e escale agentes de IA inteligentes que automatizam seus fluxos de trabalho. De tarefas simples à orquestração multiagente complexa — Polymux coloca você no controle.",
+      "joinCommunity": "Entrar na comunidade",
+      "rotatingPhrases": {
+        "liveBrowser": "Sessões de navegador ao vivo.",
+        "multiAgent": "Transferências multiagente.",
+        "vault": "Segredos protegidos no cofre.",
+        "replayable": "Fluxos de trabalho reproduzíveis."
+      }
+    },
+    "features": {
+      "title": "Tudo o que você precisa para automatizar",
+      "subtitle": "Recursos poderosos para criar, implantar e gerenciar fluxos de trabalho com IA em qualquer escala.",
+      "items": {
+        "orchestration": {
+          "title": "Orquestração multiagente",
+          "description": "Implante e coordene vários agentes de IA trabalhando em paralelo. Cada agente opera de forma independente com sua própria sessão de navegador, ferramentas e contexto — enquanto o Polymux mantém todos sincronizados."
+        },
+        "browser": {
+          "title": "Sessões de navegador ao vivo",
+          "description": "Veja seus agentes interagir com sites em tempo real. Cada clique, rolagem e preenchimento de formulário é transmitido ao vivo para seu painel, dando visibilidade total aos fluxos automatizados."
+        },
+        "vault": {
+          "title": "Cofre seguro",
+          "description": "Criptografia de nível empresarial para credenciais, chaves de API e dados sensíveis. Os agentes acessam exatamente o que precisam sem expor seus segredos, com registro de auditoria completo."
+        },
+        "marketplace": {
+          "title": "Marketplace inteligente",
+          "description": "Descubra e instale agentes, fluxos de trabalho e integrações prontos. Conecte suas ferramentas favoritas em segundos ou publique suas próprias automações para outros usarem."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Preço por workspace",
+      "title": "Preços simples e transparentes",
+      "subtitle": "Comece grátis. Escale conforme cresce. Sem taxas ocultas. Cada workspace é cobrado separadamente — faça upgrade apenas dos que precisar.",
+      "annual": "Anual",
+      "monthly": "Mensal",
+      "purchaseNow": "Comprar agora",
+      "plans": {
+        "free": { "name": "Free", "cta": "Começar" },
+        "pro": { "name": "Pro", "cta": "Selecionar plano" },
+        "max": { "name": "Max", "cta": "Selecionar plano" },
+        "enterprise": { "name": "Enterprise", "cta": "Falar com vendas" }
+      },
+      "comparison": {
+        "agentsPerWorkspace": "Agentes de IA por workspace",
+        "monthlyTasks": "Tarefas mensais por workspace",
+        "browserSessions": "Sessões de navegador por workspace",
+        "workspaceStorage": "Armazenamento do workspace",
+        "workspaceMembers": "Membros do workspace",
+        "customWorkflows": "Fluxos de trabalho personalizados",
+        "prioritySupport": "Suporte prioritário",
+        "custom": "Personalizado",
+        "unlimited": "Ilimitado"
+      }
+    },
+    "reviews": {
+      "title": "Amado em todo o mundo",
+      "subtitle": "Veja o que nossos usuários dizem sobre o Polymux."
+    },
+    "cta": {
+      "title": "Animado?",
+      "joinCommunity": "Entrar na comunidade"
+    },
     "nav": {
       "home": "Início",
       "features": "Recursos",
@@ -973,7 +1044,8 @@
       "accountMenu": "Menu da conta",
       "language": "Idioma",
       "settings": "Configurações",
-      "signOut": "Sair"
+      "signOut": "Sair",
+      "toggleMenu": "Alternar menu"
     },
     "footer": {
       "tagline": "Crie, implante e gerencie agentes de IA inteligentes que automatizam seus fluxos de trabalho.",
