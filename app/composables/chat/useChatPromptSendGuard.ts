@@ -55,7 +55,7 @@ export function useChatPromptSendGuard(
   const toast = useAppToast()
   const { t } = useI18n()
   const { inputTokenCap } = useAgentConfig()
-  const { isEnabled: isFeatureEnabled } = useMeFeatures()
+  const { isPlanLimitsEnforced } = useMeFeatures()
   const supabase = useSupabaseClient()
 
   /**
@@ -83,7 +83,7 @@ export function useChatPromptSendGuard(
     // backend bypasses budgetLimitedModel, so the frontend pre-flight check
     // must also stand down — otherwise the toast fires while the request
     // itself would have succeeded.
-    if (!isFeatureEnabled('plan_limits')) return true
+    if (!isPlanLimitsEnforced()) return true
 
     // Sticky cap: the server has already rejected at least one send this
     // page-load with TOKEN_BUDGET_EXCEEDED. Block here so the spinner never
@@ -109,7 +109,7 @@ export function useChatPromptSendGuard(
   async function canSendPromptAsync(text: string): Promise<boolean> {
     const wid = workspaceId.value?.trim()
     if (!wid) return true
-    if (!isFeatureEnabled('plan_limits')) return true
+    if (!isPlanLimitsEnforced()) return true
 
     const weeklyCap = tokenBudgetWeeklyFromPlan(plan.value ?? null)
     if (weeklyCap <= 0) return true

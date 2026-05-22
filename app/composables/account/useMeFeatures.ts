@@ -9,14 +9,13 @@
 //   state. The posthog.client plugin gates this on the featureFlagsReloading
 //   → onFeatureFlags handshake so a flag toggled off in PostHog doesn't read
 //   as enabled from cache on the next page load.
-// - isEnabled(key) defaults to `true` until PostHog has reported a flag list,
-//   to avoid a flash-of-unauthorized inside callers that ignore `ready`.
+// - resolveFeatureFlag(key) applies per-flag policy (see STRICT_OPT_IN).
+//   Opt-in flags match Go IsEnabledStrict(..., false): off while loading,
+//   off when PostHog omits a disabled key from the client payload.
+//   Fail-open flags match Go IsEnabled / planLimitsEnforce: on while loading
+//   and when the key is absent.
 // - When `posthog-js` is not initialised (POSTHOG_PUBLIC_KEY missing), every
 //   flag resolves enabled — dev environments aren't gated.
-// - isExtensionModeGloballyAllowed() matches the API's PostHog snapshot for
-//   `extension_mode`: off until flags are ready when PostHog is configured,
-//   unknown/false ⇒ off, no PostHog public key ⇒ on (fail-open for local dev).
-
 //
 // Server-only keys: the polymux binary evaluates PostHog flags such as
 // `plan_limits` (upstream RPM) and `extension_mode` without using this module.
@@ -27,6 +26,12 @@ type FlagState = {
   ready: boolean
   enabled: Record<string, boolean>
 }
+
+// Must stay aligned with model/featureflag.go strict opt-in keys.
+const STRICT_OPT_IN = new Set([
+  'wallet',
+  'extension_mode',
+])
 
 const state = ref<FlagState>({ ready: false, enabled: {} })
 
@@ -49,6 +54,42 @@ function ensureListener() {
   syncFromWindow()
 }
 
+function getPostHogClient() {
+  if (!import.meta.client) return null
+  const ph = (useNuxtApp().$posthog ?? null) as
+    | { isFeatureEnabled?: (k: string) => boolean | undefined }
+    | null
+  if (!ph || typeof ph.isFeatureEnabled !== 'function') return null
+  return ph
+}
+
+function isStrictOptIn(key: string): boolean {
+  return STRICT_OPT_IN.has(key)
+}
+
+function resolveFeatureFlag(key: string): boolean {
+  if (!import.meta.client) {
+    return isStrictOptIn(key) ? false : true
+  }
+
+  const ph = getPostHogClient()
+  if (!ph) {
+    // PostHog disabled (no public key). Fail open.
+    return true
+  }
+
+  const strict = isStrictOptIn(key)
+  if (!state.value.ready) {
+    return strict ? false : true
+  }
+
+  const v = ph.isFeatureEnabled(key)
+  if (v === undefined) {
+    return strict ? false : true
+  }
+  return Boolean(v)
+}
+
 export function useMeFeatures() {
   if (import.meta.client) {
     // Global route middlewares call this composable outside any component
@@ -66,44 +107,21 @@ export function useMeFeatures() {
 
   const ready = computed(() => {
     if (!import.meta.client) return true
-    const nuxtApp = useNuxtApp()
-    const ph = (nuxtApp.$posthog ?? null) as
-      | { isFeatureEnabled?: (k: string) => boolean | undefined }
-      | null
-    if (!ph || typeof ph.isFeatureEnabled !== 'function') return true
+    if (!getPostHogClient()) return true
     return state.value.ready
   })
 
+  const posthogConfigured = computed(() => !!getPostHogClient())
+
   function isEnabled(key: string): boolean {
-    if (!import.meta.client) return true
-    const nuxtApp = useNuxtApp()
-    const ph = (nuxtApp.$posthog ?? null) as
-      | { isFeatureEnabled?: (k: string) => boolean | undefined }
-      | null
-    if (!ph || typeof ph.isFeatureEnabled !== 'function') {
-      // PostHog disabled (no public key). Fail open.
-      return true
-    }
-    if (!state.value.ready) return true
-    const v = ph.isFeatureEnabled(key)
-    if (v === undefined) return true
-    return Boolean(v)
+    return resolveFeatureFlag(key)
   }
 
-  // Opt-in flags (wallet, extension_mode) must match the Go server's
-  // IsEnabledStrict semantics: absent/unknown ⇒ off once PostHog is wired.
-  // Generic isEnabled() fail-opens undefined keys to true, which breaks
-  // wallet when PostHog omits disabled keys from the client payload.
+  /** @deprecated Use isEnabled — kept for callers that referenced the strict helper directly. */
   function isEnabledStrict(key: string, absentResult: boolean): boolean {
     if (!import.meta.client) return absentResult
-    const nuxtApp = useNuxtApp()
-    const ph = (nuxtApp.$posthog ?? null) as
-      | { isFeatureEnabled?: (k: string) => boolean | undefined }
-      | null
-    if (!ph || typeof ph.isFeatureEnabled !== 'function') {
-      // No PostHog public key — dev fail-open for opt-in features.
-      return absentResult ? false : true
-    }
+    const ph = getPostHogClient()
+    if (!ph) return absentResult ? false : true
     if (!state.value.ready) return absentResult
     const v = ph.isFeatureEnabled(key)
     if (v === undefined) return absentResult
@@ -111,22 +129,37 @@ export function useMeFeatures() {
   }
 
   function isWalletEnabled(): boolean {
-    return isEnabledStrict('wallet', false)
+    return resolveFeatureFlag('wallet')
+  }
+
+  function isExtensionModeGloballyAllowed(): boolean {
+    return resolveFeatureFlag('extension_mode')
+  }
+
+  function isPlanLimitsEnforced(): boolean {
+    return resolveFeatureFlag('plan_limits')
+  }
+
+  function hasAccountAccess(): boolean {
+    return resolveFeatureFlag('account_access')
   }
 
   async function refresh() {
-    const nuxtApp = useNuxtApp()
-    const ph = (nuxtApp.$posthog ?? null) as
-      | { reloadFeatureFlags?: () => void }
-      | null
+    const ph = getPostHogClient() as { reloadFeatureFlags?: () => void } | null
     if (ph?.reloadFeatureFlags) {
       ph.reloadFeatureFlags()
     }
   }
 
-  function isExtensionModeGloballyAllowed(): boolean {
-    return isEnabledStrict('extension_mode', false)
+  return {
+    ready,
+    posthogConfigured,
+    isEnabled,
+    isEnabledStrict,
+    isWalletEnabled,
+    isExtensionModeGloballyAllowed,
+    isPlanLimitsEnforced,
+    hasAccountAccess,
+    refresh,
   }
-
-  return { ready, isEnabled, isEnabledStrict, isWalletEnabled, refresh, isExtensionModeGloballyAllowed }
 }

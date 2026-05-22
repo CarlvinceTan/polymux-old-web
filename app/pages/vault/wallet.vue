@@ -6,20 +6,13 @@ import { useInfiniteList } from '~/composables/misc/useInfiniteList'
 const { t } = useI18n()
 const { headerTabs, customTabs } = useVaultNavTabs()
 
-const { isWalletEnabled, ready: flagsReady } = useMeFeatures()
+const { isWalletEnabled, ready: flagsReady, posthogConfigured } = useMeFeatures()
 const walletEnabled = computed(() => isWalletEnabled())
 
-// Mirror FeatureGate: wait for PostHog before choosing placeholder vs UI.
-// isWalletEnabled() uses strict opt-in semantics (matches model.WalletEnabled).
+// Wait for PostHog before choosing placeholder vs UI (opt-in wallet flag).
 const mounted = ref(false)
 onMounted(() => {
   mounted.value = true
-})
-
-const posthogConfigured = computed(() => {
-  if (!import.meta.client) return false
-  const ph = useNuxtApp().$posthog as { isFeatureEnabled?: (k: string) => boolean | undefined } | null
-  return !!ph && typeof ph.isFeatureEnabled === 'function'
 })
 
 const showWalletLoading = computed(

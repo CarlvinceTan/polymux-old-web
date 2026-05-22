@@ -11,11 +11,11 @@ export default defineNuxtRouteMiddleware((to) => {
   const user = useSupabaseUser()
   if (!user.value) return
 
-  const { isEnabled, ready } = useMeFeatures()
+  const { hasAccountAccess, ready } = useMeFeatures()
   // Only redirect once flags have actually resolved — otherwise we'd redirect
   // on every cold load before PostHog has a chance to evaluate.
   if (!ready.value) return
-  if (isEnabled('account_access')) return
+  if (hasAccountAccess()) return
 
   return navigateTo('/account-suspended', { replace: true })
 })

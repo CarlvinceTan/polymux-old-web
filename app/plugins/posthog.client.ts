@@ -64,8 +64,9 @@ export default defineNuxtPlugin((nuxtApp) => {
         for (const key of flags) enabled[key] = true
         // PostHog's `flags` array only contains keys that resolved truthy.
         // We can't enumerate the full set here without an extra call;
-        // useMeFeatures' isEnabled() defaults absent keys to true (fail-open)
-        // until a known list is fetched, so this is fine.
+// useMeFeatures.resolveFeatureFlag() applies per-flag policy: opt-in keys
+// (wallet, extension_mode) treat absent/disabled payload entries as off;
+// fail-open keys (plan_limits, account_access, FeatureGate pages) default on.
         nuxtApp.payload.__posthogFlags = { ready: freshSeen, enabled, payloads }
         if (freshSeen) {
           window.dispatchEvent(new CustomEvent('posthog:flags-changed'))

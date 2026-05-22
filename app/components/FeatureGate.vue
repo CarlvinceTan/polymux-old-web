@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Wrap UI that should only render when a PostHog feature flag is enabled.
 // Usage: <FeatureGate name="workflows">…</FeatureGate>
-// While flags are still resolving on the client, reserve space only (no
-// spinner) after mount, to match SSR. When the flag is off, renders the
-// #placeholder slot or the default “feature unavailable” copy.
+// Flag evaluation goes through useMeFeatures.isEnabled(), which applies
+// per-key policy (opt-in for wallet/extension_mode; fail-open for
+// plan_limits, account_access, and FeatureGate page keys).
 
 const props = defineProps<{
   name: string
