@@ -19,6 +19,13 @@ export default defineNuxtConfig({
         ) {
           return;
         }
+        if (
+          typeof msg === "string" &&
+          msg.includes("@vueuse/core") &&
+          msg.includes("contains an annotation that Rollup cannot interpret")
+        ) {
+          return;
+        }
         originalWarn(msg, options);
       };
     },
@@ -134,9 +141,10 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    // Paths resolve from srcDir (`app/`), not project root — use `../content/*`.
     serverAssets: [
-      { baseName: "docs", dir: "./content/docs" },
-      { baseName: "legal", dir: "./content/legal" },
+      { baseName: "docs", dir: "../content/docs" },
+      { baseName: "legal", dir: "../content/legal" },
     ],
   },
   compatibilityDate: "2025-07-15",
@@ -316,6 +324,17 @@ export default defineNuxtConfig({
     },
     build: {
       chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        onwarn(warning, warn) {
+          if (
+            warning.code === "INVALID_ANNOTATION" &&
+            warning.id?.includes("@vueuse/core")
+          ) {
+            return;
+          }
+          warn(warning);
+        },
+      },
     },
   },
   runtimeConfig: {
