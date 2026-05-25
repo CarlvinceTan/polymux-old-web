@@ -13,19 +13,6 @@ useHead({
   ],
 })
 
-const route = useRoute()
-
-function scrollToHash() {
-  const id = route.hash?.replace(/^#/, '')
-  if (!id) return
-  nextTick(() => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
-}
-
-onMounted(scrollToHash)
-watch(() => route.fullPath, scrollToHash)
-
 const heroRotatingPhrases = computed(() => [
   t('landing.hero.rotatingPhrases.liveBrowser'),
   t('landing.hero.rotatingPhrases.multiAgent'),
@@ -228,9 +215,11 @@ function onTierSelect(key: PlanKey) {
   selectedPlanKey.value = key
   nextTick(() => {
     const el = document.getElementById(`plan-panel-${key}`)
-    if (!el) return
+    const root = document.getElementById('landing-scroll')
+    if (!el || !root) return
     el.focus({ preventScroll: true })
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    const top = el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
+    root.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
   })
 }
 

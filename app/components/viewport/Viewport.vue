@@ -20,6 +20,9 @@ const props = withDefaults(defineProps<{
   thumbnail?: boolean
   /** Top-bar X icon — kills the browser agent. */
   onClose?: () => void
+  /** Pin toggle — keeps this viewport at the top of the gallery. */
+  isPinned?: boolean
+  onTogglePin?: () => void
   /** Bottom-row run icon (idle state). Should allow the browser to continue
    *  what it was doing. */
   onRun?: () => void
@@ -49,6 +52,7 @@ const props = withDefaults(defineProps<{
   isWorking: true,
   isDone: false,
   isFailed: false,
+  isPinned: false,
   showBar: true,
   showActionText: true,
   thumbnail: false,
@@ -79,6 +83,11 @@ const cursorStyle = computed(() => {
 function closeClick(e: Event) {
   e.stopPropagation()
   props.onClose?.()
+}
+
+function pinClick(e: Event) {
+  e.stopPropagation()
+  props.onTogglePin?.()
 }
 
 function runStopClick(e: Event) {
@@ -119,6 +128,20 @@ function runStopClick(e: Event) {
           </div>
           <div class="flex shrink-0 items-center gap-0.5 text-neutral-400">
             <button
+              v-if="onTogglePin"
+              type="button"
+              class="flex size-4 cursor-pointer items-center justify-center rounded border-0 bg-transparent p-0 ring-0 transition-colors"
+              :class="isPinned ? 'text-gold hover:text-gold' : 'hover:text-neutral-700'"
+              :aria-label="isPinned ? t('viewport.unpinBrowser') : t('viewport.pinBrowser')"
+              :aria-pressed="isPinned"
+              @click="pinClick"
+            >
+              <UIcon
+                :name="isPinned ? 'i-ph-push-pin-fill' : 'i-ph-push-pin'"
+                class="size-3"
+              />
+            </button>
+            <button
               v-if="onClose"
               type="button"
               class="flex size-4 cursor-pointer items-center justify-center rounded border-0 bg-transparent p-0 ring-0 transition-colors hover:text-red-600"
@@ -131,7 +154,13 @@ function runStopClick(e: Event) {
         </div>
 
         <!-- Preview: fixed 16:9 to match the browser screencast ratio. -->
-        <div class="relative w-full overflow-hidden bg-white" style="aspect-ratio: 16 / 9">
+        <div
+          class="relative w-full overflow-hidden bg-white transition-[box-shadow]"
+          :class="isDone
+            ? 'ring-2 ring-inset ring-emerald-400'
+            : 'ring-1 ring-inset ring-transparent group-hover/gallery:ring-neutral-300'"
+          style="aspect-ratio: 16 / 9"
+        >
           <div
             v-if="!frameUrl && reconnecting"
             class="absolute inset-0 flex items-center justify-center"

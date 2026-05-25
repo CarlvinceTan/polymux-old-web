@@ -339,6 +339,8 @@ export interface ViewportState {
    *  live agent. The screencast frame map will never receive a frame for it,
    *  the URL strip is the only meaningful surface. */
   isVisualOnly: boolean
+  /** Client-side pin — pinned viewports sort to the top of the gallery. */
+  isPinned?: boolean
 }
 
 export interface ThinkingState {

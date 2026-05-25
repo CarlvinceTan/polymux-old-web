@@ -11,6 +11,107 @@
 
 import posthog from 'posthog-js'
 
+// PostHog popover surveys re-evaluate every ~1s and on SPA navigations. They
+// only mark localStorage "seen" on dismiss/submit — not on display — so a
+// route change that tears down the popover DOM re-triggers display. Mark all
+// popovers as seen on first display and track session state to suppress repeats.
+const PRODUCT_ANNOUNCEMENT_SURVEY_ID = '019e4827-e154-0000-1ae4-7bce48e9a26e'
+const CSAT_SURVEY_ID = '019e4828-8ea8-0000-623f-d5edcabf600f'
+const NPS_SURVEY_ID = '019e4828-5c2a-0000-5c2e-a6664b09aa0d'
+const WORKFLOW_VIEW_INTUITIVENESS_SURVEY_ID =
+  '019e536a-7cf8-0000-f1da-2be9f8f5a45b'
+const AUTO_SWITCH_TO_VIEW_SURVEY_ID = '019e536a-8503-0000-c7a2-69c78160ff0f'
+const OPEN_FEEDBACK_SURVEY_ID = '019e4828-287a-0000-3b3b-09ec1fac624a'
+
+const POPOVER_SURVEY_IDS = [
+  PRODUCT_ANNOUNCEMENT_SURVEY_ID,
+  CSAT_SURVEY_ID,
+  NPS_SURVEY_ID,
+  WORKFLOW_VIEW_INTUITIVENESS_SURVEY_ID,
+  AUTO_SWITCH_TO_VIEW_SURVEY_ID,
+] as const
+
+// Widget surveys are not session-deduped like popovers; cancel when leaving
+// workspace routes so the tab does not linger over marketing pages.
+const WIDGET_SURVEY_IDS = [OPEN_FEEDBACK_SURVEY_ID] as const
+
+const SESSION_SHOWN_PREFIX = 'polymux:posthog-survey-session:'
+const FIRST_VISIT_KEY = 'polymux:first_visit_at'
+const POSTHOG_SEEN_PREFIX = 'seenSurvey_'
+
+const WORKSPACE_ROUTE_PREFIXES = [
+  '/workflow',
+  '/dashboard',
+  '/storage',
+  '/vault',
+  '/integrations',
+  '/session',
+] as const
+
+function isWorkspaceRoute(path: string): boolean {
+  return WORKSPACE_ROUTE_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  )
+}
+
+function sessionShownKey(surveyId: string): string {
+  return `${SESSION_SHOWN_PREFIX}${surveyId}`
+}
+
+function posthogSeenKey(surveyId: string, iteration?: number | null): string {
+  if (iteration && iteration > 0) {
+    return `${POSTHOG_SEEN_PREFIX}${surveyId}_${iteration}`
+  }
+  return `${POSTHOG_SEEN_PREFIX}${surveyId}`
+}
+
+function markSurveyShownInSession(surveyId: string) {
+  sessionStorage.setItem(sessionShownKey(surveyId), '1')
+}
+
+function wasSurveyShownThisSession(surveyId: string): boolean {
+  return sessionStorage.getItem(sessionShownKey(surveyId)) === '1'
+}
+
+// Mirrors posthog-js setSurveySeenOnLocalStorage so eligibility checks stop
+// re-displaying popovers after the first show in an iteration.
+function markPostHogSurveySeen(surveyId: string, iteration?: number | null) {
+  const key = posthogSeenKey(surveyId, iteration)
+  if (localStorage.getItem(key)) return
+  localStorage.setItem(key, 'true')
+}
+
+function suppressSessionPopoverReshow(ph: typeof posthog) {
+  for (const surveyId of POPOVER_SURVEY_IDS) {
+    if (!wasSurveyShownThisSession(surveyId)) continue
+    ph.surveys?.cancelPendingSurvey(surveyId)
+  }
+}
+
+function cancelNonWorkspaceSurveys(ph: typeof posthog) {
+  for (const surveyId of POPOVER_SURVEY_IDS) {
+    ph.surveys?.cancelPendingSurvey(surveyId)
+  }
+  for (const surveyId of WIDGET_SURVEY_IDS) {
+    ph.surveys?.cancelPendingSurvey(surveyId)
+  }
+}
+
+function syncSurveyDisplay(path: string, ph: typeof posthog) {
+  if (!isWorkspaceRoute(path)) {
+    cancelNonWorkspaceSurveys(ph)
+  } else {
+    suppressSessionPopoverReshow(ph)
+  }
+}
+
+function ensureFirstVisitTimestamp(path: string) {
+  if (!isWorkspaceRoute(path)) return
+  if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+    localStorage.setItem(FIRST_VISIT_KEY, new Date().toISOString())
+  }
+}
+
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const publicKey = config.public.posthogPublicKey as string | undefined
@@ -24,6 +125,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
   }
 
+  const router = useRouter()
+
   posthog.init(publicKey, {
     api_host: host || 'https://us.i.posthog.com',
     defaults: '2026-01-30',
@@ -32,8 +135,17 @@ export default defineNuxtPlugin((nuxtApp) => {
     autocapture: false,
     person_profiles: 'identified_only',
     persistence: 'localStorage+cookie',
+    // Keep surveys enabled at init so the manager loads on landing pages too.
+    // Users often hit / first then navigate into /workflow; toggling
+    // disable_surveys after init does not re-run onRemoteConfig, which left
+    // the Open Feedback widget permanently hidden. Popovers/widgets on
+    // marketing routes are suppressed via cancelPendingSurvey and PostHog URL
+    // conditions on each survey.
+    disable_surveys: false,
     __add_tracing_headers: ['localhost', 'polymux.com'],
     loaded: (ph) => {
+      ensureFirstVisitTimestamp(router.currentRoute.value.path)
+
       // Bridge PostHog's flag callbacks into the useMeFeatures state. We
       // can't import the composable at module load (circular), so we stash
       // the latest snapshot on the Nuxt app and let useMeFeatures pick it
@@ -78,6 +190,15 @@ export default defineNuxtPlugin((nuxtApp) => {
       // synchronously here; the matching onFeatureFlags callback fires
       // when the response lands.
       ph.reloadFeatureFlags()
+
+      ph.on('survey shown', (survey) => {
+        if (survey.type !== 'popover') return
+        markSurveyShownInSession(survey.id)
+        markPostHogSurveySeen(survey.id, survey.current_iteration)
+      })
+
+      syncSurveyDisplay(router.currentRoute.value.path, ph)
+      router.afterEach((to) => syncSurveyDisplay(to.path, ph))
     },
   })
 
@@ -89,10 +210,18 @@ export default defineNuxtPlugin((nuxtApp) => {
   watch(
     user,
     (current) => {
+      const path = router.currentRoute.value.path
       if (current?.id) {
+        ensureFirstVisitTimestamp(path)
         posthog.identify(current.id, {
           email: current.email,
         })
+        const activeSince = localStorage.getItem(FIRST_VISIT_KEY)
+        if (activeSince) {
+          posthog.people.set_once({
+            polymux_active_since: activeSince,
+          })
+        }
       } else {
         posthog.reset()
       }

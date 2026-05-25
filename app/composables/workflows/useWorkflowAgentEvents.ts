@@ -8,6 +8,7 @@ import type { SessionHandle } from '~/composables/workflows/useWorkflowSession'
 // can watch to refresh their local step state.
 export function useWorkflowAgentEvents(session: SessionHandle, workspaceId: Ref<string>) {
   const { workflows, fetchWorkflows, getWorkflow, fetchVersions } = useWorkflows()
+  const { fetchList: fetchSchedules } = useScheduledWorkflows()
   const { t } = useI18n()
   const toast = useAppToast()
 
@@ -45,14 +46,21 @@ export function useWorkflowAgentEvents(session: SessionHandle, workspaceId: Ref<
     lastSavedAt.value = Date.now()
   }
 
+  const onScheduleUpdated = async () => {
+    if (!workspaceId.value) return
+    await fetchSchedules(true)
+  }
+
   session.on<{ name: string }>('workflow_saved', onSaved)
   session.on<{ name: string; reason: string }>('workflow_save_rejected', onRejected)
   session.on<{ workflow_id: string; turn_ids: string[] }>('workflow_versions_truncated', onVersionsTruncated)
+  session.on<{ workflow_id: string }>('workflow_schedule_updated', onScheduleUpdated)
 
   onScopeDispose(() => {
     session.off('workflow_saved', onSaved)
     session.off('workflow_save_rejected', onRejected)
     session.off('workflow_versions_truncated', onVersionsTruncated)
+    session.off('workflow_schedule_updated', onScheduleUpdated)
   })
 
   return { lastSavedName, lastSavedAt }

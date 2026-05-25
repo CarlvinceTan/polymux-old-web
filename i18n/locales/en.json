@@ -40,6 +40,52 @@
       "loading": "Loading…"
     }
   },
+  "upgradePlan": {
+    "title": "Upgrade your plan",
+    "subtitle": "You've reached a limit on your current plan.",
+    "benefitsHeading": "Upgrade to unlock",
+    "notNow": "Not now",
+    "unlimited": "Unlimited",
+    "custom": "Custom",
+    "currentPlanNote": "You're on {current}. Choose a higher plan on the pricing page.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "Contact sales for a custom Enterprise plan",
+      "agents": "{plan}: up to {count} AI agents per workspace",
+      "tokens": "{plan}: {count} weekly token budget",
+      "cloud": "{plan}: {size} Cloud storage",
+      "members": "{plan}: up to {count} workspace members"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "Weekly token limit reached",
+        "body": "Your workspace has used its weekly token budget. Upgrade for a higher limit, or retry after the reset on Monday 00:00 UTC."
+      },
+      "browserAgentLimit": {
+        "title": "Browser agent limit reached",
+        "body": "You've reached the maximum number of browser agents for your plan.",
+        "bodyWithCap": "Your plan allows up to {cap} browser agents. Upgrade to run more in parallel."
+      },
+      "memberLimit": {
+        "title": "Workspace member limit reached",
+        "body": "You've reached the seat limit for your plan. Upgrade to invite more teammates.",
+        "bodyWithCap": "Your plan includes {cap} seats. Upgrade to invite more teammates."
+      },
+      "cloudStorage": {
+        "title": "Cloud storage requires an upgrade",
+        "body": "Polymux Cloud storage is available on Pro and above. Upgrade to sync files across your workspace."
+      },
+      "featureLocked": {
+        "title": "This feature requires an upgrade",
+        "body": "Your current plan doesn't include this feature. Upgrade to unlock it."
+      }
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "integrations": "Integrations",
@@ -135,6 +181,8 @@
     "locationDenied": "Blocked by browser — update in browser settings",
     "locationPrompt": "You'll be asked to allow location access",
     "locationUnsupported": "Geolocation is not supported by your browser",
+    "voiceAutoShutoff": "Voice auto-shutoff",
+    "voiceAutoShutoffHint": "Seconds of silence before voice input turns off automatically (default 5). Set to 0 to turn off manually only.",
     "cloakedBrowser": "Cloaked browser",
     "cloakedBrowserHint": "Routes browser sessions through CloakBrowser when a site is known to challenge with CAPTCHA, Cloudflare, or DataDome. Off forces every navigation through the normal browser.",
     "showCursor": "Show cursor",
@@ -379,6 +427,8 @@
   },
   "viewport": {
     "closeBrowser": "Close browser",
+    "pinBrowser": "Pin browser agent",
+    "unpinBrowser": "Unpin browser agent",
     "expandPreview": "Expand preview",
     "closeExpanded": "Close expanded view",
     "reconnecting": "Reconnecting",

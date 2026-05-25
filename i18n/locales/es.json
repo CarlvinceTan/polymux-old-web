@@ -40,6 +40,52 @@
       "loading": "Cargando…"
     }
   },
+  "upgradePlan": {
+    "title": "Mejorar tu plan",
+    "subtitle": "Has alcanzado un límite de tu plan actual.",
+    "benefitsHeading": "Desbloquea con una mejora",
+    "notNow": "Ahora no",
+    "unlimited": "Ilimitado",
+    "custom": "Personalizado",
+    "currentPlanNote": "Estás en {current}. Elige un plan superior en la página de precios.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "Contacta con ventas para un plan Enterprise personalizado",
+      "agents": "{plan}: hasta {count} agentes de IA por espacio de trabajo",
+      "tokens": "{plan}: presupuesto semanal de {count} tokens",
+      "cloud": "{plan}: {size} de almacenamiento en la nube",
+      "members": "{plan}: hasta {count} miembros del espacio de trabajo"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "Límite semanal de tokens alcanzado",
+        "body": "Tu espacio de trabajo ha agotado su presupuesto semanal de tokens. Mejora tu plan para un límite mayor o vuelve a intentarlo tras el reinicio el lunes a las 00:00 UTC."
+      },
+      "browserAgentLimit": {
+        "title": "Límite de agentes del navegador alcanzado",
+        "body": "Has alcanzado el número máximo de agentes del navegador para tu plan.",
+        "bodyWithCap": "Tu plan permite hasta {cap} agentes del navegador. Mejora tu plan para ejecutar más en paralelo."
+      },
+      "memberLimit": {
+        "title": "Límite de miembros del espacio de trabajo alcanzado",
+        "body": "Has alcanzado el límite de plazas de tu plan. Mejora tu plan para invitar a más compañeros.",
+        "bodyWithCap": "Tu plan incluye {cap} plazas. Mejora tu plan para invitar a más compañeros."
+      },
+      "cloudStorage": {
+        "title": "El almacenamiento en la nube requiere una mejora",
+        "body": "El almacenamiento en la nube de Polymux está disponible en Pro y superiores. Mejora tu plan para sincronizar archivos en tu espacio de trabajo."
+      },
+      "featureLocked": {
+        "title": "Esta función requiere una mejora",
+        "body": "Tu plan actual no incluye esta función. Mejora tu plan para desbloquearla."
+      }
+    }
+  },
   "nav": {
     "dashboard": "Panel",
     "integrations": "Integraciones",
@@ -135,6 +181,8 @@
     "locationDenied": "Bloqueado por el navegador — actualiza en la configuración del navegador",
     "locationPrompt": "Se te pedirá que permitas el acceso a la ubicación",
     "locationUnsupported": "La geolocalización no es compatible con tu navegador",
+    "voiceAutoShutoff": "Apagado automático de voz",
+    "voiceAutoShutoffHint": "Segundos de silencio antes de que la entrada de voz se apague automáticamente. 0 = solo manual.",
     "cloakedBrowser": "Navegador encubierto",
     "cloakedBrowserHint": "Enruta sesiones del navegador a través de CloakBrowser cuando se sabe que un sitio bloquea con CAPTCHA, Cloudflare o DataDome. Desactivado fuerza cada navegación a través del navegador normal.",
     "showCursor": "Mostrar cursor",

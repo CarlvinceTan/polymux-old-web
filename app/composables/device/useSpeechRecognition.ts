@@ -4,6 +4,8 @@ type SpeechRecognitionCtor = new () => any
 
 interface UseSpeechRecognitionOptions {
   lang?: MaybeRef<string | undefined>
+  /** Seconds of silence before auto-stopping. 0 disables auto-shutoff. */
+  silenceTimeoutSeconds?: MaybeRef<number>
   onFinal?: (text: string) => void
   onInterim?: (text: string) => void
   onError?: (code: string) => void
@@ -50,6 +52,27 @@ export function useSpeechRecognition(opts: UseSpeechRecognitionOptions = {}) {
   const isListening = ref(false)
   const isSupported = ref(!!getCtor())
   const recognition = shallowRef<any>(null)
+  let silenceTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearSilenceTimer() {
+    if (silenceTimer !== null) {
+      clearTimeout(silenceTimer)
+      silenceTimer = null
+    }
+  }
+
+  function scheduleSilenceTimer() {
+    clearSilenceTimer()
+    const seconds = unref(opts.silenceTimeoutSeconds) ?? 0
+    if (seconds <= 0 || !isListening.value) return
+    silenceTimer = setTimeout(() => {
+      stop()
+    }, seconds * 1000)
+  }
+
+  function onSpeechActivity() {
+    scheduleSilenceTimer()
+  }
 
   function ensure() {
     if (recognition.value) return recognition.value
@@ -67,13 +90,20 @@ export function useSpeechRecognition(opts: UseSpeechRecognitionOptions = {}) {
         if (res.isFinal) final += res[0].transcript
         else interim += res[0].transcript
       }
-      if (final) opts.onFinal?.(final)
-      if (interim) opts.onInterim?.(interim)
+      if (final) {
+        opts.onFinal?.(final)
+        onSpeechActivity()
+      }
+      if (interim) {
+        opts.onInterim?.(interim)
+        onSpeechActivity()
+      }
     }
     r.onerror = (e: any) => {
       opts.onError?.(e?.error ?? 'unknown')
     }
     r.onend = () => {
+      clearSilenceTimer()
       isListening.value = false
       opts.onEnd?.()
     }
@@ -89,6 +119,7 @@ export function useSpeechRecognition(opts: UseSpeechRecognitionOptions = {}) {
     try {
       r.start()
       isListening.value = true
+      scheduleSilenceTimer()
       return true
     }
     catch {
@@ -97,6 +128,7 @@ export function useSpeechRecognition(opts: UseSpeechRecognitionOptions = {}) {
   }
 
   function stop() {
+    clearSilenceTimer()
     try { recognition.value?.stop() }
     catch { /* no-op */ }
   }
@@ -107,6 +139,7 @@ export function useSpeechRecognition(opts: UseSpeechRecognitionOptions = {}) {
   }
 
   onBeforeUnmount(() => {
+    clearSilenceTimer()
     try { recognition.value?.abort() }
     catch { /* no-op */ }
   })

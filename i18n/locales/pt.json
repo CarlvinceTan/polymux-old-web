@@ -40,6 +40,52 @@
       "loading": "Carregando…"
     }
   },
+  "upgradePlan": {
+    "title": "Atualizar seu plano",
+    "subtitle": "Você atingiu um limite do seu plano atual.",
+    "benefitsHeading": "Desbloqueie com um upgrade",
+    "notNow": "Agora não",
+    "unlimited": "Ilimitado",
+    "custom": "Personalizado",
+    "currentPlanNote": "Você está no {current}. Escolha um plano superior na página de preços.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "Entre em contato com vendas para um plano Enterprise personalizado",
+      "agents": "{plan}: até {count} agentes de IA por workspace",
+      "tokens": "{plan}: orçamento semanal de {count} tokens",
+      "cloud": "{plan}: {size} de armazenamento na nuvem",
+      "members": "{plan}: até {count} membros do workspace"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "Limite semanal de tokens atingido",
+        "body": "Seu workspace esgotou o orçamento semanal de tokens. Faça upgrade para um limite maior ou tente novamente após a redefinição na segunda-feira às 00:00 UTC."
+      },
+      "browserAgentLimit": {
+        "title": "Limite de agentes do navegador atingido",
+        "body": "Você atingiu o número máximo de agentes do navegador para o seu plano.",
+        "bodyWithCap": "Seu plano permite até {cap} agentes do navegador. Faça upgrade para executar mais em paralelo."
+      },
+      "memberLimit": {
+        "title": "Limite de membros do workspace atingido",
+        "body": "Você atingiu o limite de assentos do seu plano. Faça upgrade para convidar mais colegas.",
+        "bodyWithCap": "Seu plano inclui {cap} assentos. Faça upgrade para convidar mais colegas."
+      },
+      "cloudStorage": {
+        "title": "Armazenamento na nuvem requer upgrade",
+        "body": "O armazenamento na nuvem Polymux está disponível no Pro e acima. Faça upgrade para sincronizar arquivos no workspace."
+      },
+      "featureLocked": {
+        "title": "Este recurso requer upgrade",
+        "body": "Seu plano atual não inclui este recurso. Faça upgrade para desbloqueá-lo."
+      }
+    }
+  },
   "nav": {
     "dashboard": "Painel",
     "integrations": "Integrações",
@@ -135,6 +181,8 @@
     "locationDenied": "Bloqueado pelo navegador — atualize nas definições do navegador",
     "locationPrompt": "Será solicitado a permitir o acesso à localização",
     "locationUnsupported": "A geolocalização não é suportada pelo seu navegador",
+    "voiceAutoShutoff": "Desligamento automático de voz",
+    "voiceAutoShutoffHint": "Segundos de silêncio antes de a entrada de voz desligar automaticamente. 0 = apenas manual.",
     "cloakedBrowser": "Navegador disfarçado",
     "cloakedBrowserHint": "Encaminha sessões do navegador via CloakBrowser quando se sabe que um site bloqueia com CAPTCHA, Cloudflare ou DataDome. Desativado força cada navegação pelo navegador normal.",
     "showCursor": "Mostrar cursor",

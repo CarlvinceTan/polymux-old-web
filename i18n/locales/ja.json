@@ -40,6 +40,52 @@
       "loading": "読み込み中…"
     }
   },
+  "upgradePlan": {
+    "title": "プランをアップグレード",
+    "subtitle": "現在のプランの上限に達しました。",
+    "benefitsHeading": "アップグレードで解放",
+    "notNow": "後で",
+    "unlimited": "無制限",
+    "custom": "カスタム",
+    "currentPlanNote": "現在 {current} プランです。料金ページで上位プランを選択してください。",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "カスタム Enterprise プランは営業にお問い合わせください",
+      "agents": "{plan}：ワークスペースあたり最大 {count} 個の AI エージェント",
+      "tokens": "{plan}：週間 {count} トークン予算",
+      "cloud": "{plan}：{size} のクラウドストレージ",
+      "members": "{plan}：最大 {count} 人のワークスペースメンバー"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "週間トークン上限に達しました",
+        "body": "ワークスペースの週間トークン予算を使い切りました。上限を上げるにはアップグレードするか、月曜 00:00 UTC のリセット後に再試行してください。"
+      },
+      "browserAgentLimit": {
+        "title": "ブラウザエージェント上限に達しました",
+        "body": "プランで許可されているブラウザエージェント数の上限に達しました。",
+        "bodyWithCap": "プランでは最大 {cap} 個のブラウザエージェントが利用できます。並列実行数を増やすにはアップグレードしてください。"
+      },
+      "memberLimit": {
+        "title": "ワークスペースメンバー上限に達しました",
+        "body": "プランのシート上限に達しました。チームメイトを追加するにはアップグレードしてください。",
+        "bodyWithCap": "プランには {cap} シートが含まれます。チームメイトを追加するにはアップグレードしてください。"
+      },
+      "cloudStorage": {
+        "title": "クラウドストレージにはアップグレードが必要です",
+        "body": "Polymux クラウドストレージは Pro 以上で利用できます。ワークスペースでファイルを同期するにはアップグレードしてください。"
+      },
+      "featureLocked": {
+        "title": "この機能にはアップグレードが必要です",
+        "body": "現在のプランにはこの機能が含まれていません。アップグレードして利用を開始してください。"
+      }
+    }
+  },
   "nav": {
     "dashboard": "ダッシュボード",
     "integrations": "統合",
@@ -135,6 +181,8 @@
     "locationDenied": "ブラウザによりブロックされています — ブラウザ設定で更新してください",
     "locationPrompt": "位置情報へのアクセスを許可するよう求められます",
     "locationUnsupported": "お使いのブラウザは位置情報をサポートしていません",
+    "voiceAutoShutoff": "音声入力の自動停止",
+    "voiceAutoShutoffHint": "無音が続いた秒数で音声入力を自動停止します。0 は手動のみです。",
     "cloakedBrowser": "クロークブラウザ",
     "cloakedBrowserHint": "サイトが CAPTCHA、Cloudflare、または DataDome でチャレンジを行うことが既知の場合、CloakBrowser 経由でブラウザセッションをルーティングします。オフにすると、すべてのナビゲーションを通常のブラウザで強制実行します。",
     "showCursor": "カーソルを表示",

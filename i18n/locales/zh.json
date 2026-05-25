@@ -40,6 +40,52 @@
       "loading": "加载中…"
     }
   },
+  "upgradePlan": {
+    "title": "升级您的方案",
+    "subtitle": "您已达到当前方案的限制。",
+    "benefitsHeading": "升级即可解锁",
+    "notNow": "暂不升级",
+    "unlimited": "无限制",
+    "custom": "定制",
+    "currentPlanNote": "您当前使用的是 {current} 方案。请在定价页面选择更高级别的方案。",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "联系销售获取定制 Enterprise 方案",
+      "agents": "{plan}：每个工作区最多 {count} 个 AI 代理",
+      "tokens": "{plan}：每周 {count} 令牌预算",
+      "cloud": "{plan}：{size} 云存储",
+      "members": "{plan}：最多 {count} 个工作区成员"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "已达到每周令牌限制",
+        "body": "您的工作区已用完每周令牌预算。升级以获得更高限额，或在周一 00:00 UTC 重置后重试。"
+      },
+      "browserAgentLimit": {
+        "title": "已达到浏览器代理限制",
+        "body": "您已达到当前方案允许的浏览器代理数量上限。",
+        "bodyWithCap": "您的方案最多允许 {cap} 个浏览器代理。升级以并行运行更多代理。"
+      },
+      "memberLimit": {
+        "title": "已达到工作区成员限制",
+        "body": "您已达到当前方案的席位限制。升级以邀请更多团队成员。",
+        "bodyWithCap": "您的方案包含 {cap} 个席位。升级以邀请更多团队成员。"
+      },
+      "cloudStorage": {
+        "title": "云存储需要升级",
+        "body": "Polymux 云存储在 Pro 及以上方案可用。升级以在工作区中同步文件。"
+      },
+      "featureLocked": {
+        "title": "此功能需要升级",
+        "body": "您当前的方案不包含此功能。升级以解锁。"
+      }
+    }
+  },
   "nav": {
     "dashboard": "控制台",
     "integrations": "集成",
@@ -135,6 +181,8 @@
     "locationDenied": "已被浏览器阻止 — 在浏览器设置中更新",
     "locationPrompt": "您将被要求允许位置访问",
     "locationUnsupported": "您的浏览器不支持地理定位",
+    "voiceAutoShutoff": "语音自动关闭",
+    "voiceAutoShutoffHint": "无语音输入多少秒后自动关闭。设为 0 则仅手动关闭。",
     "cloakedBrowser": "隐身浏览器",
     "cloakedBrowserHint": "当已知某个站点会用 CAPTCHA、Cloudflare 或 DataDome 进行挑战时，将浏览器会话通过 CloakBrowser 路由。关闭后，所有导航都将强制使用普通浏览器。",
     "showCursor": "显示光标",

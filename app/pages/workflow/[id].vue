@@ -7,6 +7,7 @@ import {
   invalidateUsageCache,
   markStickyOverBudget,
 } from '~/composables/chat/useChatPromptSendGuard'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
 // Re-mount the page when the workflow id changes. `useAgentChats` keys its
 // `useState` by the sessionId captured at construction, so reusing the layout
@@ -78,7 +79,7 @@ const presetPrompt = pickWelcomePrompt()
 const session = useWorkflowSession(sessionId)
 const chats = useAgentChats(session)
 const messageFeedback = useMessageFeedback(sessionId.value)
-const vp = useViewports(session)
+const vp = useViewports(session, sessionId)
 const wsScreencast = useScreencast(session)
 const runtimeConfig = useRuntimeConfig()
 const extensionId = computed<string>(() => (runtimeConfig.public.extensionId as string | undefined) ?? '')
@@ -160,15 +161,16 @@ const workspacePlan = computed(() => currentWorkspace.value?.plan ?? null)
 
 /** Replay prompt text after a TOKEN_BUDGET_ERROR rolls back an optimistic send. */
 const chatBudgetRestorePrompt = ref<string | null>(null)
-/**
- * Server-supplied "weekly cap reached" copy. Non-null ⇒ a blocking modal is
- * rendered over the workflow UI; clearing it (via the modal's dismiss button)
- * also clears the sticky over-budget flag so the user can attempt to retry.
- */
-const budgetExceededMessage = ref<string | null>(null)
-function dismissBudgetModal() {
-  budgetExceededMessage.value = null
-  clearStickyOverBudget(workspaceId.value || undefined)
+function showWeeklyTokenBudgetModal(message: string) {
+  const wid = workspaceId.value || undefined
+  promptUpgrade(
+    {
+      reason: 'weekly_token_budget',
+      message,
+      onDismiss: () => clearStickyOverBudget(wid),
+    },
+    { message, duration: 12_000 },
+  )
 }
 // Bind workflow save/reject listeners to the page lifetime so the builder's
 // incremental SaveWorkflow events are never dropped while the user is in
@@ -181,10 +183,12 @@ useWorkflowDraft(session, sessionId)
 
 session.on<ErrorPayload>('error', (p) => {
   if (p.code === 'AGENT_LIMIT_REACHED') {
-    toast.show(
-      `Browser agent limit reached for your plan. Upgrade for more.`,
-      'warning',
-      8000,
+    promptUpgrade(
+      { reason: 'browser_agent_limit' },
+      {
+        message: 'Browser agent limit reached for your plan. Upgrade for more.',
+        duration: 8000,
+      },
     )
   }
   if (p.code === 'TOKEN_BUDGET_EXCEEDED') {
@@ -198,7 +202,7 @@ session.on<ErrorPayload>('error', (p) => {
     markStickyOverBudget(workspaceId.value || undefined)
     const replay = chats.rollbackOrchestratorAfterBudgetError()
     if (replay) chatBudgetRestorePrompt.value = replay
-    budgetExceededMessage.value = p.message || t('chat.weeklyTokenBudgetToastFallback')
+    showWeeklyTokenBudgetModal(p.message || t('chat.weeklyTokenBudgetToastFallback'))
     return
   }
   // Extension mode was selected for this workflow but no paired Chrome is
@@ -376,16 +380,11 @@ onUnmounted(() => screencast.cleanup())
 const workflowRunActive = computed(() =>
   workflowRun.runStatus.value === 'running' || workflowRun.runStatus.value === 'pending',
 )
-const chatActive = computed(() => {
-  if (chats.orchestrator.isStreaming.value) return true
-  if (chats.orchestrator.thinking.value != null) return true
-  // waitingForAgent is the authoritative chat-turn flag: set on send/edit,
-  // cleared by the orchestrator's turn-end frame or by a server-side stop.
-  // It survives the same conditions the dots indicator does, so the spinner
-  // and the dots clear together instead of diverging when activity ends.
-  if (chats.orchestrator.waitingForAgent.value) return true
-  if ((vp.viewports.value as ViewportState[]).some(v => v.isWorking)) return true
-  return false
+const { chatActive } = useChatActivity({
+  isStreaming: computed(() => chats.orchestrator.isStreaming.value),
+  thinking: computed(() => chats.orchestrator.thinking.value),
+  waitingForAgent: computed(() => chats.orchestrator.waitingForAgent.value),
+  viewports: computed(() => vp.viewports.value as ViewportState[]),
 })
 const runningKind = computed<'chat' | 'workflow' | null>(() => {
   if (workflowRunActive.value) return 'workflow'
@@ -668,17 +667,6 @@ provide('chat-message-feedback', messageFeedback)
         class="min-h-0 min-w-0 flex-1"
       />
     </div>
-
-    <!-- Weekly token budget modal: shown after the server rejects a send
-         with TOKEN_BUDGET_EXCEEDED. Blocks further sends (sticky cap) until
-         the user dismisses it, so the spinner can't keep firing against a
-         workspace that's already out of tokens. -->
-    <BudgetExceededModal
-      v-if="budgetExceededMessage"
-      :open="true"
-      :message="budgetExceededMessage"
-      @dismiss="dismissBudgetModal"
-    />
 
     <!-- Credential picker: opens whenever the orchestrator fires
          RequestCredential. Lives at the workflow page level so the modal

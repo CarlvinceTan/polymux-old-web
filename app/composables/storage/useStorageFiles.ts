@@ -1,4 +1,5 @@
 import type { StorageProvider } from '~/types/storage'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
 export interface StorageFile {
   id: string
@@ -108,6 +109,21 @@ function sanitizeFolderSegment(name: string): string {
     .replace(/[/\\]+/g, '-')
     .replace(/^\.+$/, '_')
     .slice(0, 240)
+}
+
+function maybePromptCloudUpgrade(err: unknown): boolean {
+  const e = err as { statusCode?: number, data?: { statusMessage?: string } } | null
+  const message = e?.data?.statusMessage ?? ''
+  const isCloudPlanGate =
+    e?.statusCode === 412
+    || (e?.statusCode === 413 && message.toLowerCase().includes('cloud storage'))
+  if (!isCloudPlanGate) return false
+
+  promptUpgrade(
+    { reason: 'cloud_storage', message: message || undefined },
+    { message: message || 'Upgrade to Pro or Max to use Cloud storage.' },
+  )
+  return true
 }
 
 export function useStorageFiles() {
@@ -319,6 +335,10 @@ export function useStorageFiles() {
 
       return true
     } catch (err) {
+      if (maybePromptCloudUpgrade(err)) {
+        error.value = null
+        return false
+      }
       error.value = errorMessage(err, 'Failed to upload file')
       return false
     } finally {

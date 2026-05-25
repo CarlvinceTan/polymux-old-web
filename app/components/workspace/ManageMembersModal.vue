@@ -2,6 +2,7 @@
 import type { User } from '@supabase/supabase-js'
 import type { WorkspaceInvitation, WorkspaceMember } from '~/composables/account/useWorkspaces'
 import { isInviteError } from '~/composables/account/useWorkspaces'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
 const toast = useAppToast()
 
@@ -251,10 +252,16 @@ async function handleSendInvitations() {
           limitHit = true
           const cap = result.cap ?? 0
           const planLabel = result.plan ? result.plan.charAt(0).toUpperCase() + result.plan.slice(1) : 'current'
-          toast.show(
-            `Workspace member limit reached for your ${planLabel} plan (${cap} seats). Upgrade to invite more.`,
-            'warning',
-            10000,
+          promptUpgrade(
+            {
+              reason: 'member_limit',
+              cap: cap > 0 ? cap : undefined,
+              plan: result.plan,
+            },
+            {
+              message: `Workspace member limit reached for your ${planLabel} plan (${cap} seats). Upgrade to invite more.`,
+              duration: 10000,
+            },
           )
           break
         }

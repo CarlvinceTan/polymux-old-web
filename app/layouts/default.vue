@@ -31,6 +31,7 @@ const { isCollapsed } = useSidePanel()
     </UPage>
 
     <AppToastContainer />
+    <UpgradePlanModalHost />
     <NotificationsToast />
     <MigrationProgressToast />
   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isInviteError } from '~/composables/account/useWorkspaces'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
@@ -60,10 +61,16 @@ async function handleSubmit() {
     const limitErr = results.find(r => isInviteError(r) && r.code === 'MEMBER_LIMIT_REACHED')
     if (limitErr && isInviteError(limitErr)) {
       const cap = limitErr.cap ?? 0
-      toast.show(
-        `Workspace member limit reached (${cap} seats). Upgrade to invite more.`,
-        'warning',
-        10000,
+      promptUpgrade(
+        {
+          reason: 'member_limit',
+          cap: cap > 0 ? cap : undefined,
+          plan: limitErr.plan,
+        },
+        {
+          message: `Workspace member limit reached (${cap} seats). Upgrade to invite more.`,
+          duration: 10000,
+        },
       )
     }
     handleClose()

@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import { useAgentConfig } from '~/composables/account/useAgentConfig'
 import { useMeFeatures } from '~/composables/account/useMeFeatures'
 import { useAppToast } from '~/composables/ui/useAppToast'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 import { tokenBudgetWeeklyFromPlan } from '~/utils/planLimits'
 import { weekStartUtc } from '~/utils/weekStartUtc'
 
@@ -91,7 +92,10 @@ export function useChatPromptSendGuard(
     // before they can try again, and a stale Supabase floor can't quietly
     // wave through another doomed send.
     if (stickyOverBudget.has(wid)) {
-      toast.show(t('chat.weeklyTokenBudgetToastFallback'), 'warning', 12_000)
+      promptUpgrade(
+        { reason: 'weekly_token_budget' },
+        { message: t('chat.weeklyTokenBudgetToastFallback'), duration: 12_000 },
+      )
       return false
     }
 
@@ -121,7 +125,10 @@ export function useChatPromptSendGuard(
       const used = await resolveUsage(wid)
 
       if (used + turnEstimate >= weeklyCap) {
-        toast.show(t('chat.weeklyTokenBudgetToastFallback'), 'warning', 12_000)
+        promptUpgrade(
+          { reason: 'weekly_token_budget' },
+          { message: t('chat.weeklyTokenBudgetToastFallback'), duration: 12_000 },
+        )
         return false
       }
 

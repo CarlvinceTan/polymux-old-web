@@ -31,6 +31,9 @@ interface UserSettings {
   // email helper drops these sends. Important emails dispatched from the
   // admin console pass `bypassUserPreferences: true` and ignore the flag.
   all_notifications_enabled: boolean
+  // Seconds of silence before the prompt voice button auto-stops listening.
+  // 0 keeps manual-only behavior; default is 5 seconds.
+  voice_auto_shutoff_seconds: number
 }
 
 const defaults: UserSettings = {
@@ -38,6 +41,7 @@ const defaults: UserSettings = {
   cloaked_browser_enabled: true,
   show_cursor_overlay: false,
   all_notifications_enabled: true,
+  voice_auto_shutoff_seconds: 5,
 }
 
 const settings = ref<UserSettings>({ ...defaults })
@@ -71,7 +75,7 @@ export function useUserSettings() {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('blog_newsletter_subscribed, cloaked_browser_enabled, show_cursor_overlay, all_notifications_enabled')
+        .select('blog_newsletter_subscribed, cloaked_browser_enabled, show_cursor_overlay, all_notifications_enabled, voice_auto_shutoff_seconds')
         .eq('user_id', uid)
         .maybeSingle()
 
@@ -84,6 +88,7 @@ export function useUserSettings() {
           cloaked_browser_enabled: data?.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
           show_cursor_overlay: data?.show_cursor_overlay ?? defaults.show_cursor_overlay,
           all_notifications_enabled: data?.all_notifications_enabled ?? defaults.all_notifications_enabled,
+          voice_auto_shutoff_seconds: data?.voice_auto_shutoff_seconds ?? defaults.voice_auto_shutoff_seconds,
         }
       }
 
@@ -110,7 +115,7 @@ export function useUserSettings() {
     settings.value = { ...settings.value, ...patch }
 
     try {
-      const result = await $fetch<{ blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean }>('/api/user-settings', {
+      const result = await $fetch<{ blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number }>('/api/user-settings', {
         method: 'PATCH',
         body: patch,
       })
@@ -121,6 +126,7 @@ export function useUserSettings() {
         cloaked_browser_enabled: result.cloaked_browser_enabled,
         show_cursor_overlay: result.show_cursor_overlay,
         all_notifications_enabled: result.all_notifications_enabled,
+        voice_auto_shutoff_seconds: result.voice_auto_shutoff_seconds,
       }
       fetchedForUserId = user.value.sub
     }
@@ -150,13 +156,14 @@ export function useUserSettings() {
           filter: `user_id=eq.${uid}`,
         },
         (payload) => {
-          const newRow = payload.new as { blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean } | undefined
+          const newRow = payload.new as { blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number } | undefined
           if (newRow) {
             settings.value = {
               blog_newsletter_subscribed: newRow.blog_newsletter_subscribed ?? defaults.blog_newsletter_subscribed,
               cloaked_browser_enabled: newRow.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
               show_cursor_overlay: newRow.show_cursor_overlay ?? defaults.show_cursor_overlay,
               all_notifications_enabled: newRow.all_notifications_enabled ?? defaults.all_notifications_enabled,
+              voice_auto_shutoff_seconds: newRow.voice_auto_shutoff_seconds ?? defaults.voice_auto_shutoff_seconds,
             }
             fetchedForUserId = uid
           }

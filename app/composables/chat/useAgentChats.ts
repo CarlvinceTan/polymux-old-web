@@ -30,6 +30,13 @@ interface ChatState {
   // or before the first text chunk arrives.
   isStreaming: Ref<boolean>
   streamingBuffer: { agentId: string; text: string } | null
+  /**
+   * Orchestrator-only. Reset on each send/edit; set when a live WS frame proves
+   * the current turn is producing work (thinking, partial, boundary, spawn).
+   * Used to ignore stale empty turn-end seals that can arrive after the user
+   * has already started the next prompt.
+   */
+  sawActivityThisTurn: boolean
 }
 
 /**
@@ -72,6 +79,7 @@ function newChatState(): ChatState {
     waitingForAgent: ref(false),
     isStreaming: ref(false),
     streamingBuffer: null,
+    sawActivityThisTurn: false,
   }
 }
 
@@ -82,6 +90,32 @@ export function useAgentChats(session: SessionHandle) {
   // WS was torn down. Sub-agent state (see `getState` below) was already a
   // plain `ref` for the same reason; the orchestrator was the lone outlier.
   const orchestratorState: ChatState = newChatState()
+
+  function markOrchestratorActivity() {
+    orchestratorState.sawActivityThisTurn = true
+    orchestratorState.waitingForAgent.value = true
+  }
+
+  function clearOrchestratorTurn(state: ChatState = orchestratorState) {
+    state.waitingForAgent.value = false
+    state.sawActivityThisTurn = false
+  }
+
+  function finishOrchestratorTurnEnd(state: ChatState, hadStreamingBuffer: boolean, content: string) {
+    const isEmptyTurnEnd = !content && !hadStreamingBuffer
+    if (!isEmptyTurnEnd) {
+      clearOrchestratorTurn(state)
+      return
+    }
+    // Empty defer seal from the server. Only drop the indicator when this turn
+    // actually produced visible orchestrator work or left an assistant bubble
+    // — otherwise a stale seal from a prior/interrupted turn would spuriously
+    // clear the flag after the user has already sent the next prompt.
+    const lastRole = state.messages.value[state.messages.value.length - 1]?.role
+    if (state.sawActivityThisTurn || lastRole === 'agent') {
+      clearOrchestratorTurn(state)
+    }
+  }
 
   const agentStates = new Map<string, ChatState>()
   const summarisedTitle = ref<string | null>(null)
@@ -109,6 +143,7 @@ export function useAgentChats(session: SessionHandle) {
     orchestratorState.isStreaming.value = false
     orchestratorState.thinking.value = null
     orchestratorState.waitingForAgent.value = snap[snap.length - 1]?.role === 'user'
+    orchestratorState.sawActivityThisTurn = false
     return restoreComposer
   }
 
@@ -204,6 +239,7 @@ export function useAgentChats(session: SessionHandle) {
       state.isStreaming.value = false
       state.messages.value = [...state.messages.value, msg]
       state.waitingForAgent.value = true
+      if (chatId === 'orchestrator') state.sawActivityThisTurn = false
 
       const sendWire = () => {
         const payload: UserMessagePayload = { content, message_id: id }
@@ -252,6 +288,7 @@ export function useAgentChats(session: SessionHandle) {
       state.isStreaming.value = false
       state.thinking.value = null
       state.waitingForAgent.value = true
+      if (chatId === 'orchestrator') state.sawActivityThisTurn = false
       state.messages.value = [...state.messages.value.slice(0, index), edited]
 
       const sendWire = () => {
@@ -304,6 +341,9 @@ export function useAgentChats(session: SessionHandle) {
       state.waitingForAgent.value =
         history[history.length - 1]?.role === 'user' &&
         session.sessionState.value?.running_kind === 'chat'
+      if (chatId === 'orchestrator') {
+        state.sawActivityThisTurn = state.waitingForAgent.value
+      }
     }
 
     return {
@@ -344,7 +384,9 @@ export function useAgentChats(session: SessionHandle) {
       // the last persisted message looked terminal. Live partials prove
       // the orchestrator is still working.
       state.waitingForAgent.value = true
+      if (chatId === 'orchestrator') markOrchestratorActivity()
     } else {
+      const hadStreamingBuffer = !!state.streamingBuffer
       if (state.streamingBuffer) {
         const finalText = state.streamingBuffer.text + p.content
         const updated = [...state.messages.value]
@@ -359,7 +401,11 @@ export function useAgentChats(session: SessionHandle) {
       state.streamingBuffer = null
       state.isStreaming.value = false
       state.thinking.value = null
-      state.waitingForAgent.value = false
+      if (chatId === 'orchestrator') {
+        finishOrchestratorTurnEnd(state, hadStreamingBuffer, p.content)
+      } else {
+        state.waitingForAgent.value = false
+      }
     }
   }
 
@@ -372,6 +418,7 @@ export function useAgentChats(session: SessionHandle) {
     // isStreaming so the working indicator surfaces during the gap before the
     // next round begins streaming.
     state.isStreaming.value = false
+    if (chatId === 'orchestrator') markOrchestratorActivity()
   }
 
   function handleAgentThinking(p: AgentThinkingPayload) {
@@ -381,7 +428,11 @@ export function useAgentChats(session: SessionHandle) {
     // Re-arm waitingForAgent (see handleAgentMessage partial path for why):
     // a thinking event proves the agent is actively working, even if the
     // most recent persisted message looked terminal at remount time.
-    state.waitingForAgent.value = true
+    if (chatId === 'orchestrator') {
+      markOrchestratorActivity()
+    } else {
+      state.waitingForAgent.value = true
+    }
 
     state.thinking.value = {
       agentId: p.agent_id,
@@ -400,6 +451,7 @@ export function useAgentChats(session: SessionHandle) {
   function handleCredentialRequest(p: CredentialRequestPayload) {
     clearOrchestratorSendRollback()
     orchestratorState.waitingForAgent.value = false
+    orchestratorState.sawActivityThisTurn = false
     pendingCredentialRequest.value = {
       msgId: p.msg_id,
       site: p.site,
@@ -417,7 +469,7 @@ export function useAgentChats(session: SessionHandle) {
     // arming the dots there falsely suggests the orchestrator is working
     // when nothing actually is.
     if (p.status === 'running') {
-      orchestratorState.waitingForAgent.value = true
+      markOrchestratorActivity()
     }
     if (orchestratorState.streamingBuffer) {
       orchestratorState.streamingBuffer = null
@@ -440,7 +492,18 @@ export function useAgentChats(session: SessionHandle) {
   // settled even though work is still happening in the viewport.
   function handleSessionState(p: SessionStatePayload) {
     const anyRunning = (p.browser_agents ?? []).some(a => a.status === 'running')
-    if (anyRunning) orchestratorState.waitingForAgent.value = true
+    if (anyRunning) {
+      markOrchestratorActivity()
+      return
+    }
+    const lastRole = orchestratorState.messages.value.at(-1)?.role
+    if (
+      lastRole === 'agent' &&
+      !orchestratorState.isStreaming.value &&
+      orchestratorState.thinking.value == null
+    ) {
+      clearOrchestratorTurn()
+    }
   }
 
   function handleTitleResponse(p: TitleResponsePayload) {
@@ -480,7 +543,7 @@ export function useAgentChats(session: SessionHandle) {
     payload: { credentialId: string, username: string, password: string } | { cancelled: true },
   ) {
     pendingCredentialRequest.value = null
-    orchestratorState.waitingForAgent.value = true
+    markOrchestratorActivity()
     if ('cancelled' in payload) {
       session.send<CredentialProvidedPayload>('credential_provided', {
         msg_id: msgId,

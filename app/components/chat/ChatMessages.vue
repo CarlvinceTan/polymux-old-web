@@ -7,6 +7,12 @@ const props = defineProps<{
   // True while a partial agent_message is actively producing text. Hides the
   // dots so they don't double up with the streaming bubble.
   isStreaming?: boolean
+  /**
+   * When set, drives the three-dot indicator directly (preferred — keeps the
+   * chat layout aligned with useChatActivity). When omitted, falls back to
+   * waitingForAgent / browserAgentsActive / isThinking below.
+   */
+  showWorkingIndicator?: boolean
   // True while the orchestrator owns the current turn (set on send/edit, on
   // thinking/partial events, on browser-spawn, cleared by a final
   // agent_message). Drives the dots through every silent gap inside a turn —
@@ -14,6 +20,8 @@ const props = defineProps<{
   // rounds, while a browser sub-agent the orchestrator just spawned is
   // working, or after an edit that wiped the bubble below it.
   waitingForAgent?: boolean
+  // True while the orchestrator is mid-think with no streaming text yet.
+  isThinking?: boolean
   // True while any browser sub-agent under the orchestrator is currently
   // working. Keeps the dots up even if the orchestrator's turn already
   // closed — the user is still waiting on visible work.
@@ -42,9 +50,10 @@ function feedbackFor(id: string | undefined): 'up' | 'down' | null {
 // the chat right now. `isStreaming` is the only suppressor — the visible
 // streaming text is its own activity signal. Anything else (orchestrator
 // owns the turn, sub-agent is working) keeps the dots up.
-const showWorkingIndicator = computed(() => {
+const showWorkingDots = computed(() => {
+  if (props.showWorkingIndicator != null) return props.showWorkingIndicator
   if (props.isStreaming) return false
-  return !!props.waitingForAgent || !!props.browserAgentsActive
+  return !!props.waitingForAgent || !!props.browserAgentsActive || !!props.isThinking
 })
 
 function showAgentActions(index: number): boolean {
@@ -187,7 +196,7 @@ defineExpose({ scrollToBottom })
       <!-- Working indicator: visible across the full turn whenever no text is
            currently being streamed — covers gaps between continuation rounds,
            browser sub-agent delegation, and the moment before the first chunk. -->
-      <div v-if="showWorkingIndicator" class="flex items-center gap-1.5 pt-2 pr-1 pb-1 pl-1">
+      <div v-if="showWorkingDots" class="flex items-center gap-1.5 pt-2 pr-1 pb-1 pl-1">
         <span class="working-dot size-[7px] rounded-full bg-neutral-400" />
         <span class="working-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.2s" />
         <span class="working-dot size-[7px] rounded-full bg-neutral-400" style="animation-delay: 0.4s" />

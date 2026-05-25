@@ -23,6 +23,7 @@ const props = defineProps<{
   sessionId: string
   workspaceId?: string | null
   isStreaming?: boolean
+  showWorkingIndicator?: boolean
   waitingForAgent?: boolean
   browserAgentsActive?: boolean
   browserAgentCap?: number
@@ -58,6 +59,7 @@ const emit = defineEmits<{
   send: [value: string, attachments: ChatMessageAttachment[]]
   welcomeSuggestion: []
   closeViewport: [agentId: string]
+  togglePinViewport: [agentId: string]
   spawnBrowserAgent: []
   stopAgent: [agentId: string]
   runAgent: [agentId: string]
@@ -155,6 +157,7 @@ function onJumpClick() {
           ref="chatMessagesRef"
           :messages="messages"
           :is-streaming="isStreaming"
+          :show-working-indicator="showWorkingIndicator"
           :waiting-for-agent="waitingForAgent"
           :browser-agents-active="browserAgentsActive"
           :session-id="sessionId"
@@ -184,6 +187,7 @@ function onJumpClick() {
           :reconnecting="props.reconnecting"
           class="min-h-0 flex-1"
           @close-viewport="emit('closeViewport', $event)"
+          @toggle-pin-viewport="emit('togglePinViewport', $event)"
           @spawn-browser-agent="emit('spawnBrowserAgent')"
           @stop-agent="emit('stopAgent', $event)"
           @run-agent="emit('runAgent', $event)"

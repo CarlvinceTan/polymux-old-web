@@ -40,6 +40,52 @@
       "loading": "Chargement…"
     }
   },
+  "upgradePlan": {
+    "title": "Mettre à niveau votre plan",
+    "subtitle": "Vous avez atteint une limite de votre plan actuel.",
+    "benefitsHeading": "Débloquer avec une mise à niveau",
+    "notNow": "Pas maintenant",
+    "unlimited": "Illimité",
+    "custom": "Personnalisé",
+    "currentPlanNote": "Vous êtes sur {current}. Choisissez un plan supérieur sur la page Tarifs.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "Contactez les ventes pour un plan Enterprise sur mesure",
+      "agents": "{plan} : jusqu'à {count} agents IA par espace de travail",
+      "tokens": "{plan} : budget hebdomadaire de {count} tokens",
+      "cloud": "{plan} : {size} de stockage Cloud",
+      "members": "{plan} : jusqu'à {count} membres d'espace de travail"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "Limite hebdomadaire de tokens atteinte",
+        "body": "Votre espace de travail a épuisé son budget hebdomadaire de tokens. Passez à un plan supérieur ou réessayez après la réinitialisation le lundi à 00:00 UTC."
+      },
+      "browserAgentLimit": {
+        "title": "Limite d'agents navigateur atteinte",
+        "body": "Vous avez atteint le nombre maximum d'agents navigateur pour votre plan.",
+        "bodyWithCap": "Votre plan autorise jusqu'à {cap} agents navigateur. Passez à un plan supérieur pour en exécuter plus en parallèle."
+      },
+      "memberLimit": {
+        "title": "Limite de membres de l'espace de travail atteinte",
+        "body": "Vous avez atteint la limite de places de votre plan. Passez à un plan supérieur pour inviter plus de coéquipiers.",
+        "bodyWithCap": "Votre plan inclut {cap} places. Passez à un plan supérieur pour inviter plus de coéquipiers."
+      },
+      "cloudStorage": {
+        "title": "Le stockage Cloud nécessite une mise à niveau",
+        "body": "Le stockage Cloud Polymux est disponible à partir de Pro. Passez à un plan supérieur pour synchroniser les fichiers dans votre espace de travail."
+      },
+      "featureLocked": {
+        "title": "Cette fonctionnalité nécessite une mise à niveau",
+        "body": "Votre plan actuel n'inclut pas cette fonctionnalité. Passez à un plan supérieur pour la débloquer."
+      }
+    }
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "integrations": "Intégrations",
@@ -135,6 +181,8 @@
     "locationDenied": "Bloqué par le navigateur — mettre à jour dans les paramètres du navigateur",
     "locationPrompt": "Il vous sera demandé d'autoriser l'accès à la localisation",
     "locationUnsupported": "La géolocalisation n'est pas prise en charge par votre navigateur",
+    "voiceAutoShutoff": "Arrêt auto de la voix",
+    "voiceAutoShutoffHint": "Secondes de silence avant l'arrêt automatique de la saisie vocale. 0 = arrêt manuel uniquement.",
     "cloakedBrowser": "Navigateur masqué",
     "cloakedBrowserHint": "Achemine les sessions du navigateur via CloakBrowser lorsque le site est connu pour bloquer avec CAPTCHA, Cloudflare ou DataDome. Désactivé force chaque navigation via le navigateur normal.",
     "showCursor": "Afficher le curseur",

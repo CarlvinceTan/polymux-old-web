@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
     cloaked_browser_enabled?: boolean
     show_cursor_overlay?: boolean
     all_notifications_enabled?: boolean
+    voice_auto_shutoff_seconds?: number
   }>(event)
 
   if (
@@ -21,6 +22,7 @@ export default defineEventHandler(async (event) => {
     && typeof body.cloaked_browser_enabled !== 'boolean'
     && typeof body.show_cursor_overlay !== 'boolean'
     && typeof body.all_notifications_enabled !== 'boolean'
+    && typeof body.voice_auto_shutoff_seconds !== 'number'
     && body.settings === undefined
   ) {
     throw createError({ statusCode: 400, statusMessage: 'No valid settings provided.' })
@@ -34,6 +36,7 @@ export default defineEventHandler(async (event) => {
     p_cloaked_browser_enabled: body.cloaked_browser_enabled ?? undefined,
     p_show_cursor_overlay: body.show_cursor_overlay ?? undefined,
     p_all_notifications_enabled: body.all_notifications_enabled ?? undefined,
+    p_voice_auto_shutoff_seconds: body.voice_auto_shutoff_seconds ?? undefined,
   })
 
   if (error) {
@@ -46,6 +49,7 @@ export default defineEventHandler(async (event) => {
     cloaked_browser_enabled: data.cloaked_browser_enabled,
     show_cursor_overlay: data.show_cursor_overlay,
     all_notifications_enabled: data.all_notifications_enabled,
+    voice_auto_shutoff_seconds: data.voice_auto_shutoff_seconds,
     settings: data.settings,
     updated_at: data.updated_at,
   }

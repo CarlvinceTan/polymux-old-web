@@ -40,6 +40,52 @@
       "loading": "Laden…"
     }
   },
+  "upgradePlan": {
+    "title": "Plan upgraden",
+    "subtitle": "Sie haben ein Limit Ihres aktuellen Plans erreicht.",
+    "benefitsHeading": "Mit Upgrade freischalten",
+    "notNow": "Nicht jetzt",
+    "unlimited": "Unbegrenzt",
+    "custom": "Individuell",
+    "currentPlanNote": "Sie nutzen {current}. Wählen Sie auf der Preisseite einen höheren Plan.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "Kontaktieren Sie den Vertrieb für einen individuellen Enterprise-Plan",
+      "agents": "{plan}: bis zu {count} KI-Agenten pro Workspace",
+      "tokens": "{plan}: {count} wöchentliches Token-Budget",
+      "cloud": "{plan}: {size} Cloud-Speicher",
+      "members": "{plan}: bis zu {count} Workspace-Mitglieder"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "Wöchentliches Token-Limit erreicht",
+        "body": "Ihr Workspace hat sein wöchentliches Token-Budget aufgebraucht. Upgraden Sie für ein höheres Limit oder versuchen Sie es nach dem Reset am Montag 00:00 UTC erneut."
+      },
+      "browserAgentLimit": {
+        "title": "Browser-Agent-Limit erreicht",
+        "body": "Sie haben die maximale Anzahl an Browser-Agenten für Ihren Plan erreicht.",
+        "bodyWithCap": "Ihr Plan erlaubt bis zu {cap} Browser-Agenten. Upgraden Sie, um mehr parallel auszuführen."
+      },
+      "memberLimit": {
+        "title": "Workspace-Mitgliederlimit erreicht",
+        "body": "Sie haben das Sitzplatzlimit Ihres Plans erreicht. Upgraden Sie, um mehr Teammitglieder einzuladen.",
+        "bodyWithCap": "Ihr Plan umfasst {cap} Sitzplätze. Upgraden Sie, um mehr Teammitglieder einzuladen."
+      },
+      "cloudStorage": {
+        "title": "Cloud-Speicher erfordert ein Upgrade",
+        "body": "Polymux Cloud-Speicher ist ab Pro verfügbar. Upgraden Sie, um Dateien im Workspace zu synchronisieren."
+      },
+      "featureLocked": {
+        "title": "Diese Funktion erfordert ein Upgrade",
+        "body": "Ihr aktueller Plan enthält diese Funktion nicht. Upgraden Sie, um sie freizuschalten."
+      }
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "integrations": "Integrationen",
@@ -135,6 +181,8 @@
     "locationDenied": "Vom Browser blockiert — in den Browsereinstellungen aktualisieren",
     "locationPrompt": "Sie werden aufgefordert, den Standortzugriff zu erlauben",
     "locationUnsupported": "Ihr Browser unterstützt keine Geolokalisierung",
+    "voiceAutoShutoff": "Spracheingabe automatisch beenden",
+    "voiceAutoShutoffHint": "Sekunden Stille, bevor die Spracheingabe automatisch beendet wird. 0 = nur manuell beenden.",
     "cloakedBrowser": "Getarnter Browser",
     "cloakedBrowserHint": "Leitet Browsersitzungen über CloakBrowser, wenn eine Seite bekanntlich mit CAPTCHA, Cloudflare oder DataDome blockiert. Aus erzwingt jede Navigation über den normalen Browser.",
     "showCursor": "Cursor anzeigen",

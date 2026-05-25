@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useI18n } from '#imports'
 import type { CursorState, ViewportState } from '~/composables/types'
+import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
 defineOptions({ inheritAttrs: false })
 
@@ -16,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   closeViewport: [agentId: string]
+  togglePinViewport: [agentId: string]
   spawnBrowserAgent: []
   stopAgent: [agentId: string]
   runAgent: [agentId: string]
@@ -215,11 +218,12 @@ watch([galleryCols, effectiveMaxCols], ([cols, max]) => {
 const showBarInGallery = computed(() => galleryCols.value <= GALLERY_BAR_THRESHOLD)
 const compactInGallery = computed(() => galleryCols.value > GALLERY_BAR_THRESHOLD)
 
-const toast = useAppToast()
-
 function onSpawnOrWarn() {
   if (isAtCap.value) {
-    toast.show(t('browser.agentCapReached'), 'warning')
+    promptUpgrade(
+      { reason: 'browser_agent_limit', cap: agentCap.value },
+      { message: t('browser.agentCapReached') },
+    )
     return
   }
   emit('spawnBrowserAgent')
@@ -228,6 +232,10 @@ function onSpawnOrWarn() {
 function onClose(agentId: string) {
   if (expandedAgentId.value === agentId) expandedAgentId.value = null
   emit('closeViewport', agentId)
+}
+
+function onTogglePin(agentId: string) {
+  emit('togglePinViewport', agentId)
 }
 
 function onExpand(agentId: string) {
@@ -250,6 +258,7 @@ function onRun(agentId: string) {
 function viewportHandlers(agentId: string) {
   return {
     onClose: () => onClose(agentId),
+    onTogglePin: () => onTogglePin(agentId),
     onStop: () => onStop(agentId),
     onRun: () => onRun(agentId),
   }
@@ -327,22 +336,55 @@ function viewportHandlers(agentId: string) {
             :running-kind="runningKind"
             class="max-w-full min-w-0 w-full select-none"
           />
-          <!-- Overlay close button — only shown in the bar-less thumbnail
-               rendering, since the in-bar X disappears with the bar. Keeps a
-               way out for users when the gallery is zoomed past the bar
-               threshold. Button + icon stay at a fixed size; only the
-               top/right offset scales with the card's inline size so the X
-               hugs the corner at narrow zoom levels instead of floating
-               toward the centre. -->
-          <button
+          <!-- Overlay pin + close — only shown in the bar-less thumbnail
+               rendering, since the in-bar controls disappear with the bar.
+               Keeps a way out for users when the gallery is zoomed past the bar
+               threshold. Buttons stay at a fixed size; only the top/right
+               offset scales with the card's inline size so the controls hug the
+               corner at narrow zoom levels instead of floating toward the
+               centre. Pinned cards always show the gold pin in the top-right;
+               on hover/focus the tray expands left so the pin slides aside and
+               the close button appears in the corner. Unpinned cards keep the
+               original hover-only overlay. -->
+          <div
             v-if="!showBarInGallery"
-            type="button"
-            class="absolute z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none text-neutral-400 opacity-0 ring-0 transition-colors hover:text-neutral-700 group-hover/gallery:opacity-100 top-[clamp(0.125rem,2cqi,0.5rem)] right-[clamp(0.125rem,2cqi,0.5rem)]"
-            :aria-label="t('browser.closeAgent')"
-            @click.stop="onClose(vp.agentId)"
+            class="absolute z-10 text-neutral-400 ring-0 transition-opacity top-[clamp(0.125rem,2cqi,0.5rem)] right-[clamp(0.125rem,2cqi,0.5rem)]"
+            :class="vp.isPinned
+              ? 'opacity-100'
+              : 'opacity-0 group-hover/gallery:opacity-100 group-focus-within/gallery:opacity-100'"
           >
-            <UIcon name="i-heroicons-x-mark" class="size-3" />
-          </button>
+            <div
+              class="flex items-center gap-0.5 overflow-hidden transition-[width] duration-200 ease-out"
+              :class="vp.isPinned
+                ? 'w-5 group-hover/gallery:w-[calc(var(--spacing-5)*2+0.125rem)] group-focus-within/gallery:w-[calc(var(--spacing-5)*2+0.125rem)]'
+                : 'w-[calc(var(--spacing-5)*2+0.125rem)]'"
+            >
+              <button
+                type="button"
+                class="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none transition-colors focus-visible:outline focus-visible:outline-offset-1 focus-visible:outline-neutral-950/35"
+                :class="vp.isPinned ? 'text-gold hover:text-gold' : 'hover:text-neutral-700'"
+                :aria-label="vp.isPinned ? t('viewport.unpinBrowser') : t('viewport.pinBrowser')"
+                :aria-pressed="!!vp.isPinned"
+                @click.stop="onTogglePin(vp.agentId)"
+              >
+                <UIcon
+                  :name="vp.isPinned ? 'i-ph-push-pin-fill' : 'i-ph-push-pin'"
+                  class="size-3"
+                />
+              </button>
+              <button
+                type="button"
+                class="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-xs leading-none transition-[opacity,max-width] duration-200 ease-out hover:text-neutral-700 focus-visible:outline focus-visible:outline-offset-1 focus-visible:outline-neutral-950/35"
+                :class="vp.isPinned
+                  ? 'pointer-events-none max-w-0 opacity-0 group-hover/gallery:pointer-events-auto group-hover/gallery:max-w-5 group-hover/gallery:opacity-100 group-focus-within/gallery:pointer-events-auto group-focus-within/gallery:max-w-5 group-focus-within/gallery:opacity-100'
+                  : ''"
+                :aria-label="t('browser.closeAgent')"
+                @click.stop="onClose(vp.agentId)"
+              >
+                <UIcon name="i-heroicons-x-mark" class="size-3" />
+              </button>
+            </div>
+          </div>
         </div>
 
         <button

@@ -123,6 +123,26 @@ async function saveShowCursorOverlay(value: boolean) {
   }
 }
 
+const voiceAutoShutoffDraft = ref(5)
+watch(
+  () => userSettings.value.voice_auto_shutoff_seconds,
+  (value) => { voiceAutoShutoffDraft.value = value },
+  { immediate: true },
+)
+
+async function saveVoiceAutoShutoff() {
+  const value = Math.max(0, Math.floor(Number(voiceAutoShutoffDraft.value) || 0))
+  voiceAutoShutoffDraft.value = value
+  if (value === userSettings.value.voice_auto_shutoff_seconds) return
+  try {
+    await useUserSettings().saveSettings({ voice_auto_shutoff_seconds: value })
+  }
+  catch (e) {
+    console.error('[settings] Error saving voice auto-shutoff preference:', e)
+    voiceAutoShutoffDraft.value = userSettings.value.voice_auto_shutoff_seconds
+  }
+}
+
 const geo = useGeolocation({ active: false })
 
 /** Empty when permission is granted — no explanatory subtitle needed. */
@@ -440,6 +460,26 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         {{ locationPermissionHint }}
                       </p>
                     </div>
+                    <SettingsSectionRow>
+                      <template #icon>
+                        <UIcon name="i-heroicons-microphone-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                      </template>
+                      <template #label>{{ t('settings.voiceAutoShutoff') }}</template>
+                      <template #trailing>
+                        <input
+                          v-model.number="voiceAutoShutoffDraft"
+                          name="voice-auto-shutoff"
+                          type="number"
+                          min="0"
+                          step="1"
+                          inputmode="numeric"
+                          :disabled="blogSubscriptionSaving"
+                          class="w-[calc(7ch+1.375rem)] rounded-md border border-neutral-200 bg-white px-2 py-1 text-center text-body-md text-neutral-950 outline-none transition [appearance:textfield] focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          @blur="saveVoiceAutoShutoff"
+                          @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+                        >
+                      </template>
+                    </SettingsSectionRow>
                     <!--
                       "Display cursor" toggle (settings.showCursor / settings.showCursorHint) is
                       intentionally hidden until midas reaches full driver parity with playwright

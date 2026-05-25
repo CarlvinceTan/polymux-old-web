@@ -148,7 +148,7 @@ const textareaCls = inputCls + ' resize-none leading-snug'
           @click="toggleDropdown"
         >
           <UIcon
-            name="i-heroicons-arrow-top-right-on-square"
+            name="i-heroicons-rectangle-stack-20-solid"
             class="size-3.5 shrink-0"
             :style="{ color: 'var(--color-embed-border)' }"
           />
@@ -204,7 +204,7 @@ const textareaCls = inputCls + ' resize-none leading-snug'
                 @click="pickWorkflow(w)"
               >
                 <UIcon
-                  name="i-heroicons-arrow-top-right-on-square"
+                  name="i-heroicons-rectangle-stack-20-solid"
                   class="size-3 shrink-0"
                   :style="{ color: 'var(--color-embed-border)' }"
                 />

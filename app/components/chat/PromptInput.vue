@@ -8,6 +8,7 @@ import { useAppToast } from '~/composables/ui/useAppToast'
 const { t, locale } = useI18n()
 const toast = useAppToast()
 const { isExtensionModeGloballyAllowed } = useMeFeatures()
+const { settings: userSettings } = useUserSettings()
 
 const props = withDefaults(
   defineProps<{
@@ -56,6 +57,7 @@ let voiceFinal = ''
 
 const { isSupported: voiceSupported, isListening, toggle: toggleVoice } = useSpeechRecognition({
   lang: computed(() => localeToBcp47[locale.value] ?? locale.value),
+  silenceTimeoutSeconds: computed(() => userSettings.value.voice_auto_shutoff_seconds),
   onFinal: (text) => {
     voiceFinal += text
     inputValue.value = voiceBase + voiceFinal

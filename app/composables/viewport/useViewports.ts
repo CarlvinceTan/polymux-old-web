@@ -1,4 +1,4 @@
-import { ref, computed, watch, readonly, onUnmounted } from 'vue'
+import { ref, computed, watch, readonly, onUnmounted, type Ref } from 'vue'
 import type {
   ViewportState,
   BrowserSpawnedPayload,
@@ -17,14 +17,45 @@ import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 import { browserAgentCapFromPlan } from '~/utils/planLimits'
 
 const URL_RE = /https?:\/\/[^\s"',)}\]]+/
+const PINNED_STORAGE_KEY_PREFIX = 'polymux_viewport_pinned:'
+
+function loadPinnedIds(workflowId: string): Set<string> {
+  if (!import.meta.client || !workflowId) return new Set()
+  try {
+    const raw = localStorage.getItem(PINNED_STORAGE_KEY_PREFIX + workflowId)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.filter((id): id is string => typeof id === 'string'))
+  }
+  catch {
+    return new Set()
+  }
+}
+
+function persistPinnedIds(workflowId: string, ids: Set<string>) {
+  if (!import.meta.client || !workflowId) return
+  try {
+    localStorage.setItem(PINNED_STORAGE_KEY_PREFIX + workflowId, JSON.stringify([...ids]))
+  }
+  catch {}
+}
 
 function extractUrl(text: string): string | null {
   const match = URL_RE.exec(text)
   return match ? match[0] : null
 }
 
-export function useViewports(session: SessionHandle) {
+export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
   const viewports = ref<ViewportState[]>([])
+  const pinnedAgentIds = ref<Set<string>>(new Set())
+
+  watch(workflowId, (id) => {
+    pinnedAgentIds.value = loadPinnedIds(id)
+    if (viewports.value.length > 0) {
+      viewports.value = sortViewports(viewports.value)
+    }
+  }, { immediate: true })
   const browserMode = computed(() => viewports.value.length > 0)
   const { currentWorkspace } = useWorkspaces()
   const browserAgentCap = ref(browserAgentCapFromPlan(currentWorkspace.value?.plan))
@@ -126,6 +157,40 @@ export function useViewports(session: SessionHandle) {
     )
   }
 
+  function withPinFlags(list: ViewportState[]): ViewportState[] {
+    return list.map(v => ({
+      ...v,
+      isPinned: pinnedAgentIds.value.has(v.agentId),
+    }))
+  }
+
+  function sortViewports(list: ViewportState[]): ViewportState[] {
+    const pinned = sortByLabel(list.filter(v => pinnedAgentIds.value.has(v.agentId)))
+    const unpinned = sortByLabel(list.filter(v => !pinnedAgentIds.value.has(v.agentId)))
+    return withPinFlags([...pinned, ...unpinned])
+  }
+
+  function setViewports(list: ViewportState[]) {
+    viewports.value = sortViewports(list)
+  }
+
+  function removePin(agentId: string) {
+    if (!pinnedAgentIds.value.has(agentId)) return
+    const next = new Set(pinnedAgentIds.value)
+    next.delete(agentId)
+    pinnedAgentIds.value = next
+    persistPinnedIds(workflowId.value, next)
+  }
+
+  function togglePin(agentId: string) {
+    const next = new Set(pinnedAgentIds.value)
+    if (next.has(agentId)) next.delete(agentId)
+    else next.add(agentId)
+    pinnedAgentIds.value = next
+    persistPinnedIds(workflowId.value, next)
+    viewports.value = sortViewports(viewports.value)
+  }
+
   // Prefer a still-working viewport as the default active one; fall back to
   // the lowest-labelled agent when every agent is already done.
   function pickDefaultActiveAgent(list: ViewportState[]): string | null {
@@ -159,7 +224,7 @@ export function useViewports(session: SessionHandle) {
         return
       }
       receivedAnyState = true
-      viewports.value = sortByLabel((state.browser_agents ?? []).map(payloadToViewport))
+      setViewports((state.browser_agents ?? []).map(payloadToViewport))
       browserAgentCap.value = state.browser_agent_cap ?? 0
       if (activeAgentId.value && !viewports.value.some(v => v.agentId === activeAgentId.value)) {
         activeAgentId.value = null
@@ -181,14 +246,14 @@ export function useViewports(session: SessionHandle) {
     if (receivedAnyState) return
     if (!states || states.length === 0) return
     const visualOnly = states.map(s => ({ ...s, is_visual_only: true }))
-    viewports.value = sortByLabel(visualOnly.map(payloadToViewport))
+    setViewports(visualOnly.map(payloadToViewport))
   }
 
   function handleBrowserSpawned(p: BrowserSpawnedPayload) {
     // eslint-disable-next-line no-console
     console.debug('[viewports] browser_spawned', { agent_id: p.agent_id, label: p.label, task: p.task?.slice(0, 60) })
     if (!viewports.value.some(v => v.agentId === p.agent_id)) {
-      viewports.value = [...viewports.value, payloadToViewport(p)]
+      setViewports([...viewports.value, payloadToViewport(p)])
     }
     activeAgentId.value = p.agent_id
     sendPriorityUpdate()
@@ -207,6 +272,7 @@ export function useViewports(session: SessionHandle) {
 
   function handleBrowserAgentReleased(p: BrowserAgentReleasedPayload) {
     cancelPendingUrlUpdate(p.agent_id)
+    removePin(p.agent_id)
     if (activeAgentId.value === p.agent_id) activeAgentId.value = null
     viewports.value = viewports.value.filter(v => v.agentId !== p.agent_id)
     sendPriorityUpdate()
@@ -295,6 +361,7 @@ export function useViewports(session: SessionHandle) {
   function closeViewport(agentId: string) {
     session.send<CloseBrowserAgentPayload>('close_browser_agent', { agent_id: agentId })
     cancelPendingUrlUpdate(agentId)
+    removePin(agentId)
     if (activeAgentId.value === agentId) activeAgentId.value = null
     viewports.value = viewports.value.filter(v => v.agentId !== agentId)
     sendPriorityUpdate()
@@ -314,6 +381,7 @@ export function useViewports(session: SessionHandle) {
     browserMode: readonly(browserMode),
     browserAgentCap: readonly(browserAgentCap),
     closeViewport,
+    togglePin,
     spawnBrowserAgent,
     sendPriorityUpdate,
     setViewportUrlIfEmpty,

@@ -14,6 +14,10 @@ const availableLocales = computed(() =>
   })),
 )
 
+const localeMenuOptions = computed(() =>
+  availableLocales.value.map(l => ({ value: l.code, label: l.label })),
+)
+
 const currentLocaleLabel = computed(() => {
   const match = availableLocales.value.find(l => l.code === locale.value)
   return match?.label ?? locale.value
@@ -434,6 +438,7 @@ function closeLocale() { localeOpen.value = false }
 async function selectLocale(code: string) {
   await setLocale(code as typeof locale.value)
   closeLocale()
+  closeMobileNav()
 }
 
 function onClickOutside(e: MouseEvent) {
@@ -612,7 +617,15 @@ onBeforeUnmount(() => {
             :aria-expanded="localeOpen"
             @click="toggleLocale"
           >
-            <span>{{ currentLocaleLabel }}</span>
+            <span class="inline-flex items-center gap-1 md:hidden">
+              <UIcon
+                name="i-heroicons-globe-alt"
+                class="size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <span>{{ t('landing.header.language') }}</span>
+            </span>
+            <span class="hidden md:inline">{{ currentLocaleLabel }}</span>
             <UIcon
               name="i-heroicons-chevron-down-20-solid"
               class="size-3.5 shrink-0 transition-transform"
@@ -633,16 +646,21 @@ onBeforeUnmount(() => {
             <div
               v-if="localeOpen"
               id="docs-locale-menu"
-              class="absolute left-1/2 top-full z-50 mt-2 max-h-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg"
+              class="absolute left-1/2 top-full z-50 mt-2 max-h-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg"
               role="menu"
             >
+              <p class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500 md:hidden">
+                {{ t('landing.header.language') }}
+              </p>
               <button
                 v-for="loc in availableLocales"
                 :key="loc.code"
                 type="button"
                 role="menuitem"
                 class="block w-full whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
-                :class="locale === loc.code ? 'font-medium text-neutral-950' : 'text-neutral-700'"
+                :class="locale === loc.code
+                  ? 'bg-neutral-100 font-medium text-neutral-950'
+                  : 'text-neutral-700'"
                 @click="selectLocale(loc.code)"
               >
                 {{ loc.label }}
@@ -716,6 +734,16 @@ onBeforeUnmount(() => {
           class="fixed inset-y-0 top-[64px] left-0 z-30 w-72 overflow-y-auto border-r border-neutral-200 bg-neutral-50 py-6 lg:hidden"
         >
           <nav class="flex flex-col gap-2 px-3">
+            <MobileExpandableMenu
+              plain
+              size="sm"
+              class="mb-2"
+              :label="t('landing.header.language')"
+              :options="localeMenuOptions"
+              :model-value="locale"
+              @select="selectLocale"
+            />
+
             <div v-for="section in sections" :key="section.title">
               <button
                 type="button"

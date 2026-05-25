@@ -14,6 +14,10 @@ const availableLocales = computed(() =>
     })),
 )
 
+const localeMenuOptions = computed(() =>
+    availableLocales.value.map(l => ({ value: l.code, label: l.label })),
+)
+
 const isProfileDropdownOpen = ref(false)
 const profileMenuRef = ref<HTMLElement | null>(null)
 
@@ -151,7 +155,7 @@ function scrollToSection(id: string) {
             armNavHeaderLockRelease()
             replaceHash(`#${id}`)
         }
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        scrollLandingToElement(id)
         return
     }
     navigateTo({ path: '/', hash: `#${id}` })
@@ -178,6 +182,17 @@ const SECTION_NAV_ANCHOR_OFFSET = 96
 
 function elementOffsetInScrollRoot(el: HTMLElement, scrollRoot: HTMLElement): number {
     return el.getBoundingClientRect().top - scrollRoot.getBoundingClientRect().top + scrollRoot.scrollTop
+}
+
+/** Scroll within `#landing-scroll` (body overflow is hidden; avoid scrollIntoView on mobile). */
+function scrollLandingToElement(id: string, behavior: ScrollBehavior = 'smooth') {
+    const root = document.getElementById('landing-scroll')
+    const el = document.getElementById(id)
+    if (!root || !el) return
+
+    const scrollMarginTop = Number.parseFloat(getComputedStyle(el).scrollMarginTop) || 0
+    const top = elementOffsetInScrollRoot(el, root) - scrollMarginTop
+    root.scrollTo({ top: Math.max(0, top), behavior })
 }
 
 /** Underline from scroll position when the user scrolls manually (header lock off). Only updates `activeSection` — no router calls here so manual scrolling is never interrupted. */
@@ -260,7 +275,7 @@ onMounted(() => {
 
 watch(
     () => route.fullPath,
-    async () => {
+    async (_newFullPath, oldFullPath) => {
         if (!homePaths.has(route.path)) {
             clearNavHeaderLockTimer()
             navLockedToHeader.value = false
@@ -280,11 +295,14 @@ watch(
             activeSection.value = hash as 'features' | 'pricing'
             armNavHeaderLockRelease()
             await nextTick()
-            document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            scrollLandingToElement(hash)
         } else {
             clearNavHeaderLockTimer()
             navLockedToHeader.value = false
-            scrollLandingToTop()
+            const previousPath = oldFullPath?.split('#')[0] ?? ''
+            if (oldFullPath !== undefined && !homePaths.has(previousPath)) {
+                scrollLandingToTop()
+            }
         }
 
         await nextTick()
@@ -438,13 +456,13 @@ const linkGroups = computed(() => [
                                         enter-from-class="opacity-0 -translate-y-0.5"
                                         leave-to-class="opacity-0 -translate-y-0.5">
                                         <div v-if="isLocaleOpen" ref="localeMenuRef"
-                                            class="absolute left-1/2 top-full z-50 mt-2 inline-flex max-h-72 -translate-x-1/2 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                                            class="absolute left-1/2 top-full z-50 mt-2 inline-flex max-h-72 -translate-x-1/2 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
                                             role="menu">
                                             <button v-for="loc in availableLocales"
                                                 :key="loc.code" type="button" role="menuitem"
                                                 class="whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
                                                 :class="locale === loc.code
-                                                    ? 'font-medium text-neutral-950'
+                                                    ? 'bg-neutral-100 font-medium text-neutral-950'
                                                     : 'text-neutral-700'"
                                                 @click="selectLandingLocale(loc.code)">
                                                 {{ loc.label }}
@@ -487,13 +505,13 @@ const linkGroups = computed(() => [
                             enter-from-class="opacity-0 -translate-y-0.5"
                             leave-to-class="opacity-0 -translate-y-0.5">
                             <div v-if="isLocaleOpen" ref="localeMenuRef"
-                                class="absolute left-1/2 top-full -translate-x-1/2 z-50 mt-2 inline-flex max-h-72 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
+                                class="absolute left-1/2 top-full -translate-x-1/2 z-50 mt-2 inline-flex max-h-72 flex-col items-stretch overflow-y-auto overflow-x-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]"
                                 role="menu">
                                     <button v-for="loc in availableLocales"
                                         :key="loc.code" type="button" role="menuitem"
                                         class="whitespace-nowrap px-3 py-1.5 text-left text-[13px] leading-tight outline-none transition-colors hover:bg-neutral-50"
                                         :class="locale === loc.code
-                                            ? 'font-medium text-neutral-950'
+                                            ? 'bg-neutral-100 font-medium text-neutral-950'
                                             : 'text-neutral-700'"
                                         @click="selectLandingLocale(loc.code)">
                                         {{ loc.label }}
@@ -565,41 +583,38 @@ const linkGroups = computed(() => [
                         </NuxtLink>
                         <!-- Install App button (authenticated) -->
                         <NuxtLink v-if="user" to="/install-apps"
-                            class="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-base font-medium text-neutral-700 hover:bg-neutral-50"
+                            class="rounded-md px-3 py-2 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-950"
                             @click="mobileOpen = false">
-                            <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0" />
                             {{ t('landing.nav.installApp') }}
                         </NuxtLink>
 
-                        <!-- Language (mobile): locale rows -->
-                        <div class="mt-2 border-t border-neutral-100 pt-2">
+                        <!-- Mobile utility menus -->
+                        <div class="space-y-1">
                             <NuxtLink v-if="!user" to="/install-apps"
-                                class="mb-1 inline-flex items-center gap-2 rounded-md px-3 py-2 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-950"
-                                :aria-label="t('landing.nav.installApp')"
+                                class="rounded-md px-3 py-2 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-950"
                                 @click="mobileOpen = false">
-                                <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-5 shrink-0" aria-hidden="true" />
+                                {{ t('landing.nav.installApp') }}
                             </NuxtLink>
-                            <button v-for="loc in availableLocales"
-                                :key="`m-loc-${loc.code}`" type="button"
-                                class="block w-full rounded-md px-3 py-2 text-left text-base font-medium outline-none transition-colors hover:bg-neutral-50"
-                                :class="locale === loc.code
-                                    ? 'bg-neutral-100 font-semibold text-neutral-950'
-                                    : 'text-neutral-600 hover:text-neutral-950'"
-                                @click="selectLandingLocale(loc.code)">
-                                {{ loc.label }}
-                            </button>
+
+                            <MobileExpandableMenu
+                                plain
+                                :label="t('landing.header.language')"
+                                :options="localeMenuOptions"
+                                :model-value="locale"
+                                @select="selectLandingLocale"
+                            />
                         </div>
 
                         <!-- Authenticated: profile row -->
                         <NuxtLink v-if="user" to="/dashboard/console"
-                            class="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
+                            class="flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
                             @click="mobileOpen = false">
-                            <span v-if="avatarUrl" class="size-8 shrink-0 overflow-hidden rounded-full">
+                            <span v-if="avatarUrl" class="size-6 shrink-0 overflow-hidden rounded-md">
                                 <img :src="avatarUrl" :alt="displayName" class="size-full object-cover"
                                     referrerpolicy="no-referrer">
                             </span>
                             <span v-else
-                                class="btn-gradient flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
+                                class="btn-gradient flex size-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white">
                                 {{ initials }}
                             </span>
                             <span class="truncate text-base font-medium text-neutral-800">{{ displayName }}</span>

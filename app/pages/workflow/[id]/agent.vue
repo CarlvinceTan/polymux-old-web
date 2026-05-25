@@ -58,19 +58,24 @@ const { canSendPromptSync, canSendPromptAsync } = useChatPromptSendGuard(
 const { settings: userSettings } = useUserSettings()
 const showCursor = computed(() => userSettings.value.show_cursor_overlay)
 
-// Drives the working indicator across silent gaps: while the orchestrator is
-// waiting on a browser sub-agent's result, no agent_thinking / agent_message
-// events fire on the orchestrator, but work is still happening — the dots
-// should keep pulsing.
-const browserAgentsActive = computed(() =>
-  (vp.viewports.value as ViewportState[]).some(v => v.isWorking),
-)
+const orchestratorChat = computed(() => chats.orchestrator)
+const chatMessages = computed(() => orchestratorChat.value.messages.value)
+const chatIsStreaming = computed(() => orchestratorChat.value.isStreaming.value)
+const chatThinking = computed(() => orchestratorChat.value.thinking.value)
+const chatWaitingForAgent = computed(() => orchestratorChat.value.waitingForAgent.value)
+
+const { browserAgentsActive, showWorkingIndicator } = useChatActivity({
+  isStreaming: chatIsStreaming,
+  thinking: chatThinking,
+  waitingForAgent: chatWaitingForAgent,
+  viewports: computed(() => vp.viewports.value as ViewportState[]),
+})
 
 const { consumePendingPrompt } = useWorkflowList()
 
 // All chat goes to the orchestrator. Individual browser-agent chat is
 // intentionally unreachable — the orchestrator is the sole manager.
-const currentChat = computed(() => chats.orchestrator)
+const currentChat = orchestratorChat
 
 const command = computed({
   get: () => chats.drafts['orchestrator'] ?? '',
@@ -146,6 +151,10 @@ function onRunAgent(_agentId: string) {
   // TODO: wire to a server-side "continue agent" message when available.
 }
 
+function onTogglePinViewport(agentId: string) {
+  vp.togglePin(agentId)
+}
+
 // Pick up a draft stashed during session promotion and fire it immediately.
 // Calling onSend now pushes the optimistic user bubble into orchestrator
 // state synchronously — the welcome view goes away on the same tick the
@@ -174,9 +183,10 @@ onMounted(() => {
     :renameable="!isNewChat"
     :user-name="userName"
     :welcome-suggestion="welcomeSuggestion"
-    :messages="(currentChat.messages.value as ChatMessage[])"
-    :is-streaming="currentChat.isStreaming.value"
-    :waiting-for-agent="currentChat.waitingForAgent.value"
+    :messages="(chatMessages as ChatMessage[])"
+    :is-streaming="chatIsStreaming"
+    :show-working-indicator="showWorkingIndicator"
+    :waiting-for-agent="chatWaitingForAgent"
     :browser-agents-active="browserAgentsActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
     :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
@@ -192,6 +202,7 @@ onMounted(() => {
     @send="onSend"
     @rename="onRename"
     @close-viewport="onCloseViewport"
+    @toggle-pin-viewport="onTogglePinViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"
     @stop-agent="onStopAgent"
     @run-agent="onRunAgent"

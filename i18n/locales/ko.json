@@ -40,6 +40,52 @@
       "loading": "로딩 중…"
     }
   },
+  "upgradePlan": {
+    "title": "플랜 업그레이드",
+    "subtitle": "현재 플랜의 한도에 도달했습니다.",
+    "benefitsHeading": "업그레이드로 잠금 해제",
+    "notNow": "나중에",
+    "unlimited": "무제한",
+    "custom": "맞춤",
+    "currentPlanNote": "현재 {current} 플랜입니다. 요금 페이지에서 상위 플랜을 선택하세요.",
+    "planNames": {
+      "free": "Free",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    },
+    "benefits": {
+      "contactSales": "맞춤 Enterprise 플랜은 영업팀에 문의하세요",
+      "agents": "{plan}: 워크스페이스당 최대 {count}개의 AI 에이전트",
+      "tokens": "{plan}: 주간 {count} 토큰 예산",
+      "cloud": "{plan}: {size} 클라우드 스토리지",
+      "members": "{plan}: 최대 {count}명의 워크스페이스 멤버"
+    },
+    "reasons": {
+      "weeklyTokenBudget": {
+        "title": "주간 토큰 한도에 도달했습니다",
+        "body": "워크스페이스의 주간 토큰 예산을 모두 사용했습니다. 더 높은 한도를 위해 업그레이드하거나 월요일 00:00 UTC 재설정 후 다시 시도하세요."
+      },
+      "browserAgentLimit": {
+        "title": "브라우저 에이전트 한도에 도달했습니다",
+        "body": "플랜에서 허용하는 최대 브라우저 에이전트 수에 도달했습니다.",
+        "bodyWithCap": "플랜에서는 최대 {cap}개의 브라우저 에이전트를 사용할 수 있습니다. 더 많이 병렬 실행하려면 업그레이드하세요."
+      },
+      "memberLimit": {
+        "title": "워크스페이스 멤버 한도에 도달했습니다",
+        "body": "플랜의 좌석 한도에 도달했습니다. 더 많은 팀원을 초대하려면 업그레이드하세요.",
+        "bodyWithCap": "플랜에는 {cap}개의 좌석이 포함됩니다. 더 많은 팀원을 초대하려면 업그레이드하세요."
+      },
+      "cloudStorage": {
+        "title": "클라우드 스토리지는 업그레이드가 필요합니다",
+        "body": "Polymux 클라우드 스토리지는 Pro 이상에서 사용할 수 있습니다. 워크스페이스에서 파일을 동기화하려면 업그레이드하세요."
+      },
+      "featureLocked": {
+        "title": "이 기능은 업그레이드가 필요합니다",
+        "body": "현재 플랜에는 이 기능이 포함되어 있지 않습니다. 업그레이드하여 사용하세요."
+      }
+    }
+  },
   "nav": {
     "dashboard": "대시보드",
     "integrations": "통합",
@@ -135,6 +181,8 @@
     "locationDenied": "브라우저에 의해 차단됨 — 브라우저 설정에서 업데이트하세요",
     "locationPrompt": "위치 접근 허용을 요청받게 됩니다",
     "locationUnsupported": "브라우저에서 위치 정보가 지원되지 않습니다",
+    "voiceAutoShutoff": "음성 자동 종료",
+    "voiceAutoShutoffHint": "무음 상태가 지속되는 초 후 음성 입력이 자동으로 꺼집니다. 0은 수동 종료만 가능합니다.",
     "cloakedBrowser": "클로크 브라우저",
     "cloakedBrowserHint": "사이트가 CAPTCHA, Cloudflare 또는 DataDome 챌린지로 차단하는 것으로 알려진 경우 CloakBrowser를 통해 브라우저 세션을 라우팅합니다. 끄면 모든 탐색이 일반 브라우저를 통해 강제 실행됩니다.",
     "showCursor": "커서 표시",

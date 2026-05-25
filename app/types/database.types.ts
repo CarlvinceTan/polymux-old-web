@@ -1328,6 +1328,7 @@ export type Database = {
           show_cursor_overlay: boolean
           updated_at: string
           user_id: string
+          voice_auto_shutoff_seconds: number
         }
         Insert: {
           all_notifications_enabled?: boolean
@@ -1338,6 +1339,7 @@ export type Database = {
           show_cursor_overlay?: boolean
           updated_at?: string
           user_id: string
+          voice_auto_shutoff_seconds?: number
         }
         Update: {
           all_notifications_enabled?: boolean
@@ -1348,6 +1350,7 @@ export type Database = {
           show_cursor_overlay?: boolean
           updated_at?: string
           user_id?: string
+          voice_auto_shutoff_seconds?: number
         }
         Relationships: []
       }
@@ -2409,6 +2412,7 @@ export type Database = {
           show_cursor_overlay: boolean
           updated_at: string
           user_id: string
+          voice_auto_shutoff_seconds: number
         }
         SetofOptions: {
           from: "*"
@@ -2578,6 +2582,7 @@ export type Database = {
           p_cloaked_browser_enabled?: boolean
           p_settings?: Json
           p_show_cursor_overlay?: boolean
+          p_voice_auto_shutoff_seconds?: number
         }
         Returns: {
           all_notifications_enabled: boolean
@@ -2588,6 +2593,7 @@ export type Database = {
           show_cursor_overlay: boolean
           updated_at: string
           user_id: string
+          voice_auto_shutoff_seconds: number
         }
         SetofOptions: {
           from: "*"

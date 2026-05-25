@@ -7,6 +7,7 @@ import type { WorkflowOp } from '~/composables/workflows/useWorkflowMutations'
 import { applyOp, findNodeById, findWireById, idsTouchedByOp } from '~/composables/workflows/useWorkflowMutations'
 import { useEmbeddedWorkflowCache } from '~/composables/workflows/useEmbeddedWorkflow'
 import type { LiveHistoryEntry } from '~/components/workflow/WorkflowHistoryDrawer.vue'
+import WorkflowBlankNodeIcon from '~/components/workflow/WorkflowBlankNodeIcon.vue'
 
 const props = defineProps<{
   sessionId: string
@@ -2578,8 +2579,11 @@ function onZoneLeave(id: string) {
 
 // ── Manual node placement ──────────────────────────────────────────────────
 // The "+ node" menu in the side toolbar starts a placement gesture: a
-// faded NODE_W × NODE_H ghost follows the cursor, and the next click in
-// the canvas drops the node there. Two flavours, picked from the menu:
+// faded NODE_W × NODE_H ghost follows the cursor, and the user drops it
+// on the canvas via either:
+//   • click-click — press and release on the canvas (minimal movement)
+//   • drag-drop   — press, drag to position, release to drop
+// Two flavours, picked from the menu:
 //
 //   - 'blank':  a regular node; the user fills in title / actions via
 //               the InfoPanel after dropping.
@@ -2598,6 +2602,17 @@ const placingNode = ref<Pt | null>(null)
 const placingKind = ref<PlacingKind | null>(null)
 const pendingEmbedIds = ref<Set<string>>(new Set())
 
+// Whether a canvas press is in flight so pointerup can commit the drop.
+let placingNodePress = false
+
+// Tracks a pick gesture that began on a + menu row. Menu drag starts on
+// pointerdown (before click); click-click waits for a separate canvas press.
+interface PlacingNodeGesture {
+  downScreen: { x: number; y: number }
+  fromMenu: boolean
+}
+let placingNodeGesture: PlacingNodeGesture | null = null
+
 function startPlacingNode() { startPlacing('blank') }
 function startPlacingEmbedNode() { startPlacing('embed') }
 
@@ -2610,8 +2625,11 @@ function startPlacing(kind: PlacingKind) {
   if (!attemptEdit()) return
   placingKind.value = kind
   placingNode.value = { x: 0, y: 0 }
+  placingNodePress = false
+  placingNodeGesture = null
   document.addEventListener('pointermove', onPlacingMove)
-  document.addEventListener('click', onPlacingClick, true)
+  document.addEventListener('pointerdown', onPlacingPointerDown, true)
+  document.addEventListener('pointerup', onPlacingPointerUp, true)
   document.addEventListener('keydown', onPlacingKey)
 }
 
@@ -2629,17 +2647,61 @@ function onPlacingKey(ev: KeyboardEvent) {
   }
 }
 
-function onPlacingClick(ev: MouseEvent) {
+function onPlacingPointerDown(ev: PointerEvent) {
   if (!placingNode.value) return
+  if (ev.button !== 0) return
   const target = ev.target as Element | null
-  // Click outside the canvas viewport → cancel without dropping.
+  // Press outside the canvas viewport → cancel without dropping.
   if (!target || !viewportEl.value?.contains(target)) {
     cancelPlacing()
     return
   }
-  // Swallow the click so it doesn't bubble into pan / select handlers.
+  // Placement tool owns the gesture — block canvas pan / marquee / port
+  // handlers that would otherwise fire on the same press.
   ev.stopPropagation()
   ev.preventDefault()
+  placingNodePress = true
+  onPlacingMove(ev)
+}
+
+function onPlacingPointerUp(ev: PointerEvent) {
+  if (!placingNode.value) return
+  if (ev.button !== 0) return
+
+  const gesture = placingNodeGesture
+  if (gesture?.fromMenu) {
+    const dx = ev.clientX - gesture.downScreen.x
+    const dy = ev.clientY - gesture.downScreen.y
+    const moved = Math.hypot(dx, dy) >= DRAG_THRESHOLD
+    if (!moved) {
+      // Menu row click without drag — stay armed for a canvas click to drop.
+      placingNodeGesture = null
+      return
+    }
+    placingNodeGesture = null
+    const target = ev.target as Element | null
+    if (!target || !viewportEl.value?.contains(target)) {
+      cancelPlacing()
+      return
+    }
+    onPlacingMove(ev)
+    ev.stopPropagation()
+    ev.preventDefault()
+    commitPlacedNode()
+    return
+  }
+
+  if (!placingNodePress) return
+  placingNodePress = false
+  // Commit on release for click-click on the canvas. Ghost position comes
+  // from the last pointermove, including any drag in this gesture.
+  ev.stopPropagation()
+  ev.preventDefault()
+  commitPlacedNode()
+}
+
+function commitPlacedNode() {
+  if (!placingNode.value) return
   // Snap to grid + jitter off any existing node at the same coords so a
   // freshly placed node always lands somewhere visible.
   const pos = findFreePlacement(placingNode.value)
@@ -2675,8 +2737,11 @@ function onPlacingClick(ev: MouseEvent) {
 function cancelPlacing() {
   placingNode.value = null
   placingKind.value = null
+  placingNodePress = false
+  placingNodeGesture = null
   document.removeEventListener('pointermove', onPlacingMove)
-  document.removeEventListener('click', onPlacingClick, true)
+  document.removeEventListener('pointerdown', onPlacingPointerDown, true)
+  document.removeEventListener('pointerup', onPlacingPointerUp, true)
   document.removeEventListener('keydown', onPlacingKey)
 }
 
@@ -5677,13 +5742,17 @@ watch(showAddNodeMenu, (open) => {
     window.removeEventListener('scroll', updateAddNodeMenuAnchor, true)
   }
 })
-function pickAddNodeBlank() {
+function onAddNodeMenuPointerDown(kind: PlacingKind, ev: PointerEvent) {
+  if (ev.button !== 0) return
+  ev.preventDefault()
   showAddNodeMenu.value = false
-  startPlacingNode()
-}
-function pickAddNodeEmbed() {
-  showAddNodeMenu.value = false
-  startPlacingEmbedNode()
+  startPlacing(kind)
+  if (!placingNode.value) return
+  placingNodeGesture = {
+    downScreen: { x: ev.clientX, y: ev.clientY },
+    fromMenu: true,
+  }
+  onPlacingMove(ev)
 }
 
 // The settings panel is teleported to body so it can render above the
@@ -5835,7 +5904,8 @@ onBeforeUnmount(() => {
              "Embedded workflow" starts one for a delegating node the
              user will bind to another workflow via the InfoPanel
              dropdown. The button itself just toggles the menu; the
-             gesture begins when the user picks an option. -->
+             gesture begins on pointerdown when the user grabs a row
+             (drag-drop) or clicks a row then clicks the canvas. -->
         <div class="relative">
           <button
             ref="addNodeButtonEl"
@@ -5844,22 +5914,7 @@ onBeforeUnmount(() => {
             :class="(placingNode || showAddNodeMenu) ? 'text-neutral-900' : 'text-neutral-500'"
             @click="showAddNodeMenu = !showAddNodeMenu"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              class="size-3.5"
-              aria-hidden="true"
-            >
-              <rect
-                x="2.9"
-                y="4.9"
-                width="18.2"
-                height="14.2"
-                rx="3.1"
-                stroke="currentColor"
-                stroke-width="1.8"
-              />
-            </svg>
+            <WorkflowBlankNodeIcon />
             <span v-if="!showAddNodeMenu" class="canvas-tooltip">{{ t('workflow.addNode') }}</span>
           </button>
           <Teleport to="body">
@@ -5883,9 +5938,9 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
-                  @click="pickAddNodeBlank"
+                  @pointerdown.stop="(e) => onAddNodeMenuPointerDown('blank', e)"
                 >
-                  <UIcon name="i-heroicons-rectangle-stack-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                  <WorkflowBlankNodeIcon class="size-4 shrink-0 text-neutral-500" />
                   <span class="flex min-w-0 flex-1 flex-col leading-tight">
                     <span class="font-medium text-neutral-900">{{ t('workflow.addNodeBlank') }}</span>
                     <span class="mt-0.5 text-[11px] text-neutral-500">{{ t('workflow.addNodeBlankDesc') }}</span>
@@ -5894,10 +5949,10 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="flex w-full items-center gap-2.5 border-t border-neutral-100 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
-                  @click="pickAddNodeEmbed"
+                  @pointerdown.stop="(e) => onAddNodeMenuPointerDown('embed', e)"
                 >
                   <UIcon
-                    name="i-heroicons-arrow-top-right-on-square"
+                    name="i-heroicons-rectangle-stack-20-solid"
                     class="size-4 shrink-0 text-neutral-500"
                   />
                   <span class="flex min-w-0 flex-1 flex-col leading-tight">
@@ -6516,7 +6571,7 @@ onBeforeUnmount(() => {
                 </span>
                 <UIcon
                   v-if="!isPendingEmbed(node)"
-                  name="i-heroicons-arrow-top-right-on-square"
+                  name="i-heroicons-rectangle-stack-20-solid"
                   class="size-3.5 shrink-0 text-neutral-500"
                 />
               </div>
@@ -6786,8 +6841,8 @@ onBeforeUnmount(() => {
         <!--
           Cursor-following ghost for the "add node" tool — same NODE_W ×
           NODE_H footprint as the real card. Renders only while a manual
-          placement is in flight; the next canvas click drops a real node
-          at this position.
+          placement is in flight; press-release or drag-release on the
+          canvas drops a real node at this position.
         -->
         <div
           v-if="placingNode"
@@ -6801,10 +6856,16 @@ onBeforeUnmount(() => {
             borderColor: placingKind === 'embed' ? 'var(--color-embed-border)' : 'rgb(115 115 115)',
           }"
         >
-          <UIcon
-            :name="placingKind === 'embed' ? 'i-heroicons-arrow-top-right-on-square' : 'i-heroicons-plus-20-solid'"
+          <WorkflowBlankNodeIcon
+            v-if="placingKind === 'blank'"
             class="size-5"
-            :style="{ color: placingKind === 'embed' ? 'var(--color-embed-border)' : 'rgb(115 115 115)' }"
+            style="color: rgb(115 115 115)"
+          />
+          <UIcon
+            v-else
+            name="i-heroicons-rectangle-stack-20-solid"
+            class="size-5"
+            :style="{ color: 'var(--color-embed-border)' }"
           />
         </div>
 
