@@ -1,0 +1,78 @@
+- generic [ref=e4]:
+  - complementary "Main sidebar" [ref=e7]:
+    - generic [ref=e10] [cursor=pointer]:
+      - generic [ref=e11]: W
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Loading…
+          - img [ref=e15]
+        - generic [ref=e17]: Member
+    - navigation "Main" [ref=e18]:
+      - list [ref=e19]:
+        - listitem [ref=e20]:
+          - button "New Workflow" [ref=e21]:
+            - img [ref=e22]
+            - generic [ref=e24]: New Workflow
+        - listitem [ref=e25]:
+          - button "Search" [ref=e26]:
+            - img [ref=e27]
+            - generic [ref=e30]: Search
+        - listitem [ref=e31]:
+          - link "Integrations" [ref=e32] [cursor=pointer]:
+            - /url: /integrations/installed
+            - img [ref=e33]
+            - generic [ref=e38]: Integrations
+        - listitem [ref=e39]:
+          - link "Storage" [ref=e40] [cursor=pointer]:
+            - /url: /storage/files
+            - img [ref=e41]
+            - generic [ref=e44]: Storage
+        - listitem [ref=e45]:
+          - link "Vault" [ref=e46] [cursor=pointer]:
+            - /url: /vault/accounts
+            - img [ref=e48]
+            - generic [ref=e51]: Vault
+      - generic [ref=e52]:
+        - heading "Workflows" [level=3] [ref=e53]
+        - list [ref=e54]:
+          - listitem [ref=e55]
+          - listitem [ref=e57]
+          - listitem [ref=e59]
+          - listitem [ref=e61]
+          - listitem [ref=e63]
+    - button "User profile carlvince Free plan" [ref=e67]:
+      - img "User profile" [ref=e68]: C
+      - generic [ref=e69]:
+        - paragraph [ref=e70]: carlvince
+        - paragraph [ref=e71]: Free plan
+  - generic [ref=e73]:
+    - banner [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - button "Toggle sidebar" [ref=e77] [cursor=pointer]:
+            - generic [ref=e78]:
+              - img [ref=e79]
+              - generic [ref=e81]: Polymux
+          - navigation [ref=e82]:
+            - link "Accounts" [ref=e83] [cursor=pointer]:
+              - /url: /vault/accounts
+            - link "Wallet" [ref=e84] [cursor=pointer]:
+              - /url: /vault/wallet
+        - button "Notifications" [ref=e87]:
+          - img [ref=e88]
+    - generic [ref=e93]:
+      - generic [ref=e96]:
+        - generic [ref=e97]:
+          - img [ref=e99]
+          - textbox "Search accounts…" [ref=e102]
+        - button "Add account" [ref=e103]:
+          - img [ref=e104]
+        - button "Filter by" [ref=e107]:
+          - text: Filter by
+          - img [ref=e108]
+        - button "Sort by" [ref=e111]:
+          - text: Sort by
+          - img [ref=e112]
+      - generic [ref=e120]:
+        - img [ref=e121]
+        - paragraph [ref=e125]: No accounts saved yet

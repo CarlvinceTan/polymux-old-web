@@ -150,7 +150,7 @@ const dropdownKey = computed(() => props.origin.replace(/[^a-z0-9]/gi, '_'))
       <div
         v-if="isOpen"
         :class="`si-dropdown-${dropdownKey}`"
-        class="fixed z-[9999] mt-1 w-28 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden"
+        class="fixed z-[9999] mt-1 w-28 rounded-md bg-white shadow-lg ring-1 ring-neutral-200 overflow-hidden"
         :style="{ top: dropdownPos.top + 'px', left: dropdownPos.left + 'px' }"
       >
         <button

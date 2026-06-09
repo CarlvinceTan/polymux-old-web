@@ -49,7 +49,8 @@ export default defineEventHandler(async (event) => {
   try {
     const admin = serverSupabaseServiceRole(event)
     const wsKey = await ensureWorkspaceKey(admin, workspaceId, user.sub)
-    return await b2SignedDownloadURL(wsKey, storagePath, expiresIn)
+    const signed = await b2SignedDownloadURL(wsKey, storagePath, expiresIn)
+    return { url: signed.url, expires_at: signed.expiresAt }
   }
   catch (err) {
     console.error('[artifacts/download-url] b2 sign error', err)

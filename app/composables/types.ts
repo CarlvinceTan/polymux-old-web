@@ -1,5 +1,8 @@
 // ── Connection ────────────────────────────────────────────────────────────────
 
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
+import type { UpgradePlanPayload } from '~/types/upgradePlan'
+
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
 
 // ── Envelope ──────────────────────────────────────────────────────────────────
@@ -104,6 +107,16 @@ export interface BrowserClosedPayload {
   agent_id: string
   reason: string
   result_summary?: string
+}
+
+// Emitted by the workflow runner when a browser agent starts executing a
+// workflow node, so the viewport gallery can label that viewport with the
+// step it's currently on.
+export interface WorkflowAgentNodePayload {
+  run_id: string
+  agent_id: string
+  node_id: string
+  node_title?: string
 }
 
 export interface AgentPriority {
@@ -319,6 +332,13 @@ export interface ChatMessage {
   /** Persisted-row id for this message (when known). User messages mint it
    *  client-side before send; assistant rows inherit it from the WS frame. */
   id?: string
+  /** Inline vault picker when the orchestrator calls RequestCredential. */
+  credentialRequest?: ChatCredentialRequest
+  /** Inline artifact preview when a new gallery item is recorded. */
+  artifactPreview?: SandboxArtifact
+  /** Inline upgrade / weekly-budget prompt when a plan limit is hit during the
+   *  chat (replaces the modal overlay while the chat view is visible). */
+  upgradePrompt?: ChatUpgradePrompt
 }
 
 /** Viewport state for a browser agent — extends the UI config with `agentId` for backend association. */
@@ -341,6 +361,12 @@ export interface ViewportState {
   isVisualOnly: boolean
   /** Client-side pin — pinned viewports sort to the top of the gallery. */
   isPinned?: boolean
+  /** During a workflow run, the node this agent is currently executing. Set
+   *  from `workflow_agent_node`; shown as a step badge so the viewport reflects
+   *  which workflow node it's up to. Independent of `currentAction` (live tool
+   *  action) so the two don't clobber each other. */
+  currentNodeId?: string
+  currentNodeTitle?: string
 }
 
 export interface ThinkingState {
@@ -361,4 +387,26 @@ export interface PendingCredentialRequest {
   site: string
   purpose: string
   suggestedUsername?: string
+}
+
+/** Inline credential picker embedded in an orchestrator chat message. */
+export interface ChatCredentialRequest {
+  msgId: string
+  site: string
+  purpose: string
+  suggestedUsername?: string
+  status: 'pending' | 'completed' | 'cancelled'
+}
+
+/**
+ * ChatUpgradePrompt is an in-chat plan-limit prompt — the inline replacement
+ * for the UpgradePlanModal overlay. Injected as a synthetic agent message when
+ * a limit is hit while the chat view is visible. `payload` carries the same
+ * reason/cap/onDismiss the modal would have received; `onDismiss` fires when
+ * the user dismisses the card (e.g. clears the sticky over-budget flag).
+ */
+export interface ChatUpgradePrompt {
+  msgId: string
+  payload: UpgradePlanPayload
+  status: 'pending' | 'dismissed'
 }

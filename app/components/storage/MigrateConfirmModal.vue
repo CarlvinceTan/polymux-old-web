@@ -84,17 +84,17 @@ const totalItems = computed(() =>
               </svg>
             </button>
             <h3 class="text-sm font-semibold text-neutral-900 pr-8">
-              Migrate across providers?
+              {{ t('storage.migrateConfirm.title') }}
             </h3>
             <p class="mt-1 text-xs text-neutral-500">
-              {{ totalItems === 1 ? 'This item lives' : 'These items live' }} on a different provider than the destination folder
-              <span class="font-medium text-neutral-700">"{{ targetParentName || 'Home' }}"</span>.
-              Continue to copy them to
+              {{ totalItems === 1 ? t('storage.migrateConfirm.bodyOne') : t('storage.migrateConfirm.bodyMany') }}
+              <span class="font-medium text-neutral-700">"{{ targetParentName || t('storage.migrateConfirm.home') }}"</span>.
+              {{ t('storage.migrateConfirm.continueCopy') }}
               <span class="inline-flex items-center gap-1 align-middle">
                 <StorageProviderIcon :provider="targetProvider" inline />
                 <span class="font-medium text-neutral-700">{{ providerLabel(targetProvider) }}</span>
               </span>
-              and remove the originals.
+              {{ t('storage.migrateConfirm.removeOriginals') }}
             </p>
           </div>
 
@@ -136,7 +136,7 @@ const totalItems = computed(() =>
               :disabled="isMigrating"
               @click="emit('close')"
             >
-              Cancel
+              {{ t('storage.migrateConfirm.cancel') }}
             </button>
             <button
               class="rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
@@ -144,7 +144,7 @@ const totalItems = computed(() =>
               :disabled="isMigrating"
               @click="emit('confirm')"
             >
-              {{ isMigrating ? 'Migrating…' : 'Migrate' }}
+              {{ isMigrating ? t('storage.settings.migrationRunning') : t('storage.migrateConfirm.confirm') }}
             </button>
           </div>
         </div>

@@ -3,17 +3,17 @@ import { useI18n } from '#imports'
 
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Pricing',
+  title: () => t('pricing.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Simple, transparent pricing for AI agent workspaces. Start free, scale as you grow with Pro, Max, and Enterprise plans.',
+      content: () => t('pricing.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 
 const router = useRouter()
 
@@ -40,16 +40,16 @@ interface PlanFeatureRow {
 // caps there, mirror the change here — there's no shared module because the
 // landing page intentionally avoids importing server utils.
 const planFeatures = computed<PlanFeatureRow[]>(() => [
-  { name: 'AI Agents per workspace', free: '2', pro: '8', max: '20', enterprise: '50' },
-  { name: 'Weekly Token Budget', free: '100K', pro: '2M', max: '5M', enterprise: 'Unlimited' },
-  { name: 'Monthly Workflow Runs', free: '50', pro: '500', max: '5,000', enterprise: 'Unlimited' },
-  { name: 'Cloud Storage', free: '—', pro: '2 GB', max: '20 GB', enterprise: '200 GB' },
+  { name: t('pricing.features.agentsPerWorkspace'), free: '2', pro: '8', max: '20', enterprise: '50' },
+  { name: t('pricing.features.weeklyTokenBudget'), free: '100K', pro: '2M', max: '5M', enterprise: t('landing.pricing.comparison.unlimited') },
+  { name: t('pricing.features.monthlyWorkflowRuns'), free: '50', pro: '500', max: '5,000', enterprise: t('landing.pricing.comparison.unlimited') },
+  { name: t('pricing.features.cloudStorage'), free: '—', pro: '2 GB', max: '20 GB', enterprise: '200 GB' },
   { name: t('pricing.storage.file'), free: '100 MB', pro: '5 GB', max: '20 GB', enterprise: '100 GB' },
   { name: t('pricing.storage.artifacts'), free: '50 MB', pro: '200 MB', max: '2 GB', enterprise: '20 GB' },
-  { name: 'Workspace Members', free: '3', pro: '10', max: '50', enterprise: 'Custom' },
-  { name: 'Bring Your Own LLM Keys', free: true, pro: true, max: true, enterprise: true },
-  { name: 'Custom Workflows', free: false, pro: true, max: true, enterprise: true },
-  { name: 'Priority Support', free: false, pro: false, max: true, enterprise: true },
+  { name: t('pricing.features.workspaceMembers'), free: '3', pro: '10', max: '50', enterprise: t('landing.pricing.comparison.custom') },
+  { name: t('pricing.features.byok'), free: true, pro: true, max: true, enterprise: true },
+  { name: t('pricing.features.customWorkflows'), free: false, pro: true, max: true, enterprise: true },
+  { name: t('pricing.features.prioritySupport'), free: false, pro: false, max: true, enterprise: true },
 ])
 
 type BillingPeriod = 'annual' | 'monthly'
@@ -74,12 +74,12 @@ async function fetchPrices() {
   }
 }
 
-const planMeta: { key: PlanKey; name: string; cta: string; highlighted: boolean }[] = [
-  { key: 'free', name: 'Free', cta: 'Get Started', highlighted: false },
-  { key: 'pro', name: 'Pro', cta: 'Select Plan', highlighted: true },
-  { key: 'max', name: 'Max', cta: 'Select Plan', highlighted: false },
-  { key: 'enterprise', name: 'Enterprise', cta: 'Contact Sales', highlighted: false },
-]
+const planMeta = computed(() => [
+  { key: 'free' as const, name: t('landing.pricing.plans.free.name'), cta: t('landing.pricing.plans.free.cta'), highlighted: false },
+  { key: 'pro' as const, name: t('landing.pricing.plans.pro.name'), cta: t('landing.pricing.plans.pro.cta'), highlighted: true },
+  { key: 'max' as const, name: t('landing.pricing.plans.max.name'), cta: t('landing.pricing.plans.max.cta'), highlighted: false },
+  { key: 'enterprise' as const, name: t('landing.pricing.plans.enterprise.name'), cta: t('landing.pricing.plans.enterprise.cta'), highlighted: false },
+])
 
 function planPriceDisplay(key: PlanKey): {
   price: string
@@ -228,7 +228,7 @@ async function onPurchaseNow() {
 
   const workspaceId = currentWorkspaceId.value
   if (!workspaceId) {
-    purchaseError.value = 'Select a workspace to upgrade first.'
+    purchaseError.value = t('pricing.selectWorkspaceFirst')
     return
   }
 
@@ -252,7 +252,7 @@ async function onPurchaseNow() {
     window.location.href = url
   }
   catch (err: unknown) {
-    purchaseError.value = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+    purchaseError.value = err instanceof Error ? err.message : t('pricing.purchaseError')
     purchaseLoading.value = false
   }
 }
@@ -290,10 +290,10 @@ async function onPurchaseNow() {
           </button>
           <h1 class="min-w-0 flex-1 text-pretty text-3xl font-bold leading-tight tracking-tight text-neutral-950 sm:text-4xl">
             <template v-if="currentWorkspace">
-              Upgrade <span class="break-words text-neutral-700">{{ currentWorkspace.name }}</span>'s plan
+              {{ t('pricing.upgradeTitle', { name: currentWorkspace.name }) }}
             </template>
             <template v-else>
-              Pricing
+              {{ t('pricing.pricingTitle') }}
             </template>
           </h1>
         </div>
@@ -328,7 +328,7 @@ async function onPurchaseNow() {
           </button>
           <div
             v-if="workspaceDropdownOpen"
-            class="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(24rem,70vh)] overflow-y-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200 lg:left-auto lg:right-0 lg:min-w-[16rem]"
+            class="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(24rem,70vh)] overflow-y-auto rounded-lg bg-white shadow-lg ring-1 ring-neutral-200 lg:left-auto lg:right-0 lg:min-w-[16rem]"
             role="listbox"
           >
             <button
@@ -361,7 +361,7 @@ async function onPurchaseNow() {
       </header>
 
       <p class="mb-6 max-w-2xl text-lg text-neutral-500 sm:mb-8">
-        Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
+        {{ t('pricing.subtitle') }}
       </p>
 
       <div class="mb-5 flex justify-center sm:mb-6">
@@ -381,7 +381,7 @@ async function onPurchaseNow() {
             :aria-pressed="billingPeriod === 'annual'"
             @click="billingPeriod = 'annual'"
           >
-            Annual
+            {{ t('pricing.annual') }}
           </button>
           <button
             type="button"
@@ -394,7 +394,7 @@ async function onPurchaseNow() {
             :aria-pressed="billingPeriod === 'monthly'"
             @click="billingPeriod = 'monthly'"
           >
-            Monthly
+            {{ t('pricing.monthly') }}
           </button>
         </div>
       </div>
@@ -425,7 +425,7 @@ async function onPurchaseNow() {
           class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           @click="onPurchaseNow"
         >
-          {{ purchaseLoading ? 'Redirecting…' : 'Purchase now' }}
+          {{ purchaseLoading ? t('pricing.redirecting') : t('pricing.purchaseNow') }}
         </button>
         <p v-if="purchaseError" class="text-sm text-red-600">
           {{ purchaseError }}

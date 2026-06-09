@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
   highlightFileName: undefined,
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
+const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, transferLocalFile, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
 const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
 const { getIconForFile } = useFileIcons()
 const { t, locale } = useI18n()
@@ -1402,6 +1402,143 @@ const migrationGroups = computed<MigrateConfirmGroup[]>(() => {
   return Array.from(byProvider.values())
 })
 
+// How a single planned item gets relocated, given where it lives and where
+// it's headed. Three real backends (local, google-drive, b2) make the matrix
+// non-trivial, and Cloud (B2) is the tricky one: B2 objects are keyed by their
+// logical path, so a B2 "move"/rename is a server-side copy-to-new-key, never
+// a bare metadata path rewrite.
+//   metadata — same provider, non-Cloud: /files/move path rewrite is safe
+//              (Drive/local bytes are keyed by id, not path).
+//   server   — handled end-to-end by the server (migrate-items): b2→b2 copy,
+//              drive↔b2 byte transfer, drive→drive rename, and folders whose
+//              descendants the server can move (no 'local' involved).
+//   client   — cross-provider FILE moves that touch 'local'; OPFS bytes live
+//              only in this browser, so the client streams them.
+//   deferred — cross-provider FOLDER moves that touch 'local': each descendant
+//              would need a client byte hop. Not supported yet; errors clearly.
+type MoveRoute = 'metadata' | 'server' | 'client' | 'deferred'
+function routeForMove(item: PlannedMigrationItem, target: StorageProvider): MoveRoute {
+  if (item.provider === target) {
+    // Same provider: B2 still needs a server-side object copy (path-keyed);
+    // Drive/local are a pure metadata path rewrite.
+    return target === 'b2' ? 'server' : 'metadata'
+  }
+  if (item.kind === 'file') {
+    return (item.provider === 'local' || target === 'local') ? 'client' : 'server'
+  }
+  // Cross-provider folder.
+  return (item.provider === 'local' || target === 'local') ? 'deferred' : 'server'
+}
+
+// Executes a mixed batch of planned moves, dispatching each item to the right
+// mechanism and aggregating successes + per-item failures. Partial failure is
+// non-fatal (mirrors the existing migrate semantics).
+async function runMigrationBatch(
+  items: PlannedMigrationItem[],
+  target: StorageProvider,
+  targetParent: string,
+): Promise<{ migrated: number; errors: { path: string; reason: string }[] }> {
+  const metaItems: PlannedMigrationItem[] = []
+  const serverItems: PlannedMigrationItem[] = []
+  const clientItems: PlannedMigrationItem[] = []
+  const deferred: PlannedMigrationItem[] = []
+  for (const i of items) {
+    const route = routeForMove(i, target)
+    if (route === 'metadata') metaItems.push(i)
+    else if (route === 'server') serverItems.push(i)
+    else if (route === 'client') clientItems.push(i)
+    else deferred.push(i)
+  }
+
+  let migrated = 0
+  const errors: { path: string; reason: string }[] = []
+  const destOf = (name: string) => (targetParent.length > 0 ? `${targetParent}/${name}` : name)
+
+  // Same-provider, non-Cloud: metadata path rewrite.
+  for (const i of metaItems) {
+    const ok = await moveFile(stripUserPrefix(i.path), destOf(i.name), i.kind)
+    if (ok) migrated++
+    else errors.push({ path: i.path, reason: 'move_failed' })
+  }
+
+  // Server-handled (b2↔drive, b2→b2, drive rename, no-local folders).
+  if (serverItems.length > 0) {
+    const payload = serverItems.map(i => ({ path: stripUserPrefix(i.path), kind: i.kind }))
+    const res = await migrateItems(payload, target, targetParent)
+    migrated += res.migrated.length
+    for (const e of res.errors) errors.push(e)
+  }
+
+  // Client-driven (local-involved cross-provider files).
+  for (const i of clientItems) {
+    const res = await transferLocalFile(stripUserPrefix(i.path), destOf(i.name), i.provider, target)
+    if (res.ok) migrated++
+    else errors.push({ path: i.path, reason: res.reason ?? 'transfer_failed' })
+  }
+
+  for (const i of deferred) {
+    errors.push({ path: i.path, reason: 'folder_cross_provider_unsupported' })
+  }
+
+  return { migrated, errors }
+}
+
+// Runs a batch with the sticky loading toast + result toast + cache flush.
+// Shared by the silent path (same-Cloud reorganisation) and the confirm-modal
+// path (genuine cross-provider transfers).
+async function executeMigration(
+  items: PlannedMigrationItem[],
+  target: StorageProvider,
+  targetParent: string,
+  onComplete: () => void | Promise<void>,
+) {
+  isMigrationRunning.value = true
+  const total = items.length
+  // Sticky loading toast (duration 0 = no auto-dismiss) stays up for the whole
+  // batch; on completion we dismiss it and raise a fresh fixed-lifetime toast.
+  const loadingToastId = toast.show(
+    total === 1 ? t('storage.moveToast.movingOne', { n: total }) : t('storage.moveToast.movingMany', { n: total }),
+    'loading',
+    0,
+  )
+  try {
+    const { migrated, errors } = await runMigrationBatch(items, target, targetParent)
+    toast.dismiss(loadingToastId)
+    if (errors.length === 0) {
+      toast.show(
+        migrated === 1 ? t('storage.moveToast.movedOne', { n: migrated }) : t('storage.moveToast.movedMany', { n: migrated }),
+        'info',
+        4000,
+      )
+    }
+    else if (errors[0]?.reason === 'cloud_cap') {
+      // The upgrade prompt already fired inside transferLocalFile.
+      toast.show(t('storage.moveToast.cloudLimit'), 'error', 6000)
+    }
+    else if (migrated === 0) {
+      toast.show(t('storage.moveToast.failed', { reason: errors[0]?.reason ?? t('storage.moveToast.unknownError') }), 'error', 6000)
+    }
+    else {
+      toast.show(t('storage.moveToast.partial', { migrated, failed: errors.length }), 'error', 6000)
+    }
+  }
+  catch (err) {
+    toast.dismiss(loadingToastId)
+    const reason = err instanceof Error ? err.message : String(err)
+    toast.show(t('storage.moveToast.failed', { reason }), 'error', 6000)
+  }
+  finally {
+    isMigrationRunning.value = false
+    // Cross-provider changes touch multiple paths (source + target + any
+    // descendants for folder moves). The path-keyed directoryCache would paint
+    // stale entries if the user navigated back to the source right after; a
+    // full flush is cheap and sidesteps partial-invalidation bugs.
+    directoryCache.clear()
+    clearStorageListCache()
+    await onComplete()
+  }
+}
+
 function beginMoveOrMigrate(
   items: PlannedMigrationItem[],
   targetProvider: StorageProvider,
@@ -1410,12 +1547,11 @@ function beginMoveOrMigrate(
   onDone: () => void | Promise<void>,
 ) {
   if (items.length === 0) return
-  const hasMismatch = items.some(i => i.provider !== targetProvider)
-  if (!hasMismatch) {
-    // Fast path: pure same-provider move via existing endpoint. We stay out
-    // of migrateItems here so same-provider moves keep their original
-    // optimistic-UI behavior (which callers already set up before calling
-    // this helper).
+  const routes = items.map(i => routeForMove(i, targetProvider))
+
+  if (routes.every(r => r === 'metadata')) {
+    // Fast path: pure same-provider non-Cloud move. Stay inline so callers'
+    // optimistic UI behaviour is preserved.
     void (async () => {
       let anyFailed = false
       for (const item of items) {
@@ -1429,6 +1565,16 @@ function beginMoveOrMigrate(
     })()
     return
   }
+
+  // If nothing actually crosses providers (e.g. a Cloud→Cloud reorganisation
+  // that still needs a server object copy), run it silently — the migrate
+  // confirmation modal only makes sense for genuine cross-provider transfers.
+  const hasCrossProvider = items.some(i => i.provider !== targetProvider)
+  if (!hasCrossProvider) {
+    void executeMigration(items, targetProvider, targetParent, onDone)
+    return
+  }
+
   pendingMigration.value = {
     items,
     targetProvider,
@@ -1441,54 +1587,13 @@ function beginMoveOrMigrate(
 async function confirmMigration() {
   const m = pendingMigration.value
   if (!m) return
-  isMigrationRunning.value = true
-  const total = m.items.length
-  // Sticky loading toast (duration 0 = no auto-dismiss) stays up for the
-  // whole request. On completion we dismiss it and raise a fresh info/error
-  // toast with a fixed lifetime — useAppToast.update can change message/type
-  // but not duration, so we take the dismiss-and-show route.
-  const loadingToastId = toast.show(
-    `Migrating ${total} item${total === 1 ? '' : 's'}…`,
-    'loading',
-    0,
-  )
+  // Keep the modal mounted (showing its migrating state) for the duration of
+  // the batch; clear it only once the work + refresh have settled.
   try {
-    const payload = m.items.map(i => ({ path: stripUserPrefix(i.path), kind: i.kind }))
-    const result = await migrateItems(payload, m.targetProvider, m.targetParent)
-    toast.dismiss(loadingToastId)
-    const migratedCount = result.migrated.length
-    const errorCount = result.errors.length
-    if (errorCount === 0) {
-      toast.show(
-        `Migrated ${migratedCount} item${migratedCount === 1 ? '' : 's'}`,
-        'info',
-        4000,
-      )
-    } else if (migratedCount === 0) {
-      const firstReason = result.errors[0]?.reason ?? 'unknown error'
-      toast.show(`Migration failed: ${firstReason}`, 'error', 6000)
-    } else {
-      toast.show(`Migrated ${migratedCount}, ${errorCount} failed`, 'error', 6000)
-    }
-  }
-  catch (err) {
-    toast.dismiss(loadingToastId)
-    const reason = err instanceof Error ? err.message : String(err)
-    toast.show(`Migration failed: ${reason}`, 'error', 6000)
+    await executeMigration(m.items, m.targetProvider, m.targetParent, m.onComplete)
   }
   finally {
-    const onComplete = m.onComplete
     pendingMigration.value = null
-    isMigrationRunning.value = false
-    // Cross-provider changes touch multiple paths (source + target + any
-    // descendants for folder drags). The path-keyed directoryCache would
-    // paint stale entries if the user navigated back to the source right
-    // after migration. Clearing the whole cache is cheap — entries get
-    // repopulated on next listing — and sidesteps any partial-invalidation
-    // bugs.
-    directoryCache.clear()
-    clearStorageListCache()
-    await onComplete()
   }
 }
 
@@ -2148,7 +2253,7 @@ watch(multiDragActive, (active) => {
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
               <p class="max-w-sm text-body-md text-neutral-500 font-medium">
-                {{ searchQuery.trim() ? 'No files match your search.' : 'This folder is empty.' }}
+                {{ searchQuery.trim() ? t('storage.noSearchResults') : t('storage.emptyFolder') }}
               </p>
             </div>
           </div>
@@ -2210,6 +2315,7 @@ watch(multiDragActive, (active) => {
 
                   <div class="group/action relative">
                     <button
+                      data-testid="storage-new-folder-button"
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="pendingNewFolder ? 'bg-neutral-100 text-neutral-950' : ''"
                       :aria-label="t('storage.toolbar.newFolder')"
@@ -2226,6 +2332,7 @@ watch(multiDragActive, (active) => {
 
                   <div class="group/action relative">
                     <button
+                      data-testid="storage-upload-button"
                       class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="isUploading ? 'opacity-50 pointer-events-none' : ''"
                       :aria-label="t('storage.toolbar.upload')"
@@ -2272,7 +2379,7 @@ watch(multiDragActive, (active) => {
 
                     <div
                       v-if="isFilterOpen"
-                      class="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg bg-white py-1 shadow-lg border border-neutral-300 overflow-hidden"
+                      class="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg bg-white shadow-lg border border-neutral-300 overflow-hidden"
                     >
                       <button
                         v-for="item in filterItems"
@@ -2362,7 +2469,7 @@ watch(multiDragActive, (active) => {
                       <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Share</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.share') }}</span>
                 </div>
                 <!-- Manage access (permissions) -->
                 <div v-if="canManageAccess" class="group/action relative">
@@ -2374,7 +2481,7 @@ watch(multiDragActive, (active) => {
                       <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Manage access</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('workspaceMenu.manageAccess') }}</span>
                 </div>
                 <!-- Rename (single-select only) -->
                 <div v-if="!isMultiSelection" class="group/action relative">
@@ -2388,7 +2495,7 @@ watch(multiDragActive, (active) => {
                       <path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Rename</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.rename') }}</span>
                 </div>
                 <!-- Move -->
                 <div class="group/action relative">
@@ -2402,7 +2509,7 @@ watch(multiDragActive, (active) => {
                       <path d="m13 10 3 3-3 3" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Move</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.move') }}</span>
                 </div>
                 <!-- Duplicate -->
                 <div class="group/action relative">
@@ -2415,7 +2522,7 @@ watch(multiDragActive, (active) => {
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Duplicate</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.duplicate') }}</span>
                 </div>
                 <!-- Download (single file only) -->
                 <div v-if="!isMultiSelection && selectedItem?.kind === 'file'" class="group/action relative">
@@ -2429,7 +2536,7 @@ watch(multiDragActive, (active) => {
                       <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Download</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.download') }}</span>
                 </div>
                 <!-- Info (single-select only) -->
                 <div v-if="!isMultiSelection" class="group/action relative">
@@ -2443,7 +2550,7 @@ watch(multiDragActive, (active) => {
                       <path d="M12 8h.01" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Info</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.info') }}</span>
                 </div>
                 <!-- Delete -->
                 <div class="group/action relative">
@@ -2459,7 +2566,7 @@ watch(multiDragActive, (active) => {
                       <line x1="14" y1="11" x2="14" y2="17" />
                     </svg>
                   </button>
-                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Delete</span>
+                  <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.delete') }}</span>
                 </div>
                 <div class="w-px h-5 bg-neutral-200 shrink-0 mx-1" />
                 <button
@@ -2557,7 +2664,8 @@ watch(multiDragActive, (active) => {
 
                     <path v-if="file.icon === 'file-code'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline v-if="file.icon === 'file-code'" points="14 2 14 8 20 8" />
-                    <path v-if="file.icon === 'file-code'" d="m9 13 2 2 4-4" />
+                    <polyline v-if="file.icon === 'file-code'" points="10 13 8 15 10 17" />
+                    <polyline v-if="file.icon === 'file-code'" points="14 13 16 15 14 17" />
 
                     <path v-if="file.icon === 'video'" d="m22 8-6 4 6 4V8Z" />
                     <rect v-if="file.icon === 'video'" x="2" y="6" width="14" height="12" rx="2" />
@@ -2572,13 +2680,19 @@ watch(multiDragActive, (active) => {
                     <circle v-if="file.icon === 'audio'" cx="6" cy="18" r="3" />
                     <circle v-if="file.icon === 'audio'" cx="18" cy="16" r="3" />
 
-                    <circle v-if="file.icon === 'key'" cx="7.5" cy="15.5" r="5.5" />
+                    <path v-if="file.icon === 'key'" d="m15.5 7.5 3 3" />
+                    <path v-if="file.icon === 'key'" d="m17 6 1 1" />
                     <path v-if="file.icon === 'key'" d="m21 2-9.6 9.6" />
-                    <path v-if="file.icon === 'key'" d="m15.5 7.5 3 3L22 7l-3-3" />
+                    <circle v-if="file.icon === 'key'" cx="7.5" cy="15.5" r="5.5" />
 
-                    <path v-if="file.icon === 'archive'" d="M21 8v13H3V8" />
-                    <path v-if="file.icon === 'archive'" d="M1 3h22v5H1z" />
-                    <path v-if="file.icon === 'archive'" d="M10 12h4" />
+                    <path v-if="file.icon === 'archive'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline v-if="file.icon === 'archive'" points="14 2 14 8 20 8" />
+                    <path v-if="file.icon === 'archive'" d="M11 2v3" />
+                    <path v-if="file.icon === 'archive'" d="M11 8h2" />
+                    <path v-if="file.icon === 'archive'" d="M11 11h2" />
+                    <path v-if="file.icon === 'archive'" d="M11 14h2" />
+                    <path v-if="file.icon === 'archive'" d="M12 5v12" />
+                    <rect v-if="file.icon === 'archive'" x="10" y="17" width="4" height="3" rx="0.75" />
 
                     <rect v-if="file.icon === 'spreadsheet'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <line v-if="file.icon === 'spreadsheet'" x1="3" y1="9" x2="21" y2="9" />
@@ -2586,23 +2700,34 @@ watch(multiDragActive, (active) => {
                     <line v-if="file.icon === 'spreadsheet'" x1="9" y1="3" x2="9" y2="21" />
                     <line v-if="file.icon === 'spreadsheet'" x1="15" y1="3" x2="15" y2="21" />
 
-                    <rect v-if="file.icon === 'presentation'" x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                    <line v-if="file.icon === 'presentation'" x1="8" y1="21" x2="16" y2="21" />
-                    <line v-if="file.icon === 'presentation'" x1="12" y1="17" x2="12" y2="21" />
+                    <rect v-if="file.icon === 'presentation'" x="3" y="4" width="18" height="12" rx="2" />
+                    <path v-if="file.icon === 'presentation'" d="M12 16v5" />
+                    <path v-if="file.icon === 'presentation'" d="M8 21h8" />
+                    <path v-if="file.icon === 'presentation'" d="M8 12l2.5-2.5 2 2L16 8" />
+                    <path v-if="file.icon === 'presentation'" d="M7 19l5-3 5 3" />
 
                     <ellipse v-if="file.icon === 'database'" cx="12" cy="5" rx="9" ry="3" />
-                    <path v-if="file.icon === 'database'" d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                    <path v-if="file.icon === 'database'" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                    <line v-if="file.icon === 'database'" x1="3" y1="5" x2="3" y2="19" />
+                    <line v-if="file.icon === 'database'" x1="21" y1="5" x2="21" y2="19" />
+                    <path v-if="file.icon === 'database'" d="M3 12a9 3 0 0 0 18 0" />
+                    <path v-if="file.icon === 'database'" d="M3 19a9 3 0 0 0 18 0" />
 
                     <path v-if="file.icon === 'font'" d="M4 20h16" />
                     <path v-if="file.icon === 'font'" d="m6 16 6-12 6 12" />
                     <line v-if="file.icon === 'font'" x1="8" y1="12" x2="16" y2="12" />
 
+                    <path
+                      v-if="file.icon === 'config'"
+                      d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.354-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.354.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
+                    />
                     <circle v-if="file.icon === 'config'" cx="12" cy="12" r="3" />
-                    <path v-if="file.icon === 'config'" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
 
-                    <path v-if="file.icon === 'executable'" d="M4 4h16v16H4z" />
-                    <path v-if="file.icon === 'executable'" d="M9 9h6v6H9z" />
+                    <path v-if="file.icon === 'executable'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline v-if="file.icon === 'executable'" points="14 2 14 8 20 8" />
+                    <g v-if="file.icon === 'executable'" transform="translate(12 14) scale(0.5) translate(-12 -12)">
+                      <path vector-effect="non-scaling-stroke" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.354-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.354.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                      <circle vector-effect="non-scaling-stroke" cx="12" cy="12" r="3" />
+                    </g>
 
                     <path v-if="file.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                     <polyline v-if="file.icon === 'file'" points="14 2 14 8 20 8" />
@@ -2724,7 +2849,8 @@ watch(multiDragActive, (active) => {
 
                         <path v-if="file.icon === 'file-code'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                         <polyline v-if="file.icon === 'file-code'" points="14 2 14 8 20 8" />
-                        <path v-if="file.icon === 'file-code'" d="m9 13 2 2 4-4" />
+                        <polyline v-if="file.icon === 'file-code'" points="10 13 8 15 10 17" />
+                        <polyline v-if="file.icon === 'file-code'" points="14 13 16 15 14 17" />
 
                         <path v-if="file.icon === 'video'" d="m22 8-6 4 6 4V8Z" />
                         <rect v-if="file.icon === 'video'" x="2" y="6" width="14" height="12" rx="2" />
@@ -2739,13 +2865,19 @@ watch(multiDragActive, (active) => {
                         <circle v-if="file.icon === 'audio'" cx="6" cy="18" r="3" />
                         <circle v-if="file.icon === 'audio'" cx="18" cy="16" r="3" />
 
-                        <circle v-if="file.icon === 'key'" cx="7.5" cy="15.5" r="5.5" />
+                        <path v-if="file.icon === 'key'" d="m15.5 7.5 3 3" />
+                        <path v-if="file.icon === 'key'" d="m17 6 1 1" />
                         <path v-if="file.icon === 'key'" d="m21 2-9.6 9.6" />
-                        <path v-if="file.icon === 'key'" d="m15.5 7.5 3 3L22 7l-3-3" />
+                        <circle v-if="file.icon === 'key'" cx="7.5" cy="15.5" r="5.5" />
 
-                        <path v-if="file.icon === 'archive'" d="M21 8v13H3V8" />
-                        <path v-if="file.icon === 'archive'" d="M1 3h22v5H1z" />
-                        <path v-if="file.icon === 'archive'" d="M10 12h4" />
+                        <path v-if="file.icon === 'archive'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline v-if="file.icon === 'archive'" points="14 2 14 8 20 8" />
+                        <path v-if="file.icon === 'archive'" d="M11 2v3" />
+                        <path v-if="file.icon === 'archive'" d="M11 8h2" />
+                        <path v-if="file.icon === 'archive'" d="M11 11h2" />
+                        <path v-if="file.icon === 'archive'" d="M11 14h2" />
+                        <path v-if="file.icon === 'archive'" d="M12 5v12" />
+                        <rect v-if="file.icon === 'archive'" x="10" y="17" width="4" height="3" rx="0.75" />
 
                         <rect v-if="file.icon === 'spreadsheet'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
                         <line v-if="file.icon === 'spreadsheet'" x1="3" y1="9" x2="21" y2="9" />
@@ -2753,23 +2885,34 @@ watch(multiDragActive, (active) => {
                         <line v-if="file.icon === 'spreadsheet'" x1="9" y1="3" x2="9" y2="21" />
                         <line v-if="file.icon === 'spreadsheet'" x1="15" y1="3" x2="15" y2="21" />
 
-                        <rect v-if="file.icon === 'presentation'" x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                        <line v-if="file.icon === 'presentation'" x1="8" y1="21" x2="16" y2="21" />
-                        <line v-if="file.icon === 'presentation'" x1="12" y1="17" x2="12" y2="21" />
+                        <rect v-if="file.icon === 'presentation'" x="3" y="4" width="18" height="12" rx="2" />
+                        <path v-if="file.icon === 'presentation'" d="M12 16v5" />
+                        <path v-if="file.icon === 'presentation'" d="M8 21h8" />
+                        <path v-if="file.icon === 'presentation'" d="M8 12l2.5-2.5 2 2L16 8" />
+                        <path v-if="file.icon === 'presentation'" d="M7 19l5-3 5 3" />
 
                         <ellipse v-if="file.icon === 'database'" cx="12" cy="5" rx="9" ry="3" />
-                        <path v-if="file.icon === 'database'" d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                        <path v-if="file.icon === 'database'" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                        <line v-if="file.icon === 'database'" x1="3" y1="5" x2="3" y2="19" />
+                        <line v-if="file.icon === 'database'" x1="21" y1="5" x2="21" y2="19" />
+                        <path v-if="file.icon === 'database'" d="M3 12a9 3 0 0 0 18 0" />
+                        <path v-if="file.icon === 'database'" d="M3 19a9 3 0 0 0 18 0" />
 
                         <path v-if="file.icon === 'font'" d="M4 20h16" />
                         <path v-if="file.icon === 'font'" d="m6 16 6-12 6 12" />
                         <line v-if="file.icon === 'font'" x1="8" y1="12" x2="16" y2="12" />
 
+                        <path
+                          v-if="file.icon === 'config'"
+                          d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.354-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.354.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
+                        />
                         <circle v-if="file.icon === 'config'" cx="12" cy="12" r="3" />
-                        <path v-if="file.icon === 'config'" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
 
-                        <path v-if="file.icon === 'executable'" d="M4 4h16v16H4z" />
-                        <path v-if="file.icon === 'executable'" d="M9 9h6v6H9z" />
+                        <path v-if="file.icon === 'executable'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline v-if="file.icon === 'executable'" points="14 2 14 8 20 8" />
+                        <g v-if="file.icon === 'executable'" transform="translate(12 14) scale(0.5) translate(-12 -12)">
+                          <path vector-effect="non-scaling-stroke" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.354-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.354.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                          <circle vector-effect="non-scaling-stroke" cx="12" cy="12" r="3" />
+                        </g>
 
                         <path v-if="file.icon === 'file'" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                         <polyline v-if="file.icon === 'file'" points="14 2 14 8 20 8" />
@@ -2917,7 +3060,7 @@ watch(multiDragActive, (active) => {
       <div v-if="isMoveModalOpen" data-modal class="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" @click.self="cancelMove">
         <div class="w-full max-w-xl mx-4 rounded-xl bg-white border border-neutral-200 shadow-2xl overflow-hidden">
           <div class="px-4 py-3 border-b border-neutral-200">
-            <h3 class="text-headline-md font-semibold text-neutral-950">Move to...</h3>
+            <h3 class="text-headline-md font-semibold text-neutral-950">{{ t('storage.moveModalTitle') }}</h3>
           </div>
           <div class="p-2 max-h-96 overflow-y-auto">
             <div class="flex flex-col">

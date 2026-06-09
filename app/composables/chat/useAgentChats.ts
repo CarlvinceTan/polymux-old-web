@@ -1,5 +1,9 @@
-import { ref, reactive, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted, onMounted, computed } from 'vue'
 import type { Ref } from 'vue'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { ArtifactRow } from '~~/server/api/workflows/[id]/artifacts/index.get'
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
+import { rowToArtifact } from '~/composables/artifacts/useArtifacts'
 import type {
   ChatMessage,
   ChatMessageAttachment,
@@ -18,6 +22,7 @@ import type {
   SessionStatePayload,
   StopAgentPayload,
 } from '../types'
+import type { UpgradePlanPayload } from '~/types/upgradePlan'
 
 interface ChatState {
   messages: Ref<ChatMessage[]>
@@ -443,9 +448,8 @@ export function useAgentChats(session: SessionHandle) {
     }
   }
 
-  // pendingCredentialRequest is orchestrator-only — credential capture is
-  // always initiated by the orchestrator when a sub-agent hits a login wall;
-  // browser sub-agents never invoke RequestCredential directly.
+  // pendingCredentialRequest tracks the open inline picker (also mirrored as a
+  // chat message with credentialRequest.status === 'pending').
   const pendingCredentialRequest = ref<PendingCredentialRequest | null>(null)
 
   function handleCredentialRequest(p: CredentialRequestPayload) {
@@ -458,6 +462,21 @@ export function useAgentChats(session: SessionHandle) {
       purpose: p.purpose,
       suggestedUsername: p.suggested_username,
     }
+    orchestratorState.messages.value = [
+      ...orchestratorState.messages.value,
+      {
+        role: 'agent',
+        text: '',
+        id: newId(),
+        credentialRequest: {
+          msgId: p.msg_id,
+          site: p.site,
+          purpose: p.purpose,
+          suggestedUsername: p.suggested_username,
+          status: 'pending',
+        },
+      },
+    ]
   }
 
   function handleBrowserSpawned(p: BrowserSpawnedPayload) {
@@ -528,8 +547,60 @@ export function useAgentChats(session: SessionHandle) {
   bind<TitleResponsePayload>('title_response', handleTitleResponse)
   bind<SessionStatePayload>('session_state', handleSessionState)
 
+  const route = useRoute()
+  const workflowId = computed(() => String(route.params.id ?? ''))
+  const seenArtifactChatIds = new Set<string>()
+  let artifactChannel: RealtimeChannel | null = null
+
+  async function appendArtifactChatMessage(row: ArtifactRow) {
+    if (seenArtifactChatIds.has(row.id)) return
+    seenArtifactChatIds.add(row.id)
+    let preview = rowToArtifact(row)
+    const wfId = workflowId.value
+    if (wfId && (preview.type === 'image' || preview.type === 'video' || preview.type === 'audio')) {
+      try {
+        const res = await $fetch<{ url: string }>(`/api/workflows/${wfId}/artifacts/${row.id}/download-url`)
+        preview = { ...preview, url: res.url }
+      }
+      catch {
+        // Gallery card falls back to icon; chat card does the same.
+      }
+    }
+    orchestratorState.messages.value = [
+      ...orchestratorState.messages.value,
+      {
+        role: 'agent',
+        text: '',
+        id: newId(),
+        artifactPreview: preview,
+      },
+    ]
+  }
+
+  onMounted(() => {
+    if (!import.meta.client) return
+    const id = workflowId.value
+    if (!id) return
+    const supabase = useSupabaseClient()
+    artifactChannel = supabase
+      .channel(`chat-artifacts:${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'artifacts', filter: `workflow_id=eq.${id}` },
+        (payload) => {
+          void appendArtifactChatMessage(payload.new as ArtifactRow)
+        },
+      )
+      .subscribe()
+  })
+
   onUnmounted(() => {
     for (const teardown of teardowns) teardown()
+    if (artifactChannel) {
+      const supabase = useSupabaseClient()
+      void supabase.removeChannel(artifactChannel)
+      artifactChannel = null
+    }
   })
 
   /**
@@ -544,6 +615,30 @@ export function useAgentChats(session: SessionHandle) {
   ) {
     pendingCredentialRequest.value = null
     markOrchestratorActivity()
+
+    const msgs = orchestratorState.messages.value
+    const idx = msgs.findIndex(m => m.credentialRequest?.msgId === msgId)
+    if (idx !== -1) {
+      const current = msgs[idx]!
+      const req = current.credentialRequest!
+      const updated = [...msgs]
+      if ('cancelled' in payload) {
+        updated[idx] = {
+          ...current,
+          text: '',
+          credentialRequest: { ...req, status: 'cancelled' },
+        }
+      }
+      else {
+        updated[idx] = {
+          ...current,
+          text: '',
+          credentialRequest: { ...req, status: 'completed' },
+        }
+      }
+      orchestratorState.messages.value = updated
+    }
+
     if ('cancelled' in payload) {
       session.send<CredentialProvidedPayload>('credential_provided', {
         msg_id: msgId,
@@ -562,12 +657,61 @@ export function useAgentChats(session: SessionHandle) {
     })
   }
 
+  /**
+   * appendUpgradePrompt injects an in-chat plan-limit card as a synthetic
+   * orchestrator message — the inline replacement for the UpgradePlanModal.
+   * Registered as the chat presenter by the workflow page (see
+   * setUpgradeChatPresenter) so plan-limit prompts triggered anywhere during a
+   * chat turn land in the message stream. Deduped per reason: a second prompt
+   * of the same reason while one is still pending is dropped (returns true so
+   * the caller still treats it as handled and skips the modal).
+   */
+  function appendUpgradePrompt(payload: UpgradePlanPayload): boolean {
+    const msgs = orchestratorState.messages.value
+    const alreadyPending = msgs.some(
+      m => m.upgradePrompt?.status === 'pending'
+        && m.upgradePrompt.payload.reason === payload.reason,
+    )
+    if (alreadyPending) return true
+
+    orchestratorState.messages.value = [
+      ...msgs,
+      {
+        role: 'agent',
+        text: '',
+        id: newId(),
+        upgradePrompt: { msgId: newId(), payload, status: 'pending' },
+      },
+    ]
+    return true
+  }
+
+  /**
+   * dismissUpgradePrompt collapses an in-chat upgrade card and fires its
+   * onDismiss side effect (e.g. clearStickyOverBudget so the user can retry a
+   * send after a weekly-budget block).
+   */
+  function dismissUpgradePrompt(msgId: string) {
+    const msgs = orchestratorState.messages.value
+    const idx = msgs.findIndex(m => m.upgradePrompt?.msgId === msgId)
+    if (idx === -1) return
+    const current = msgs[idx]!
+    const prompt = current.upgradePrompt!
+    if (prompt.status !== 'pending') return
+    prompt.payload.onDismiss?.()
+    const updated = [...msgs]
+    updated[idx] = { ...current, upgradePrompt: { ...prompt, status: 'dismissed' } }
+    orchestratorState.messages.value = updated
+  }
+
   return {
     drafts,
     summarisedTitle,
     pendingCredentialRequest,
     rollbackOrchestratorAfterBudgetError,
     provideCredential,
+    appendUpgradePrompt,
+    dismissUpgradePrompt,
     orchestrator: buildHandle('orchestrator'),
     get(agentId: string): ChatHandle { return buildHandle(agentId) },
     drop(agentId: string) {
@@ -579,6 +723,14 @@ export function useAgentChats(session: SessionHandle) {
     },
     stopAgent(agentId: string) {
       session.send<StopAgentPayload>('stop_agent', { agent_id: agentId })
+    },
+    pauseOrchestrator() {
+      orchestratorState.streamingBuffer = null
+      orchestratorState.isStreaming.value = false
+      orchestratorState.thinking.value = null
+      orchestratorState.waitingForAgent.value = false
+      orchestratorState.sawActivityThisTurn = false
+      session.send<StopAgentPayload>('stop_agent', { agent_id: 'orchestrator' })
     },
   }
 }

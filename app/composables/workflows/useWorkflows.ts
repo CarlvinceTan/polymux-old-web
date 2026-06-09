@@ -281,6 +281,11 @@ export interface StartRunInput {
   session_id: string
   version_id?: string
   resume_from_node_id?: string
+  /** Inline graph to run ("run what you see"): sent for an unsaved draft or a
+   *  workflow with unsaved canvas edits, so the run executes the on-screen
+   *  graph with no saved version behind it. Omitted → server runs the latest
+   *  saved version. */
+  steps?: WorkflowGraph
 }
 
 // normalizeVersion mutates a WorkflowVersion's graph in-place so its

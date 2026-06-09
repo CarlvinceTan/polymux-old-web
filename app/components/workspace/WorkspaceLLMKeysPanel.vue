@@ -25,14 +25,14 @@ const workspaceId = computed(() => props.workspaceId)
 
 const { keys, loading, error, fetchKeys, saveKey, deleteKey } = useWorkspaceLLMKeys(workspaceId)
 
-const providerOptions: Array<{ value: WorkspaceLLMKey['provider']; label: string; hint: string; baseHint: string }> = [
-  { value: 'anthropic', label: 'Anthropic (Claude)', hint: 'sk-ant-…', baseHint: 'https://api.anthropic.com (default)' },
-  { value: 'openai',    label: 'OpenAI (GPT)',       hint: 'sk-…',     baseHint: 'https://api.openai.com/v1 (default)' },
-  { value: 'gemini',    label: 'Google Gemini',      hint: 'AIza…',    baseHint: 'https://generativelanguage.googleapis.com (default)' },
-]
+const providerOptions = computed(() => [
+  { value: 'anthropic' as const, label: t('llmKeys.providers.anthropic'), hint: 'sk-ant-…', baseHint: 'https://api.anthropic.com (default)' },
+  { value: 'openai' as const, label: t('llmKeys.providers.openai'), hint: 'sk-…', baseHint: 'https://api.openai.com/v1 (default)' },
+  { value: 'gemini' as const, label: t('llmKeys.providers.gemini'), hint: 'AIza…', baseHint: 'https://generativelanguage.googleapis.com (default)' },
+])
 
 const providerLabel = (p: WorkspaceLLMKey['provider']) =>
-  providerOptions.find(o => o.value === p)?.label ?? p
+  providerOptions.value.find(o => o.value === p)?.label ?? p
 
 // Inline "add new key" form state. Reused for "rotate" by pre-selecting the
 // provider — submitting POST with the same provider upserts the row.
@@ -74,19 +74,18 @@ async function handleSubmit() {
     return
   }
 
-  toast.show(`Saved ${providerLabel(result.provider)} key (…${result.last_four}).`, 'info', 4000)
+  toast.show(t('llmKeys.savedToast', { provider: providerLabel(result.provider), lastFour: result.last_four }), 'info', 4000)
   resetForm()
 }
 
 async function handleDelete(k: WorkspaceLLMKey) {
   const ok = window.confirm(
-    `Remove the ${providerLabel(k.provider)} API key (…${k.last_four})? `
-    + `Future runs will fall back to the shared server key.`,
+    t('llmKeys.confirmRemove', { provider: providerLabel(k.provider), lastFour: k.last_four }),
   )
   if (!ok) return
   const success = await deleteKey(k.provider)
   if (success) {
-    toast.show(`Removed ${providerLabel(k.provider)} key.`, 'info', 3500)
+    toast.show(t('llmKeys.removedToast', { provider: providerLabel(k.provider) }), 'info', 3500)
   }
   else if (error.value) {
     toast.show(error.value, 'error', 8000)
@@ -94,12 +93,12 @@ async function handleDelete(k: WorkspaceLLMKey) {
 }
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return 'never'
+  if (!iso) return t('llmKeys.relativeNever')
   const ms = Date.now() - new Date(iso).getTime()
-  if (ms < 60_000) return 'just now'
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`
-  return `${Math.floor(ms / 86_400_000)}d ago`
+  if (ms < 60_000) return t('llmKeys.relativeJustNow')
+  if (ms < 3_600_000) return t('llmKeys.relativeMinutesAgo', { n: Math.floor(ms / 60_000) })
+  if (ms < 86_400_000) return t('llmKeys.relativeHoursAgo', { n: Math.floor(ms / 3_600_000) })
+  return t('llmKeys.relativeDaysAgo', { n: Math.floor(ms / 86_400_000) })
 }
 
 watchEffect(() => {
@@ -116,13 +115,10 @@ watchEffect(() => {
     <div class="mb-4 flex items-start justify-between gap-4">
       <div class="min-w-0">
         <h3 class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-          {{ t('workspaceMenu.llmKeysTitle', 'LLM API Keys') }}
+          {{ t('workspaceMenu.llmKeysTitle') }}
         </h3>
         <p class="mt-1.5 text-[11px] leading-snug text-neutral-500">
-          {{ t(
-            'workspaceMenu.llmKeysDesc',
-            'Bring your own LLM API key. When set, every run in this workspace uses your key instead of the shared one — tokens come out of your provider account, not your weekly budget.',
-          ) }}
+          {{ t('workspaceMenu.llmKeysDesc') }}
         </p>
       </div>
       <button
@@ -131,16 +127,16 @@ watchEffect(() => {
         class="shrink-0 self-center rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
         @click="openAdd"
       >
-        + Add key
+        + {{ t('llmKeys.addKey') }}
       </button>
     </div>
 
     <div v-if="loading && keys.length === 0" class="rounded-lg border border-neutral-200 bg-white px-3.5 py-4 text-[11px] text-neutral-500">
-      Loading keys…
+      {{ t('llmKeys.loading') }}
     </div>
 
     <div v-else-if="keys.length === 0 && !isAdding" class="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-3.5 py-4 text-[11px] text-neutral-500">
-      No LLM keys configured yet. Runs in this workspace use the shared server key.
+      {{ t('llmKeys.empty') }}
     </div>
 
     <ul v-else-if="keys.length > 0" class="space-y-2">
@@ -154,7 +150,7 @@ watchEffect(() => {
           <p class="mt-0.5 text-[11px] text-neutral-500">
             <span class="font-mono">…{{ k.last_four }}</span>
             <span class="mx-1.5">·</span>
-            Last used {{ formatRelative(k.last_used_at) }}
+            {{ t('llmKeys.lastUsed', { when: formatRelative(k.last_used_at) }) }}
           </p>
           <p v-if="k.api_base" class="mt-0.5 truncate font-mono text-[10px] text-neutral-400">
             {{ k.api_base }}
@@ -166,14 +162,14 @@ watchEffect(() => {
             class="rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             @click="openRotate(k)"
           >
-            Rotate
+            {{ t('llmKeys.rotate') }}
           </button>
           <button
             type="button"
             class="rounded-md border border-red-200 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50"
             @click="handleDelete(k)"
           >
-            Remove
+            {{ t('llmKeys.remove') }}
           </button>
         </div>
       </li>
@@ -186,7 +182,7 @@ watchEffect(() => {
       @submit.prevent="handleSubmit"
     >
       <div>
-        <label class="block text-[11px] font-medium text-neutral-700">Provider</label>
+        <label class="block text-[11px] font-medium text-neutral-700">{{ t('llmKeys.provider') }}</label>
         <select
           v-model="formProvider"
           name="llm-provider"
@@ -198,7 +194,7 @@ watchEffect(() => {
         </select>
       </div>
       <div>
-        <label class="block text-[11px] font-medium text-neutral-700">API key</label>
+        <label class="block text-[11px] font-medium text-neutral-700">{{ t('llmKeys.apiKey') }}</label>
         <input
           v-model="formKey"
           name="llm-api-key"
@@ -209,14 +205,13 @@ watchEffect(() => {
           class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 font-mono text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
         >
         <p class="mt-1 text-[10px] leading-snug text-neutral-500">
-          The key is encrypted at rest. We only display the last four characters back to you;
-          the full key cannot be retrieved.
+          {{ t('llmKeys.keyHint') }}
         </p>
       </div>
       <div>
         <label class="block text-[11px] font-medium text-neutral-700">
-          Base URL
-          <span class="font-normal text-neutral-400">(optional)</span>
+          {{ t('llmKeys.baseUrl') }}
+          <span class="font-normal text-neutral-400">{{ t('llmKeys.baseUrlOptional') }}</span>
         </label>
         <input
           v-model="formBaseUrl"
@@ -228,7 +223,7 @@ watchEffect(() => {
           class="mt-1 w-full rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 font-mono text-xs text-neutral-950 focus:border-neutral-400 focus:outline-none"
         >
         <p class="mt-1 text-[10px] leading-snug text-neutral-500">
-          Leave blank to use the server default. Set a custom URL for proxies, Azure OpenAI, or other compatible endpoints.
+          {{ t('llmKeys.baseUrlHint') }}
         </p>
       </div>
       <div class="flex items-center justify-end gap-2">
@@ -238,14 +233,14 @@ watchEffect(() => {
           :disabled="submitting"
           @click="resetForm"
         >
-          Cancel
+          {{ t('common.cancel') }}
         </button>
         <button
           type="submit"
           class="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
           :disabled="!formKey.trim() || submitting"
         >
-          {{ submitting ? 'Saving…' : 'Save key' }}
+          {{ submitting ? t('workspaceMenu.saving') : t('llmKeys.saveKey') }}
         </button>
       </div>
     </form>

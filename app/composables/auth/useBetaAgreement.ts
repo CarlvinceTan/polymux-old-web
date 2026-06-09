@@ -9,6 +9,9 @@ const accepted = ref(false)
 const ready = ref(false)
 let initialized = false
 
+/** Read-only acceptance flag for plugins that cannot call useI18n(). */
+export const betaAgreementAccepted = readonly(accepted)
+
 export function useBetaAgreement() {
   const { locale } = useI18n()
   const user = useSupabaseUser()

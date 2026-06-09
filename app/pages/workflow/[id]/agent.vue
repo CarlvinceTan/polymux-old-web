@@ -64,7 +64,7 @@ const chatIsStreaming = computed(() => orchestratorChat.value.isStreaming.value)
 const chatThinking = computed(() => orchestratorChat.value.thinking.value)
 const chatWaitingForAgent = computed(() => orchestratorChat.value.waitingForAgent.value)
 
-const { browserAgentsActive, showWorkingIndicator } = useChatActivity({
+const { browserAgentsActive, chatActive, showWorkingIndicator } = useChatActivity({
   isStreaming: chatIsStreaming,
   thinking: chatThinking,
   waitingForAgent: chatWaitingForAgent,
@@ -142,6 +142,10 @@ function onStopAgent(agentId: string) {
   chats.stopAgent(agentId)
 }
 
+function onPauseOrchestrator() {
+  chats.pauseOrchestrator()
+}
+
 // "Continue" / re-run hook for an idle viewport. No first-class server API
 // exists for resuming a sub-agent yet, so this is intentionally a no-op
 // scaffold — the Viewport's onRun prop is still wired so the play button
@@ -188,16 +192,19 @@ onMounted(() => {
     :show-working-indicator="showWorkingIndicator"
     :waiting-for-agent="chatWaitingForAgent"
     :browser-agents-active="browserAgentsActive"
+    :agents-active="chatActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
     :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
     :show-cursor="showCursor"
     :session-id="sessionId"
     :workspace-id="workflowWorkspaceId"
     :browser-agent-cap="vp.browserAgentCap.value"
+    :browser-agent-cap-resolved="vp.browserAgentCapResolved.value"
     :reconnecting="reconnecting"
     :feedback="messageFeedback.feedback.value"
     :before-send-prompt="beforeSendPrompt"
     :before-edit="beforeEditMessage"
+    :chats="chats"
     @welcome-suggestion="onWelcomeSuggestion"
     @send="onSend"
     @rename="onRename"
@@ -205,6 +212,7 @@ onMounted(() => {
     @toggle-pin-viewport="onTogglePinViewport"
     @spawn-browser-agent="onSpawnBrowserAgent"
     @stop-agent="onStopAgent"
+    @pause="onPauseOrchestrator"
     @run-agent="onRunAgent"
     @edit-message="onEditMessage"
     @feedback-change="onFeedbackChange"

@@ -8,14 +8,14 @@ const FETCH_TIMEOUT = 5_000
 const _available = ref(true)
 let _timer: ReturnType<typeof setInterval> | null = null
 let _initialized = false
-let _baseURL = ''
 
 function _healthUrl() {
-  return `${_baseURL}/health`
+  // Same-origin Nitro health route checks the Go backend via server-only
+  // goApiUrl, while app data and WebSockets use public serverUrl directly.
+  return '/api/health'
 }
 
 async function _check() {
-  if (!_baseURL) return
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
   const wasAvailable = _available.value
@@ -67,8 +67,6 @@ function _onVisibilityChange() {
 function _initialize() {
   if (!import.meta.client || _initialized) return
   _initialized = true
-  const config = useRuntimeConfig()
-  _baseURL = config.public.serverUrl as string
   _check()
   _startPolling()
   document.addEventListener('visibilitychange', _onVisibilityChange)

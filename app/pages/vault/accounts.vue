@@ -162,8 +162,8 @@ const passwordListPlaceholder = computed(
   () => filteredPasswords.value.length === 0,
 )
 
-async function handleAdd(entry: { name: string; url: string; username: string; password: string }) {
-  await addPassword(entry.url, entry.username, entry.password, entry.name)
+async function handleAdd(entry: { name: string; url: string; username: string; password: string; totpSecret?: string }) {
+  await addPassword(entry.url, entry.username, entry.password, entry.name, entry.totpSecret)
 }
 
 function handleView(id: string) {
@@ -229,6 +229,7 @@ onUnmounted(() => {
             </div>
             <input
               v-model="searchQuery"
+              data-testid="vault-password-search"
               name="vault-passwords-search"
               type="text"
               :placeholder="t('vault.passwords.searchPlaceholder')"
@@ -238,6 +239,7 @@ onUnmounted(() => {
 
           <button
             type="button"
+            data-testid="vault-add-password-button"
             class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-white transition-opacity hover:opacity-90"
             :aria-label="t('vault.passwords.addPassword')"
             @click="isAddModalOpen = true"
@@ -260,7 +262,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isFilterOpen"
-              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in filterOptions"
@@ -291,7 +293,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isSortOpen"
-              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in sortOptions"
@@ -319,6 +321,7 @@ onUnmounted(() => {
         >
           <div
             v-if="filteredPasswords.length > 0"
+            data-testid="vault-password-list"
             class="grid gap-4"
             style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))"
           >
@@ -329,11 +332,8 @@ onUnmounted(() => {
               :name="pw.name"
               :url="pw.url"
               :username="pw.username"
-              :last-used="pw.lastUsed"
-              :saved-by-name="nameFor(pw.createdBy)"
-              :last-used-by-name="pw.lastUsedBy ? nameFor(pw.lastUsedBy) : null"
+              :has-totp="pw.hasTotp"
               @view="handleView"
-              @edit="handleEdit"
               @delete="handleDelete"
             />
             <div
@@ -417,7 +417,13 @@ onUnmounted(() => {
       :name="activePassword.name"
       :url="activePassword.url"
       :username="activePassword.username"
+      :has-totp="activePassword.hasTotp"
+      :saved-by-name="nameFor(activePassword.createdBy)"
+      :last-used-by-name="activePassword.lastUsedBy ? nameFor(activePassword.lastUsedBy) : null"
+      :last-used="activePassword.lastUsed"
+      :created-at="activePassword.createdAt"
       @update:open="viewModalOpen = $event"
+      @edit="viewModalOpen = false; handleEdit(activePassword.id)"
     />
 
     <EditPasswordModal

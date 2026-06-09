@@ -1,14 +1,23 @@
 <script setup lang="ts">
+import {
+  demoPosterSrc,
+  demoVideoSrc,
+  ONBOARDING_SLIDES,
+  SLIDE_HERO,
+  slideHasRecording,
+  type SlideKey,
+} from '~/config/onboarding'
+
 const isOpen = defineModel<boolean>('open', { default: false })
 
 const emit = defineEmits<{
   accept: []
+  'import-passwords': []
 }>()
 
 const { t } = useI18n()
 
-type SlideKey = 'welcome' | 'workflows' | 'browser' | 'vault' | 'terms'
-const SLIDES: SlideKey[] = ['welcome', 'workflows', 'browser', 'vault', 'terms']
+const SLIDES = ONBOARDING_SLIDES.map(s => s.key)
 
 const currentIndex = ref(0)
 const acknowledged = ref(false)
@@ -18,6 +27,7 @@ const currentSlide = computed<SlideKey>(() => SLIDES[currentIndex.value]!)
 const isFirst = computed(() => currentIndex.value === 0)
 const isLast = computed(() => currentIndex.value === SLIDES.length - 1)
 const transitionName = computed(() => (direction.value === 1 ? 'slide-fwd' : 'slide-back'))
+const hasDemo = computed(() => slideHasRecording(currentSlide.value))
 
 function goTo(index: number) {
   if (index === currentIndex.value) return
@@ -49,15 +59,8 @@ watch(isOpen, (open) => {
   }
 })
 
-// Gate the Teleport on a client-only mounted flag instead of <ClientOnly>.
-// ClientOnly's default fallback is a <span> placeholder, which hydration
-// compares against the empty fragment Teleport leaves in place on the server
-// — that mismatch was cascading into sibling hydration warnings.
 const isMounted = ref(false)
 
-// Lock body scroll while the modal is open so the page underneath can't be
-// reached by scrolling. Cleaned up on unmount in case the modal is destroyed
-// without going through the close transition.
 if (import.meta.client) {
   watch(isOpen, (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -71,14 +74,6 @@ if (import.meta.client) {
     document.body.style.overflow = ''
   })
 }
-
-const SLIDE_HERO: Record<SlideKey, string> = {
-  welcome: 'bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50',
-  workflows: 'bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50',
-  browser: 'bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50',
-  vault: 'bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50',
-  terms: 'bg-gradient-to-br from-neutral-50 via-white to-neutral-100',
-}
 </script>
 
 <template>
@@ -89,11 +84,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
-      <!--
-        The backdrop intentionally has no @click handler — the modal can
-        only be closed by accepting the agreement on the final slide.
-        ESC is also a no-op (no @keydown.esc handler anywhere in the tree).
-      -->
       <div
         v-if="isOpen"
         class="fixed inset-0 z-[9999] flex items-center justify-center bg-neutral-950/60 p-4 backdrop-blur-[2px]"
@@ -113,7 +103,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
             :aria-label="t(`onboarding.${currentSlide}.title`)"
             @click.stop
           >
-            <!-- Skip (floats over the hero, hidden on terms) -->
             <button
               v-if="!isLast"
               type="button"
@@ -126,14 +115,29 @@ const SLIDE_HERO: Record<SlideKey, string> = {
               </svg>
             </button>
 
-            <!-- Slide content -->
             <Transition :name="transitionName" mode="out-in">
               <div :key="currentSlide" class="flex flex-col">
-                <!-- Hero panel -->
-                <div :class="['relative flex h-44 shrink-0 items-center justify-center overflow-hidden sm:h-48', SLIDE_HERO[currentSlide]]">
-                  <div class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.55),transparent_60%)]" />
-                  <div class="relative flex size-20 items-center justify-center rounded-2xl bg-white/85 shadow-[0_4px_20px_rgba(0,0,0,0.06)] ring-1 ring-white/70 backdrop-blur-sm">
-                    <!-- welcome — sparkles -->
+                <div
+                  :class="[
+                    'relative shrink-0 overflow-hidden',
+                    hasDemo ? 'aspect-video' : 'flex h-44 items-center justify-center sm:h-48',
+                    SLIDE_HERO[currentSlide],
+                  ]"
+                >
+                  <div
+                    v-if="!hasDemo"
+                    class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.55),transparent_60%)]"
+                  />
+                  <OnboardingDemo
+                    v-if="hasDemo"
+                    :src="demoVideoSrc(currentSlide)"
+                    :poster="demoPosterSrc(currentSlide)"
+                    :label="t(`onboarding.${currentSlide}.title`)"
+                  />
+                  <div
+                    v-else
+                    class="relative flex size-20 items-center justify-center rounded-2xl bg-white/85 shadow-[0_4px_20px_rgba(0,0,0,0.06)] ring-1 ring-white/70 backdrop-blur-sm"
+                  >
                     <svg v-if="currentSlide === 'welcome'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
                       <path d="M20 3v4" />
@@ -141,7 +145,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                       <path d="M4 17v2" />
                       <path d="M5 18H3" />
                     </svg>
-                    <!-- workflows — connected nodes -->
                     <svg v-else-if="currentSlide === 'workflows'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <circle cx="6" cy="6" r="2.5" />
                       <circle cx="18" cy="6" r="2.5" />
@@ -152,22 +155,27 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                       <path d="M18 8.5v7" />
                       <path d="M8.5 18h7" />
                     </svg>
-                    <!-- browser — window with cursor -->
-                    <svg v-else-if="currentSlide === 'browser'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <rect x="2.5" y="4" width="19" height="14" rx="2" />
-                      <path d="M2.5 8.5h19" />
-                      <circle cx="5.5" cy="6.25" r="0.4" fill="currentColor" />
-                      <circle cx="7.5" cy="6.25" r="0.4" fill="currentColor" />
-                      <circle cx="9.5" cy="6.25" r="0.4" fill="currentColor" />
-                      <path d="m12 13 3 7 1.4-3 3-1.4z" />
+                    <svg v-else-if="currentSlide === 'storage'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M3 7v10a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 17V7" />
+                      <path d="M3 7l9 5 9-5" />
+                      <path d="M12 22V12" />
                     </svg>
-                    <!-- vault — lock -->
+                    <svg v-else-if="currentSlide === 'integrations'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 2v4" />
+                      <path d="M12 18v4" />
+                      <path d="m4.93 4.93 2.83 2.83" />
+                      <path d="m16.24 16.24 2.83 2.83" />
+                      <path d="M2 12h4" />
+                      <path d="M18 12h4" />
+                      <path d="m4.93 19.07 2.83-2.83" />
+                      <path d="m16.24 7.76 2.83-2.83" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                     <svg v-else-if="currentSlide === 'vault'" class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <rect x="4" y="11" width="16" height="10" rx="2" />
                       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
                       <circle cx="12" cy="16" r="1" />
                     </svg>
-                    <!-- terms — shield with check -->
                     <svg v-else class="size-9 text-neutral-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                       <path d="m9 12 2 2 4-4" />
@@ -175,7 +183,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                   </div>
                 </div>
 
-                <!-- Body -->
                 <div class="px-6 py-7 text-center sm:px-12 sm:py-9">
                   <h2 class="text-[1.4rem] font-semibold tracking-tight text-neutral-950 sm:text-[1.625rem]">
                     {{ t(`onboarding.${currentSlide}.title`) }}
@@ -184,7 +191,20 @@ const SLIDE_HERO: Record<SlideKey, string> = {
                     {{ t(`onboarding.${currentSlide}.description`) }}
                   </p>
 
-                  <!-- Terms-specific content -->
+                  <button
+                    v-if="currentSlide === 'vault'"
+                    type="button"
+                    class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+                    @click="emit('import-passwords')"
+                  >
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 3v12" />
+                      <path d="m8 11 4 4 4-4" />
+                      <path d="M4 21h16" />
+                    </svg>
+                    {{ t('onboarding.vault.importCta') }}
+                  </button>
+
                   <div v-if="currentSlide === 'terms'" class="mx-auto mt-5 max-w-lg text-left">
                     <ul class="space-y-2.5 text-sm text-neutral-700">
                       <li class="flex gap-3">
@@ -236,7 +256,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
               </div>
             </Transition>
 
-            <!-- Footer: back / dots / next -->
             <div class="relative flex items-center justify-between border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
               <button
                 type="button"
@@ -296,10 +315,6 @@ const SLIDE_HERO: Record<SlideKey, string> = {
 </template>
 
 <style scoped>
-/* Hard-override browser defaults so the box is monochrome (not the
-   user-agent blue/teal accent) and only the checkmark glyph changes
-   between states — the surrounding label text and footer button are
-   unaffected. */
 .onboarding-ack-checkbox {
   appearance: none;
   -webkit-appearance: none;

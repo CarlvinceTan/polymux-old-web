@@ -6,8 +6,9 @@ export interface PasswordEntry {
   lastUsed: string
   usageCount: number
   weak: boolean
-  // Provenance — surfaced on the card so workspace members can see at a
-  // glance who added this credential and who used it most recently. UUIDs;
+  /** Whether an authenticator (TOTP) secret is stored alongside this credential. */
+  hasTotp: boolean
+  // Provenance — shown in the password details modal. UUIDs;
   // the UI resolves them to display names via useWorkspaces().members and
   // falls back to "unknown" when the user has left the workspace.
   createdBy: string
@@ -23,6 +24,7 @@ interface WorkspacePasswordRow {
   url: string
   username: string
   vault_secret_id: string
+  totp_secret_id: string | null
   is_weak: boolean
   usage_count: number
   last_used_at: string | null
@@ -40,6 +42,7 @@ function toEntry(row: WorkspacePasswordRow): PasswordEntry {
     lastUsed: row.last_used_at ?? row.created_at,
     usageCount: row.usage_count,
     weak: row.is_weak,
+    hasTotp: row.totp_secret_id != null,
     createdBy: row.created_by,
     lastUsedBy: row.last_used_by,
     createdAt: row.created_at,
@@ -96,6 +99,7 @@ export function usePasswords() {
     username: string,
     password: string,
     name: string,
+    totpSecret?: string,
   ): Promise<PasswordEntry | null> {
     const id = wsId.value
     if (!id) return null
@@ -108,6 +112,7 @@ export function usePasswords() {
         p_username: username,
         p_password: password,
         p_is_weak: isWeakPassword(password),
+        p_totp_secret: totpSecret?.trim() || undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
@@ -158,12 +163,28 @@ export function usePasswords() {
     }
   }
 
+  async function revealTotpSecret(pwdId: string): Promise<string | null> {
+    error.value = null
+    try {
+      const { data, error: err } = await supabase.rpc('get_workspace_password_totp_secret', {
+        p_password_id: pwdId,
+      })
+      if (err) throw err
+      return (data as string | null) ?? null
+    }
+    catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : 'Failed to reveal authenticator key'
+      return null
+    }
+  }
+
   async function updatePassword(
     pwdId: string,
     name: string,
     url: string,
     username: string,
     password?: string,
+    totp?: { secret?: string, clear?: boolean },
   ): Promise<PasswordEntry | null> {
     error.value = null
     try {
@@ -174,6 +195,8 @@ export function usePasswords() {
         p_username: username,
         p_password: password ?? undefined,
         p_is_weak: password !== undefined ? isWeakPassword(password) : undefined,
+        p_totp_secret: totp?.secret?.trim() || undefined,
+        p_clear_totp: totp?.clear ?? undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
@@ -192,6 +215,27 @@ export function usePasswords() {
       error.value = e instanceof Error ? e.message : 'Failed to update password'
       return null
     }
+  }
+
+  async function importPasswords(
+    entries: Array<{ name: string; url: string; username: string; password: string }>,
+  ): Promise<{ imported: number; failed: number }> {
+    let imported = 0
+    let failed = 0
+    error.value = null
+
+    for (const entry of entries) {
+      const result = await addPassword(entry.url, entry.username, entry.password, entry.name)
+      if (result) imported++
+      else failed++
+    }
+
+    const id = wsId.value
+    if (id) {
+      await queryClient.invalidateQueries({ queryKey: ['workspace-passwords', id] })
+    }
+
+    return { imported, failed }
   }
 
   async function deletePassword(pwdId: string): Promise<boolean> {
@@ -221,7 +265,9 @@ export function usePasswords() {
     error,
     fetchPasswords,
     addPassword,
+    importPasswords,
     revealPassword,
+    revealTotpSecret,
     updatePassword,
     deletePassword,
   }

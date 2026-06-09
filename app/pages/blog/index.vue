@@ -1,12 +1,14 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Blog',
+  title: () => t('blog.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Updates, deep-dives, and case studies on AI agents, browser automation, and multi-agent orchestration with Polymux.',
+      content: () => t('blog.metaDescription'),
     },
   ],
 })
@@ -84,21 +86,19 @@ function dateLabel(iso: string): string {
     <div class="w-full max-w-[680px]">
       <header class="text-center">
         <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
-          Polymux Blog
+          {{ t('blog.title') }}
         </h1>
         <p class="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-          Product updates, engineering notes, and guides for teams building with Polymux
-          &mdash; orchestrate agents, watch live browser sessions, and ship automations
-          you can trust.
+          {{ t('blog.subtitle') }}
         </p>
         <p v-if="!settings.blog_newsletter_subscribed" class="mt-6 text-sm text-neutral-500">
-          New posts a few times a month &middot;
+          {{ t('blog.subscribeHint') }} &middot;
           <NuxtLink
             v-if="!user"
             :to="signInForSubscribe"
             class="underline decoration-neutral-300 underline-offset-2 transition-colors hover:text-neutral-800"
           >
-            Subscribe
+            {{ t('blog.subscribe') }}
           </NuxtLink>
           <button
             v-else
@@ -106,7 +106,7 @@ function dateLabel(iso: string): string {
             class="cursor-pointer border-0 bg-transparent p-0 font-inherit text-inherit underline decoration-neutral-300 underline-offset-2 transition-colors hover:text-neutral-800"
             @click="scrollToNewsletterBlock"
           >
-            Subscribe
+            {{ t('blog.subscribe') }}
           </button>
         </p>
       </header>
@@ -114,7 +114,7 @@ function dateLabel(iso: string): string {
       <hr class="my-12 border-neutral-200 sm:border-neutral-200/[.85]" />
 
       <div v-if="posts.length === 0" class="py-16 text-center text-[0.9375rem] text-neutral-500">
-        No posts yet. Check back soon.
+        {{ t('blog.empty') }}
       </div>
 
       <div v-else class="flex flex-col gap-0">
@@ -147,7 +147,7 @@ function dateLabel(iso: string): string {
                 :to="`/blog/${post.slug}`"
                 class="mt-4 inline-flex items-center text-sm font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-[0.2em] transition-colors hover:decoration-neutral-500"
               >
-                Read more
+                {{ t('blog.readMore') }}
               </NuxtLink>
             </div>
             <NuxtLink

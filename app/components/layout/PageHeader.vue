@@ -100,8 +100,27 @@ function isActive(label: string) {
   return activeLabel.value === label
 }
 
+/**
+ * The plugin/publishing docs link lives in the header across the whole Publish
+ * section — the hub (`/integrations/publish`) plus the new/[id] flows. Elsewhere
+ * the header keeps just the notifications inbox.
+ */
+const showPublishDocs = computed(() => {
+  const p = normalizePath(route.path)
+  return p === '/integrations/publish' || p.startsWith('/integrations/publish/')
+})
+
 function displayTabLabel(label: string) {
   return props.rawTabLabels ? label : formatTabLabel(label)
+}
+
+/** Stable test ids for demo recordings and e2e (e.g. vault-accounts-tab). */
+function tabTestId(routePath: string): string | undefined {
+  const segments = tabPathOnly(routePath).split('/').filter(Boolean)
+  if (segments.length >= 2) {
+    return `${segments[0]}-${segments[1]}-tab`
+  }
+  return undefined
 }
 
 // Drag-reorder is opt-in: we only call the reorder API when the section can
@@ -173,6 +192,7 @@ const draggableOptions = {
           />
           <NuxtLink
             :to="tabLinkTarget(routePath)"
+            :data-testid="tabTestId(routePath)"
             class="relative py-1 text-sm font-semibold tracking-tight transition-colors sm:text-base"
             :class="
               isActive(label)
@@ -214,6 +234,21 @@ const draggableOptions = {
       </nav>
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      <!-- Plain <a> (not NuxtLink) so it behaves as a native link: left-click
+           opens a new tab, right-click / cmd-click / middle-click give the usual
+           "open in new tab/window" choices. NuxtLink would run client-side router
+           logic for this internal route. -->
+      <a
+        v-if="showPublishDocs"
+        href="/documentation/plugin-overview"
+        target="_blank"
+        rel="noopener noreferrer"
+        :title="t('integrations.editorDocs')"
+        class="flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-neutral-500 outline-none transition-colors hover:text-neutral-950"
+      >
+        {{ t('integrations.editorDocs') }}
+        <UIcon name="i-heroicons-arrow-up-right-20-solid" class="size-3.5" />
+      </a>
       <NotificationsInbox />
     </div>
   </div>

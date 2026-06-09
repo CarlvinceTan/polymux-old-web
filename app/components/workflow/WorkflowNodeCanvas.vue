@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { WorkflowGraph, WorkflowNode, WorkflowVersion, WorkflowWire, WorkflowWithLatest } from '~/composables/workflows/useWorkflows'
+import { normalizeGraph } from '~/composables/workflows/useWorkflows'
 import { VersionConflictError } from '~/composables/workflows/useWorkflows'
 import type { NodeModel, WireModel, WireStyle } from '~/composables/workflows/useWorkflowLayout'
-import { buildLayout } from '~/composables/workflows/useWorkflowLayout'
+import { buildLayout, buildAutoLayoutGeometry, WORKFLOW_START_ID, WORKFLOW_END_ID } from '~/composables/workflows/useWorkflowLayout'
 import type { WorkflowOp } from '~/composables/workflows/useWorkflowMutations'
 import { applyOp, findNodeById, findWireById, idsTouchedByOp } from '~/composables/workflows/useWorkflowMutations'
 import { useEmbeddedWorkflowCache } from '~/composables/workflows/useEmbeddedWorkflow'
@@ -51,7 +52,9 @@ function emptyGraph(): WorkflowGraph { return { nodes: [], wires: [] } }
 const draftGraph = useState<WorkflowGraph>(`workflow-draft-graph:${props.sessionId}`, () => emptyGraph())
 const selectedWorkflowKey = computed(() => `polymux_workflow_for_session_${props.sessionId}`)
 
-const selectedWorkflowId = ref<string | null>(null)
+// Bind to the page session up front so a late `loadSelected()` doesn't
+// transition null → id and wipe in-flight canvas edits via watchers.
+const selectedWorkflowId = ref<string | null>(props.sessionId || null)
 // Gate rendering until the first `loadSelected()` resolves so the canvas
 // never shows nodes positioned with the wrong (draft-key) overrides.
 const canvasReady = ref(false)
@@ -63,14 +66,31 @@ const loadedGraph = ref<WorkflowGraph>(emptyGraph())
 const latestVersionId = ref<string | null>(null)
 const latestVersionNumber = ref<number>(0)
 
+function cloneGraph(graph: WorkflowGraph): WorkflowGraph {
+  return {
+    nodes: graph.nodes.map(n => ({ ...n })),
+    wires: graph.wires.map(w => ({ ...w })),
+  }
+}
+
+// After a successful save, realign the WS-driven draft with the persisted
+// head so draft detection and the canvas base graph stay in sync.
+function syncDraftFromLoaded() {
+  draftGraph.value = cloneGraph(loadedGraph.value)
+}
+
 async function loadSelected() {
   if (!workspaceId.value) return
   await fetchWorkflows(workspaceId.value)
   if (!import.meta.client) return
-  const stored = localStorage.getItem(selectedWorkflowKey.value)
-  let id: string | null = null
-  if (stored && workflows.value.some(w => w.id === stored)) id = stored
-  else id = workflows.value[0]?.id ?? null
+  // Session id is the workflow id — always edit the workflow page we're on,
+  // even when the row hasn't landed in the cached list yet (fresh commit).
+  let id: string | null = props.sessionId || null
+  if (!id) {
+    const stored = localStorage.getItem(selectedWorkflowKey.value)
+    if (stored && workflows.value.some(w => w.id === stored)) id = stored
+    else id = workflows.value[0]?.id ?? null
+  }
   selectedWorkflowId.value = id
   if (!id) {
     loadedGraph.value = emptyGraph()
@@ -80,6 +100,10 @@ async function loadSelected() {
     return
   }
   const wf = await getWorkflow(workspaceId.value, id) as WorkflowWithLatest | null
+  if (!wf) {
+    canvasReady.value = true
+    return
+  }
   const rawSteps = wf?.latest_version?.steps as WorkflowGraph | undefined
   loadedGraph.value = (rawSteps && Array.isArray(rawSteps.nodes)) ? rawSteps : emptyGraph()
   latestVersionId.value = wf?.latest_version?.id ?? null
@@ -115,6 +139,8 @@ const previewedVersion = ref<WorkflowVersion | null>(null)
 // the WS-driven `draftGraph`.
 const editedDraft = ref<Record<string, Partial<WorkflowNode>>>({})
 const dirtyNodeIds = ref<Set<string>>(new Set())
+// Pure lock toggles are save-worthy even when the graph signature is unchanged.
+const lockSetDirty = ref(false)
 
 // User-applied structural ops (add / remove / edge mutations) produce a
 // *new graph* rather than a per-field patch. We hold it here so subsequent
@@ -214,7 +240,7 @@ const overrides = ref<Record<string, Pt>>({})
 // a wire to a "spawn-extra" that hasn't been added to the graph yet).
 // Wires between two real nodes go straight through `applyStructuralOp`
 // (`wire_add`) — see `addUserWire`. This list holds the remainder until
-// save folds them in via `promoteUserWires`.
+// save folds them in via `graphForSave`.
 interface UserWire {
   id: string
   fromId: string
@@ -271,7 +297,10 @@ const locksKey = computed(() => `polymux_node_locks_${props.sessionId}_${selecte
 
 // Reset all in-memory canvas state when the user switches workflows. Locks
 // also re-hydrate from their own localStorage bucket below.
-watch(selectedWorkflowId, () => {
+watch(selectedWorkflowId, (newId, oldId) => {
+  // Initial bind (null → page session) must not discard edits the user
+  // made while `loadSelected()` was still in flight.
+  if (oldId == null || newId === oldId) return
   overrides.value = {}
   sizes.value = {}
   userWires.value = []
@@ -295,7 +324,7 @@ watch(locksKey, (key) => {
 // `workflow_versions`.
 function persistOverrides() { /* no-op: positions commit via node_edit op */ }
 function persistSizes() { /* no-op: sizes commit via node_edit op */ }
-function persistUserWires() { /* no-op: wires commit via wire_add or promoteUserWires */ }
+function persistUserWires() { /* no-op: wires commit via wire_add or graphForSave */ }
 
 function persistLocks() {
   if (!import.meta.client) return
@@ -320,7 +349,7 @@ function toggleLock(node: NodeModel) {
   // Mark the lock change as a pending dirty edit so the Save button
   // surfaces it. Versions are only ever created on explicit save (user
   // pressing Save, or the orchestrator save flow under user permission).
-  lockSetDirty = true
+  lockSetDirty.value = true
 }
 
 function pushLockSetToServer() {
@@ -359,8 +388,18 @@ function defaultPos(node: NodeModel): Pt {
   const size = nodeSize(node)
   const cellCenterX = 48 + node.col * (NODE_W + COL_GAP) + NODE_W / 2
   const cellCenterY = 48 + node.row * (NODE_H + ROW_GAP) + NODE_H / 2
+  // Terminals are narrower than a real-node cell (TERMINAL_W vs NODE_W), so
+  // centring them leaves an oversized gap to the adjacent node — (NODE_W -
+  // TERMINAL_W)/2 of extra space. Anchor each terminal's node-facing edge to
+  // its cell boundary instead (Start's right edge, End's left edge) so Start
+  // and End sit exactly COL_GAP from the entry / exit nodes — even with the
+  // rest of the column spacing. (NODE_W, TERMINAL_W, and the gaps are all
+  // multiples of SNAP_GRID, so the result stays grid-aligned.)
+  let x = cellCenterX - size.w / 2
+  if (node.terminal === 'start') x = cellCenterX + NODE_W / 2 - size.w
+  else if (node.terminal === 'end') x = cellCenterX - NODE_W / 2
   return {
-    x: cellCenterX - size.w / 2,
+    x,
     y: cellCenterY - size.h / 2,
   }
 }
@@ -1345,7 +1384,12 @@ function zoomBy(factor: number) {
   const cx = rect.width / 2
   const cy = rect.height / 2
   const oldScale = scale.value
-  const newScale = Math.max(0.4, Math.min(2, oldScale * factor))
+  let newScale = Math.max(0.4, Math.min(2, oldScale * factor))
+  // Snap to exactly 100% when a step would cross it, so nudging from a
+  // fractional fit-to-view scale lands cleanly on 1.0 instead of 99%/101%.
+  // Strict comparisons keep this from firing at exactly 1.0, so you can
+  // still zoom away from 100%.
+  if ((oldScale < 1 && newScale > 1) || (oldScale > 1 && newScale < 1)) newScale = 1
   if (newScale === oldScale) return
   // Keep the canvas point under the viewport centre stationary.
   const wx = (cx - offset.value.x) / oldScale
@@ -1468,7 +1512,8 @@ onMounted(() => { seedHistoryOnce() })
 
 // If the workflow being viewed switches (a different draft / saved id),
 // reset the history so we don't undo across workflows.
-watch(selectedWorkflowId, () => {
+watch(selectedWorkflowId, (newId, oldId) => {
+  if (oldId == null || newId === oldId) return
   history.value = []
   historyPointer.value = -1
   historySeeded = false
@@ -2708,7 +2753,7 @@ function commitPlacedNode() {
   // Commit `position` directly on the new node so it renders at the placed
   // location without needing a transient overlay. The node carries its own
   // geometry from creation onward.
-  const addOp: WorkflowOp = { kind: 'node_add', node: { id: '', position: pos } }
+  const addOp: WorkflowOp = { kind: 'node_add', node: { id: '', title: t('workflow.untitledNode'), position: pos } }
   const result = applyOp(displayedGraph.value, addOp)
   if (!result.ok) {
     toast.show(result.error, 'warning', 4000)
@@ -2821,6 +2866,9 @@ function onPlacingWireDown(ev: PointerEvent) {
   if (!placingWire.value) return
   if (ev.button !== 0) return
   const target = ev.target as Element | null
+  // Let the side-toolbar draw-wire button handle its own toggle — a capture-
+  // phase cancel here would run before the button's click and re-arm the tool.
+  if (target?.closest('[data-canvas-tool-toggle="draw-wire"]')) return
   if (!target || !viewportEl.value?.contains(target)) {
     cancelPlacingWire()
     return
@@ -2975,7 +3023,7 @@ function spawnFromPort(parent: NodeModel, side: Side) {
   // into op.node.id; we chain a wire_add from the parent so the new node is
   // wired in.
   const spawnPos = snapPt({ x, y })
-  const addNode: WorkflowOp = { kind: 'node_add', node: { id: '', position: spawnPos } }
+  const addNode: WorkflowOp = { kind: 'node_add', node: { id: '', title: t('workflow.untitledNode'), position: spawnPos } }
   const nodeResult = applyOp(displayedGraph.value, addNode)
   if (!nodeResult.ok) {
     toast.show(nodeResult.error, 'warning', 4000)
@@ -3128,8 +3176,11 @@ function addUserWire(fromId: string, toId: string, fromSide?: Side, toSide?: Sid
   if (fromId === toId) return null
   // Skip endpoints not present in the graph (e.g. spawn-extra nodes) — wires
   // must connect real graph nodes so the orchestrator + executor see them.
-  const fromInGraph = !!findNodeById(displayedGraph.value, fromId)
-  const toInGraph = !!findNodeById(displayedGraph.value, toId)
+  // The Start/End anchors count as valid endpoints (Start as source, End as
+  // target) so a user-drawn anchor wire persists into the graph like any
+  // other, instead of staying a throwaway canvas-local wire.
+  const fromInGraph = !!findNodeById(displayedGraph.value, fromId) || fromId === WORKFLOW_START_ID
+  const toInGraph = !!findNodeById(displayedGraph.value, toId) || toId === WORKFLOW_END_ID
   if (!fromInGraph || !toInGraph) {
     // Fall back to the canvas-local userWires (legacy localStorage track),
     // so spawn-extras keep working without touching the persisted graph.
@@ -4845,6 +4896,7 @@ async function runFromNodeId(nodeId: string) {
   const r = await startRun(workspaceId.value, selectedWorkflowId.value, {
     session_id: props.sessionId,
     resume_from_node_id: nodeId,
+    ...(runInline.value ? { steps: graphForSave() } : {}),
   })
   if ('error' in r) toast.show(`${t('workflow.runFailedToast')}: ${r.error}`, 'error', 5000)
 }
@@ -4909,6 +4961,10 @@ function wireStroke(w: WireGeom): string {
   if (w.style === 'back-wire') {
     return sel ? 'var(--color-loop-wire-strong)' : 'var(--color-loop-wire)'
   }
+  // Terminal (Start/End anchor) wires fall through to the forward styling so
+  // they read as ordinary edges — same colour, width, and solid stroke. They
+  // stay non-interactive via their `terminal:` id (clickable=false), so they
+  // never enter the selected branch.
   return sel ? 'rgb(23 23 23)' : 'rgb(163 163 163)'
 }
 
@@ -4917,7 +4973,7 @@ function wireStrokeWidth(w: WireGeom): string {
 }
 
 // wireDasharray returns a dasharray for back-wires only when selected, so
-// the selected loop reads "iterative" — forward wires stay solid.
+// the selected loop reads "iterative" — forward and terminal wires stay solid.
 function wireDasharray(w: WireGeom): string | undefined {
   if (w.style !== 'back-wire') return undefined
   return isWireSelected(w) ? '6 4' : undefined
@@ -5057,16 +5113,25 @@ function resetLayout() {
   if (!attemptEdit()) return
   const graph = displayedGraph.value
   if (graph.nodes.length > 0) {
-    const lay = buildLayout(graph)
-    for (const m of lay.nodes) {
-      if (m.terminal) continue
-      const pos = defaultPos(m)
-      const cur = m.node.position
-      if (cur && Math.abs(cur.x - pos.x) < 0.5 && Math.abs(cur.y - pos.y) < 0.5) continue
+    const geometry = buildAutoLayoutGeometry(graph)
+    for (const item of geometry) {
+      if (item.terminal) continue
+      const cur = displayedGraph.value.nodes.find(n => n.id === item.id)
+      if (!cur) continue
+      const patch: { position?: { x: number, y: number }, size?: { w: number, h: number } } = {}
+      const curPos = cur.position
+      if (!curPos || Math.abs(curPos.x - item.position.x) >= 0.5 || Math.abs(curPos.y - item.position.y) >= 0.5) {
+        patch.position = { x: item.position.x, y: item.position.y }
+      }
+      const curSize = cur.size
+      if (!curSize || Math.abs(curSize.w - item.size.w) >= 0.5 || Math.abs(curSize.h - item.size.h) >= 0.5) {
+        patch.size = { w: item.size.w, h: item.size.h }
+      }
+      if (Object.keys(patch).length === 0) continue
       applyStructuralOp({
         kind: 'node_edit',
-        node_id: m.id,
-        patch: { position: { x: pos.x, y: pos.y } },
+        node_id: item.id,
+        patch,
       })
     }
     // Rebuild the graph without bends / persisted sides so the auto
@@ -5174,13 +5239,23 @@ function graphSignature(graph: WorkflowGraph | undefined | null): string {
   return JSON.stringify({ nodes, wires })
 }
 
+// Single source of truth for "canvas differs from latest saved version".
+// Uses the graph the user actually sees (`displayedGraph`), not the raw WS
+// draft alone — user structural edits live in `userGraph` / `editedDraft`.
+const hasUnsavedEdits = computed(() => {
+  if (inPreviewMode.value) return false
+  if (lockSetDirty.value) return true
+  if (hasOverrides.value) return true
+  if (dirtyNodeIds.value.size > 0) return true
+  const current = displayedGraph.value
+  if (current.nodes.length === 0) return false
+  return graphSignature(current) !== graphSignature(loadedGraph.value)
+})
+
 const canSave = computed(() => {
   if (!selectedWorkflowId.value) return false
   if (saving.value) return false
-  if (inPreviewMode.value) return false
-  const current = displayedGraph.value
-  if (current.nodes.length === 0) return false
-  if (graphSignature(current) === graphSignature(loadedGraph.value)) return false
+  if (!hasUnsavedEdits.value) return false
   return true
 })
 
@@ -5298,13 +5373,16 @@ function cancelRevert() {
 // version, so the history list rings its row instead of stacking a
 // redundant draft entry.
 const liveEntry = computed<LiveHistoryEntry | null>(() => {
-  const graphDiffers = draftGraph.value.nodes.length > 0
-    && graphSignature(draftGraph.value) !== graphSignature(loadedGraph.value)
-  const hasLocalEdits = hasOverrides.value
-  if (!graphDiffers && !hasLocalEdits) return null
+  if (!hasUnsavedEdits.value) return null
   return { kind: selectedWorkflowId.value ? 'user-unsaved' : 'agent-draft' }
 })
 const canRun = computed(() => !!selectedWorkflowId.value && !running.value)
+// "Run what you see": when there's no saved version yet (a draft) or the canvas
+// has unsaved edits, run the on-screen graph inline — the server executes the
+// `steps` we send with no version behind it, so the user never has to save
+// first and version history stays clean. A clean, already-saved workflow runs
+// its latest saved version instead (so recorded-trace replay still applies).
+const runInline = computed(() => (canvasReady.value && latestVersionId.value == null) || hasUnsavedEdits.value)
 
 // Connectivity warnings surfaced at save time. We don't block the save —
 // the user may know the workflow is unfinished — but we tell them what
@@ -5328,13 +5406,12 @@ function connectivityWarnings(graph: WorkflowGraph): string[] {
 
 async function onSave() {
   if (!canSave.value || !selectedWorkflowId.value) return
-  promoteUserWires()
   saving.value = true
   const snapshotDirty = new Set(dirtyNodeIds.value)
-  const hadUserGraph = userGraph.value != null
   try {
+    const steps = graphForSave()
     const created = await createVersion(workspaceId.value, selectedWorkflowId.value, {
-      steps: displayedGraph.value,
+      steps,
       expected_version: latestVersionNumber.value,
       source: 'user',
       impact_level: 'preference',
@@ -5344,15 +5421,23 @@ async function onSave() {
       toast.show(t('workflow.savedToast'), 'info', 3000)
       // Surface non-blocking validation issues so the user knows what to
       // fix without the canvas silently inferring wires for them.
-      for (const w of connectivityWarnings(displayedGraph.value)) {
+      for (const w of connectivityWarnings(steps)) {
         toast.show(w, 'warning', 5000)
       }
-      // Re-pull the workflow so latestVersionNumber updates and the next
-      // save passes the correct expected_version.
+      // Realign optimistic-locking + dirty baseline from the row we just
+      // wrote before any follow-up fetch — if getWorkflow fails we still
+      // have a correct expected_version for the next save.
+      const saved = created.steps as WorkflowGraph | undefined
+      loadedGraph.value = (saved && Array.isArray(saved.nodes)) ? normalizeGraph(saved) : emptyGraph()
+      latestVersionId.value = created.id
+      latestVersionNumber.value = created.version
+      syncDraftFromLoaded()
       await loadSelected()
+      await fetchVersions(workspaceId.value, selectedWorkflowId.value)
       clearEditedSnapshot(snapshotDirty)
-      if (hadUserGraph) userGraph.value = null
-      lockSetDirty = false
+      userGraph.value = null
+      overrides.value = {}
+      lockSetDirty.value = false
     }
   }
   catch (err: unknown) {
@@ -5379,7 +5464,6 @@ async function onSave() {
 
 // Lock toggles count as save-worthy edits independent of dirtyNodeIds, so a
 // pure lock change still produces a new version on disk. Cleared on save.
-let lockSetDirty = false
 
 function clearEditedSnapshot(ids: Set<string>) {
   if (ids.size === 0) return
@@ -5448,48 +5532,68 @@ function onEmbedNavigate(workflowID: string) {
   navigateTo(target)
 }
 
-// Fold any sketched-but-unattached wires (drag-to-connect that landed
-// outside the graph) into real `wire_add` ops before we ship the graph to
-// the server. Wires that *can* be promoted (both endpoints are real graph
-// nodes) are dropped from `userWires` once they're in the graph. Wires
-// whose endpoint is a synthetic Start/End anchor stay in `userWires` —
-// the server rejects those endpoints, so the only home for them is the
-// canvas-local list. Without that distinction, every save nuked a
-// user-drawn wire to End even though the user never deleted it.
-// Called at the top of `onSave` so the promoted edges are already part
-// of `displayedGraph.value` when we read it for the payload.
-function promoteUserWires() {
-  if (userWires.value.length === 0) return
+// Commit in-flight drag positions into the graph. Overrides are visual-only
+// until pointerup; Save must not ship the pre-drag graph when the user
+// clicked Save mid-gesture or before the debounced release handler ran.
+function commitPendingOverrides() {
+  if (Object.keys(overrides.value).length === 0) return
+  let graph = cloneGraph(displayedGraph.value)
+  const nextOverrides = { ...overrides.value }
+  for (const [id, pos] of Object.entries(overrides.value)) {
+    if (!findNodeById(graph, id)) continue
+    const result = applyOp(graph, {
+      kind: 'node_edit',
+      node_id: id,
+      patch: { position: { x: pos.x, y: pos.y } },
+    })
+    if (!result.ok) continue
+    graph = result.graph
+    delete nextOverrides[id]
+  }
+  userGraph.value = graph
+  editedDraft.value = {}
+  dirtyNodeIds.value = new Set()
+  overrides.value = nextOverrides
+}
+
+// Single source of truth for the JSON we POST on Save. Starts from what the
+// user actually sees (`displayedGraph`), commits transient geometry, then
+// folds canvas-local wires whose endpoints are both real graph nodes into
+// the payload. Wires touching synthetic Start/End anchors stay canvas-local
+// — the validator can't accept terminal ids — but node-to-node sketches made
+// via port-drag / draw-wire must land here or the backend receives an
+// unchanged graph and version history looks frozen.
+function graphForSave(): WorkflowGraph {
+  commitPendingOverrides()
+  let graph = cloneGraph(displayedGraph.value)
   const remaining: UserWire[] = []
   for (const w of userWires.value) {
-    const fromReal = !!w.fromId && !!findNodeById(displayedGraph.value, w.fromId)
-    const toReal = !!w.toId && !!findNodeById(displayedGraph.value, w.toId)
+    const fromReal = !!w.fromId && !!findNodeById(graph, w.fromId)
+    const toReal = !!w.toId && !!findNodeById(graph, w.toId)
     if (fromReal && toReal) {
-      // Both ends bind to real graph nodes — convert to a persisted wire
-      // so it gains structural-op replay and survives reloads. Skip if
-      // an identical edge already exists.
-      const exists = displayedGraph.value.wires.some(
+      const exists = graph.wires.some(
         e => e.from_id === w.fromId && e.to_id === w.toId,
       )
-      if (exists) continue
-      applyStructuralOp({
-        kind: 'wire_add',
-        wire: { id: '', from_id: w.fromId, to_id: w.toId },
-      })
+      if (!exists) {
+        const wire: WorkflowWire = {
+          id: '',
+          from_id: w.fromId,
+          to_id: w.toId,
+        }
+        if (w.fromSide) wire.from_side = w.fromSide
+        if (w.toSide) wire.to_side = w.toSide
+        const result = applyOp(graph, { kind: 'wire_add', wire })
+        if (result.ok) graph = result.graph
+      }
       continue
     }
-    // Not fully promotable — keep canvas-local. This covers: wires
-    // touching a synthetic Start / End anchor; wires whose moving end
-    // the user dropped in empty space (floating); wires to spawn-extras
-    // that aren't graph nodes yet. The user can remove explicitly via
-    // the action pill. Drop only when BOTH ends are truly meaningless
-    // (no real node id, no recognised terminal, no floating position).
     const fromKnown = fromReal || !!w.fromId || !!w.fromPos
     const toKnown = toReal || !!w.toId || !!w.toPos
     if (fromKnown && toKnown) remaining.push(w)
   }
   userWires.value = remaining
   persistUserWires()
+  return graph
 }
 
 // Apply a structural op (add/remove node/edge, edit edge) from a user
@@ -5569,11 +5673,12 @@ watch(lastDraftOp, (op) => {
 // Switching workflows drops the in-memory edit overlay — edits are scoped to
 // the workflow that was being edited and would otherwise apply against the
 // wrong tree on the next save.
-watch(selectedWorkflowId, () => {
+watch(selectedWorkflowId, (newId, oldId) => {
+  if (oldId == null || newId === oldId) return
   if (Object.keys(editedDraft.value).length > 0) editedDraft.value = {}
   if (dirtyNodeIds.value.size > 0) dirtyNodeIds.value = new Set()
   if (userGraph.value != null) userGraph.value = null
-  lockSetDirty = false
+  lockSetDirty.value = false
 })
 
 async function onRun() {
@@ -5582,6 +5687,7 @@ async function onRun() {
   try {
     const r = await startRun(workspaceId.value, selectedWorkflowId.value, {
       session_id: props.sessionId,
+      ...(runInline.value ? { steps: graphForSave() } : {}),
     })
     if ('error' in r) toast.show(`${t('workflow.runFailedToast')}: ${r.error}`, 'error', 5000)
   }
@@ -5829,28 +5935,34 @@ onBeforeUnmount(() => {
              green play icon; while running the spinner swaps to a red stop
              on hover so the user can request a cancel. Clicking while
              running calls onStop (currently a UI-only reset). -->
-        <button
-          type="button"
-          class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:hover:text-emerald-600"
-          :class="runActive
-            ? 'text-emerald-600 hover:text-red-600'
-            : 'text-emerald-600 hover:text-emerald-500'"
-          :disabled="!runActive && !canRun"
-          @click="runActive ? onStop() : onRun()"
-        >
-          <template v-if="runActive">
-            <UIcon
-              name="i-heroicons-arrow-path-20-solid"
-              class="size-3.5 animate-spin group-hover/btn:hidden"
-            />
-            <UIcon
-              name="i-heroicons-stop-20-solid"
-              class="hidden size-3.5 group-hover/btn:block"
-            />
-          </template>
-          <UIcon v-else name="i-heroicons-play-20-solid" class="size-3.5" />
+        <!-- Wrapper owns `group/btn` + the tooltip so the hint stays visible
+             even while the button itself is `disabled` (a disabled <button>
+             never fires :hover, so the tooltip can't live on it). -->
+        <div class="group/btn relative inline-flex h-6 w-7 items-center justify-center">
+          <button
+            type="button"
+            class="inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed"
+            :class="runActive
+              ? 'text-emerald-600 hover:text-red-600'
+              : 'text-emerald-600 hover:text-emerald-500'"
+            :disabled="!runActive && !canRun"
+            data-testid="wf-run-button"
+            @click="runActive ? onStop() : onRun()"
+          >
+            <template v-if="runActive">
+              <UIcon
+                name="i-heroicons-arrow-path-20-solid"
+                class="size-3.5 animate-spin group-hover/btn:hidden"
+              />
+              <UIcon
+                name="i-heroicons-stop-20-solid"
+                class="hidden size-3.5 group-hover/btn:block"
+              />
+            </template>
+            <UIcon v-else name="i-heroicons-play-20-solid" class="size-3.5" />
+          </button>
           <span class="canvas-tooltip">{{ runActive ? t('workflow.stop') : t('workflow.run') }}</span>
-        </button>
+        </div>
 
         <!-- Save -->
         <button
@@ -5868,6 +5980,7 @@ onBeforeUnmount(() => {
           type="button"
           class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
           :class="historyOpen ? 'text-neutral-900' : 'text-neutral-500'"
+          data-testid="wf-history-button"
           @click="toggleHistory"
         >
           <UIcon name="i-heroicons-clock-20-solid" class="size-3.5" />
@@ -5910,6 +6023,7 @@ onBeforeUnmount(() => {
           <button
             ref="addNodeButtonEl"
             type="button"
+            data-testid="workflow-add-node-button"
             class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
             :class="(placingNode || showAddNodeMenu) ? 'text-neutral-900' : 'text-neutral-500'"
             @click="showAddNodeMenu = !showAddNodeMenu"
@@ -5937,6 +6051,7 @@ onBeforeUnmount(() => {
                 </div>
                 <button
                   type="button"
+                  data-testid="workflow-add-node-blank"
                   class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-neutral-800 transition-colors hover:bg-neutral-50"
                   @pointerdown.stop="(e) => onAddNodeMenuPointerDown('blank', e)"
                 >
@@ -5970,8 +6085,10 @@ onBeforeUnmount(() => {
              with the same rules. Cursor becomes a crosshair while armed. -->
         <button
           type="button"
+          data-canvas-tool-toggle="draw-wire"
           class="group/btn relative inline-flex h-6 w-7 items-center justify-center rounded-lg transition-colors hover:text-neutral-900"
           :class="placingWire ? 'text-neutral-900' : 'text-neutral-500'"
+          :aria-pressed="!!placingWire"
           @click="startPlacingWire"
         >
           <svg
@@ -6094,6 +6211,7 @@ onBeforeUnmount(() => {
     <!-- Canvas -->
     <div
       ref="viewportEl"
+      data-testid="workflow-canvas"
       class="relative h-full w-full select-none overflow-hidden"
       :class="placingWire
         ? 'cursor-crosshair'
@@ -6779,6 +6897,7 @@ onBeforeUnmount(() => {
                 type="button"
                 class="group/btn relative inline-flex h-7 w-6 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="!selectedWorkflowId || runActive"
+                :data-testid="`wf-rerun-${node.id}`"
                 @click.stop="rerunFromNode(node)"
               >
                 <UIcon name="i-heroicons-play-20-solid" class="size-3.5" />

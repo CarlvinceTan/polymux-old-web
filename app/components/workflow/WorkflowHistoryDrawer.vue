@@ -89,7 +89,7 @@ const liveSavedBy = computed(() => {
       <UIcon name="i-heroicons-clock-20-solid" class="size-8 text-neutral-300" />
       <p class="text-sm text-neutral-500">{{ t('workflow.noHistory') }}</p>
     </div>
-    <ul v-else class="flex flex-col py-1">
+    <ul v-else class="flex flex-col">
       <li v-if="liveEntry">
         <button
           type="button"
@@ -119,7 +119,7 @@ const liveSavedBy = computed(() => {
            `<button>` (nested buttons are invalid HTML). The strip carries the
            hover bg + group token; the user-name span and reset icon are
            hover-swapped via group-hover/version-row. -->
-      <li v-for="(v, idx) in versions" :key="v.id" class="group/version-row">
+      <li v-for="(v, idx) in versions" :key="v.id" data-testid="wf-version-row" class="group/version-row">
         <div class="flex w-full items-center px-4 text-[12px] transition-colors hover:bg-neutral-50">
           <button
             type="button"

@@ -17,6 +17,8 @@ const props = withDefaults(
     attachments?: FileAttachmentState[]
     disabled?: boolean
     browserMode?: 'server' | 'extension'
+    /** Orchestrator and/or browser agents are actively working. */
+    agentsActive?: boolean
   }>(),
   {
     hint: undefined,
@@ -24,6 +26,7 @@ const props = withDefaults(
     attachments: () => [],
     disabled: false,
     browserMode: 'server',
+    agentsActive: false,
   },
 )
 
@@ -33,6 +36,7 @@ const emit = defineEmits<{
   /** Fired with the editor's plain text and the ordered, position-tagged
    *  attachments. The parent forwards both to the chat layer. */
   send: [value: string, attachments: ChatMessageAttachment[]]
+  pause: []
   'attach-files': [files: FileList]
   'remove-file': [id: string]
 }>()
@@ -111,6 +115,7 @@ const expandedPrompt = ref(false)
 
 const hasDraftText = computed(() => String(props.modelValue ?? '').length > 0)
 const hasContent = computed(() => hasDraftText.value || (props.attachments?.length ?? 0) > 0)
+const showPauseButton = computed(() => props.agentsActive && !hasContent.value)
 
 function onSubmit(text: string, attachments: ChatMessageAttachment[]) {
   emit('send', text, attachments)
@@ -118,6 +123,14 @@ function onSubmit(text: string, attachments: ChatMessageAttachment[]) {
 
 function onSendClick() {
   editorRef.value?.submit?.()
+}
+
+function onPrimaryClick() {
+  if (showPauseButton.value) {
+    emit('pause')
+    return
+  }
+  onSendClick()
 }
 
 function onAttachClick() {
@@ -180,13 +193,31 @@ function onFileInputChange(e: Event) {
       </div>
       <button
         type="button"
+        data-testid="workflow-send-button"
         class="absolute right-2 flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-950 text-on-primary transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         :class="expandedPrompt ? 'bottom-2' : 'top-1/2 -translate-y-1/2'"
         :disabled="props.disabled"
-        :aria-label="t('common.send')"
-        @click="onSendClick"
+        :aria-label="showPauseButton ? t('workflow.stop') : t('common.send')"
+        @click="onPrimaryClick"
       >
-        <svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg
+          v-if="showPauseButton"
+          class="size-4 shrink-0"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <rect x="7" y="7" width="10" height="10" rx="1.75" />
+        </svg>
+        <svg
+          v-else
+          class="size-4.5 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
           <path d="M7 17 17 7M17 7H9M17 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>

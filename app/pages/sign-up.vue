@@ -11,6 +11,8 @@ const supabase = useSupabaseClient()
 const router = useRouter()
 const route = useRoute()
 const { $posthog } = useNuxtApp()
+const { isEnabled } = useMeFeatures()
+const appleLoginEnabled = computed(() => isEnabled('apple_login'))
 
 const redirectTo = computed(() => (route.query.redirect as string) || '/')
 
@@ -161,6 +163,7 @@ async function onSubmit() {
                 {{ t('auth.continueWithGoogle') }}
               </button>
               <button
+                v-if="appleLoginEnabled"
                 type="button"
                 class="flex h-10 w-full items-center justify-center gap-2.5 rounded-md bg-neutral-950 text-sm font-medium text-white transition-opacity hover:opacity-90"
                 @click="onContinueApple"

@@ -13,6 +13,7 @@ const props = defineProps<{
   cursorPositions?: Map<string, CursorState>
   showCursor?: boolean
   browserAgentCap?: number
+  browserAgentCapResolved?: boolean
   reconnecting?: boolean
 }>()
 
@@ -48,7 +49,9 @@ const runningKind = computed<'chat' | 'workflow' | null>(() => {
 
 const agentCount = computed(() => props.viewportList.length)
 const agentCap = computed(() => props.browserAgentCap ?? 0)
-const isAtCap = computed(() => agentCount.value >= agentCap.value && agentCap.value > 0)
+const capResolved = computed(() => props.browserAgentCapResolved ?? false)
+const showCapBadge = computed(() => capResolved.value && agentCap.value > 0)
+const isAtCap = computed(() => capResolved.value && agentCount.value >= agentCap.value && agentCap.value > 0)
 
 // JS-driven hover state for the zoom pill. CSS :hover bubbling proved
 // unreliable here — the bottom of the pill never lit up, likely because
@@ -278,6 +281,7 @@ function viewportHandlers(agentId: string) {
          visible space. -->
     <div
       ref="galleryContainer"
+      data-testid="viewport-gallery"
       class="scrollbar-hide flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain"
     >
       <!-- Empty state: surface the add-browser-agent affordance directly so the
@@ -291,6 +295,7 @@ function viewportHandlers(agentId: string) {
       >
         <button
           type="button"
+          data-testid="viewport-add-agent"
           class="group/add flex w-full max-w-md cursor-pointer flex-col items-stretch overflow-visible rounded-lg border-0 bg-transparent p-1.5 text-left outline-none ring-0 transition-colors hover:bg-neutral-950/4 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950/35"
           :class="isAtCap ? 'opacity-40' : ''"
           :aria-label="t('browser.addAgent')"
@@ -302,7 +307,7 @@ function viewportHandlers(agentId: string) {
                 <UIcon name="i-heroicons-plus-20-solid" class="size-8 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
                 <span class="text-sm text-neutral-400 transition-colors group-hover/add:text-neutral-600">{{ t('browser.addAgent') }}</span>
                 <span
-                  v-if="agentCap > 0"
+                  v-if="showCapBadge"
                   class="text-xs tabular-nums text-neutral-400 transition-colors group-hover/add:text-neutral-600"
                 >{{ t('browser.browsersCount', { active: agentCount, cap: agentCap }) }}</span>
               </div>
@@ -399,7 +404,7 @@ function viewportHandlers(agentId: string) {
               <div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
                 <UIcon name="i-heroicons-plus-20-solid" class="size-6 text-neutral-400 transition-colors group-hover/add:text-neutral-600" />
                 <span
-                  v-if="agentCap > 0"
+                  v-if="showCapBadge"
                   class="text-xs tabular-nums text-neutral-400 transition-colors group-hover/add:text-neutral-600"
                 >{{ t('browser.browsersCount', { active: agentCount, cap: agentCap }) }}</span>
               </div>

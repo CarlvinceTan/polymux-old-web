@@ -19,13 +19,13 @@ export default defineEventHandler(async (event): Promise<PairResponse> => {
   }
 
   const cfg = useRuntimeConfig()
-  const serverUrl = cfg.public.serverUrl
-  if (!serverUrl) {
+  const goApiUrl = cfg.goApiUrl
+  if (!goApiUrl) {
     throw createError({ statusCode: 500, statusMessage: 'Polymux server URL not configured.' })
   }
 
   try {
-    return await $fetch<PairResponse>(`${serverUrl}/extension/pair`, {
+    return await $fetch<PairResponse>(`${goApiUrl}/extension/pair`, {
       method: 'POST',
       headers: {
         Authorization: auth,

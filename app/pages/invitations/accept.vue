@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
+const { t } = useI18n()
+
 interface Preview {
   email: string
   role: string
@@ -21,19 +23,15 @@ const token = computed(() => (route.query.token as string | undefined) ?? '')
 const status = ref<'loading' | 'preview' | 'accepting' | 'accepted' | 'error'>('loading')
 const errorMessage = ref<string | null>(null)
 const preview = ref<Preview | null>(null)
-// `accept_workspace_invitation` returns the workspace id so we can switch
-// into it after a successful accept and skip a workspace re-fetch dance.
 const acceptedWorkspaceId = ref<string | null>(null)
 
 async function loadPreview() {
   if (!token.value) {
     status.value = 'error'
-    errorMessage.value = 'Missing invitation token.'
+    errorMessage.value = t('invitations.errors.tokenMissing')
     return
   }
   if (!user.value) {
-    // Bounce through sign-in, then come back here to finish accepting. We
-    // preserve the full URL so `?token=...` survives the round-trip.
     const redirect = `/invitations/accept?token=${encodeURIComponent(token.value)}`
     router.replace(`/sign-in?redirect=${encodeURIComponent(redirect)}`)
     return
@@ -42,12 +40,12 @@ async function loadPreview() {
   const { data, error } = await supabase.rpc('peek_workspace_invitation', { invite_token: token.value })
   if (error) {
     status.value = 'error'
-    errorMessage.value = 'Could not load invitation.'
+    errorMessage.value = t('invitations.errors.loadFailed')
     return
   }
   if (!data) {
     status.value = 'error'
-    errorMessage.value = 'This invitation link is invalid or has been revoked.'
+    errorMessage.value = t('invitations.errors.invalidOrRevoked')
     return
   }
 
@@ -55,12 +53,12 @@ async function loadPreview() {
 
   if (preview.value.accepted_at) {
     status.value = 'error'
-    errorMessage.value = 'This invitation has already been accepted.'
+    errorMessage.value = t('invitations.errors.alreadyAccepted')
     return
   }
   if (new Date(preview.value.expires_at).getTime() <= Date.now()) {
     status.value = 'error'
-    errorMessage.value = 'This invitation has expired. Ask the workspace admin to send a new one.'
+    errorMessage.value = t('invitations.errors.expired')
     return
   }
 
@@ -94,11 +92,11 @@ async function acceptInvitation() {
 }
 
 function friendlyAcceptError(raw: string): string {
-  if (raw.includes('invitation_email_mismatch')) return 'This invitation was sent to a different email. Sign in with the invited account.'
-  if (raw.includes('invitation_expired')) return 'This invitation has expired.'
-  if (raw.includes('invitation_already_accepted')) return 'This invitation has already been used.'
-  if (raw.includes('invitation_not_found')) return 'This invitation is no longer valid.'
-  return 'Something went wrong while accepting. Please try again.'
+  if (raw.includes('invitation_email_mismatch')) return t('invitations.errors.emailMismatch')
+  if (raw.includes('invitation_expired')) return t('invitations.errors.expiredShort')
+  if (raw.includes('invitation_already_accepted')) return t('invitations.errors.alreadyUsed')
+  if (raw.includes('invitation_not_found')) return t('invitations.errors.notFound')
+  return t('invitations.errors.acceptFailed')
 }
 
 function continueToDashboard() {
@@ -108,8 +106,6 @@ function continueToDashboard() {
 onMounted(loadPreview)
 watch(user, loadPreview)
 
-// Retry the preview fetch if it failed because the server was down — without
-// this, the page would stay stuck on "Loading invitation…" after reconnect.
 useOnReconnect(() => {
   if (status.value === 'error' || status.value === 'loading') loadPreview()
 })
@@ -120,7 +116,7 @@ useOnReconnect(() => {
     <div class="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
       <div v-if="status === 'loading'" class="flex flex-col items-center gap-3 py-6 text-center">
         <svg class="size-6 animate-spin text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-        <p class="text-body-md text-neutral-500">Loading invitation…</p>
+        <p class="text-body-md text-neutral-500">{{ t('invitations.loading') }}</p>
       </div>
 
       <div v-else-if="status === 'preview' && preview" class="flex flex-col items-center gap-5 text-center">
@@ -129,14 +125,14 @@ useOnReconnect(() => {
         </div>
         <div>
           <h1 class="text-headline-md font-semibold tracking-tight text-neutral-950">
-            Join {{ preview.workspace_name }}
+            {{ t('invitations.joinTitle', { name: preview.workspace_name }) }}
           </h1>
           <p class="mt-2 text-body-md text-neutral-500">
-            You've been invited to join as a <span class="font-medium text-neutral-700">{{ preview.role }}</span>.
+            {{ t('invitations.invitedAs', { role: preview.role }) }}
           </p>
         </div>
         <div class="w-full rounded-lg bg-neutral-50 px-4 py-3 text-left">
-          <p class="text-label-md font-medium text-neutral-500">Invitation sent to</p>
+          <p class="text-label-md font-medium text-neutral-500">{{ t('invitations.sentTo') }}</p>
           <p class="mt-0.5 truncate text-body-md text-neutral-900">{{ preview.email }}</p>
         </div>
         <div class="flex w-full gap-2">
@@ -145,21 +141,21 @@ useOnReconnect(() => {
             class="flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-body-md font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
             @click="router.replace('/dashboard/console')"
           >
-            Decline
+            {{ t('invitations.decline') }}
           </button>
           <button
             type="button"
             class="flex-1 rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800"
             @click="acceptInvitation"
           >
-            Accept invitation
+            {{ t('invitations.accept') }}
           </button>
         </div>
       </div>
 
       <div v-else-if="status === 'accepting'" class="flex flex-col items-center gap-3 py-6 text-center">
         <svg class="size-6 animate-spin text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-        <p class="text-body-md text-neutral-500">Joining workspace…</p>
+        <p class="text-body-md text-neutral-500">{{ t('invitations.joining') }}</p>
       </div>
 
       <div v-else-if="status === 'accepted'" class="flex flex-col items-center gap-5 text-center">
@@ -168,10 +164,10 @@ useOnReconnect(() => {
         </div>
         <div>
           <h1 class="text-headline-md font-semibold tracking-tight text-neutral-950">
-            You're in
+            {{ t('invitations.acceptedTitle') }}
           </h1>
           <p class="mt-2 text-body-md text-neutral-500">
-            Welcome to {{ preview?.workspace_name }}.
+            {{ t('invitations.acceptedBody', { name: preview?.workspace_name ?? '' }) }}
           </p>
         </div>
         <button
@@ -179,7 +175,7 @@ useOnReconnect(() => {
           class="w-full rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800"
           @click="continueToDashboard"
         >
-          Continue to dashboard
+          {{ t('invitations.continueToDashboard') }}
         </button>
       </div>
 
@@ -189,7 +185,7 @@ useOnReconnect(() => {
         </div>
         <div>
           <h1 class="text-headline-md font-semibold tracking-tight text-neutral-950">
-            Invitation unavailable
+            {{ t('invitations.unavailableTitle') }}
           </h1>
           <p class="mt-2 text-body-md text-neutral-500">
             {{ errorMessage }}
@@ -200,7 +196,7 @@ useOnReconnect(() => {
           class="w-full rounded-lg bg-neutral-950 px-4 py-2 text-body-md font-medium text-white transition-colors hover:bg-neutral-800"
           @click="router.replace('/dashboard/console')"
         >
-          Go to dashboard
+          {{ t('invitations.goToDashboard') }}
         </button>
       </div>
     </div>

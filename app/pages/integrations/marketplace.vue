@@ -218,7 +218,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isFilterOpen"
-              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in filterOptions"
@@ -249,7 +249,7 @@ onUnmounted(() => {
             </button>
             <div
               v-if="isSortOpen"
-              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+              class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-neutral-200"
             >
               <button
                 v-for="opt in sortOptions"

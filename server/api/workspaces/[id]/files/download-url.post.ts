@@ -77,6 +77,8 @@ export default defineEventHandler(async (event) => {
       return {
         url: signed.url,
         backend: 'b2' as const,
+        backend_ref: row?.backend_ref ?? null,
+        content_type: row?.content_type ?? null,
         expires_at: signed.expiresAt,
       }
     }
@@ -94,6 +96,8 @@ export default defineEventHandler(async (event) => {
   return {
     url,
     backend: 'google-drive' as const,
+    backend_ref: row.backend_ref,
+    content_type: row?.content_type ?? null,
     expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
   }
 })

@@ -59,7 +59,7 @@ async function loadState() {
   isLoading.value = true
   errorMessage.value = null
   try {
-    await fetchMembers(props.workspaceId)
+    await fetchMembers(props.workspaceId, { force: true })
     if (isMulti.value) {
       // Multi-target apply: don't preload existing grants because they may
       // differ per path. The draft starts empty (everything 'inherit') and

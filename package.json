@@ -8,7 +8,12 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "og:gen": "node scripts/gen-og-image.mjs"
+    "og:gen": "node scripts/gen-og-image.mjs",
+    "demo:save-session": "node scripts/record-demos.mts --save-session",
+    "demo:record": "node scripts/record-demos.mts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@iconify-json/heroicons": "^1.2.3",
@@ -35,7 +40,9 @@
     "@iconify-json/simple-icons": "^1.2.79",
     "@nuxtjs/robots": "^6.0.8",
     "@nuxtjs/sitemap": "^8.0.15",
+    "@playwright/test": "^1.60.0",
     "@vue/language-core": "^3.2.8",
+    "playwright": "^1.60.0",
     "sharp": "^0.34.5"
   },
   "overrides": {

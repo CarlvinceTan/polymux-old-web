@@ -1,3 +1,4 @@
+import { CancelledError } from '@tanstack/vue-query'
 import type { StorageProvider } from '~/types/storage'
 import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
 
@@ -55,6 +56,8 @@ interface FinalizeUploadResponse {
 interface RemoteDownloadUrlResponse {
   url: string
   backend: 'google-drive' | 'b2'
+  backend_ref?: string | null
+  content_type?: string | null
   expires_at: string
 }
 
@@ -111,7 +114,14 @@ function sanitizeFolderSegment(name: string): string {
     .slice(0, 240)
 }
 
-function maybePromptCloudUpgrade(err: unknown): boolean {
+function isFetchCancellation(err: unknown): boolean {
+  if (err instanceof CancelledError) return true
+  if (err instanceof DOMException && err.name === 'AbortError') return true
+  if (err instanceof Error && err.name === 'AbortError') return true
+  return false
+}
+
+function maybePromptCloudUpgrade(err: unknown, fallbackMessage?: string): boolean {
   const e = err as { statusCode?: number, data?: { statusMessage?: string } } | null
   const message = e?.data?.statusMessage ?? ''
   const isCloudPlanGate =
@@ -121,12 +131,13 @@ function maybePromptCloudUpgrade(err: unknown): boolean {
 
   promptUpgrade(
     { reason: 'cloud_storage', message: message || undefined },
-    { message: message || 'Upgrade to Pro or Max to use Cloud storage.' },
+    { message: message || fallbackMessage || 'Upgrade to Pro or Max to use Cloud storage.' },
   )
   return true
 }
 
 export function useStorageFiles() {
+  const { t } = useI18n()
   const user = useSupabaseUser()
   const { currentWorkspace } = useWorkspaces()
   const { resolvedOrder } = useStoragePreferences()
@@ -191,7 +202,10 @@ export function useStorageFiles() {
       return data
     }
     catch (err) {
-      error.value = errorMessage(err, 'Failed to list files')
+      if (isFetchCancellation(err)) {
+        return queryClient.getQueryData<StorageDirectory>(key) ?? { files: [], folders: [] }
+      }
+      error.value = errorMessage(err, t('storage.errors.listFailed'))
       return queryClient.getQueryData<StorageDirectory>(key) ?? { files: [], folders: [] }
     }
     finally {
@@ -206,7 +220,7 @@ export function useStorageFiles() {
       const base = baseUrl()
       const workspaceId = getWorkspaceId()
       if (!authUserId() || !base || !workspaceId) {
-        error.value = 'Sign in to upload files.'
+        error.value = t('storage.errors.signInToUpload')
         return false
       }
       const path = joinPath(joinSegments(pathSegments), file.name)
@@ -215,12 +229,12 @@ export function useStorageFiles() {
       if (preferred === 'local') {
         const deviceId = useDeviceId()
         if (!deviceId) {
-          error.value = 'This browser can\'t provide a device id for local storage.'
+          error.value = t('storage.errors.localDeviceId')
           return false
         }
         const opfs = useLocalFiles()
         if (!opfs.supported()) {
-          error.value = 'Local storage is not supported in this browser.'
+          error.value = t('storage.errors.localUnsupported')
           return false
         }
         // Finalize first so the server assigns the row id we use as the OPFS
@@ -238,7 +252,7 @@ export function useStorageFiles() {
           },
         })
         if (!fin?.file_id) {
-          error.value = 'Local upload failed: missing file id.'
+          error.value = t('storage.errors.localUploadMissingId')
           return false
         }
         await opfs.write(workspaceId, fin.file_id, file, {
@@ -284,7 +298,7 @@ export function useStorageFiles() {
         }
         const b2Json = await b2Res.json().catch(() => null) as B2UploadResponse | null
         if (!b2Json?.fileId) {
-          error.value = 'Upload succeeded but B2 fileId was missing.'
+          error.value = t('storage.errors.b2MissingFileId')
           return false
         }
 
@@ -317,7 +331,7 @@ export function useStorageFiles() {
       }
       const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
       if (!driveJson?.id) {
-        error.value = 'Upload succeeded but Drive file id was missing.'
+        error.value = t('storage.errors.driveMissingFileId')
         return false
       }
       const backendRef = driveJson.id
@@ -335,11 +349,11 @@ export function useStorageFiles() {
 
       return true
     } catch (err) {
-      if (maybePromptCloudUpgrade(err)) {
+      if (maybePromptCloudUpgrade(err, t('storage.errors.upgradeCloud'))) {
         error.value = null
         return false
       }
-      error.value = errorMessage(err, 'Failed to upload file')
+      error.value = errorMessage(err, t('storage.errors.uploadFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -358,7 +372,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to delete files')
+      error.value = errorMessage(err, t('storage.errors.deleteFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -377,7 +391,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to move file')
+      error.value = errorMessage(err, t('storage.errors.moveFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -406,9 +420,149 @@ export function useStorageFiles() {
       })
       return res
     } catch (err) {
-      const reason = errorMessage(err, 'Migration failed')
+      const reason = errorMessage(err, t('storage.errors.migrationFailed'))
       error.value = reason
       return { migrated: [], errors: items.map(i => ({ path: i.path, reason })) }
+    }
+  }
+
+  // Client-driven cross-provider FILE move for any case that touches 'local'
+  // (local→b2, local→drive, b2→local, drive→local). OPFS bytes are visible
+  // only to the browser, so these can't run server-side like migrate-items
+  // does for drive↔b2↔drive. Flow: acquire source bytes → write destination
+  // backend → reconcile metadata + drop the source via /commit-file-migration.
+  // The source is only removed AFTER the destination exists, so a mid-way
+  // failure never loses bytes. Returns a per-item result for the caller to
+  // aggregate; never throws.
+  async function transferLocalFile(
+    fromPath: string,
+    toPath: string,
+    sourceBackend: StorageProvider,
+    targetProvider: StorageProvider,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const base = baseUrl()
+    const workspaceId = getWorkspaceId()
+    if (!base || !workspaceId) return { ok: false, reason: 'no_workspace' }
+
+    try {
+      // 1. Acquire source bytes (+ the source ref / content type used for the
+      //    destination MIME and the source cleanup).
+      let blob: Blob
+      let sourceRef: string | null = null
+      let contentType: string | null = null
+
+      if (sourceBackend === 'local') {
+        const opfs = useLocalFiles()
+        if (!opfs.supported()) return { ok: false, reason: 'local_unsupported' }
+        const resolved = await resolveDownload(fromPath, 60)
+        if (!resolved || resolved.backend !== 'local') return { ok: false, reason: 'source_not_found' }
+        if (!resolved.device_id || resolved.device_id !== useDeviceId()) {
+          return { ok: false, reason: 'bytes_on_another_device' }
+        }
+        const entry = await opfs.read(workspaceId, resolved.file_id)
+        if (!entry) return { ok: false, reason: 'bytes_on_another_device' }
+        blob = entry.blob
+        contentType = entry.meta.contentType ?? blob.type ?? null
+        sourceRef = resolved.file_id // local source ref == OPFS key == row id
+      }
+      else {
+        const resolved = await resolveDownload(fromPath, 600)
+        if (!resolved || resolved.backend === 'local') return { ok: false, reason: 'source_not_found' }
+        const res = await fetch(resolved.url)
+        if (!res.ok) return { ok: false, reason: `download_failed_${res.status}` }
+        blob = await res.blob()
+        sourceRef = resolved.backend_ref ?? null
+        contentType = resolved.content_type ?? blob.type ?? null
+      }
+
+      const size = blob.size
+      const ct = contentType || blob.type || 'application/octet-stream'
+
+      // 2. Write the destination backend, then reconcile metadata + cleanup.
+      if (targetProvider === 'local') {
+        const deviceId = useDeviceId()
+        if (!deviceId) return { ok: false, reason: 'no_device' }
+        const opfs = useLocalFiles()
+        if (!opfs.supported()) return { ok: false, reason: 'local_unsupported' }
+        // finalize first so the server hands back the row id we key OPFS by
+        // (mirrors uploadFile's local path).
+        const fin = await $fetch<FinalizeUploadResponse>(`${base}/finalize-upload`, {
+          method: 'POST',
+          body: { path: toPath, size, content_type: ct, backend: 'local', backend_ref: deviceId },
+        })
+        if (!fin?.file_id) return { ok: false, reason: 'finalize_failed' }
+        await opfs.write(workspaceId, fin.file_id, blob, { path: toPath, contentType: ct, size })
+        await $fetch(`${base}/commit-file-migration`, {
+          method: 'POST',
+          body: { oldPath: fromPath, oldBackend: sourceBackend, oldRef: sourceRef, newPath: toPath },
+        })
+      }
+      else if (targetProvider === 'b2') {
+        const signed = await $fetch<UploadUrlResponse>(`${base}/upload-url`, {
+          method: 'POST',
+          body: { path: toPath, size, content_type: ct, preferred_backend: 'b2' },
+        })
+        if (signed.backend !== 'b2') return { ok: false, reason: 'upload_url_mismatch' }
+        const buf = await blob.arrayBuffer()
+        const sha1 = await sha1Hex(buf)
+        const b2Res = await fetch(signed.url, {
+          method: 'POST',
+          headers: {
+            'Authorization': signed.token,
+            'X-Bz-File-Name': encodeB2FileName(signed.key),
+            'Content-Type': signed.content_type || ct,
+            'X-Bz-Content-Sha1': sha1,
+            'X-Bz-Server-Side-Encryption': 'AES256',
+          },
+          body: buf,
+        })
+        if (!b2Res.ok) return { ok: false, reason: `b2_upload_${b2Res.status}` }
+        const b2Json = await b2Res.json().catch(() => null) as B2UploadResponse | null
+        if (!b2Json?.fileId) return { ok: false, reason: 'b2_fileid_missing' }
+        await $fetch(`${base}/commit-file-migration`, {
+          method: 'POST',
+          body: {
+            oldPath: fromPath, oldBackend: sourceBackend, oldRef: sourceRef, newPath: toPath,
+            newRow: { backend: 'b2', backend_ref: b2Json.fileId, size, content_type: ct, etag: b2Json.contentSha1 },
+          },
+        })
+      }
+      else {
+        // google-drive target
+        const signed = await $fetch<UploadUrlResponse>(`${base}/upload-url`, {
+          method: 'POST',
+          body: { path: toPath, size, content_type: ct, preferred_backend: 'google-drive' },
+        })
+        if (signed.backend !== 'google-drive') return { ok: false, reason: 'upload_url_mismatch' }
+        const proxyUrl = `${base}/upload-drive-proxy?session_url=${encodeURIComponent(signed.url)}`
+        const driveRes = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': ct },
+          body: blob,
+        })
+        if (!driveRes.ok) return { ok: false, reason: `drive_upload_${driveRes.status}` }
+        const driveJson = await driveRes.json().catch(() => null) as { id?: string } | null
+        if (!driveJson?.id) return { ok: false, reason: 'drive_fileid_missing' }
+        await $fetch(`${base}/commit-file-migration`, {
+          method: 'POST',
+          body: {
+            oldPath: fromPath, oldBackend: sourceBackend, oldRef: sourceRef, newPath: toPath,
+            newRow: { backend: 'google-drive', backend_ref: driveJson.id, size, content_type: ct },
+          },
+        })
+      }
+
+      // Remove the OPFS source copy last (commit only handles remote objects).
+      if (sourceBackend === 'local' && sourceRef) {
+        try { await useLocalFiles().remove(workspaceId, sourceRef) }
+        catch { /* orphaned OPFS bytes only waste local quota */ }
+      }
+
+      return { ok: true }
+    }
+    catch (err) {
+      if (maybePromptCloudUpgrade(err, t('storage.errors.upgradeCloud'))) return { ok: false, reason: 'cloud_cap' }
+      return { ok: false, reason: errorMessage(err, 'transfer_failed') }
     }
   }
 
@@ -422,7 +576,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to save order')
+      error.value = errorMessage(err, t('storage.errors.saveOrderFailed'))
       return false
     }
   }
@@ -442,7 +596,7 @@ export function useStorageFiles() {
       if (!base) return false
       const safeName = sanitizeFolderSegment(newName)
       if (!safeName) {
-        error.value = 'Enter a valid folder name.'
+        error.value = t('storage.errors.invalidFolderName')
         return false
       }
       const trimmed = folderPath.replace(/\/+$/, '')
@@ -456,7 +610,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to rename folder')
+      error.value = errorMessage(err, t('storage.errors.renameFolderFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -469,12 +623,12 @@ export function useStorageFiles() {
     try {
       const base = baseUrl()
       if (!authUserId() || !base) {
-        folderOpMessage.value = 'Sign in to create folders.'
+        folderOpMessage.value = t('storage.errors.signInToCreateFolders')
         return false
       }
       const safeName = sanitizeFolderSegment(name)
       if (!safeName) {
-        folderOpMessage.value = 'Enter a valid folder name.'
+        folderOpMessage.value = t('storage.errors.invalidFolderName')
         return false
       }
       const backend = provider.value
@@ -490,7 +644,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      folderOpMessage.value = errorMessage(err, 'Failed to create folder')
+      folderOpMessage.value = errorMessage(err, t('storage.errors.createFolderFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -537,7 +691,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to copy file')
+      error.value = errorMessage(err, t('storage.errors.copyFileFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -550,12 +704,12 @@ export function useStorageFiles() {
     try {
       const base = baseUrl()
       if (!authUserId() || !base) {
-        folderOpMessage.value = 'Sign in to copy folders.'
+        folderOpMessage.value = t('storage.errors.signInToCopyFolders')
         return false
       }
       const safeName = sanitizeFolderSegment(destName)
       if (!safeName) {
-        folderOpMessage.value = 'Enter a valid folder name.'
+        folderOpMessage.value = t('storage.errors.invalidFolderName')
         return false
       }
       const from = joinSegments(sourceSegments)
@@ -567,7 +721,7 @@ export function useStorageFiles() {
       })
       return true
     } catch (err) {
-      folderOpMessage.value = errorMessage(err, 'Failed to copy folder')
+      folderOpMessage.value = errorMessage(err, t('storage.errors.copyFolderFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -580,7 +734,7 @@ export function useStorageFiles() {
     try {
       const resolved = await resolveDownload(filePath, 60)
       if (!resolved) {
-        error.value = 'Failed to mint download URL.'
+        error.value = t('storage.errors.mintDownloadFailed')
         return false
       }
 
@@ -588,13 +742,13 @@ export function useStorageFiles() {
       if (resolved.backend === 'local') {
         const myDeviceId = useDeviceId()
         if (!resolved.device_id || resolved.device_id !== myDeviceId) {
-          error.value = 'This file is only available on the device that created it.'
+          error.value = t('storage.errors.localDeviceOnly')
           return false
         }
         const workspaceId = getWorkspaceId()
         const entry = await useLocalFiles().read(workspaceId, resolved.file_id)
         if (!entry) {
-          error.value = 'Local copy not found on this device.'
+          error.value = t('storage.errors.localCopyMissing')
           return false
         }
         blob = entry.blob
@@ -618,7 +772,7 @@ export function useStorageFiles() {
       URL.revokeObjectURL(objectUrl)
       return true
     } catch (err) {
-      error.value = errorMessage(err, 'Failed to download file')
+      error.value = errorMessage(err, t('storage.errors.downloadFailed'))
       return false
     } finally {
       isLoading.value = false
@@ -659,6 +813,7 @@ export function useStorageFiles() {
     deleteFiles,
     moveFile,
     migrateItems,
+    transferLocalFile,
     reorderFiles,
     renameFile,
     renameFolder,

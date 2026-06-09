@@ -1,3 +1,5 @@
+import { stripPosthogWorkerSourceMap } from "./vite/strip-posthog-worker-sourcemap";
+
 export default defineNuxtConfig({
   hooks: {
     "pages:extend"(pages) {
@@ -40,7 +42,7 @@ export default defineNuxtConfig({
     "/dashboard/marketplace": { redirect: "/integrations/marketplace" },
     "/storage": { redirect: "/storage/workspace" },
     "/storage/personal": { redirect: "/storage/workspace" },
-    "/vault": { redirect: "/vault/passwords" },
+    "/vault": { redirect: "/vault/accounts" },
     "/documentation": { redirect: "/documentation/introduction" },
   },
   app: {
@@ -309,6 +311,7 @@ export default defineNuxtConfig({
     app: "app",
   },
   vite: {
+    plugins: [stripPosthogWorkerSourceMap()],
     optimizeDeps: {
       include: [
         "@internationalized/date",
@@ -338,6 +341,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    goApiUrl: (process.env.GO_API_URL || "http://localhost:8081").replace(/\/+$/, ''),
     resendApiKey: process.env.RESEND_API_KEY || "",
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
@@ -347,7 +351,7 @@ export default defineNuxtConfig({
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     public: {
-      serverUrl: (process.env.SERVER_URL || "http://localhost:8080").replace(/\/+$/, ''),
+      serverUrl: (process.env.SERVER_URL || "http://localhost:8081").replace(/\/+$/, ''),
       appUrl: (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, ''),
       posthogPublicKey: process.env.POSTHOG_PUBLIC_KEY || "",
       posthogHost: process.env.POSTHOG_HOST || "https://us.i.posthog.com",

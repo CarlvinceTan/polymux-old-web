@@ -2,7 +2,7 @@
 import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 
 const sessionId = inject<Ref<string>>('workflow-id')!
-const { artifacts, removeArtifact, downloadArtifact, promote } = useArtifacts(sessionId)
+const { artifacts, removeArtifact, downloadArtifact, promote, getDownloadUrl } = useArtifacts(sessionId)
 
 const { t } = useI18n()
 const toast = useAppToast()
@@ -42,6 +42,16 @@ watch(
   { immediate: true },
 )
 
+watch(
+  artifacts,
+  (list) => {
+    const selected = selectedArtifact.value
+    if (!selected) return
+    const latest = list.find(a => a.id === selected.id)
+    selectedArtifact.value = latest ?? null
+  },
+)
+
 const promoteOpen = ref(false)
 const promoteTarget = ref<SandboxArtifact | null>(null)
 const promoteModalRef = ref<{ fail: (message: string) => void, reset: () => void } | null>(null)
@@ -54,8 +64,9 @@ function onClose() {
   selectedArtifact.value = null
 }
 
-function onDownload(artifact: SandboxArtifact) {
-  void downloadArtifact(artifact)
+async function onDownload(artifact: SandboxArtifact) {
+  const ok = await downloadArtifact(artifact)
+  if (!ok) toast.show(t('artifacts.downloadError'), 'error', 4000)
 }
 
 function onSave(artifact: SandboxArtifact) {
@@ -63,17 +74,27 @@ function onSave(artifact: SandboxArtifact) {
   promoteOpen.value = true
 }
 
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const e = err as {
+    data?: { statusMessage?: string }
+    statusMessage?: string
+    message?: string
+  }
+  return e?.data?.statusMessage ?? e?.statusMessage ?? e?.message ?? fallback
+}
+
 async function onPromoteConfirm(path: string) {
   if (!promoteTarget.value) return
   try {
     await promote(promoteTarget.value.id, path)
+    promoteModalRef.value?.reset()
     toast.show(t('artifacts.promoted', { path }), 'info', 3000)
     promoteOpen.value = false
     promoteTarget.value = null
   }
   catch (err) {
     console.error('[artifacts] promote failed', err)
-    promoteModalRef.value?.fail(t('artifacts.promoteError'))
+    promoteModalRef.value?.fail(apiErrorMessage(err, t('artifacts.promoteError')))
   }
 }
 
@@ -95,6 +116,7 @@ async function onDelete(artifact: SandboxArtifact) {
       <template v-if="selectedArtifact">
         <ArtifactDetail
           :artifact="selectedArtifact"
+          :get-download-url="getDownloadUrl"
           @close="onClose"
           @download="onDownload"
           @save="onSave"

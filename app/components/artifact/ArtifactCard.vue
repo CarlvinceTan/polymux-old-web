@@ -64,10 +64,13 @@ const typeLabel = computed(() => {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="group relative flex flex-col rounded-xl border border-neutral-200 bg-white transition-all hover:border-neutral-300 hover:shadow-md text-left overflow-hidden w-full"
+  <div
+    role="button"
+    tabindex="0"
+    class="group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left transition-all hover:border-neutral-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
     @click="emit('open', artifact)"
+    @keydown.enter.prevent="emit('open', artifact)"
+    @keydown.space.prevent="emit('open', artifact)"
   >
     <div class="relative w-full aspect-[4/3] bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
       <template v-if="artifact.type === 'image' && artifact.url">
@@ -129,7 +132,7 @@ const typeLabel = computed(() => {
         <div
           v-if="menuOpen"
           ref="menuRef"
-          class="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden"
+          class="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg bg-white shadow-lg ring-1 ring-neutral-200 overflow-hidden"
           @click.stop
         >
           <button
@@ -171,5 +174,5 @@ const typeLabel = computed(() => {
       <span class="text-sm font-medium text-neutral-950 truncate leading-snug">{{ artifact.name }}</span>
       <span class="text-meta text-neutral-500">{{ typeLabel }}</span>
     </div>
-  </button>
+  </div>
 </template>

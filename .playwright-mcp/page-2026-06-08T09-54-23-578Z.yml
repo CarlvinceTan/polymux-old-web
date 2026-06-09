@@ -1,0 +1,286 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "Home" [ref=e7] [cursor=pointer]:
+          - generic [ref=e8]:
+            - img [ref=e9]
+            - generic [ref=e11]: Polymux
+        - navigation [ref=e12]:
+          - button "Home" [ref=e13]
+          - button "Features" [ref=e14]
+          - button "Pricing" [ref=e15]
+          - link "Community" [ref=e16] [cursor=pointer]:
+            - /url: /community
+          - link "Contact Us" [ref=e17] [cursor=pointer]:
+            - /url: /contact
+      - generic [ref=e18]:
+        - link "Install Apps" [ref=e19] [cursor=pointer]:
+          - /url: /install-apps
+        - button "Language" [ref=e22] [cursor=pointer]
+        - link "Sign in" [ref=e24] [cursor=pointer]:
+          - /url: /sign-in?redirect=/
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - heading "Privacy policy" [level=1] [ref=e29]
+        - paragraph [ref=e30]: How we collect, use, and protect your information when you use Polymux.
+      - article [ref=e31]:
+        - paragraph [ref=e32]:
+          - emphasis [ref=e33]: "Last updated: May 2, 2026"
+        - paragraph [ref=e34]:
+          - text: This Privacy Policy describes how
+          - strong [ref=e35]: Polymux
+          - text: (“we”, “us”, or “our”) collects, uses, and shares information when you use our websites, applications, and related services (collectively, the
+          - strong [ref=e36]: Services
+          - text: ). By using the Services, you agree to this policy.
+        - paragraph [ref=e37]:
+          - text: Polymux’s use and transfer of information received from Google APIs to any other app will adhere to the
+          - link "Google API Services User Data Policy" [ref=e38] [cursor=pointer]:
+            - /url: https://developers.google.com/terms/api-services-user-data-policy
+          - text: ", including the Limited Use requirements."
+        - heading "Information we collect" [level=2] [ref=e39]
+        - heading "Information you provide" [level=3] [ref=e40]
+        - paragraph [ref=e41]: We collect information you submit directly—for example when you create an account, contact support, subscribe to updates, or complete forms. This may include your name, email address, organization, and the content of your messages.
+        - heading "Information collected automatically" [level=3] [ref=e42]
+        - paragraph [ref=e43]: When you use the Services, we may automatically collect certain technical and usage data, such as IP address, device type, browser type, operating system, pages viewed, referring URLs, and approximate location derived from IP. We may use cookies and similar technologies as described in our Cookie Policy.
+        - heading "Information from integrations" [level=3] [ref=e44]
+        - paragraph [ref=e45]:
+          - text: If you connect third-party accounts or enable integrations, we may receive information according to your settings and the permissions you grant those providers. See the
+          - strong [ref=e46]: Google user data
+          - text: section below for additional disclosures specific to Google APIs.
+        - heading "Google user data" [level=2] [ref=e47]
+        - paragraph [ref=e48]: This section describes how Polymux accesses, uses, stores, shares, and retains data obtained through Google APIs. It applies whenever you connect a Google Account to Polymux (for example, the Gmail or Google Drive integration).
+        - heading "Data accessed" [level=3] [ref=e49]
+        - paragraph [ref=e50]: "When you connect a Google Account, Polymux requests only the OAuth scopes needed to operate the integration you enable:"
+        - list [ref=e51]:
+          - listitem [ref=e52]:
+            - strong [ref=e53]: Basic profile
+            - text: —
+            - code [ref=e54]: userinfo.email
+            - text: and
+            - code [ref=e55]: userinfo.profile
+            - text: . We receive your Google account email address, name, and profile picture so we can display the connected account and associate it with your Polymux workspace.
+          - listitem [ref=e56]:
+            - strong [ref=e57]: Gmail
+            - text: (
+            - code [ref=e58]: https://www.googleapis.com/auth/gmail.modify
+            - text: ) — when you connect Gmail, we can read your messages and metadata, send messages on your behalf, create drafts, and add or remove labels. We do
+            - strong [ref=e59]: not
+            - text: request
+            - code [ref=e60]: gmail.full
+            - text: and we do not access account-administration or settings APIs.
+          - listitem [ref=e61]:
+            - strong [ref=e62]: Google Drive
+            - text: (
+            - code [ref=e63]: https://www.googleapis.com/auth/drive.file
+            - text: ) — when you connect Google Drive, we can only access files and folders that Polymux itself creates or that you explicitly open or upload through Polymux. We
+            - strong [ref=e64]: cannot
+            - text: read, list, or modify any other files in your Drive.
+        - paragraph [ref=e65]: We do not request, and Google does not grant, access to other Google services (for example, Calendar, Contacts, Photos, or Workspace admin APIs) unless we add and disclose them in a future update to this policy.
+        - heading "How we use Google user data" [level=3] [ref=e66]
+        - paragraph [ref=e67]:
+          - text: Polymux uses Google user data
+          - strong [ref=e68]: solely
+          - text: "to provide and improve the user-facing features you have explicitly requested. Concretely:"
+        - list [ref=e69]:
+          - listitem [ref=e70]:
+            - strong [ref=e71]: Gmail data
+            - text: is used to display your messages inside Polymux, to summarize, classify, draft, send, or label messages on your behalf when you trigger those actions, and to power workflows and agents that you configure.
+          - listitem [ref=e72]:
+            - strong [ref=e73]: Google Drive data
+            - text: is used to list, open, create, update, and organize the files Polymux manages on your behalf, and to surface those files in the Polymux file browser, workflows, and artifacts.
+          - listitem [ref=e74]:
+            - strong [ref=e75]: Profile data
+            - text: is used to identify the connected account in the UI and in audit logs.
+        - paragraph [ref=e76]:
+          - text: We do
+          - strong [ref=e77]: not
+          - text: use Google user data to serve advertising, to build advertising profiles, or for any purpose unrelated to the user-facing features of Polymux.
+        - heading "Use of AI / LLMs and human review" [level=3] [ref=e78]
+        - paragraph [ref=e79]: Some Polymux features process Google user data using large language models (LLMs) and other automated systems to generate summaries, drafts, replies, classifications, and similar outputs at your request. We do not allow third-party LLM providers to use your Google user data to train or improve their generalized models. Polymux personnel do not read your Google user data except (a) with your explicit permission, (b) for security purposes (for example, investigating abuse), (c) to comply with applicable law, or (d) where the data has been aggregated and anonymized so it cannot be linked to you or your Google account.
+        - heading "Data sharing" [level=3] [ref=e80]
+        - paragraph [ref=e81]:
+          - text: We do
+          - strong [ref=e82]: not
+          - text: "sell, rent, or transfer Google user data to data brokers, advertising networks, or any party for advertising or independent commercial purposes. We share Google user data only in the limited cases below, and only as necessary:"
+        - list [ref=e83]:
+          - listitem [ref=e84]:
+            - strong [ref=e85]: With infrastructure sub-processors
+            - text: that host or operate the Services on our behalf (for example, our cloud hosting, database, and object-storage providers), under contracts that restrict their use of the data to providing services to Polymux.
+          - listitem [ref=e86]:
+            - strong [ref=e87]: With AI / LLM providers
+            - text: that we use to generate summaries, drafts, and other outputs at your request, under terms that prohibit using your data to train their generalized models. We minimize what is sent and only transmit the data needed to produce the requested output.
+          - listitem [ref=e88]:
+            - strong [ref=e89]: With other Google services
+            - text: when you direct us to (for example, sending an email through Gmail or saving a file to Drive).
+          - listitem [ref=e90]:
+            - strong [ref=e91]: For legal reasons
+            - text: ", when we have a good-faith belief that disclosure is required by applicable law, regulation, legal process, or enforceable governmental request."
+          - listitem [ref=e92]:
+            - strong [ref=e93]: In a business transaction
+            - text: ", such as a merger, acquisition, or asset sale, where information may be transferred subject to the receiving party honoring this policy."
+          - listitem [ref=e94]:
+            - strong [ref=e95]: With your direction or consent
+            - text: .
+        - heading "Data storage and protection" [level=3] [ref=e96]
+        - paragraph [ref=e97]: "Google user data is stored on infrastructure operated by our hosting and database providers in the United States and/or the European Union. We protect this data using:"
+        - list [ref=e98]:
+          - listitem [ref=e99]:
+            - strong [ref=e100]: Encryption in transit
+            - text: (TLS 1.2+) for all communication between Polymux, Google, and your browser.
+          - listitem [ref=e101]:
+            - strong [ref=e102]: Encryption at rest
+            - text: for our databases and object storage.
+          - listitem [ref=e103]:
+            - strong [ref=e104]: Application-level encryption
+            - text: of OAuth access and refresh tokens before they are written to our database, using keys held in our secrets manager and rotated periodically.
+          - listitem [ref=e105]:
+            - strong [ref=e106]: Access controls
+            - text: that limit production data access to a small number of authorized engineers using single sign-on, multi-factor authentication, and audit logging.
+          - listitem [ref=e107]:
+            - strong [ref=e108]: Tenant isolation
+            - text: so that one workspace cannot access another workspace’s Google user data.
+          - listitem [ref=e109]:
+            - strong [ref=e110]: Security reviews and monitoring
+            - text: ", including dependency scanning, vulnerability management, and logging of access to sensitive systems."
+        - heading "Data retention and deletion" [level=3] [ref=e111]
+        - paragraph [ref=e112]: We retain Google user data only for as long as you keep the corresponding Google integration connected and your Polymux account active, plus a short period needed to operate the Services (for example, backups and audit logs).
+        - paragraph [ref=e113]: "You can remove Google user data from Polymux at any time:"
+        - list [ref=e114]:
+          - listitem [ref=e115]:
+            - strong [ref=e116]: Disconnect the integration
+            - text: from Polymux’s
+            - strong [ref=e117]: Integrations → Installed
+            - text: page. This revokes our stored OAuth tokens and triggers deletion of cached Gmail messages, Drive file metadata, and other content fetched through that integration, typically within 30 days.
+          - listitem [ref=e118]:
+            - strong [ref=e119]: Revoke access from Google
+            - text: at
+            - link "myaccount.google.com/permissions" [ref=e120] [cursor=pointer]:
+              - /url: https://myaccount.google.com/permissions
+            - text: . Once revoked, Polymux can no longer call Google on your behalf, and we will delete cached data as above.
+          - listitem [ref=e121]:
+            - strong [ref=e122]: Delete your Polymux account
+            - text: by contacting us through the Contact page or following the in-product account-deletion flow. We will delete all associated Google user data, except where we are required to retain specific records to comply with legal obligations or to resolve disputes.
+          - listitem [ref=e123]:
+            - strong [ref=e124]: Request deletion of specific data
+            - text: by contacting us through the Contact page. We will respond within a reasonable period and confirm once deletion is complete.
+        - paragraph [ref=e125]: Residual copies in encrypted backups are purged on our standard backup-rotation schedule (no longer than 90 days).
+        - heading "How we use information" [level=2] [ref=e126]
+        - paragraph [ref=e127]: "We use the information we collect to:"
+        - list [ref=e128]:
+          - listitem [ref=e129]: Provide, operate, and improve the Services
+          - listitem [ref=e130]: Communicate with you about your account, support requests, and product updates
+          - listitem [ref=e131]: Monitor and analyze usage, performance, and security
+          - listitem [ref=e132]: Comply with legal obligations and enforce our terms
+          - listitem [ref=e133]: Otherwise fulfill the purposes described at the time of collection or with your consent
+        - heading "How we share information" [level=2] [ref=e134]
+        - paragraph [ref=e135]: "We may share information:"
+        - list [ref=e136]:
+          - listitem [ref=e137]:
+            - strong [ref=e138]: With service providers
+            - text: who assist us (for example hosting, analytics, email delivery), subject to appropriate safeguards
+          - listitem [ref=e139]:
+            - strong [ref=e140]: For legal reasons
+            - text: when we believe disclosure is required by law, regulation, legal process, or governmental request
+          - listitem [ref=e141]:
+            - strong [ref=e142]: In connection with a business transaction
+            - text: such as a merger, acquisition, or asset sale, where information may be transferred as part of that transaction
+          - listitem [ref=e143]:
+            - strong [ref=e144]: With your direction or consent
+        - paragraph [ref=e145]: We do not sell your personal information as that term is commonly understood.
+        - heading "Data retention and deletion" [level=2] [ref=e146]
+        - paragraph [ref=e147]: We retain information for as long as necessary to provide the Services, comply with legal obligations, resolve disputes, and enforce our agreements. Retention periods may vary depending on the nature of the data and how it is used.
+        - paragraph [ref=e148]:
+          - text: You may request deletion of your personal information at any time by disconnecting the relevant integration, deleting your account from the in-product settings, or contacting us through the Contact page. Additional disclosures specific to Google user data — including how to revoke access and trigger deletion — are provided in the
+          - strong [ref=e149]: Google user data
+          - text: section above.
+        - heading "Security" [level=2] [ref=e150]
+        - paragraph [ref=e151]: We protect personal information using industry-standard technical and organizational measures, including encryption in transit (TLS) and at rest, application-level encryption of sensitive credentials such as OAuth tokens, role-based access controls with multi-factor authentication for production systems, audit logging, tenant isolation, and routine vulnerability management. No method of transmission or storage is completely secure; we cannot guarantee absolute security.
+        - heading "International transfers" [level=2] [ref=e152]
+        - paragraph [ref=e153]: If you access the Services from outside the country where we operate, your information may be processed in countries that may have different data protection laws than your jurisdiction.
+        - heading "Your rights and choices" [level=2] [ref=e154]
+        - paragraph [ref=e155]: Depending on where you live, you may have rights to access, correct, delete, or restrict processing of your personal information, or to object to certain processing. You may also have the right to data portability or to lodge a complaint with a supervisory authority. To exercise these rights where applicable, contact us using the details on our Contact page.
+        - paragraph [ref=e156]: You can control cookies through your browser settings as described in our Cookie Policy.
+        - heading "Children’s privacy" [level=2] [ref=e157]
+        - paragraph [ref=e158]: The Services are not directed to children under 16 (or the minimum age required in your jurisdiction), and we do not knowingly collect personal information from children.
+        - heading "Changes to this policy" [level=2] [ref=e159]
+        - paragraph [ref=e160]: We may update this Privacy Policy from time to time. We will post the revised policy on this page and update the “Last updated” date. Continued use of the Services after changes become effective constitutes acceptance of the revised policy, to the extent permitted by law.
+        - heading "Contact us" [level=2] [ref=e161]
+        - paragraph [ref=e162]: Questions about this Privacy Policy can be sent through the Contact page on our website.
+  - contentinfo [ref=e163]:
+    - generic [ref=e164]:
+      - generic [ref=e165]:
+        - generic [ref=e166]:
+          - button "Home" [ref=e167] [cursor=pointer]:
+            - generic [ref=e168]:
+              - img [ref=e169]
+              - generic [ref=e171]: Polymux
+          - paragraph [ref=e172]: Build, deploy, and manage intelligent AI agents that automate your workflows.
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - heading "Product" [level=4] [ref=e175]
+            - list [ref=e176]:
+              - listitem [ref=e177]:
+                - link "Home" [ref=e178] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e179]:
+                - link "Features" [ref=e180] [cursor=pointer]:
+                  - /url: /#features
+              - listitem [ref=e181]:
+                - link "Pricing" [ref=e182] [cursor=pointer]:
+                  - /url: /#pricing
+          - generic [ref=e183]:
+            - heading "Community" [level=4] [ref=e184]
+            - list [ref=e185]:
+              - listitem [ref=e186]:
+                - link "Blog" [ref=e187] [cursor=pointer]:
+                  - /url: /blog
+              - listitem [ref=e188]:
+                - link "Documentation" [ref=e189] [cursor=pointer]:
+                  - /url: /documentation
+              - listitem [ref=e190]:
+                - link "Forum" [ref=e191] [cursor=pointer]:
+                  - /url: /forum
+          - generic [ref=e192]:
+            - heading "Company" [level=4] [ref=e193]
+            - list [ref=e194]:
+              - listitem [ref=e195]:
+                - link "About us" [ref=e196] [cursor=pointer]:
+                  - /url: /about-us
+              - listitem [ref=e197]:
+                - link "Contact Us" [ref=e198] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e199]:
+            - heading "Legal" [level=4] [ref=e200]
+            - list [ref=e201]:
+              - listitem [ref=e202]:
+                - link "Privacy Policy" [ref=e203] [cursor=pointer]:
+                  - /url: /privacy-policy
+              - listitem [ref=e204]:
+                - link "Terms of Service" [ref=e205] [cursor=pointer]:
+                  - /url: /terms-of-service
+              - listitem [ref=e206]:
+                - link "Cookie Policy" [ref=e207] [cursor=pointer]:
+                  - /url: /cookie-policy
+      - generic [ref=e208]:
+        - paragraph [ref=e209]: © 2026 Polymux. All rights reserved.
+        - generic [ref=e210]:
+          - link "LinkedIn" [ref=e211] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/polymuxai/
+            - img [ref=e212]
+          - link "X" [ref=e214] [cursor=pointer]:
+            - /url: https://x.com/PolymuxAI
+            - img [ref=e215]
+          - link "Instagram" [ref=e217] [cursor=pointer]:
+            - /url: https://www.instagram.com/polymuxai/
+            - img [ref=e218]
+          - link "YouTube" [ref=e220] [cursor=pointer]:
+            - /url: https://www.youtube.com/channel/UCWk26NQhk-l1g-AV9dnUpgw
+            - img [ref=e221]
+          - link "Facebook" [ref=e223] [cursor=pointer]:
+            - /url: https://www.facebook.com/profile.php?id=61589842064261&sk=about
+            - img [ref=e224]
+          - link "Reddit" [ref=e226] [cursor=pointer]:
+            - /url: https://www.reddit.com/r/polymux/
+            - img [ref=e227]

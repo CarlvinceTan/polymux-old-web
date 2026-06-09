@@ -10,6 +10,9 @@
 // a PostHog project don't gate every page behind a placeholder.
 
 import posthog from 'posthog-js'
+import { snapshotKnownFeatureFlags } from '~/utils/featureFlagResolve'
+import { posthogTracingHeaderHosts } from '~/utils/posthogContext'
+import { writeCachedFeatureFlags } from '~/utils/uiPolicyCache'
 
 // PostHog popover surveys re-evaluate every ~1s and on SPA navigations. They
 // only mark localStorage "seen" on dismiss/submit — not on display — so a
@@ -36,6 +39,7 @@ const POPOVER_SURVEY_IDS = [
 const WIDGET_SURVEY_IDS = [OPEN_FEEDBACK_SURVEY_ID] as const
 
 const SESSION_SHOWN_PREFIX = 'polymux:posthog-survey-session:'
+const PERSISTENT_SEEN_PREFIX = 'polymux:posthog-survey-seen:'
 const FIRST_VISIT_KEY = 'polymux:first_visit_at'
 const POSTHOG_SEEN_PREFIX = 'seenSurvey_'
 
@@ -65,12 +69,36 @@ function posthogSeenKey(surveyId: string, iteration?: number | null): string {
   return `${POSTHOG_SEEN_PREFIX}${surveyId}`
 }
 
+function persistentSeenKey(surveyId: string, iteration?: number | null): string {
+  if (iteration && iteration > 0) {
+    return `${PERSISTENT_SEEN_PREFIX}${surveyId}:${iteration}`
+  }
+  return `${PERSISTENT_SEEN_PREFIX}${surveyId}`
+}
+
 function markSurveyShownInSession(surveyId: string) {
   sessionStorage.setItem(sessionShownKey(surveyId), '1')
 }
 
 function wasSurveyShownThisSession(surveyId: string): boolean {
   return sessionStorage.getItem(sessionShownKey(surveyId)) === '1'
+}
+
+function wasSurveySeenPersistently(surveyId: string): boolean {
+  if (wasSurveyShownThisSession(surveyId)) return true
+
+  const baseKey = persistentSeenKey(surveyId)
+  if (localStorage.getItem(baseKey) === 'true') return true
+
+  const iterationPrefix = `${PERSISTENT_SEEN_PREFIX}${surveyId}:`
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith(iterationPrefix)) return true
+  }
+
+  if (localStorage.getItem(posthogSeenKey(surveyId)) === 'true') return true
+
+  return false
 }
 
 // Mirrors posthog-js setSurveySeenOnLocalStorage so eligibility checks stop
@@ -81,14 +109,27 @@ function markPostHogSurveySeen(surveyId: string, iteration?: number | null) {
   localStorage.setItem(key, 'true')
 }
 
-function suppressSessionPopoverReshow(ph: typeof posthog) {
+function markSurveySeenPersistently(
+  surveyId: string,
+  iteration?: number | null,
+) {
+  markSurveyShownInSession(surveyId)
+  const key = persistentSeenKey(surveyId, iteration)
+  if (localStorage.getItem(key)) return
+  localStorage.setItem(key, 'true')
+  markPostHogSurveySeen(surveyId, iteration)
+}
+
+type PostHogRuntime = typeof posthog & Record<string, unknown>
+
+function suppressPreviouslySeenPopovers(ph: PostHogRuntime) {
   for (const surveyId of POPOVER_SURVEY_IDS) {
-    if (!wasSurveyShownThisSession(surveyId)) continue
+    if (!wasSurveySeenPersistently(surveyId)) continue
     ph.surveys?.cancelPendingSurvey(surveyId)
   }
 }
 
-function cancelNonWorkspaceSurveys(ph: typeof posthog) {
+function cancelAllSurveys(ph: PostHogRuntime) {
   for (const surveyId of POPOVER_SURVEY_IDS) {
     ph.surveys?.cancelPendingSurvey(surveyId)
   }
@@ -97,11 +138,26 @@ function cancelNonWorkspaceSurveys(ph: typeof posthog) {
   }
 }
 
-function syncSurveyDisplay(path: string, ph: typeof posthog) {
-  if (!isWorkspaceRoute(path)) {
-    cancelNonWorkspaceSurveys(ph)
+function shouldSuppressSurveys(
+  path: string,
+  onboardingAccepted: boolean,
+): boolean {
+  if (!isWorkspaceRoute(path)) return true
+  // Onboarding slides block the app until beta terms are accepted; keep
+  // PostHog popovers/widgets hidden for the same window (including the
+  // brief server-status check before the modal opens).
+  return !onboardingAccepted
+}
+
+function syncSurveyDisplay(
+  path: string,
+  ph: PostHogRuntime,
+  onboardingAccepted: boolean,
+) {
+  if (shouldSuppressSurveys(path, onboardingAccepted)) {
+    cancelAllSurveys(ph)
   } else {
-    suppressSessionPopoverReshow(ph)
+    suppressPreviouslySeenPopovers(ph)
   }
 }
 
@@ -116,7 +172,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const publicKey = config.public.posthogPublicKey as string | undefined
   const host = config.public.posthogHost as string | undefined
-
+  const serverUrl = config.public.serverUrl as string
   if (!publicKey) {
     return {
       provide: {
@@ -142,8 +198,9 @@ export default defineNuxtPlugin((nuxtApp) => {
     // marketing routes are suppressed via cancelPendingSurvey and PostHog URL
     // conditions on each survey.
     disable_surveys: false,
-    __add_tracing_headers: ['localhost', 'polymux.com'],
-    loaded: (ph) => {
+    __add_tracing_headers: posthogTracingHeaderHosts(serverUrl),
+    loaded: (_ph) => {
+      const ph = _ph as unknown as PostHogRuntime
       ensureFirstVisitTimestamp(router.currentRoute.value.path)
 
       // Bridge PostHog's flag callbacks into the useMeFeatures state. We
@@ -181,6 +238,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 // fail-open keys (plan_limits, account_access, FeatureGate pages) default on.
         nuxtApp.payload.__posthogFlags = { ready: freshSeen, enabled, payloads }
         if (freshSeen) {
+          writeCachedFeatureFlags(snapshotKnownFeatureFlags(ph, true))
           window.dispatchEvent(new CustomEvent('posthog:flags-changed'))
         }
       })
@@ -191,14 +249,60 @@ export default defineNuxtPlugin((nuxtApp) => {
       // when the response lands.
       ph.reloadFeatureFlags()
 
-      ph.on('survey shown', (survey) => {
+      const onSurveyEvent = ph.on.bind(ph) as (event: string, cb: (survey: { id: string; type: string; current_iteration?: number | null }) => void) => void
+
+      onSurveyEvent('survey shown', (survey) => {
+        if (
+          shouldSuppressSurveys(
+            router.currentRoute.value.path,
+            betaAgreementAccepted.value,
+          )
+        ) {
+          ph.surveys?.cancelPendingSurvey(survey.id)
+          return
+        }
         if (survey.type !== 'popover') return
-        markSurveyShownInSession(survey.id)
-        markPostHogSurveySeen(survey.id, survey.current_iteration)
+        markSurveySeenPersistently(survey.id, survey.current_iteration)
       })
 
-      syncSurveyDisplay(router.currentRoute.value.path, ph)
-      router.afterEach((to) => syncSurveyDisplay(to.path, ph))
+      onSurveyEvent('survey dismissed', (survey) => {
+        if (survey.type !== 'popover') return
+        markSurveySeenPersistently(survey.id, survey.current_iteration)
+      })
+
+      onSurveyEvent('survey sent', (survey) => {
+        if (survey.type !== 'popover') return
+        markSurveySeenPersistently(survey.id, survey.current_iteration)
+      })
+
+      let workspaceSurveyTimer: ReturnType<typeof setInterval> | null = null
+
+      function applySurveyGuards() {
+        const path = router.currentRoute.value.path
+        if (!isWorkspaceRoute(path)) {
+          cancelAllSurveys(ph)
+          if (workspaceSurveyTimer) {
+            clearInterval(workspaceSurveyTimer)
+            workspaceSurveyTimer = null
+          }
+          return
+        }
+
+        syncSurveyDisplay(path, ph, betaAgreementAccepted.value)
+
+        if (!workspaceSurveyTimer) {
+          // PostHog re-evaluates survey eligibility about every second; keep
+          // applying guards on workspace routes so popovers/widgets do not
+          // leak through after navigation or under onboarding.
+          workspaceSurveyTimer = setInterval(() => {
+            applySurveyGuards()
+          }, 1000)
+        }
+      }
+
+      applySurveyGuards()
+      router.afterEach(() => applySurveyGuards())
+      watch(betaAgreementAccepted, () => applySurveyGuards())
     },
   })
 
@@ -209,7 +313,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const user = useSupabaseUser()
   watch(
     user,
-    (current) => {
+    (current, previous) => {
       const path = router.currentRoute.value.path
       if (current?.id) {
         ensureFirstVisitTimestamp(path)
@@ -222,7 +326,10 @@ export default defineNuxtPlugin((nuxtApp) => {
             polymux_active_since: activeSince,
           })
         }
-      } else {
+      } else if (previous?.id) {
+        // Only reset on explicit sign-out. An initial null user during auth
+        // hydration must not wipe survey seen state (posthog.reset clears
+        // seenSurvey_* keys).
         posthog.reset()
       }
     },

@@ -107,6 +107,27 @@ async function dismiss(id: string) {
   }
 }
 
+async function markAllRead() {
+  const unread = notifications.value.filter(n => !n.read_at)
+  if (!unread.length) return
+  const ids = unread.map(n => n.id)
+  const readAt = new Date().toISOString()
+  const before = notifications.value
+  // Optimistically flip the badge off; persist read state so it survives reload.
+  notifications.value = notifications.value.map(n =>
+    n.read_at ? n : { ...n, read_at: readAt },
+  )
+  const supabase = useSupabaseClient()
+  const { error } = await supabase
+    .from('user_notifications')
+    .update({ read_at: readAt })
+    .in('id', ids)
+  if (error) {
+    console.error('[useNotifications] markAllRead failed', error)
+    notifications.value = before
+  }
+}
+
 async function clearAll() {
   const ids = notifications.value.map(n => n.id)
   const before = notifications.value
@@ -131,12 +152,14 @@ export function useNotifications() {
   return {
     notifications,
     hasNotifications: computed(() => notifications.value.length > 0),
+    hasUnread: computed(() => notifications.value.some(n => !n.read_at)),
     pendingToasts,
     fetchAll,
     subscribe,
     teardown,
     dismiss,
     clearAll,
+    markAllRead,
     dismissToast,
   }
 }

@@ -286,6 +286,41 @@ export async function b2GetUploadURL(
 }
 
 /**
+ * Server-side copy of an existing B2 object to a new key. Because B2 objects
+ * are keyed by their logical path (b2WorkspaceKey), a "rename"/"move" of a
+ * Cloud file is a copy-to-new-key followed by a delete-of-the-old-key — there
+ * is no native rename. Mirrors the Go driver's B2Backend.Move (b2_copy_file
+ * with the default COPY metadata directive, which preserves content-type and
+ * server-side encryption). Does NOT delete the source; callers delete the old
+ * key (b2DeleteByKey) after the metadata flip so a copy failure leaves the
+ * original intact. B2's single-call b2_copy_file caps at ~5 GB; larger objects
+ * would need b2_copy_part (not implemented — callers should guard on size).
+ */
+export async function b2CopyFile(
+  creds: B2Credentials,
+  sourceFileId: string,
+  destKey: string,
+): Promise<B2UploadResponse> {
+  if (!sourceFileId) {
+    throw createError({ statusCode: 400, statusMessage: 'b2 copy requires a source fileId.' })
+  }
+  const auth = await getAuth(creds)
+  const resp = await fetch(`${auth.apiUrl}/b2api/v3/b2_copy_file`, {
+    method: 'POST',
+    headers: { 'Authorization': auth.authToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sourceFileId, fileName: destKey }),
+  })
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw createError({
+      statusCode: 502,
+      statusMessage: `b2_copy_file: ${resp.status} ${body.slice(0, 200)}`,
+    })
+  }
+  return await resp.json() as B2UploadResponse
+}
+
+/**
  * Returns the canonical workspace-files object key for a logical path. Mirrors
  * the Go driver's workspaceObjectKey so server + client agree.
  */

@@ -4,7 +4,7 @@ definePageMeta({ layout: false })
 const { t } = useI18n()
 
 useHead({
-  title: () => `Verify Email`,
+  title: () => t('verifyEmail.title'),
 })
 
 const route = useRoute()
@@ -15,13 +15,13 @@ const error = ref<string | null>(null)
 
 onMounted(async () => {
   if (!token) {
-    error.value = 'Verification token is missing'
+    error.value = t('verifyEmail.tokenMissing')
     loading.value = false
     return
   }
 
   try {
-    const result = await $fetch('/api/mailing-list/verify', {
+    await $fetch('/api/mailing-list/verify', {
       query: { token },
     })
     verified.value = true
@@ -31,11 +31,11 @@ onMounted(async () => {
       error.value = err.message
     }
     else if (typeof err === 'object' && err !== null && 'data' in err) {
-      const errorData = err as any
-      error.value = errorData.data?.message || 'Failed to verify email'
+      const errorData = err as { data?: { message?: string } }
+      error.value = errorData.data?.message || t('verifyEmail.verifyFailed')
     }
     else {
-      error.value = 'Failed to verify email'
+      error.value = t('verifyEmail.verifyFailed')
     }
   }
   finally {
@@ -65,7 +65,7 @@ onMounted(async () => {
             <div v-if="loading" class="flex flex-col items-center gap-4 py-8">
               <div class="size-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-950" />
               <p class="text-sm text-neutral-500">
-                Verifying your email...
+                {{ t('verifyEmail.verifying') }}
               </p>
             </div>
 
@@ -74,17 +74,17 @@ onMounted(async () => {
                 <Icon name="heroicons:check-20-solid" class="h-8 w-8 text-green-600" />
               </div>
               <h1 class="text-center text-2xl font-semibold tracking-tight text-neutral-950">
-                Email verified!
+                {{ t('verifyEmail.verifiedTitle') }}
               </h1>
               <p class="text-center text-sm text-neutral-600">
-                Your subscription to the Polymux Blog has been confirmed. Welcome! 🎉
+                {{ t('verifyEmail.verifiedBody') }}
               </p>
               <div class="mt-4 w-full">
                 <NuxtLink
                   to="/blog"
                   class="flex h-10 w-full items-center justify-center rounded-md bg-neutral-950 text-sm font-medium text-white transition-opacity hover:opacity-90"
                 >
-                  Back to blog
+                  {{ t('verifyEmail.backToBlog') }}
                 </NuxtLink>
               </div>
             </div>
@@ -94,7 +94,7 @@ onMounted(async () => {
                 <Icon name="heroicons:x-mark-20-solid" class="h-8 w-8 text-red-600" />
               </div>
               <h1 class="text-center text-2xl font-semibold tracking-tight text-neutral-950">
-                Verification failed
+                {{ t('verifyEmail.failedTitle') }}
               </h1>
               <p class="text-center text-sm text-red-600">
                 {{ error }}
@@ -104,7 +104,7 @@ onMounted(async () => {
                   to="/blog"
                   class="flex h-10 w-full items-center justify-center rounded-md bg-neutral-950 text-sm font-medium text-white transition-opacity hover:opacity-90"
                 >
-                  Back to blog
+                  {{ t('verifyEmail.backToBlog') }}
                 </NuxtLink>
               </div>
             </div>
@@ -113,6 +113,6 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="h-8 sm:h-12" /> <!-- Spacer since verify-email doesn't have the standard footer -->
+    <div class="h-8 sm:h-12" />
   </div>
 </template>

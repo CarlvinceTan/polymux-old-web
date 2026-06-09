@@ -1,4 +1,5 @@
 import type { StorageProvider } from '~/types/storage'
+import { resolveWorkspacePlan } from '~/utils/uiPolicyCache'
 
 export type ProviderStatus = 'available' | 'unavailable' | 'full' | 'locked'
 
@@ -86,14 +87,23 @@ export function useStoragePreferences() {
 
   function reset() { persist([...DEFAULT_ORDER]) }
 
+  const effectiveWorkspacePlan = computed(() =>
+    resolveWorkspacePlan(currentWorkspace.value?.id, currentWorkspace.value?.plan),
+  )
+
+  const { isPlanLimitsEnforced } = useMeFeatures()
+
   const providerStatus = computed<Record<StorageProvider, ProviderStatus>>(() => ({
     'google-drive': isInstalled('google-drive') ? 'available' : 'unavailable',
     'local': localHealth.value,
-    // Cloud (B2) is plan-gated. Free plans get `locked` so the UI can show
-    // an upgrade affordance instead of a generic "unavailable" — the
-    // distinction matters because Drive/Local "unavailable" usually means
-    // "not connected yet" whereas Cloud "locked" means "buy a higher plan".
-    'b2': planHasCloud(currentWorkspace.value?.plan) ? 'available' : 'locked',
+    // Cloud (B2) is plan-gated, BUT only while plan-limit enforcement is on.
+    // When the `plan_limits` flag is off the server bypasses every Cloud cap
+    // (see upload-url.post.ts / migrate-items.post.ts), so the UI must treat
+    // Cloud as usable too — otherwise a flag-off workspace can have files in
+    // Cloud yet see it "locked" and missing from the Move picker. On enforced
+    // plans without Cloud, `locked` (not `unavailable`) lets the UI show an
+    // upgrade affordance rather than a generic "not connected yet".
+    'b2': (!isPlanLimitsEnforced() || planHasCloud(effectiveWorkspacePlan.value)) ? 'available' : 'locked',
   }))
 
   /** Preferred order filtered to providers that can currently accept writes. */

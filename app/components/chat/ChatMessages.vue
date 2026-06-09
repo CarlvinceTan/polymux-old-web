@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { AgentChatsHandle } from '~/composables/chat/useAgentChats'
+import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 import type { ChatMessage, ChatMessageAttachment } from '~/composables/types'
 
 const props = defineProps<{
@@ -33,6 +35,8 @@ const props = defineProps<{
   feedback?: Map<string, 'up' | 'down'>
   /** Gate edit submit (token / budget) before the parent applies the optimistic edit. */
   beforeEditSubmit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
+  /** Orchestrator chat handle — needed to submit inline credential pickers. */
+  chats?: AgentChatsHandle
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +48,13 @@ const emit = defineEmits<{
 function feedbackFor(id: string | undefined): 'up' | 'down' | null {
   if (!id || !props.feedback) return null
   return props.feedback.get(id) ?? null
+}
+
+function openArtifactPreview(artifact: SandboxArtifact) {
+  void navigateTo({
+    path: `/workflow/${props.sessionId}/artifacts`,
+    query: { artifact: artifact.id },
+  })
 }
 
 // Dots appear whenever something is in flight but no tokens are landing in
@@ -59,6 +70,7 @@ const showWorkingDots = computed(() => {
 function showAgentActions(index: number): boolean {
   const m = props.messages[index]
   if (!m || m.role !== 'agent') return false
+  if (m.credentialRequest) return false
   if (!m.text || m.text.trim().length === 0) return false
   // Hide on the message currently being streamed in.
   if (props.isStreaming && index === props.messages.length - 1) return false
@@ -173,9 +185,28 @@ defineExpose({ scrollToBottom })
          whose box-size changes as messages/working dots stream in. Observing
          the scroll container alone wouldn't fire on scrollHeight growth. -->
     <div ref="contentWrapper">
-      <template v-for="(msg, i) in messages" :key="i">
+      <template v-for="(msg, i) in messages" :key="msg.id ?? i">
+        <div v-if="msg.role === 'agent' && msg.credentialRequest" class="px-1">
+          <CredentialRequestCard
+            :request="msg.credentialRequest"
+            @submit="(v) => props.chats?.provideCredential(msg.credentialRequest!.msgId, v)"
+            @cancel="props.chats?.provideCredential(msg.credentialRequest!.msgId, { cancelled: true })"
+          />
+        </div>
+        <div v-else-if="msg.role === 'agent' && msg.artifactPreview" class="px-1">
+          <ArtifactChatCard
+            :artifact="msg.artifactPreview"
+            @open="openArtifactPreview"
+          />
+        </div>
+        <div v-else-if="msg.role === 'agent' && msg.upgradePrompt" class="px-1">
+          <UpgradeChatCard
+            :prompt="msg.upgradePrompt"
+            @dismiss="props.chats?.dismissUpgradePrompt(msg.upgradePrompt!.msgId)"
+          />
+        </div>
         <AgentMessage
-          v-if="msg.role === 'agent'"
+          v-else-if="msg.role === 'agent'"
           :text="msg.text"
           :show-actions="showAgentActions(i)"
           :message-id="msg.id"

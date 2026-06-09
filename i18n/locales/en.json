@@ -33,6 +33,11 @@
     "reportBug": "Report bug",
     "getHelp": "Get help",
     "dismiss": "Dismiss",
+    "duplicate": "Duplicate",
+    "info": "Info",
+    "download": "Download",
+    "workspace": "Workspace",
+    "retry": "Retry",
     "toast": {
       "warning": "Warning",
       "error": "Error",
@@ -95,6 +100,8 @@
     "newWorkflow": "New Workflow",
     "addWorkspace": "Add Workspace",
     "mainSidebar": "Main sidebar",
+    "main": "Main",
+    "userProfile": "User profile",
     "toggleSidebar": "Toggle sidebar"
   },
   "notifications": {
@@ -175,6 +182,8 @@
     "account": "Account",
     "payment": "Payment",
     "general": "General",
+    "importPasswords": "Import passwords",
+    "importPasswordsHint": "Bring saved logins from Chrome, Firefox, or Safari into your workspace vault.",
     "language": "Language",
     "locationSharing": "Location sharing",
     "locationGranted": "Location access allowed",
@@ -258,6 +267,7 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "run": "Run",
+    "runNeedsSave": "Save the workflow before you can run it",
     "running": "Running…",
     "stop": "Stop",
     "history": "History",
@@ -522,6 +532,7 @@
     "editorNoVersion": "No version yet",
     "editorBundleNoItems": "No items in this bundle yet.",
     "editorSearchPlaceholder": "Search your listings…",
+    "editorDocs": "Documentation",
     "editorNoResults": "No listings match your search.",
     "editorListingNotFound": "This listing could not be found.",
     "editorSortRecent": "Recently updated",
@@ -689,7 +700,37 @@
     "avatarErrorType": "Please choose an image (PNG, JPG, WebP or GIF).",
     "avatarErrorSize": "Image must be 1 MB or smaller.",
     "avatarErrorRead": "Could not read this image. It may be corrupted.",
-    "identityUpdateError": "Could not update workspace. Please try again."
+    "identityUpdateError": "Could not update workspace. Please try again.",
+    "llmKeysTitle": "LLM API Keys",
+    "llmKeysDesc": "Bring your own LLM API key. When set, every run in this workspace uses your key instead of the shared one — tokens come out of your provider account, not your weekly budget."
+  },
+  "llmKeys": {
+    "addKey": "Add key",
+    "loading": "Loading keys…",
+    "empty": "No LLM keys configured yet. Runs in this workspace use the shared server key.",
+    "provider": "Provider",
+    "apiKey": "API key",
+    "baseUrl": "Base URL",
+    "baseUrlOptional": "(optional)",
+    "keyHint": "The key is encrypted at rest. We only display the last four characters back to you; the full key cannot be retrieved.",
+    "baseUrlHint": "Leave blank to use the server default. Set a custom URL for proxies, Azure OpenAI, or other compatible endpoints.",
+    "rotate": "Rotate",
+    "remove": "Remove",
+    "saveKey": "Save key",
+    "lastUsed": "Last used {when}",
+    "savedToast": "Saved {provider} key (…{lastFour}).",
+    "removedToast": "Removed {provider} key.",
+    "confirmRemove": "Remove the {provider} API key (…{lastFour})? Future runs will fall back to the shared server key.",
+    "relativeNever": "never",
+    "relativeJustNow": "just now",
+    "relativeMinutesAgo": "{n}m ago",
+    "relativeHoursAgo": "{n}h ago",
+    "relativeDaysAgo": "{n}d ago",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
   },
   "storage": {
     "workspace": "Workspace",
@@ -705,6 +746,55 @@
     "retry": "Retry",
     "emptyFolder": "This folder is empty.",
     "noSearchResults": "No files match your search.",
+    "moveModalTitle": "Move to…",
+    "moveToast": {
+      "movingOne": "Moving {n} item…",
+      "movingMany": "Moving {n} items…",
+      "movedOne": "Moved {n} item",
+      "movedMany": "Moved {n} items",
+      "cloudLimit": "Cloud storage limit reached for your plan.",
+      "failed": "Move failed: {reason}",
+      "partial": "Moved {migrated}, {failed} failed",
+      "unknownError": "unknown error"
+    },
+    "migrateConfirm": {
+      "title": "Migrate across providers?",
+      "bodyOne": "This item lives on a different provider than the destination folder",
+      "bodyMany": "These items live on a different provider than the destination folder",
+      "home": "Home",
+      "continueCopy": "Continue to copy them to",
+      "removeOriginals": "and remove the originals.",
+      "cancel": "Cancel",
+      "confirm": "Migrate"
+    },
+    "errors": {
+      "upgradeCloud": "Upgrade to Pro or Max to use Cloud storage.",
+      "listFailed": "Failed to list files",
+      "signInToUpload": "Sign in to upload files.",
+      "localDeviceId": "This browser can't provide a device id for local storage.",
+      "localUnsupported": "Local storage is not supported in this browser.",
+      "localUploadMissingId": "Local upload failed: missing file id.",
+      "uploadFailedStatus": "Upload failed ({status}){detail}",
+      "b2MissingFileId": "Upload succeeded but B2 fileId was missing.",
+      "driveMissingFileId": "Upload succeeded but Drive file id was missing.",
+      "uploadFailed": "Failed to upload file",
+      "deleteFailed": "Failed to delete files",
+      "moveFailed": "Failed to move file",
+      "migrationFailed": "Migration failed",
+      "saveOrderFailed": "Failed to save order",
+      "invalidFolderName": "Enter a valid folder name.",
+      "renameFolderFailed": "Failed to rename folder",
+      "signInToCreateFolders": "Sign in to create folders.",
+      "createFolderFailed": "Failed to create folder",
+      "copyFileFailed": "Failed to copy file",
+      "signInToCopyFolders": "Sign in to copy folders.",
+      "copyFolderFailed": "Failed to copy folder",
+      "mintDownloadFailed": "Failed to mint download URL.",
+      "localDeviceOnly": "This file is only available on the device that created it.",
+      "localCopyMissing": "Local copy not found on this device.",
+      "downloadFailedStatus": "Download failed ({status})",
+      "downloadFailed": "Failed to download file"
+    },
     "uploadProgress": "{done}/{total} {files} uploading",
     "uploadDoneOne": "Uploaded {total} file",
     "uploadDoneMany": "Uploaded {total} files",
@@ -838,6 +928,7 @@
       "video": "Video",
       "audio": "Audio",
       "key": "Key",
+      "certificate": "Certificate",
       "archive": "Archive",
       "calendar": "Calendar",
       "spreadsheet": "Spreadsheet",
@@ -995,6 +1086,13 @@
     "savedToStorage": "Saved to storage",
     "noPreview": "Preview not available",
     "noPreviewDesc": "Download this file to view its contents.",
+    "viewMode": "Artifact view mode",
+    "preview": "Preview",
+    "raw": "Raw",
+    "rawLoading": "Loading raw file...",
+    "rawUnavailable": "Raw view is not available for this file.",
+    "rawLoadError": "Raw view failed to load.",
+    "rawLoadStatus": "Raw view failed to load ({status}).",
     "typeImage": "Image",
     "typeCode": "Code",
     "typeDocument": "Document",
@@ -1010,6 +1108,7 @@
     "promoting": "Saving…",
     "promoted": "Saved to {path}",
     "promoteError": "Couldn't save to storage. Please try again.",
+    "downloadError": "Couldn't download artifact.",
     "deleteError": "Couldn't delete artifact."
   },
   "landing": {
@@ -1221,10 +1320,12 @@
   },
   "vault": {
     "passwords": {
-      "searchPlaceholder": "Search passwords…",
+      "searchPlaceholder": "Search accounts…",
       "yourPasswords": "Your passwords",
-      "addPassword": "Add password",
-      "addPasswordTitle": "Add password",
+      "addPassword": "Add account",
+      "addPasswordTitle": "Add account",
+      "addTab": "Manual",
+      "importTab": "Import from browser",
       "filterBy": "Filter by",
       "sortBy": "Sort by",
       "all": "All",
@@ -1236,28 +1337,97 @@
       "lastUsed": "Last used",
       "oldestFirst": "Oldest first",
       "savedBy": "Saved by {name}",
+      "savedAt": "Saved {when}",
       "lastUsedBy": "Last used by {name} · {when}",
+      "lastUsedAt": "Last used {when}",
       "unknownUser": "unknown",
-      "view": "View",
+      "details": "Details",
+      "detailsSection": "Details",
       "edit": "Edit",
-      "empty": "No passwords saved yet",
-      "noResults": "No passwords match your search.",
+      "empty": "No accounts saved yet",
+      "noResults": "No accounts match your search.",
       "urlLabel": "URL",
       "urlPlaceholder": "example.com",
       "usernameLabel": "Username or email",
       "usernamePlaceholder": "you{'@'}example.com",
       "passwordLabel": "Password",
       "passwordPlaceholder": "Enter password",
-      "editPasswordTitle": "Edit password",
+      "editPasswordTitle": "Edit account",
+      "openSite": "Open site",
       "newPasswordLabel": "New password (leave blank to keep current)",
       "newPasswordPlaceholder": "Enter new password",
       "viewPasswordTitle": "View password",
       "revealPassword": "Reveal",
       "hidePassword": "Hide",
       "copyPassword": "Copy password",
+      "totpSetupLabel": "Authenticator key (optional)",
+      "totpSetupPlaceholder": "otpauth:// link or secret key",
+      "totpSetupHint": "Paste the setup key or otpauth:// link from the site's two-factor setup.",
+      "totpInvalid": "That doesn't look like a valid authenticator key.",
+      "totpCodeLabel": "Two-factor code",
+      "totpError": "Couldn't load code",
+      "copyCode": "Copy code",
+      "totpBadge": "2FA",
+      "totpBadgeTitle": "Two-factor authentication enabled",
       "copied": "Copied!",
       "loading": "Loading passwords…",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "importFromBrowser": "Import from browser",
+      "import": {
+        "action": "Import",
+        "title": "Import passwords",
+        "subtitleNative": "Polymux can read passwords saved in browsers on this device.",
+        "subtitleWeb": "Export a CSV from your browser, then upload it here.",
+        "detectedBrowsers": "Installed browsers",
+        "scanning": "Scanning for browsers…",
+        "noBrowsersDetected": "No supported browsers found on this device.",
+        "nativeDetectFailed": "Could not scan for browsers.",
+        "nativeReadFailed": "Could not read passwords from that browser.",
+        "profileCount": "{count} profile | {count} profiles",
+        "orManual": "Or import from a CSV export",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge, Brave, and other Chromium-based browsers use the same export format.",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "Open Chrome's password manager (Settings → Autofill → Google Password Manager).",
+            "step2": "Open Settings, then choose Export passwords and confirm with your device password.",
+            "step3": "Upload the downloaded CSV file below."
+          },
+          "firefox": {
+            "step1": "Open Firefox and go to about:logins (or Settings → Privacy & Security → Logins and Passwords).",
+            "step2": "Open the menu (⋯) and choose Export logins to CSV. Confirm when prompted.",
+            "step3": "Upload the downloaded CSV file below."
+          },
+          "safari": {
+            "step1": "On macOS, open Passwords (System Settings → Passwords, or Safari → Settings → Passwords).",
+            "step2": "Select the passwords you want, then use File → Export Passwords to CSV.",
+            "step3": "Upload the downloaded CSV file below."
+          }
+        },
+        "uploadCsv": "Import passwords",
+        "parseFailed": "Could not read that file. Check that it is a valid password export CSV.",
+        "noEntriesFound": "No passwords found in that file.",
+        "securityNote": "Delete the CSV after importing — it contains your passwords in plain text.",
+        "reviewSubtitle": "{count} password found — choose what to import. | {count} passwords found — choose what to import.",
+        "searchPlaceholder": "Filter list…",
+        "selectedCount": "{count} selected",
+        "colName": "Name",
+        "colUsername": "Username",
+        "colSite": "Site",
+        "duplicateHint": "Entries already in your vault are unchecked by default.",
+        "back": "Back",
+        "importSelected": "Import {count} password | Import {count} passwords",
+        "importing": "Importing…",
+        "importingSubtitle": "Encrypting and saving your selected passwords.",
+        "completeTitle": "Imported {imported} password. | Imported {imported} passwords.",
+        "completeFailed": "{failed} could not be saved.",
+        "completeSubtitle": "Done.",
+        "done": "Done"
+      }
     },
     "signIns": {
       "sectionTitle": "Saved sign-ins",
@@ -1267,7 +1437,7 @@
       "forget": "Forget"
     },
     "tabs": {
-      "passwords": "Passwords",
+      "accounts": "Accounts",
       "wallet": "Wallet"
     },
     "wallet": {
@@ -1448,7 +1618,13 @@
     "saving": "Saving…",
     "saveAndUse": "Save & use",
     "errorReveal": "Could not retrieve the saved password.",
-    "errorSave": "Could not save the credential to the vault."
+    "errorSave": "Could not save the credential to the vault.",
+    "errorNoWorkspace": "Select a workspace before saving credentials.",
+    "errorDelete": "Could not delete the saved credential.",
+    "showDetails": "Details",
+    "hideDetails": "Hide details",
+    "completedSummary": "Credentials provided for {site}.",
+    "cancelledSummary": "Sign-in cancelled for {site}."
   },
   "schedule": {
     "title": "Schedule",
@@ -1566,12 +1742,128 @@
   },
   "pricing": {
     "billingPeriod": "Billing period",
+    "metaTitle": "Pricing",
+    "metaDescription": "Simple, transparent pricing for AI agent workspaces. Start free, scale as you grow with Pro, Max, and Enterprise plans.",
+    "annual": "Annual",
+    "monthly": "Monthly",
+    "purchaseNow": "Purchase now",
+    "redirecting": "Redirecting…",
+    "mostPopular": "Most Popular",
+    "currentPlan": "Current Plan",
+    "selectWorkspaceFirst": "Select a workspace to upgrade first.",
+    "purchaseError": "Something went wrong. Please try again.",
+    "subtitle": "Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.",
+    "upgradeTitle": "Upgrade {name}'s plan",
+    "pricingTitle": "Pricing",
+    "features": {
+      "agentsPerWorkspace": "AI Agents per workspace",
+      "weeklyTokenBudget": "Weekly Token Budget",
+      "monthlyWorkflowRuns": "Monthly Workflow Runs",
+      "cloudStorage": "Cloud Storage",
+      "workspaceMembers": "Workspace Members",
+      "byok": "Bring Your Own LLM Keys",
+      "customWorkflows": "Custom Workflows",
+      "prioritySupport": "Priority Support"
+    },
     "storage": {
       "total": "Workspace storage",
       "file": "Per-file size limit",
       "pullFolder": "Folder pull limit",
       "artifacts": "Artifact storage"
     }
+  },
+  "community": {
+    "metaTitle": "Community",
+    "metaDescription": "Join the Polymux community. Share workflows, ask questions, and connect with other AI agent builders.",
+    "title": "Polymux Community",
+    "subtitle": "Updates, discussions, and resources for Polymux users",
+    "searchPlaceholder": "Search community…",
+    "searchResults": "Search results",
+    "searching": "Searching…",
+    "noResults": "No results for \"{query}\". Try different keywords.",
+    "comingSoon": "Coming soon",
+    "explore": "Explore",
+    "tiles": {
+      "blog": {
+        "label": "Blog",
+        "description": "Product updates, engineering notes, and guides"
+      },
+      "documentation": {
+        "label": "Documentation",
+        "description": "Guides, references, and API docs"
+      },
+      "forum": {
+        "label": "Forum",
+        "description": "Ask questions, share ideas, connect with others"
+      }
+    },
+    "sources": {
+      "documentation": "Documentation",
+      "forum": "Forum",
+      "blog": "Blog"
+    }
+  },
+  "blog": {
+    "metaTitle": "Polymux Blog",
+    "metaDescription": "Updates, deep-dives, and case studies on AI agents, browser automation, and multi-agent orchestration with Polymux.",
+    "title": "Polymux Blog",
+    "subtitle": "Product updates, engineering notes, and guides for teams building with Polymux — orchestrate agents, watch live browser sessions, and ship automations you can trust.",
+    "subscribeHint": "New posts a few times a month",
+    "subscribe": "Subscribe",
+    "empty": "No posts yet. Check back soon.",
+    "readMore": "Read more",
+    "emailLabel": "Email"
+  },
+  "verifyEmail": {
+    "title": "Verify Email",
+    "verifying": "Verifying your email…",
+    "verifiedTitle": "Email verified!",
+    "verifiedBody": "Your subscription to the Polymux Blog has been confirmed. Welcome! 🎉",
+    "failedTitle": "Verification failed",
+    "backToBlog": "Back to blog",
+    "tokenMissing": "Verification token is missing",
+    "verifyFailed": "Failed to verify email"
+  },
+  "invitations": {
+    "loading": "Loading invitation…",
+    "joinTitle": "Join {name}",
+    "invitedAs": "You've been invited to join as a {role}.",
+    "sentTo": "Invitation sent to",
+    "decline": "Decline",
+    "accept": "Accept invitation",
+    "joining": "Joining workspace…",
+    "acceptedTitle": "You're in",
+    "acceptedBody": "Welcome to {name}.",
+    "continueToDashboard": "Continue to dashboard",
+    "unavailableTitle": "Invitation unavailable",
+    "goToDashboard": "Go to dashboard",
+    "errors": {
+      "tokenMissing": "Missing invitation token.",
+      "loadFailed": "Could not load invitation.",
+      "invalidOrRevoked": "This invitation link is invalid or has been revoked.",
+      "alreadyAccepted": "This invitation has already been accepted.",
+      "expired": "This invitation has expired. Ask the workspace admin to send a new one.",
+      "emailMismatch": "This invitation was sent to a different email. Sign in with the invited account.",
+      "expiredShort": "This invitation has expired.",
+      "alreadyUsed": "This invitation has already been used.",
+      "notFound": "This invitation is no longer valid.",
+      "acceptFailed": "Something went wrong while accepting. Please try again."
+    }
+  },
+  "layout": {
+    "loadFailed": "Failed to load layout.",
+    "retry": "Retry",
+    "loading": "Loading layout…"
+  },
+  "marketplace": {
+    "adminOnly": "Only workspace owners and admins can manage integrations.",
+    "pluginInstalledNeedsSetup": "Plugin installed. These connections still need to be set up: {names}.",
+    "pluginInstallPartialFailed": "Some plugin items failed to install: {names}.",
+    "installFailed": "Failed to install integration."
+  },
+  "attachments": {
+    "tooLarge": "\"{name}\" is too large to upload",
+    "exceedsLimit": "\"{name}\" exceeds the {limit} upload limit"
   },
   "bugReport": {
     "heading": "Report a Bug",
@@ -1731,20 +2023,25 @@
     "getStarted": "Get started",
     "stepLabel": "Step {current} of {total}",
     "welcome": {
-      "title": "Welcome to Polymux",
-      "description": "Run AI-powered workflows that browse the web, work with files, and act on your behalf."
+      "title": "Welcome to your new workspace",
+      "description": "Everything in Polymux lives in a workspace — switch between teams and personal projects, invite members, and keep each workspace's workflows, files, and secrets isolated."
     },
     "workflows": {
-      "title": "Build workflows visually",
-      "description": "Compose steps on a canvas, run them on a schedule, and inspect every result."
+      "title": "Build and run workflows",
+      "description": "Compose agent steps on a flow canvas, then watch them work in live browser viewports — all in one place."
     },
-    "browser": {
-      "title": "A browser that follows along",
-      "description": "Watch workflows operate the browser in real time, or take over whenever you need to."
+    "storage": {
+      "title": "Your workspace files",
+      "description": "Upload, organize, and move files and folders. Workflows can read and write storage on your behalf."
+    },
+    "integrations": {
+      "title": "Connect your tools",
+      "description": "Install integrations from the marketplace so workflows can reach Slack, GitHub, databases, and more."
     },
     "vault": {
-      "title": "Your vault, your secrets",
-      "description": "Store passwords and credentials securely so workflows can sign in on your behalf."
+      "title": "Passwords and wallet",
+      "description": "Store login credentials and manage your agent wallet so workflows can sign in and pay for services securely.",
+      "importCta": "Import from your browser"
     },
     "terms": {
       "title": "A few things to know",

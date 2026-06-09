@@ -7,6 +7,7 @@ import type {
   ErrorPayload,
   SessionExpiredPayload,
 } from '../types'
+import { getPostHogBrowserSessionId } from '~/utils/posthogContext'
 
 async function getAccessToken(): Promise<string> {
   if (!import.meta.client) return ''
@@ -68,6 +69,8 @@ export function useWorkflowSession(sessionId: Ref<string> | string) {
     const token = await getAccessToken()
     const params = new URLSearchParams()
     if (token) params.set('token', token)
+    const phSession = getPostHogBrowserSessionId()
+    if (phSession) params.set('ph_session_id', phSession)
     const qs = params.toString()
     const url = qs ? `${serverUrl}/session/${id}/?${qs}` : `${serverUrl}/session/${id}/`
 

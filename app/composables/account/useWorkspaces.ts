@@ -1,3 +1,6 @@
+import { watch } from 'vue'
+import { readCachedMemberCount, readCachedWorkspaceName, writeCachedMemberCount, writeCachedWorkspacePlans } from '~/utils/uiPolicyCache'
+
 export interface Workspace {
   id: string
   name: string
@@ -97,12 +100,89 @@ export function useWorkspaces() {
     return localStorage.getItem(STORAGE_KEY)
   })
   const members = useState<WorkspaceMember[]>('workspace-members', () => [])
+  const membersByWorkspace = useState<Record<string, WorkspaceMember[]>>('workspace-members-by-id', () => ({}))
+  /** Reactive member counts for UI; seeded from localStorage, updated only when server count differs. */
+  const displayMemberCounts = useState<Record<string, number>>('workspace-display-member-counts', () => ({}))
+  const memberCountWatchInstalled = useState<boolean>('workspace-member-count-watch-installed', () => false)
   const invitations = useState<WorkspaceInvitation[]>('workspace-invitations', () => [])
   const { authFetch } = useAuthFetch()
+
+  // useState is seeded on the server (null). After hydration the client payload
+  // wins over the localStorage initializer, so re-read the stored id here.
+  if (import.meta.client && !currentWorkspaceId.value) {
+    const storedId = localStorage.getItem(STORAGE_KEY)
+    if (storedId) currentWorkspaceId.value = storedId
+  }
 
   const currentWorkspace = computed(() =>
     workspaces.value.find(w => w.id === currentWorkspaceId.value) ?? workspaces.value[0] ?? null,
   )
+
+  const currentWorkspaceDisplayName = computed(() => {
+    const wsId = currentWorkspaceId.value ?? currentWorkspace.value?.id
+    if (wsId) {
+      const liveName = workspaces.value.find(w => w.id === wsId)?.name?.trim()
+      if (liveName) return liveName
+      const cached = readCachedWorkspaceName(wsId)
+      if (cached) return cached
+    }
+    const fallbackName = currentWorkspace.value?.name?.trim()
+    if (fallbackName) return fallbackName
+    return readCachedWorkspaceName(currentWorkspace.value?.id)
+  })
+
+  function activeWorkspaceId(): string | null {
+    return currentWorkspaceId.value ?? currentWorkspace.value?.id ?? null
+  }
+
+  function seedDisplayMemberCount(workspaceID: string) {
+    if (!import.meta.client || !workspaceID) return
+    if (Object.prototype.hasOwnProperty.call(displayMemberCounts.value, workspaceID)) return
+    const cached = readCachedMemberCount(workspaceID)
+    if (cached !== null) {
+      displayMemberCounts.value = { ...displayMemberCounts.value, [workspaceID]: cached }
+    }
+  }
+
+  function resolvedDisplayMemberCount(workspaceID: string): number | null {
+    if (Object.prototype.hasOwnProperty.call(displayMemberCounts.value, workspaceID)) {
+      return displayMemberCounts.value[workspaceID]!
+    }
+    return readCachedMemberCount(workspaceID)
+  }
+
+  const currentMemberCount = computed(() => {
+    const wsId = activeWorkspaceId()
+    if (!wsId) return 0
+    return resolvedDisplayMemberCount(wsId) ?? 0
+  })
+
+  if (import.meta.client && !memberCountWatchInstalled.value) {
+    memberCountWatchInstalled.value = true
+    watch(currentWorkspaceId, (id) => {
+      if (id) seedDisplayMemberCount(id)
+    }, { immediate: true })
+    const initialId = activeWorkspaceId()
+    if (initialId) seedDisplayMemberCount(initialId)
+  }
+
+  function membersForWorkspace(workspaceID: string): WorkspaceMember[] {
+    return membersByWorkspace.value[workspaceID] ?? []
+  }
+
+  function hasMembersCache(workspaceID: string): boolean {
+    return Object.prototype.hasOwnProperty.call(membersByWorkspace.value, workspaceID)
+  }
+
+  function syncMembersCache(workspaceID: string, list: WorkspaceMember[]) {
+    const count = list.length
+    membersByWorkspace.value = { ...membersByWorkspace.value, [workspaceID]: list }
+    displayMemberCounts.value = { ...displayMemberCounts.value, [workspaceID]: count }
+    writeCachedMemberCount(workspaceID, count)
+    if (currentWorkspaceId.value === workspaceID) {
+      members.value = list
+    }
+  }
 
   function persistWorkspaceId(id: string) {
     currentWorkspaceId.value = id
@@ -115,6 +195,8 @@ export function useWorkspaces() {
     try {
       const data = await authFetch<Workspace[]>('/workspaces')
       workspaces.value = data ?? []
+      writeCachedWorkspacePlans(workspaces.value.map(w => ({ id: w.id, plan: w.plan, name: w.name })))
+      for (const ws of workspaces.value) seedDisplayMemberCount(ws.id)
 
       if (workspaces.value.length > 0 && !workspaces.value.find(w => w.id === currentWorkspaceId.value)) {
         persistWorkspaceId(workspaces.value[0]!.id)
@@ -144,6 +226,8 @@ export function useWorkspaces() {
 
   function switchWorkspace(id: string) {
     persistWorkspaceId(id)
+    seedDisplayMemberCount(id)
+    members.value = membersForWorkspace(id)
   }
 
   // Resolves with the current workspace id once it becomes available. Used by
@@ -179,6 +263,7 @@ export function useWorkspaces() {
       })
       const idx = workspaces.value.findIndex(w => w.id === workspaceID)
       if (idx !== -1) workspaces.value[idx] = { ...ws, role: workspaces.value[idx]!.role }
+      writeCachedWorkspacePlans([{ id: workspaceID, plan: ws.plan, name: ws.name }])
       return ws
     }
     catch (err) {
@@ -206,10 +291,25 @@ export function useWorkspaces() {
     }
   }
 
-  async function fetchMembers(workspaceID: string) {
+  async function fetchMembers(workspaceID: string, opts?: { force?: boolean }) {
+    seedDisplayMemberCount(workspaceID)
+
     try {
       const data = await authFetch<WorkspaceMember[]>(`/workspaces/${workspaceID}/members`)
-      members.value = data ?? []
+      const list = data ?? []
+      const newCount = list.length
+      const previousCount = resolvedDisplayMemberCount(workspaceID)
+      const countChanged = previousCount === null || previousCount !== newCount
+
+      if (opts?.force || !hasMembersCache(workspaceID) || countChanged) {
+        syncMembersCache(workspaceID, list)
+      }
+      else {
+        writeCachedMemberCount(workspaceID, newCount)
+        if (!Object.prototype.hasOwnProperty.call(displayMemberCounts.value, workspaceID)) {
+          displayMemberCounts.value = { ...displayMemberCounts.value, [workspaceID]: newCount }
+        }
+      }
     }
     catch (err) {
       console.error('[useWorkspaces] fetchMembers failed', err)
@@ -222,7 +322,7 @@ export function useWorkspaces() {
         method: 'POST',
         body: JSON.stringify({ user_id: userID, role }),
       })
-      members.value = [...members.value, member]
+      syncMembersCache(workspaceID, [...membersForWorkspace(workspaceID), member])
       return member
     }
     catch (err) {
@@ -237,8 +337,13 @@ export function useWorkspaces() {
         method: 'PATCH',
         body: JSON.stringify({ role }),
       })
-      const idx = members.value.findIndex(m => m.user_id === userID)
-      if (idx !== -1) members.value[idx] = member
+      const list = membersForWorkspace(workspaceID)
+      const idx = list.findIndex(m => m.user_id === userID)
+      if (idx !== -1) {
+        const next = [...list]
+        next[idx] = member
+        syncMembersCache(workspaceID, next)
+      }
       return member
     }
     catch (err) {
@@ -257,10 +362,12 @@ export function useWorkspaces() {
         method: 'PATCH',
         body: JSON.stringify({ role: 'admin' }),
       })
-      const newIdx = members.value.findIndex(m => m.user_id === newOwnerID)
-      if (newIdx !== -1) members.value[newIdx] = promoted
-      const curIdx = members.value.findIndex(m => m.user_id === currentOwnerID)
-      if (curIdx !== -1) members.value[curIdx] = demoted
+      let list = [...membersForWorkspace(workspaceID)]
+      const newIdx = list.findIndex(m => m.user_id === newOwnerID)
+      if (newIdx !== -1) list[newIdx] = promoted
+      const curIdx = list.findIndex(m => m.user_id === currentOwnerID)
+      if (curIdx !== -1) list[curIdx] = demoted
+      syncMembersCache(workspaceID, list)
       await fetchWorkspaces()
       return { ok: true }
     }
@@ -273,7 +380,10 @@ export function useWorkspaces() {
   async function removeMember(workspaceID: string, userID: string) {
     try {
       await authFetch(`/workspaces/${workspaceID}/members/${userID}`, { method: 'DELETE' })
-      members.value = members.value.filter(m => m.user_id !== userID)
+      syncMembersCache(
+        workspaceID,
+        membersForWorkspace(workspaceID).filter(m => m.user_id !== userID),
+      )
     }
     catch (err) {
       console.error('[useWorkspaces] removeMember failed', err)
@@ -284,7 +394,15 @@ export function useWorkspaces() {
     try {
       await authFetch(`/workspaces/${workspaceID}/members/${userID}`, { method: 'DELETE' })
       workspaces.value = workspaces.value.filter(w => w.id !== workspaceID)
-      members.value = members.value.filter(m => m.user_id !== userID)
+      const nextCache = { ...membersByWorkspace.value }
+      delete nextCache[workspaceID]
+      membersByWorkspace.value = nextCache
+      const nextDisplay = { ...displayMemberCounts.value }
+      delete nextDisplay[workspaceID]
+      displayMemberCounts.value = nextDisplay
+      if (currentWorkspaceId.value === workspaceID) {
+        members.value = []
+      }
       if (currentWorkspaceId.value === workspaceID && workspaces.value.length > 0) {
         persistWorkspaceId(workspaces.value[0]!.id)
       }
@@ -354,7 +472,9 @@ export function useWorkspaces() {
   return {
     workspaces,
     currentWorkspace,
+    currentWorkspaceDisplayName,
     currentWorkspaceId,
+    currentMemberCount,
     members,
     invitations,
     fetchWorkspaces,

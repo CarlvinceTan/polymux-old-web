@@ -27,6 +27,7 @@ const { available: serverAvailable } = useServerHealth()
 const showServerError = computed(() => !serverAvailable.value && isAppRoute.value)
 
 const { accepted: betaAccepted, ready: betaReady, accept: acceptBeta } = useBetaAgreement()
+const { isOpen: importModalOpen, open: openImportModal } = usePasswordImportModal()
 
 const betaModalOpen = computed({
   get: () => isAppRoute.value && betaReady.value && !betaAccepted.value,
@@ -42,6 +43,9 @@ const betaModalOpen = computed({
       <NuxtPage />
     </NuxtLayout>
     <ServerUnavailable v-if="showServerError" />
-    <OnboardingModal v-model:open="betaModalOpen" @accept="acceptBeta" />
+    <OnboardingModal v-model:open="betaModalOpen" @accept="acceptBeta" @import-passwords="openImportModal" />
+    <ClientOnly>
+      <ImportPasswordsModal v-model:open="importModalOpen" />
+    </ClientOnly>
   </UApp>
 </template>

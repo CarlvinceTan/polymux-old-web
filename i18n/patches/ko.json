@@ -1,0 +1,317 @@
+{
+  "common": {
+    "duplicate": "복제",
+    "info": "정보",
+    "download": "다운로드",
+    "workspace": "워크스페이스",
+    "retry": "다시 시도"
+  },
+  "workspaceMenu": {
+    "llmKeysTitle": "LLM API 키",
+    "llmKeysDesc": "자체 LLM API 키를 사용하세요. 설정하면 이 워크스페이스의 모든 실행에서 공유 키 대신 사용자 키가 사용되며, 토큰은 주간 예산이 아닌 프로바이더 계정에서 차감됩니다."
+  },
+  "llmKeys": {
+    "addKey": "키 추가",
+    "loading": "키 불러오는 중…",
+    "empty": "아직 LLM 키가 설정되지 않았습니다. 이 워크스페이스의 실행은 공유 서버 키를 사용합니다.",
+    "provider": "프로바이더",
+    "apiKey": "API 키",
+    "baseUrl": "기본 URL",
+    "baseUrlOptional": "(선택)",
+    "keyHint": "키는 저장 시 암호화됩니다. 마지막 네 글자만 표시되며 전체 키는 조회할 수 없습니다.",
+    "baseUrlHint": "비워 두면 서버 기본값을 사용합니다. 프록시, Azure OpenAI 또는 기타 호환 엔드포인트용 사용자 지정 URL을 설정하세요.",
+    "rotate": "교체",
+    "remove": "제거",
+    "saveKey": "키 저장",
+    "lastUsed": "마지막 사용 {when}",
+    "savedToast": "{provider} 키 저장됨 (…{lastFour}).",
+    "removedToast": "{provider} 키 제거됨.",
+    "confirmRemove": "{provider} API 키(…{lastFour})를 제거하시겠습니까? 이후 실행은 공유 서버 키로 대체됩니다.",
+    "relativeNever": "없음",
+    "relativeJustNow": "방금",
+    "relativeMinutesAgo": "{n}분 전",
+    "relativeHoursAgo": "{n}시간 전",
+    "relativeDaysAgo": "{n}일 전",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
+  },
+  "storage": {
+    "moveModalTitle": "이동 위치…",
+    "moveToast": {
+      "movedOne": "{n}개 항목 이동됨",
+      "movedMany": "{n}개 항목 이동됨",
+      "cloudLimit": "요금제의 클라우드 저장소 한도에 도달했습니다.",
+      "failed": "이동 실패: {reason}",
+      "partial": "{migrated}개 이동, {failed}개 실패",
+      "unknownError": "알 수 없는 오류",
+      "movingOne": "{n}개 항목 이동 중…",
+      "movingMany": "{n}개 항목 이동 중…"
+    },
+    "migrateConfirm": {
+      "title": "프로바이더 간 마이그레이션하시겠습니까?",
+      "bodyOne": "이 항목은 대상 폴더와 다른 프로바이더에 있습니다",
+      "bodyMany": "이 항목들은 대상 폴더와 다른 프로바이더에 있습니다",
+      "home": "홈",
+      "continueCopy": "계속하여 다음 위치로 복사",
+      "removeOriginals": "하고 원본을 제거합니다.",
+      "cancel": "취소",
+      "confirm": "마이그레이션"
+    },
+    "errors": {
+      "upgradeCloud": "클라우드 저장소를 사용하려면 Pro 또는 Max로 업그레이드하세요.",
+      "listFailed": "파일 목록을 불러오지 못했습니다",
+      "signInToUpload": "파일을 업로드하려면 로그인하세요.",
+      "localDeviceId": "이 브라우저는 로컬 저장소용 기기 ID를 제공할 수 없습니다.",
+      "localUnsupported": "이 브라우저에서는 로컬 저장소를 지원하지 않습니다.",
+      "localUploadMissingId": "로컬 업로드 실패: 파일 ID가 없습니다.",
+      "uploadFailedStatus": "업로드 실패 ({status}){detail}",
+      "b2MissingFileId": "업로드는 성공했지만 B2 fileId가 없었습니다.",
+      "driveMissingFileId": "업로드는 성공했지만 Drive 파일 ID가 없었습니다.",
+      "uploadFailed": "파일 업로드에 실패했습니다",
+      "deleteFailed": "파일 삭제에 실패했습니다",
+      "moveFailed": "파일 이동에 실패했습니다",
+      "migrationFailed": "마이그레이션에 실패했습니다",
+      "saveOrderFailed": "순서 저장에 실패했습니다",
+      "invalidFolderName": "유효한 폴더 이름을 입력하세요.",
+      "renameFolderFailed": "폴더 이름 변경에 실패했습니다",
+      "signInToCreateFolders": "폴더를 만들려면 로그인하세요.",
+      "createFolderFailed": "폴더 생성에 실패했습니다",
+      "copyFileFailed": "파일 복사에 실패했습니다",
+      "signInToCopyFolders": "폴더를 복사하려면 로그인하세요.",
+      "copyFolderFailed": "폴더 복사에 실패했습니다",
+      "mintDownloadFailed": "다운로드 URL 생성에 실패했습니다.",
+      "localDeviceOnly": "이 파일은 생성한 기기에서만 사용할 수 있습니다.",
+      "localCopyMissing": "이 기기에서 로컬 복사본을 찾을 수 없습니다.",
+      "downloadFailedStatus": "다운로드 실패 ({status})",
+      "downloadFailed": "파일 다운로드에 실패했습니다"
+    }
+  },
+  "pricing": {
+    "billingPeriod": "결제 주기",
+    "metaTitle": "요금",
+    "metaDescription": "AI 에이전트 워크스페이스를 위한 간단하고 투명한 요금. 무료로 시작하고 Pro, Max, Enterprise 요금제로 확장하세요.",
+    "annual": "연간",
+    "monthly": "월간",
+    "purchaseNow": "지금 구매",
+    "redirecting": "리디렉션 중…",
+    "mostPopular": "가장 인기",
+    "currentPlan": "현재 요금제",
+    "selectWorkspaceFirst": "먼저 업그레이할 워크스페이스를 선택하세요.",
+    "purchaseError": "문제가 발생했습니다. 다시 시도해 주세요.",
+    "features": {
+      "agentsPerWorkspace": "워크스페이스당 AI 에이전트",
+      "weeklyTokenBudget": "주간 토큰 예산",
+      "monthlyWorkflowRuns": "월간 워크플로 실행",
+      "cloudStorage": "클라우드 저장소",
+      "workspaceMembers": "워크스페이스 멤버",
+      "byok": "자체 LLM 키 사용",
+      "customWorkflows": "사용자 지정 워크플로",
+      "prioritySupport": "우선 지원"
+    },
+    "storage": {
+      "total": "워크스페이스 저장소",
+      "file": "파일당 크기 제한",
+      "pullFolder": "폴더 가져오기 제한",
+      "artifacts": "아티팩트 저장소"
+    },
+    "subtitle": "무료로 시작하세요. 성장에 맞춰 확장하세요. 숨겨진 요금 없음. 각 워크스페이스는 별도로 청구 — 필요한 것만 업그레이드.",
+    "upgradeTitle": "{name}의 플랜 업그레이드",
+    "pricingTitle": "요금"
+  },
+  "community": {
+    "metaTitle": "커뮤니티",
+    "metaDescription": "Polymux 커뮤니티에 참여하세요. 워크플로를 공유하고, 질문하고, 다른 AI 에이전트 빌더와 연결하세요.",
+    "title": "Polymux 커뮤니티",
+    "subtitle": "Polymux 사용자를 위한 업데이트, 토론 및 리소스",
+    "searchPlaceholder": "커뮤니티 검색…",
+    "searchResults": "검색 결과",
+    "comingSoon": "곧 제공",
+    "explore": "탐색",
+    "tiles": {
+      "blog": {
+        "label": "블로그",
+        "description": "제품 업데이트, 엔지니어링 노트 및 가이드"
+      },
+      "documentation": {
+        "label": "문서",
+        "description": "가이드, 참조 및 API 문서"
+      },
+      "forum": {
+        "label": "포럼",
+        "description": "질문하기, 아이디어 공유, 다른 사용자와 연결"
+      }
+    },
+    "sources": {
+      "documentation": "문서",
+      "forum": "포럼",
+      "blog": "블로그"
+    },
+    "searching": "검색 중…",
+    "noResults": "\"{query}\"에 대한 결과가 없습니다. 다른 키워드를 시도해 보세요."
+  },
+  "blog": {
+    "metaTitle": "Polymux 블로그",
+    "metaDescription": "AI 에이전트, 브라우저 자동화, Polymux를 활용한 멀티에이전트 오케스트레이션에 대한 업데이트, 심층 분석 및 사례 연구.",
+    "title": "Polymux 블로그",
+    "subscribe": "구독",
+    "empty": "아직 게시물이 없습니다. 곧 다시 확인해 주세요.",
+    "readMore": "더 읽기",
+    "emailLabel": "이메일",
+    "subtitle": "Polymux로 구축하는 팀을 위한 제품 업데이트, 엔지니어링 노트, 가이드 — 에이전트 오케스트레이션, 라이브 브라우저 세션 모니터링, 신뢰할 수 있는 자동화 제공.",
+    "subscribeHint": "월 몇 차례 새 글 게시"
+  },
+  "verifyEmail": {
+    "title": "이메일 확인",
+    "verifying": "이메일 확인 중…",
+    "verifiedTitle": "이메일 확인 완료!",
+    "verifiedBody": "Polymux 블로그 구독이 확인되었습니다. 환영합니다! 🎉",
+    "failedTitle": "확인 실패",
+    "backToBlog": "블로그로 돌아가기",
+    "tokenMissing": "확인 토큰이 없습니다",
+    "verifyFailed": "이메일 확인에 실패했습니다"
+  },
+  "invitations": {
+    "loading": "초대 불러오는 중…",
+    "joinTitle": "{name}에 참여",
+    "invitedAs": "{role}(으)로 참여하도록 초대되었습니다.",
+    "sentTo": "초대 발송 대상",
+    "decline": "거절",
+    "accept": "초대 수락",
+    "joining": "워크스페이스 참여 중…",
+    "acceptedTitle": "참여 완료",
+    "acceptedBody": "{name}에 오신 것을 환영합니다.",
+    "continueToDashboard": "대시보드로 계속",
+    "unavailableTitle": "초대를 사용할 수 없음",
+    "goToDashboard": "대시보드로 이동",
+    "errors": {
+      "tokenMissing": "초대 토큰이 없습니다.",
+      "loadFailed": "초대를 불러올 수 없습니다.",
+      "invalidOrRevoked": "이 초대 링크가 유효하지 않거나 취소되었습니다.",
+      "alreadyAccepted": "이 초대는 이미 수락되었습니다.",
+      "expired": "이 초대가 만료되었습니다. 워크스페이스 관리자에게 새 초대를 요청하세요.",
+      "emailMismatch": "이 초대는 다른 이메일로 발송되었습니다. 초대된 계정으로 로그인하세요.",
+      "expiredShort": "이 초대가 만료되었습니다.",
+      "alreadyUsed": "이 초대는 이미 사용되었습니다.",
+      "notFound": "이 초대는 더 이상 유효하지 않습니다.",
+      "acceptFailed": "수락 중 문제가 발생했습니다. 다시 시도해 주세요."
+    }
+  },
+  "nav": {
+    "mainSidebar": "메인 사이드바",
+    "main": "메인",
+    "userProfile": "사용자 프로필"
+  },
+  "layout": {
+    "loadFailed": "레이아웃을 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "loading": "레이아웃 로드 중…"
+  },
+  "marketplace": {
+    "adminOnly": "통합 관리는 워크스페이스 소유자와 관리자만 가능합니다.",
+    "pluginInstalledNeedsSetup": "플러그인이 설치되었습니다. 다음 연결은 아직 설정이 필요합니다: {names}.",
+    "pluginInstallPartialFailed": "일부 플러그인 항목 설치에 실패했습니다: {names}.",
+    "installFailed": "통합을 설치하지 못했습니다."
+  },
+  "attachments": {
+    "tooLarge": "\"{name}\"은(는) 업로드하기에 너무 큽니다",
+    "exceedsLimit": "\"{name}\"이(가) {limit} 업로드 한도를 초과합니다"
+  },
+  "settings": {
+    "importPasswords": "비밀번호 가져오기",
+    "importPasswordsHint": "Chrome, Firefox 또는 Safari에 저장된 로그인 정보를 워크스페이스 Vault로 가져옵니다.",
+    "allNotificationsHint": "앱에서 보내는 필수가 아닌 이메일(워크스페이스 초대, 뉴스레터 등)의 마스터 스위치. 중요한 계정 메시지는 계속 전달됩니다."
+  },
+  "viewport": {
+    "pinBrowser": "브라우저 에이전트 고정",
+    "unpinBrowser": "브라우저 에이전트 고정 해제"
+  },
+  "integrations": {
+    "editorListingNotFound": "이 목록을 찾을 수 없습니다."
+  },
+  "credentialRequest": {
+    "errorNoWorkspace": "자격 증명을 저장하기 전에 워크스페이스를 선택하세요.",
+    "errorDelete": "저장된 자격 증명을 삭제할 수 없습니다.",
+    "showDetails": "세부 정보",
+    "hideDetails": "세부 정보 숨기기",
+    "completedSummary": "{site}에 대한 자격 증명을 제공했습니다.",
+    "cancelledSummary": "{site} 로그인이 취소되었습니다."
+  },
+  "install": {
+    "extension": {
+      "eyebrow": "브라우저 확장 프로그램",
+      "heading": "브라우저 연결",
+      "subtitle": "Polymux 확장 프로그램을 연결하여 자신의 브라우저에서 로컬로 에이전트를 실행하세요.",
+      "chromeLabel": "Chrome용 설치"
+    }
+  },
+  "onboarding": {
+    "vault": {
+      "importCta": "브라우저에서 가져오기"
+    }
+  },
+  "vault": {
+    "passwords": {
+      "addTab": "수동",
+      "importTab": "브라우저에서 가져오기",
+      "importFromBrowser": "브라우저에서 가져오기",
+      "import": {
+        "action": "가져오기",
+        "title": "비밀번호 가져오기",
+        "subtitleNative": "Polymux는 이 기기의 브라우저에 저장된 비밀번호를 읽을 수 있습니다.",
+        "subtitleWeb": "브라우저에서 CSV를 내보낸 다음 여기에 업로드하세요.",
+        "detectedBrowsers": "설치된 브라우저",
+        "scanning": "브라우저 검색 중…",
+        "noBrowsersDetected": "이 기기에서 지원되는 브라우저를 찾을 수 없습니다.",
+        "nativeDetectFailed": "브라우저를 검색할 수 없습니다.",
+        "nativeReadFailed": "해당 브라우저에서 비밀번호를 읽을 수 없습니다.",
+        "profileCount": "{count}개 프로필 | {count}개 프로필",
+        "orManual": "또는 CSV 내보내기에서 가져오기",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge, Brave 및 기타 Chromium 기반 브라우저는 동일한 내보내기 형식을 사용합니다.",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "Chrome 비밀번호 관리자를 엽니다(설정 → 자동 완성 → Google 비밀번호 관리자).",
+            "step2": "설정을 연 다음 비밀번호 내보내기를 선택하고 기기 비밀번호로 확인합니다.",
+            "step3": "다운로드한 CSV 파일을 아래에 업로드합니다."
+          },
+          "firefox": {
+            "step1": "Firefox를 열고 about:logins로 이동합니다(또는 설정 → 개인정보 및 보안 → 로그인 및 비밀번호).",
+            "step2": "메뉴(⋯)를 열고 로그인 정보를 CSV로 내보내기를 선택합니다. 프롬프트가 표시되면 확인합니다.",
+            "step3": "다운로드한 CSV 파일을 아래에 업로드합니다."
+          },
+          "safari": {
+            "step1": "macOS에서 비밀번호를 엽니다(시스템 설정 → 비밀번호 또는 Safari → 설정 → 비밀번호).",
+            "step2": "가져올 비밀번호를 선택한 다음 파일 → 비밀번호를 CSV로 내보내기를 사용합니다.",
+            "step3": "다운로드한 CSV 파일을 아래에 업로드합니다."
+          }
+        },
+        "uploadCsv": "비밀번호 가져오기",
+        "parseFailed": "해당 파일을 읽을 수 없습니다. 유효한 비밀번호 내보내기 CSV인지 확인하세요.",
+        "noEntriesFound": "해당 파일에서 비밀번호를 찾을 수 없습니다.",
+        "securityNote": "가져온 후 CSV를 삭제하세요 — 평문 비밀번호가 포함되어 있습니다.",
+        "reviewSubtitle": "비밀번호 {count}개를 찾았습니다 — 가져올 항목을 선택하세요. | 비밀번호 {count}개를 찾았습니다 — 가져올 항목을 선택하세요.",
+        "searchPlaceholder": "목록 필터…",
+        "selectedCount": "{count}개 선택됨",
+        "colName": "이름",
+        "colUsername": "사용자 이름",
+        "colSite": "사이트",
+        "duplicateHint": "Vault에 이미 있는 항목은 기본적으로 선택 해제되어 있습니다.",
+        "back": "뒤로",
+        "importSelected": "비밀번호 {count}개 가져오기 | 비밀번호 {count}개 가져오기",
+        "importing": "가져오는 중…",
+        "importingSubtitle": "선택한 비밀번호를 암호화하여 저장하고 있습니다.",
+        "completeTitle": "비밀번호 {imported}개를 가져왔습니다. | 비밀번호 {imported}개를 가져왔습니다.",
+        "completeFailed": "{failed}개를 저장할 수 없었습니다.",
+        "completeSubtitle": "완료.",
+        "done": "완료"
+      }
+    }
+  }
+}

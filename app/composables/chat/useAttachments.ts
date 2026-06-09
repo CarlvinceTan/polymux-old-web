@@ -21,6 +21,7 @@ const maxUploadSize = ref<number | null>(null)
 const configFetchCache = new Map<string, Promise<void>>()
 
 export function useAttachments() {
+  const { t } = useI18n()
   const attachments = ref<FileAttachmentState[]>([])
   const xhrMap = new Map<string, XMLHttpRequest>()
 
@@ -129,12 +130,12 @@ export function useAttachments() {
           if (data.max_upload_size) {
             maxUploadSize.value = data.max_upload_size
             showToast(
-              `"${file.name}" exceeds the ${formatSize(data.max_upload_size)} upload limit`,
+              t('attachments.exceedsLimit', { name: file.name, limit: formatSize(data.max_upload_size) }),
               'warning',
             )
           }
         } catch {
-          showToast(`"${file.name}" is too large to upload`, 'warning')
+          showToast(t('attachments.tooLarge', { name: file.name }), 'warning')
         }
       } else {
         updateEntry(localId, { status: 'error', progress: 0 })

@@ -38,7 +38,12 @@
       "error": "错误",
       "info": "信息",
       "loading": "加载中…"
-    }
+    },
+    "duplicate": "复制",
+    "info": "信息",
+    "download": "下载",
+    "workspace": "工作区",
+    "retry": "重试"
   },
   "upgradePlan": {
     "title": "升级您的方案",
@@ -95,7 +100,9 @@
     "newWorkflow": "新建工作流",
     "addWorkspace": "添加工作区",
     "mainSidebar": "主侧边栏",
-    "toggleSidebar": "切换侧边栏"
+    "toggleSidebar": "切换侧边栏",
+    "main": "主菜单",
+    "userProfile": "用户资料"
   },
   "notifications": {
     "title": "通知",
@@ -217,7 +224,10 @@
     "emailManagedByProvider": "电子邮件由您关联的账户管理，无法在此处更改。",
     "saving": "保存中…",
     "profileUpdateError": "更新个人资料失败，请重试。",
-    "checkoutSuccess": "您的套餐已成功升级！"
+    "checkoutSuccess": "您的套餐已成功升级！",
+    "importPasswords": "导入密码",
+    "importPasswordsHint": "将 Chrome、Firefox 或 Safari 中保存的登录信息导入工作区保险库。",
+    "allNotificationsHint": "应用发送的非必要邮件（工作区邀请、新闻通讯等）的总开关。重要账户消息仍会送达。"
   },
   "chat": {
     "welcomeGreeting": "{name}，有什么可以帮您的吗？",
@@ -257,6 +267,7 @@
     "saving": "保存中…",
     "cancel": "取消",
     "run": "运行",
+    "runNeedsSave": "运行前请先保存工作流",
     "running": "运行中…",
     "stop": "停止",
     "history": "历史",
@@ -430,7 +441,9 @@
     "closeExpanded": "关闭展开视图",
     "reconnecting": "正在重新连接",
     "runAgent": "运行",
-    "stopAgent": "停止"
+    "stopAgent": "停止",
+    "pinBrowser": "固定浏览器智能体",
+    "unpinBrowser": "取消固定浏览器智能体"
   },
   "browser": {
     "addAgent": "添加浏览器代理",
@@ -513,6 +526,7 @@
     "editorNoVersion": "尚无版本",
     "editorBundleNoItems": "此捆绑包中尚无内容。",
     "editorSearchPlaceholder": "搜索我的发布…",
+    "editorDocs": "文档",
     "editorNoResults": "没有匹配你搜索的发布。",
     "editorSortRecent": "最近更新",
     "searchPlaceholder": "搜索市场…",
@@ -578,7 +592,8 @@
     "editorLayoutBodyHelp": "原始 HTML、CSS 和 JS。在沙盒化的 iframe 内渲染。",
     "filterLayouts": "布局",
     "categoryLayout": "布局",
-    "official": "官方"
+    "official": "官方",
+    "editorListingNotFound": "找不到此列表。"
   },
   "workspace": {
     "team": "团队",
@@ -685,7 +700,9 @@
     "avatarErrorType": "请选择图片文件（PNG、JPG、WebP 或 GIF）。",
     "avatarErrorSize": "图片必须不超过 1 MB。",
     "avatarErrorRead": "无法读取此图片，可能已损坏。",
-    "identityUpdateError": "无法更新工作区,请重试。"
+    "identityUpdateError": "无法更新工作区,请重试。",
+    "llmKeysTitle": "LLM API 密钥",
+    "llmKeysDesc": "使用您自己的 LLM API 密钥。设置后，此工作区中的每次运行都将使用您的密钥而非共享密钥——令牌从您的提供商账户扣费，而非您的每周预算。"
   },
   "storage": {
     "workspace": "工作区",
@@ -834,6 +851,7 @@
       "video": "视频",
       "audio": "音频",
       "key": "密钥",
+      "certificate": "证书",
       "archive": "压缩包",
       "calendar": "日历",
       "spreadsheet": "电子表格",
@@ -866,6 +884,55 @@
       "images": "图片",
       "documents": "文档",
       "videos": "视频"
+    },
+    "moveModalTitle": "移动到…",
+    "moveToast": {
+      "movedOne": "已移动 {n} 项",
+      "movedMany": "已移动 {n} 项",
+      "cloudLimit": "已达到您方案的云端存储上限。",
+      "failed": "移动失败：{reason}",
+      "partial": "已移动 {migrated} 项，{failed} 项失败",
+      "unknownError": "未知错误",
+      "movingOne": "正在移动 {n} 个项目…",
+      "movingMany": "正在移动 {n} 个项目…"
+    },
+    "migrateConfirm": {
+      "title": "跨提供商迁移？",
+      "bodyOne": "此项目位于与目标文件夹不同的提供商",
+      "bodyMany": "这些项目位于与目标文件夹不同的提供商",
+      "home": "主页",
+      "continueCopy": "继续复制到",
+      "removeOriginals": "并删除原始文件。",
+      "cancel": "取消",
+      "confirm": "迁移"
+    },
+    "errors": {
+      "upgradeCloud": "升级到 Pro 或 Max 以使用云端存储。",
+      "listFailed": "无法列出文件",
+      "signInToUpload": "请登录以上传文件。",
+      "localDeviceId": "此浏览器无法提供本地存储所需的设备 ID。",
+      "localUnsupported": "此浏览器不支持本地存储。",
+      "localUploadMissingId": "本地上传失败：缺少文件 ID。",
+      "uploadFailedStatus": "上传失败 ({status}){detail}",
+      "b2MissingFileId": "上传成功但缺少 B2 fileId。",
+      "driveMissingFileId": "上传成功但缺少 Drive 文件 ID。",
+      "uploadFailed": "文件上传失败",
+      "deleteFailed": "文件删除失败",
+      "moveFailed": "文件移动失败",
+      "migrationFailed": "迁移失败",
+      "saveOrderFailed": "顺序保存失败",
+      "invalidFolderName": "请输入有效的文件夹名称。",
+      "renameFolderFailed": "文件夹重命名失败",
+      "signInToCreateFolders": "请登录以创建文件夹。",
+      "createFolderFailed": "文件夹创建失败",
+      "copyFileFailed": "文件复制失败",
+      "signInToCopyFolders": "请登录以复制文件夹。",
+      "copyFolderFailed": "文件夹复制失败",
+      "mintDownloadFailed": "无法生成下载 URL。",
+      "localDeviceOnly": "此文件仅在使用创建设备上可用。",
+      "localCopyMissing": "此设备上未找到本地副本。",
+      "downloadFailedStatus": "下载失败 ({status})",
+      "downloadFailed": "文件下载失败"
     }
   },
   "contact": {
@@ -991,6 +1058,13 @@
     "savedToStorage": "已保存到存储",
     "noPreview": "预览不可用",
     "noPreviewDesc": "下载此文件以查看其内容。",
+    "viewMode": "制品查看模式",
+    "preview": "预览",
+    "raw": "Raw",
+    "rawLoading": "正在加载 raw 文件...",
+    "rawUnavailable": "此文件不支持 Raw 视图。",
+    "rawLoadError": "Raw 视图加载失败。",
+    "rawLoadStatus": "Raw 视图加载失败（{status}）。",
     "typeImage": "图片",
     "typeCode": "代码",
     "typeDocument": "文档",
@@ -1006,6 +1080,7 @@
     "promoting": "保存中…",
     "promoted": "已保存到 {path}",
     "promoteError": "无法保存到存储。请重试。",
+    "downloadError": "无法下载制品。",
     "deleteError": "无法删除制品。"
   },
   "landing": {
@@ -1055,10 +1130,22 @@
       "monthly": "月付",
       "purchaseNow": "立即购买",
       "plans": {
-        "free": { "name": "Free", "cta": "开始使用" },
-        "pro": { "name": "Pro", "cta": "选择方案" },
-        "max": { "name": "Max", "cta": "选择方案" },
-        "enterprise": { "name": "Enterprise", "cta": "联系销售" }
+        "free": {
+          "name": "Free",
+          "cta": "开始使用"
+        },
+        "pro": {
+          "name": "Pro",
+          "cta": "选择方案"
+        },
+        "max": {
+          "name": "Max",
+          "cta": "选择方案"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "cta": "联系销售"
+        }
       },
       "comparison": {
         "agentsPerWorkspace": "每个工作区的AI代理",
@@ -1217,10 +1304,10 @@
   },
   "vault": {
     "passwords": {
-      "searchPlaceholder": "搜索密码…",
+      "searchPlaceholder": "搜索账户…",
       "yourPasswords": "您的密码",
-      "addPassword": "添加密码",
-      "addPasswordTitle": "添加密码",
+      "addPassword": "添加账户",
+      "addPasswordTitle": "添加账户",
       "filterBy": "筛选",
       "sortBy": "排序",
       "all": "全部",
@@ -1232,28 +1319,99 @@
       "lastUsed": "最近使用",
       "oldestFirst": "最早添加",
       "savedBy": "由 {name} 保存",
+      "savedAt": "保存于 {when}",
       "lastUsedBy": "由 {name} 最近使用 · {when}",
+      "lastUsedAt": "最近使用 {when}",
       "unknownUser": "未知",
-      "view": "查看",
+      "details": "详情",
+      "detailsSection": "详情",
       "edit": "编辑",
-      "empty": "暂无保存的密码",
-      "noResults": "没有找到匹配的密码。",
+      "empty": "暂无保存的账户",
+      "noResults": "没有找到匹配的账户。",
       "urlLabel": "网址",
       "urlPlaceholder": "example.cn",
       "usernameLabel": "用户名或邮箱",
       "usernamePlaceholder": "you{'@'}example.cn",
       "passwordLabel": "密码",
       "passwordPlaceholder": "输入密码",
-      "editPasswordTitle": "编辑密码",
+      "editPasswordTitle": "编辑账户",
+      "openSite": "打开网站",
       "newPasswordLabel": "新密码（留空以保留当前密码）",
       "newPasswordPlaceholder": "输入新密码",
       "viewPasswordTitle": "查看密码",
       "revealPassword": "显示",
       "hidePassword": "隐藏",
       "copyPassword": "复制密码",
+      "totpSetupLabel": "验证器密钥（可选）",
+      "totpSetupPlaceholder": "otpauth:// 链接或密钥",
+      "totpSetupHint": "粘贴网站两步验证设置中的设置密钥或 otpauth:// 链接。",
+      "totpInvalid": "这看起来不是有效的验证器密钥。",
+      "totpCodeLabel": "两步验证代码",
+      "totpError": "无法加载代码",
+      "copyCode": "复制代码",
+      "totpBadge": "2FA",
+      "totpBadgeTitle": "已启用两步验证",
       "copied": "已复制！",
       "loading": "加载密码中…",
-      "saving": "保存中…"
+      "saving": "保存中…",
+      "addTab": "手动",
+      "importTab": "从浏览器导入",
+      "importFromBrowser": "从浏览器导入",
+      "import": {
+        "action": "导入",
+        "title": "导入密码",
+        "subtitleNative": "Polymux 可读取此设备浏览器中保存的密码。",
+        "subtitleWeb": "从浏览器导出 CSV，然后在此上传。",
+        "detectedBrowsers": "已安装的浏览器",
+        "scanning": "正在扫描浏览器…",
+        "noBrowsersDetected": "此设备上未找到支持的浏览器。",
+        "nativeDetectFailed": "无法扫描浏览器。",
+        "nativeReadFailed": "无法从该浏览器读取密码。",
+        "profileCount": "{count} 个配置文件 | {count} 个配置文件",
+        "orManual": "或从 CSV 导出文件导入",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge、Brave 及其他 Chromium 内核浏览器使用相同的导出格式。",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "打开 Chrome 密码管理器（设置 → 自动填充 → Google 密码管理器）。",
+            "step2": "打开设置，选择导出密码，并用设备密码确认。",
+            "step3": "在下方上传下载的 CSV 文件。"
+          },
+          "firefox": {
+            "step1": "打开 Firefox 并访问 about:logins（或 设置 → 隐私与安全 → 登录信息与密码）。",
+            "step2": "打开菜单（⋯），选择将登录信息导出为 CSV，并在提示时确认。",
+            "step3": "在下方上传下载的 CSV 文件。"
+          },
+          "safari": {
+            "step1": "在 macOS 上打开「密码」（系统设置 → 密码，或 Safari → 设置 → 密码）。",
+            "step2": "选择要导出的密码，然后使用「文件 → 将密码导出为 CSV」。",
+            "step3": "在下方上传下载的 CSV 文件。"
+          }
+        },
+        "uploadCsv": "导入密码",
+        "parseFailed": "无法读取该文件。请确认其为有效的密码导出 CSV。",
+        "noEntriesFound": "该文件中未找到密码。",
+        "securityNote": "导入后请删除 CSV——其中包含明文密码。",
+        "reviewSubtitle": "找到 {count} 条密码——选择要导入的内容。 | 找到 {count} 条密码——选择要导入的内容。",
+        "searchPlaceholder": "筛选列表…",
+        "selectedCount": "已选 {count} 项",
+        "colName": "名称",
+        "colUsername": "用户名",
+        "colSite": "网站",
+        "duplicateHint": "保险库中已有的条目默认未勾选。",
+        "back": "返回",
+        "importSelected": "导入 {count} 条密码 | 导入 {count} 条密码",
+        "importing": "正在导入…",
+        "importingSubtitle": "正在加密并保存您选择的密码。",
+        "completeTitle": "已导入 {imported} 条密码。 | 已导入 {imported} 条密码。",
+        "completeFailed": "{failed} 条无法保存。",
+        "completeSubtitle": "完成。",
+        "done": "完成"
+      }
     },
     "signIns": {
       "sectionTitle": "已保存的登录",
@@ -1263,7 +1421,7 @@
       "forget": "忘记"
     },
     "tabs": {
-      "passwords": "密码",
+      "accounts": "账户",
       "wallet": "钱包"
     },
     "wallet": {
@@ -1444,7 +1602,13 @@
     "saving": "保存中…",
     "saveAndUse": "保存并使用",
     "errorReveal": "无法检索已保存的密码。",
-    "errorSave": "无法将凭据保存到保险库。"
+    "errorSave": "无法将凭据保存到保险库。",
+    "errorNoWorkspace": "保存凭据前请先选择工作区。",
+    "errorDelete": "无法删除已保存的凭据。",
+    "showDetails": "详情",
+    "hideDetails": "隐藏详情",
+    "completedSummary": "已为 {site} 提供凭据。",
+    "cancelledSummary": "已取消 {site} 的登录。"
   },
   "schedule": {
     "title": "计划",
@@ -1563,11 +1727,34 @@
   "pricing": {
     "billingPeriod": "计费周期",
     "storage": {
-      "total": "工作区存储空间",
-      "file": "单文件大小上限",
-      "pullFolder": "文件夹拉取上限",
-      "artifacts": "成果物存储空间"
-    }
+      "total": "工作区存储",
+      "file": "单文件大小限制",
+      "pullFolder": "文件夹拉取限制",
+      "artifacts": "产物存储"
+    },
+    "metaTitle": "定价",
+    "metaDescription": "AI 智能体工作区的简单透明定价。免费起步，通过 Pro、Max 和 Enterprise 方案按需扩展。",
+    "annual": "年付",
+    "monthly": "月付",
+    "purchaseNow": "立即购买",
+    "redirecting": "正在跳转…",
+    "mostPopular": "最受欢迎",
+    "currentPlan": "当前方案",
+    "selectWorkspaceFirst": "请先选择要升级的工作区。",
+    "purchaseError": "出现问题，请重试。",
+    "features": {
+      "agentsPerWorkspace": "每个工作区的 AI 智能体数",
+      "weeklyTokenBudget": "每周令牌预算",
+      "monthlyWorkflowRuns": "每月工作流运行次数",
+      "cloudStorage": "云端存储",
+      "workspaceMembers": "工作区成员数",
+      "byok": "自带 LLM 密钥",
+      "customWorkflows": "自定义工作流",
+      "prioritySupport": "优先支持"
+    },
+    "subtitle": "免费开始，随成长扩展。无隐藏费用。每个工作区单独计费 — 只升级需要的。",
+    "upgradeTitle": "升级 {name} 的方案",
+    "pricingTitle": "定价"
   },
   "install": {
     "versionBadge": "Polymux 桌面版 · v{version}",
@@ -1624,6 +1811,12 @@
       "description": "我们的文档涵盖了每个平台的验证、更新和故障排除。",
       "readGuide": "阅读安装指南",
       "contactSupport": "联系支持"
+    },
+    "extension": {
+      "eyebrow": "浏览器扩展",
+      "heading": "连接您的浏览器",
+      "subtitle": "连接 Polymux 扩展，在本地浏览器中运行智能体。",
+      "chromeLabel": "安装 Chrome 版"
     }
   },
   "docs": {
@@ -1721,20 +1914,25 @@
     "getStarted": "开始使用",
     "stepLabel": "第 {current} / {total} 步",
     "welcome": {
-      "title": "欢迎使用 Polymux",
-      "description": "运行由 AI 驱动的工作流，浏览网页、处理文件，并代您行事。"
+      "title": "欢迎来到您的新工作区",
+      "description": "Polymux 中的一切都在工作区内——可在团队与个人项目间切换、邀请成员，并将各工作区的工作流、文件与密钥彼此隔离。"
     },
     "workflows": {
-      "title": "可视化构建工作流",
-      "description": "在画布上编排步骤，按计划运行，并查看每一项结果。"
+      "title": "构建并运行工作流",
+      "description": "在流程画布上编排智能体步骤，并在同一处观看它们在实时浏览器视口中的运行。"
     },
-    "browser": {
-      "title": "同步跟随的浏览器",
-      "description": "实时观看工作流操作浏览器，或随时接管。"
+    "storage": {
+      "title": "工作区文件",
+      "description": "上传、整理并移动文件与文件夹。工作流可代您读写存储。"
+    },
+    "integrations": {
+      "title": "连接您的工具",
+      "description": "从应用市场安装集成，让工作流连接 Slack、GitHub、数据库等。"
     },
     "vault": {
-      "title": "您的保险库，您的秘密",
-      "description": "安全保存密码与凭据，让工作流代您登录。"
+      "title": "密码与钱包",
+      "description": "保存登录凭据并管理智能体钱包，让工作流安全登录并为服务付费。",
+      "importCta": "从浏览器导入"
     },
     "terms": {
       "title": "一些注意事项",
@@ -1750,5 +1948,126 @@
       "footnoteEnd": "。",
       "acknowledgement": "我已阅读并理解上述内容，同意在 Polymux 测试期间所述的暴露和数据共享。"
     }
+  },
+  "llmKeys": {
+    "addKey": "添加密钥",
+    "loading": "正在加载密钥…",
+    "empty": "尚未配置 LLM 密钥。此工作区的运行使用共享服务器密钥。",
+    "provider": "提供商",
+    "apiKey": "API 密钥",
+    "baseUrl": "基础 URL",
+    "baseUrlOptional": "（可选）",
+    "keyHint": "密钥在存储时加密。我们仅显示最后四个字符；无法检索完整密钥。",
+    "baseUrlHint": "留空则使用服务器默认值。为代理、Azure OpenAI 或其他兼容端点设置自定义 URL。",
+    "rotate": "轮换",
+    "remove": "移除",
+    "saveKey": "保存密钥",
+    "lastUsed": "上次使用 {when}",
+    "savedToast": "已保存 {provider} 密钥（…{lastFour}）。",
+    "removedToast": "已移除 {provider} 密钥。",
+    "confirmRemove": "移除 {provider} API 密钥（…{lastFour}）？后续运行将回退到共享服务器密钥。",
+    "relativeNever": "从未",
+    "relativeJustNow": "刚刚",
+    "relativeMinutesAgo": "{n} 分钟前",
+    "relativeHoursAgo": "{n} 小时前",
+    "relativeDaysAgo": "{n} 天前",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
+  },
+  "community": {
+    "metaTitle": "社区",
+    "metaDescription": "加入 Polymux 社区。分享工作流、提问，与其他 AI 智能体开发者交流。",
+    "title": "Polymux 社区",
+    "subtitle": "Polymux 用户的更新、讨论与资源",
+    "searchPlaceholder": "搜索社区…",
+    "searchResults": "搜索结果",
+    "comingSoon": "即将推出",
+    "explore": "探索",
+    "tiles": {
+      "blog": {
+        "label": "博客",
+        "description": "产品更新、工程笔记与指南"
+      },
+      "documentation": {
+        "label": "文档",
+        "description": "指南、参考与 API 文档"
+      },
+      "forum": {
+        "label": "论坛",
+        "description": "提问、分享想法、与他人交流"
+      }
+    },
+    "sources": {
+      "documentation": "文档",
+      "forum": "论坛",
+      "blog": "博客"
+    },
+    "searching": "搜索中…",
+    "noResults": "没有与「{query}」匹配的结果。请尝试其他关键词。"
+  },
+  "blog": {
+    "metaTitle": "Polymux 博客",
+    "metaDescription": "关于 AI 智能体、浏览器自动化以及 Polymux 多智能体编排的更新、深度文章与案例研究。",
+    "title": "Polymux 博客",
+    "subscribe": "订阅",
+    "empty": "暂无文章，请稍后再来。",
+    "readMore": "阅读更多",
+    "emailLabel": "邮箱",
+    "subtitle": "面向使用 Polymux 构建的团队的产品更新、工程笔记和指南 — 编排智能体、观看实时浏览器会话并交付可信赖的自动化。",
+    "subscribeHint": "每月发布几次新文章"
+  },
+  "verifyEmail": {
+    "title": "验证邮箱",
+    "verifying": "正在验证您的邮箱…",
+    "verifiedTitle": "邮箱已验证！",
+    "verifiedBody": "您的 Polymux 博客订阅已确认。欢迎！ 🎉",
+    "failedTitle": "验证失败",
+    "backToBlog": "返回博客",
+    "tokenMissing": "缺少验证令牌",
+    "verifyFailed": "邮箱验证失败"
+  },
+  "invitations": {
+    "loading": "正在加载邀请…",
+    "joinTitle": "加入 {name}",
+    "invitedAs": "您受邀以 {role} 身份加入。",
+    "sentTo": "邀请发送至",
+    "decline": "拒绝",
+    "accept": "接受邀请",
+    "joining": "正在加入工作区…",
+    "acceptedTitle": "已加入",
+    "acceptedBody": "欢迎加入 {name}。",
+    "continueToDashboard": "继续前往控制台",
+    "unavailableTitle": "邀请不可用",
+    "goToDashboard": "前往控制台",
+    "errors": {
+      "tokenMissing": "缺少邀请令牌。",
+      "loadFailed": "无法加载邀请。",
+      "invalidOrRevoked": "此邀请链接无效或已被撤销。",
+      "alreadyAccepted": "此邀请已被接受。",
+      "expired": "此邀请已过期。请工作区管理员重新发送。",
+      "emailMismatch": "此邀请发送至其他邮箱。请使用受邀账户登录。",
+      "expiredShort": "此邀请已过期。",
+      "alreadyUsed": "此邀请已被使用。",
+      "notFound": "此邀请已失效。",
+      "acceptFailed": "接受时出现问题，请重试。"
+    }
+  },
+  "layout": {
+    "loadFailed": "布局加载失败。",
+    "retry": "重试",
+    "loading": "正在加载布局…"
+  },
+  "marketplace": {
+    "adminOnly": "仅工作区所有者和管理员可管理集成。",
+    "pluginInstalledNeedsSetup": "插件已安装。以下连接仍需设置：{names}。",
+    "pluginInstallPartialFailed": "部分插件项安装失败：{names}。",
+    "installFailed": "无法安装集成。"
+  },
+  "attachments": {
+    "tooLarge": "「{name}」过大，无法上传",
+    "exceedsLimit": "「{name}」超过 {limit} 的上传限制"
   }
 }

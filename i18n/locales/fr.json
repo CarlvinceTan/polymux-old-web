@@ -38,7 +38,12 @@
       "error": "Erreur",
       "info": "Info",
       "loading": "Chargement…"
-    }
+    },
+    "duplicate": "Dupliquer",
+    "info": "Info",
+    "download": "Télécharger",
+    "workspace": "Workspace",
+    "retry": "Réessayer"
   },
   "upgradePlan": {
     "title": "Mettre à niveau votre plan",
@@ -95,7 +100,9 @@
     "newWorkflow": "Nouveau workflow",
     "addWorkspace": "Ajouter un espace de travail",
     "mainSidebar": "Barre latérale principale",
-    "toggleSidebar": "Basculer la barre latérale"
+    "toggleSidebar": "Basculer la barre latérale",
+    "main": "Principal",
+    "userProfile": "Profil utilisateur"
   },
   "notifications": {
     "title": "Notifications",
@@ -217,7 +224,10 @@
     "emailManagedByProvider": "L'adresse e-mail est gérée par votre compte lié et ne peut pas être modifiée ici.",
     "saving": "Enregistrement…",
     "profileUpdateError": "Échec de la mise à jour du profil. Veuillez réessayer.",
-    "checkoutSuccess": "Votre plan a été mis à niveau avec succès !"
+    "checkoutSuccess": "Votre plan a été mis à niveau avec succès !",
+    "importPasswords": "Importer des mots de passe",
+    "importPasswordsHint": "Importez les identifiants enregistrés depuis Chrome, Firefox ou Safari dans le coffre de votre workspace.",
+    "allNotificationsHint": "Interrupteur principal pour les e-mails non essentiels envoyés par l'application (invitations au workspace, newsletter, etc.). Les messages importants du compte continueront d'arriver."
   },
   "chat": {
     "welcomeGreeting": "Comment puis-je vous aider, {name} ?",
@@ -257,6 +267,7 @@
     "saving": "Enregistrement…",
     "cancel": "Annuler",
     "run": "Exécuter",
+    "runNeedsSave": "Enregistrez le workflow avant de pouvoir l'exécuter",
     "running": "En cours…",
     "stop": "Arrêter",
     "history": "Historique",
@@ -430,7 +441,9 @@
     "closeExpanded": "Fermer la vue agrandie",
     "reconnecting": "Reconnexion",
     "runAgent": "Exécuter",
-    "stopAgent": "Arrêter"
+    "stopAgent": "Arrêter",
+    "pinBrowser": "Épingler l'agent navigateur",
+    "unpinBrowser": "Désépingler l'agent navigateur"
   },
   "browser": {
     "addAgent": "Ajouter un agent navigateur",
@@ -513,6 +526,7 @@
     "editorNoVersion": "Pas encore de version",
     "editorBundleNoItems": "Aucun élément dans ce bundle.",
     "editorSearchPlaceholder": "Rechercher dans vos publications…",
+    "editorDocs": "Documentation",
     "editorNoResults": "Aucune publication ne correspond à votre recherche.",
     "editorSortRecent": "Récemment mis à jour",
     "searchPlaceholder": "Rechercher dans le marketplace…",
@@ -578,7 +592,8 @@
     "editorLayoutBodyHelp": "HTML, CSS et JS bruts. Rendu dans une iframe isolée.",
     "filterLayouts": "Dispositions",
     "categoryLayout": "Disposition",
-    "official": "Officiel"
+    "official": "Officiel",
+    "editorListingNotFound": "Cette fiche est introuvable."
   },
   "workspace": {
     "team": "Équipe",
@@ -685,7 +700,9 @@
     "avatarErrorType": "Choisissez une image (PNG, JPG, WebP ou GIF).",
     "avatarErrorSize": "L’image doit faire 1 Mo ou moins.",
     "avatarErrorRead": "Impossible de lire cette image. Elle est peut-être corrompue.",
-    "identityUpdateError": "Impossible de mettre à jour l’espace. Réessayez."
+    "identityUpdateError": "Impossible de mettre à jour l’espace. Réessayez.",
+    "llmKeysTitle": "Clés API LLM",
+    "llmKeysDesc": "Utilisez votre propre clé API LLM. Une fois définie, chaque exécution dans ce workspace utilise votre clé plutôt que la clé partagée — les tokens sont débités de votre compte fournisseur, pas de votre budget hebdomadaire."
   },
   "storage": {
     "workspace": "Espace de travail",
@@ -834,6 +851,7 @@
       "video": "Vidéo",
       "audio": "Audio",
       "key": "Clé",
+      "certificate": "Certificat",
       "archive": "Archive",
       "calendar": "Calendrier",
       "spreadsheet": "Tableur",
@@ -866,6 +884,55 @@
       "images": "Images",
       "documents": "Documents",
       "videos": "Vidéos"
+    },
+    "moveModalTitle": "Déplacer vers…",
+    "moveToast": {
+      "movedOne": "{n} élément déplacé",
+      "movedMany": "{n} éléments déplacés",
+      "cloudLimit": "Limite de stockage cloud atteinte pour votre plan.",
+      "failed": "Échec du déplacement : {reason}",
+      "partial": "{migrated} déplacés, {failed} en échec",
+      "unknownError": "erreur inconnue",
+      "movingOne": "Déplacement de {n} élément…",
+      "movingMany": "Déplacement de {n} éléments…"
+    },
+    "migrateConfirm": {
+      "title": "Migrer entre fournisseurs ?",
+      "bodyOne": "Cet élément est hébergé chez un fournisseur différent du dossier de destination",
+      "bodyMany": "Ces éléments sont hébergés chez un fournisseur différent du dossier de destination",
+      "home": "Accueil",
+      "continueCopy": "Continuer pour les copier vers",
+      "removeOriginals": "et supprimer les originaux.",
+      "cancel": "Annuler",
+      "confirm": "Migrer"
+    },
+    "errors": {
+      "upgradeCloud": "Passez à Pro ou Max pour utiliser le stockage cloud.",
+      "listFailed": "Impossible de lister les fichiers",
+      "signInToUpload": "Connectez-vous pour téléverser des fichiers.",
+      "localDeviceId": "Ce navigateur ne peut pas fournir d'identifiant d'appareil pour le stockage local.",
+      "localUnsupported": "Le stockage local n'est pas pris en charge par ce navigateur.",
+      "localUploadMissingId": "Échec du téléversement local : identifiant de fichier manquant.",
+      "uploadFailedStatus": "Échec du téléversement ({status}){detail}",
+      "b2MissingFileId": "Téléversement réussi mais fileId B2 manquant.",
+      "driveMissingFileId": "Téléversement réussi mais identifiant de fichier Drive manquant.",
+      "uploadFailed": "Impossible de téléverser le fichier",
+      "deleteFailed": "Impossible de supprimer les fichiers",
+      "moveFailed": "Impossible de déplacer le fichier",
+      "migrationFailed": "Échec de la migration",
+      "saveOrderFailed": "Impossible d'enregistrer l'ordre",
+      "invalidFolderName": "Saisissez un nom de dossier valide.",
+      "renameFolderFailed": "Impossible de renommer le dossier",
+      "signInToCreateFolders": "Connectez-vous pour créer des dossiers.",
+      "createFolderFailed": "Impossible de créer le dossier",
+      "copyFileFailed": "Impossible de copier le fichier",
+      "signInToCopyFolders": "Connectez-vous pour copier des dossiers.",
+      "copyFolderFailed": "Impossible de copier le dossier",
+      "mintDownloadFailed": "Impossible de générer l'URL de téléchargement.",
+      "localDeviceOnly": "Ce fichier n'est disponible que sur l'appareil qui l'a créé.",
+      "localCopyMissing": "Copie locale introuvable sur cet appareil.",
+      "downloadFailedStatus": "Échec du téléchargement ({status})",
+      "downloadFailed": "Impossible de télécharger le fichier"
     }
   },
   "contact": {
@@ -991,6 +1058,13 @@
     "savedToStorage": "Enregistré dans le stockage",
     "noPreview": "Aperçu non disponible",
     "noPreviewDesc": "Téléchargez ce fichier pour afficher son contenu.",
+    "viewMode": "Mode d'affichage de l'artefact",
+    "preview": "Aperçu",
+    "raw": "Raw",
+    "rawLoading": "Chargement du fichier raw...",
+    "rawUnavailable": "La vue raw n'est pas disponible pour ce fichier.",
+    "rawLoadError": "Impossible de charger la vue raw.",
+    "rawLoadStatus": "Impossible de charger la vue raw ({status}).",
     "typeImage": "Image",
     "typeCode": "Code",
     "typeDocument": "Document",
@@ -1006,6 +1080,7 @@
     "promoting": "Enregistrement…",
     "promoted": "Enregistré dans {path}",
     "promoteError": "Impossible d'enregistrer dans le stockage. Veuillez réessayer.",
+    "downloadError": "Impossible de télécharger l'artefact.",
     "deleteError": "Impossible de supprimer l'artefact."
   },
   "landing": {
@@ -1055,10 +1130,22 @@
       "monthly": "Mensuel",
       "purchaseNow": "Acheter maintenant",
       "plans": {
-        "free": { "name": "Free", "cta": "Commencer" },
-        "pro": { "name": "Pro", "cta": "Choisir ce plan" },
-        "max": { "name": "Max", "cta": "Choisir ce plan" },
-        "enterprise": { "name": "Enterprise", "cta": "Contacter les ventes" }
+        "free": {
+          "name": "Free",
+          "cta": "Commencer"
+        },
+        "pro": {
+          "name": "Pro",
+          "cta": "Choisir ce plan"
+        },
+        "max": {
+          "name": "Max",
+          "cta": "Choisir ce plan"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "cta": "Contacter les ventes"
+        }
       },
       "comparison": {
         "agentsPerWorkspace": "Agents IA par workspace",
@@ -1217,10 +1304,10 @@
   },
   "vault": {
     "passwords": {
-      "searchPlaceholder": "Rechercher des mots de passe…",
+      "searchPlaceholder": "Rechercher des comptes…",
       "yourPasswords": "Vos mots de passe",
-      "addPassword": "Ajouter un mot de passe",
-      "addPasswordTitle": "Ajouter un mot de passe",
+      "addPassword": "Ajouter un compte",
+      "addPasswordTitle": "Ajouter un compte",
       "filterBy": "Filtrer par",
       "sortBy": "Trier par",
       "all": "Tous",
@@ -1232,28 +1319,99 @@
       "lastUsed": "Dernière utilisation",
       "oldestFirst": "Plus anciens d'abord",
       "savedBy": "Enregistré par {name}",
+      "savedAt": "Enregistré {when}",
       "lastUsedBy": "Dernière utilisation par {name} · {when}",
+      "lastUsedAt": "Dernière utilisation {when}",
       "unknownUser": "inconnu",
-      "view": "Afficher",
+      "details": "Détails",
+      "detailsSection": "Détails",
       "edit": "Modifier",
-      "empty": "Aucun mot de passe enregistré pour l'instant",
-      "noResults": "Aucun mot de passe ne correspond à votre recherche.",
+      "empty": "Aucun compte enregistré pour l'instant",
+      "noResults": "Aucun compte ne correspond à votre recherche.",
       "urlLabel": "URL",
       "urlPlaceholder": "exemple.fr",
       "usernameLabel": "Nom d'utilisateur ou e-mail",
       "usernamePlaceholder": "vous{'@'}exemple.fr",
       "passwordLabel": "Mot de passe",
       "passwordPlaceholder": "Entrez le mot de passe",
-      "editPasswordTitle": "Modifier le mot de passe",
+      "editPasswordTitle": "Modifier le compte",
+      "openSite": "Ouvrir le site",
       "newPasswordLabel": "Nouveau mot de passe (laisser vide pour conserver l'actuel)",
       "newPasswordPlaceholder": "Entrez le nouveau mot de passe",
       "viewPasswordTitle": "Voir le mot de passe",
       "revealPassword": "Afficher",
       "hidePassword": "Masquer",
       "copyPassword": "Copier le mot de passe",
+      "totpSetupLabel": "Clé d'authentification (facultatif)",
+      "totpSetupPlaceholder": "Lien otpauth:// ou clé secrète",
+      "totpSetupHint": "Collez la clé de configuration ou le lien otpauth:// depuis la configuration à deux facteurs du site.",
+      "totpInvalid": "Cela ne ressemble pas à une clé d'authentification valide.",
+      "totpCodeLabel": "Code à deux facteurs",
+      "totpError": "Impossible de charger le code",
+      "copyCode": "Copier le code",
+      "totpBadge": "2FA",
+      "totpBadgeTitle": "Authentification à deux facteurs activée",
       "copied": "Copié !",
       "loading": "Chargement des mots de passe…",
-      "saving": "Enregistrement…"
+      "saving": "Enregistrement…",
+      "addTab": "Manuel",
+      "importTab": "Importer depuis le navigateur",
+      "importFromBrowser": "Importer depuis le navigateur",
+      "import": {
+        "action": "Importer",
+        "title": "Importer des mots de passe",
+        "subtitleNative": "Polymux peut lire les mots de passe enregistrés dans les navigateurs sur cet appareil.",
+        "subtitleWeb": "Exportez un CSV depuis votre navigateur, puis téléversez-le ici.",
+        "detectedBrowsers": "Navigateurs installés",
+        "scanning": "Recherche de navigateurs…",
+        "noBrowsersDetected": "Aucun navigateur pris en charge trouvé sur cet appareil.",
+        "nativeDetectFailed": "Impossible de rechercher les navigateurs.",
+        "nativeReadFailed": "Impossible de lire les mots de passe de ce navigateur.",
+        "profileCount": "{count} profil | {count} profils",
+        "orManual": "Ou importer depuis une exportation CSV",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge, Brave et les autres navigateurs basés sur Chromium utilisent le même format d'export.",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "Ouvrez le gestionnaire de mots de passe de Chrome (Paramètres → Saisie automatique → Google Password Manager).",
+            "step2": "Ouvrez Paramètres, puis choisissez Exporter les mots de passe et confirmez avec le mot de passe de votre appareil.",
+            "step3": "Téléversez le fichier CSV téléchargé ci-dessous."
+          },
+          "firefox": {
+            "step1": "Ouvrez Firefox et allez sur about:logins (ou Paramètres → Vie privée et sécurité → Identifiants et mots de passe).",
+            "step2": "Ouvrez le menu (⋯) et choisissez Exporter les identifiants en CSV. Confirmez lorsque demandé.",
+            "step3": "Téléversez le fichier CSV téléchargé ci-dessous."
+          },
+          "safari": {
+            "step1": "Sur macOS, ouvrez Mots de passe (Réglages système → Mots de passe, ou Safari → Réglages → Mots de passe).",
+            "step2": "Sélectionnez les mots de passe souhaités, puis utilisez Fichier → Exporter les mots de passe en CSV.",
+            "step3": "Téléversez le fichier CSV téléchargé ci-dessous."
+          }
+        },
+        "uploadCsv": "Importer des mots de passe",
+        "parseFailed": "Impossible de lire ce fichier. Vérifiez qu'il s'agit d'un CSV d'export de mots de passe valide.",
+        "noEntriesFound": "Aucun mot de passe trouvé dans ce fichier.",
+        "securityNote": "Supprimez le CSV après l'import — il contient vos mots de passe en clair.",
+        "reviewSubtitle": "{count} mot de passe trouvé — choisissez quoi importer. | {count} mots de passe trouvés — choisissez quoi importer.",
+        "searchPlaceholder": "Filtrer la liste…",
+        "selectedCount": "{count} sélectionné(s)",
+        "colName": "Nom",
+        "colUsername": "Nom d'utilisateur",
+        "colSite": "Site",
+        "duplicateHint": "Les entrées déjà présentes dans votre coffre sont décochées par défaut.",
+        "back": "Retour",
+        "importSelected": "Importer {count} mot de passe | Importer {count} mots de passe",
+        "importing": "Import en cours…",
+        "importingSubtitle": "Chiffrement et enregistrement de vos mots de passe sélectionnés.",
+        "completeTitle": "{imported} mot de passe importé. | {imported} mots de passe importés.",
+        "completeFailed": "{failed} n'ont pas pu être enregistrés.",
+        "completeSubtitle": "Terminé.",
+        "done": "Terminé"
+      }
     },
     "signIns": {
       "sectionTitle": "Connexions enregistrées",
@@ -1263,7 +1421,7 @@
       "forget": "Oublier"
     },
     "tabs": {
-      "passwords": "Mots de passe",
+      "accounts": "Comptes",
       "wallet": "Portefeuille"
     },
     "wallet": {
@@ -1444,7 +1602,13 @@
     "saving": "Enregistrement…",
     "saveAndUse": "Enregistrer et utiliser",
     "errorReveal": "Impossible de récupérer le mot de passe enregistré.",
-    "errorSave": "Impossible d'enregistrer l'identifiant dans le coffre."
+    "errorSave": "Impossible d'enregistrer l'identifiant dans le coffre.",
+    "errorNoWorkspace": "Sélectionnez un workspace avant d'enregistrer des identifiants.",
+    "errorDelete": "Impossible de supprimer l'identifiant enregistré.",
+    "showDetails": "Détails",
+    "hideDetails": "Masquer les détails",
+    "completedSummary": "Identifiants fournis pour {site}.",
+    "cancelledSummary": "Connexion annulée pour {site}."
   },
   "schedule": {
     "title": "Planification",
@@ -1563,11 +1727,34 @@
   "pricing": {
     "billingPeriod": "Période de facturation",
     "storage": {
-      "total": "Stockage de l'espace",
-      "file": "Taille maximale par fichier",
-      "pullFolder": "Limite de récupération de dossier",
+      "total": "Stockage du workspace",
+      "file": "Limite de taille par fichier",
+      "pullFolder": "Limite d'extraction de dossier",
       "artifacts": "Stockage des artefacts"
-    }
+    },
+    "metaTitle": "Tarifs",
+    "metaDescription": "Des tarifs simples et transparents pour les workspaces d'agents IA. Commencez gratuitement et évoluez avec les plans Pro, Max et Enterprise.",
+    "annual": "Annuel",
+    "monthly": "Mensuel",
+    "purchaseNow": "Acheter maintenant",
+    "redirecting": "Redirection…",
+    "mostPopular": "Le plus populaire",
+    "currentPlan": "Plan actuel",
+    "selectWorkspaceFirst": "Sélectionnez d'abord un workspace à mettre à niveau.",
+    "purchaseError": "Une erreur s'est produite. Veuillez réessayer.",
+    "features": {
+      "agentsPerWorkspace": "Agents IA par workspace",
+      "weeklyTokenBudget": "Budget hebdomadaire de tokens",
+      "monthlyWorkflowRuns": "Exécutions de workflows par mois",
+      "cloudStorage": "Stockage cloud",
+      "workspaceMembers": "Membres du workspace",
+      "byok": "Apportez vos propres clés LLM",
+      "customWorkflows": "Workflows personnalisés",
+      "prioritySupport": "Support prioritaire"
+    },
+    "subtitle": "Commencez gratuitement. Évoluez à votre rythme. Pas de frais cachés. Chaque workspace est facturé séparément — mettez à niveau uniquement ceux dont vous avez besoin.",
+    "upgradeTitle": "Mettre à niveau le plan de {name}",
+    "pricingTitle": "Tarifs"
   },
   "install": {
     "versionBadge": "Polymux pour bureau · v{version}",
@@ -1624,6 +1811,12 @@
       "description": "Notre documentation couvre la vérification, les mises à jour et le dépannage pour chaque plateforme.",
       "readGuide": "Lire le guide d'installation",
       "contactSupport": "Contacter le support"
+    },
+    "extension": {
+      "eyebrow": "Extension de navigateur",
+      "heading": "Connectez votre navigateur",
+      "subtitle": "Connectez l'extension Polymux pour exécuter des agents localement dans votre propre navigateur.",
+      "chromeLabel": "Installer pour Chrome"
     }
   },
   "docs": {
@@ -1721,20 +1914,25 @@
     "getStarted": "Commencer",
     "stepLabel": "Étape {current} sur {total}",
     "welcome": {
-      "title": "Bienvenue sur Polymux",
-      "description": "Lancez des workflows pilotés par IA qui naviguent sur le web, gèrent vos fichiers et agissent pour vous."
+      "title": "Bienvenue dans votre nouvel espace de travail",
+      "description": "Tout dans Polymux vit dans un espace de travail — basculez entre équipes et projets personnels, invitez des membres et gardez workflows, fichiers et secrets isolés."
     },
     "workflows": {
-      "title": "Créez des workflows visuellement",
-      "description": "Composez des étapes sur un canevas, planifiez-les et inspectez chaque résultat."
+      "title": "Créez et exécutez des workflows",
+      "description": "Composez des étapes d'agent sur un canevas de flux, puis regardez-les travailler dans des viewports navigateur en direct — le tout au même endroit."
     },
-    "browser": {
-      "title": "Un navigateur qui suit",
-      "description": "Voyez les workflows manipuler le navigateur en direct, ou prenez la main quand vous voulez."
+    "storage": {
+      "title": "Fichiers de l'espace de travail",
+      "description": "Téléversez, organisez et déplacez fichiers et dossiers. Les workflows peuvent lire et écrire dans le stockage pour vous."
+    },
+    "integrations": {
+      "title": "Connectez vos outils",
+      "description": "Installez des intégrations depuis la marketplace pour que les workflows atteignent Slack, GitHub, des bases de données et plus encore."
     },
     "vault": {
-      "title": "Votre coffre, vos secrets",
-      "description": "Stockez mots de passe et identifiants en toute sécurité pour que les workflows se connectent à votre place."
+      "title": "Mots de passe et portefeuille",
+      "description": "Stockez identifiants et gérez le portefeuille agent pour que les workflows se connectent et paient des services en toute sécurité.",
+      "importCta": "Importer depuis votre navigateur"
     },
     "terms": {
       "title": "Quelques points à connaître",
@@ -1750,5 +1948,126 @@
       "footnoteEnd": ".",
       "acknowledgement": "J’ai lu et compris ce qui précède, et je consens à l’exposition et au partage de données décrits pendant la bêta de Polymux."
     }
+  },
+  "llmKeys": {
+    "addKey": "Ajouter une clé",
+    "loading": "Chargement des clés…",
+    "empty": "Aucune clé LLM configurée. Les exécutions dans ce workspace utilisent la clé serveur partagée.",
+    "provider": "Fournisseur",
+    "apiKey": "Clé API",
+    "baseUrl": "URL de base",
+    "baseUrlOptional": "(facultatif)",
+    "keyHint": "La clé est chiffrée au repos. Nous n'affichons que les quatre derniers caractères ; la clé complète ne peut pas être récupérée.",
+    "baseUrlHint": "Laissez vide pour utiliser la valeur par défaut du serveur. Définissez une URL personnalisée pour les proxies, Azure OpenAI ou d'autres points de terminaison compatibles.",
+    "rotate": "Renouveler",
+    "remove": "Supprimer",
+    "saveKey": "Enregistrer la clé",
+    "lastUsed": "Dernière utilisation {when}",
+    "savedToast": "Clé {provider} enregistrée (…{lastFour}).",
+    "removedToast": "Clé {provider} supprimée.",
+    "confirmRemove": "Supprimer la clé API {provider} (…{lastFour}) ? Les exécutions futures reviendront à la clé serveur partagée.",
+    "relativeNever": "jamais",
+    "relativeJustNow": "à l'instant",
+    "relativeMinutesAgo": "il y a {n} min",
+    "relativeHoursAgo": "il y a {n} h",
+    "relativeDaysAgo": "il y a {n} j",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
+  },
+  "community": {
+    "metaTitle": "Communauté",
+    "metaDescription": "Rejoignez la communauté Polymux. Partagez des workflows, posez des questions et connectez-vous avec d'autres créateurs d'agents IA.",
+    "title": "Communauté Polymux",
+    "subtitle": "Actualités, discussions et ressources pour les utilisateurs Polymux",
+    "searchPlaceholder": "Rechercher dans la communauté…",
+    "searchResults": "Résultats de recherche",
+    "comingSoon": "Bientôt disponible",
+    "explore": "Explorer",
+    "tiles": {
+      "blog": {
+        "label": "Blog",
+        "description": "Mises à jour produit, notes d'ingénierie et guides"
+      },
+      "documentation": {
+        "label": "Documentation",
+        "description": "Guides, références et documentation API"
+      },
+      "forum": {
+        "label": "Forum",
+        "description": "Posez des questions, partagez des idées, connectez-vous"
+      }
+    },
+    "sources": {
+      "documentation": "Documentation",
+      "forum": "Forum",
+      "blog": "Blog"
+    },
+    "searching": "Recherche…",
+    "noResults": "Aucun résultat pour « {query} ». Essayez d'autres mots-clés."
+  },
+  "blog": {
+    "metaTitle": "Blog Polymux",
+    "metaDescription": "Actualités, analyses approfondies et études de cas sur les agents IA, l'automatisation du navigateur et l'orchestration multi-agents avec Polymux.",
+    "title": "Blog Polymux",
+    "subscribe": "S'abonner",
+    "empty": "Aucun article pour l'instant. Revenez bientôt.",
+    "readMore": "Lire la suite",
+    "emailLabel": "E-mail",
+    "subtitle": "Mises à jour produit, notes d'ingénierie et guides pour les équipes qui construisent avec Polymux — orchestrez des agents, suivez des sessions navigateur en direct et livrez des automatisations fiables.",
+    "subscribeHint": "Nouveaux articles quelques fois par mois"
+  },
+  "verifyEmail": {
+    "title": "Vérifier l'e-mail",
+    "verifying": "Vérification de votre e-mail…",
+    "verifiedTitle": "E-mail vérifié !",
+    "verifiedBody": "Votre abonnement au blog Polymux a été confirmé. Bienvenue ! 🎉",
+    "failedTitle": "Échec de la vérification",
+    "backToBlog": "Retour au blog",
+    "tokenMissing": "Jeton de vérification manquant",
+    "verifyFailed": "Impossible de vérifier l'e-mail"
+  },
+  "invitations": {
+    "loading": "Chargement de l'invitation…",
+    "joinTitle": "Rejoindre {name}",
+    "invitedAs": "Vous avez été invité à rejoindre en tant que {role}.",
+    "sentTo": "Invitation envoyée à",
+    "decline": "Refuser",
+    "accept": "Accepter l'invitation",
+    "joining": "Rejoindre le workspace…",
+    "acceptedTitle": "Vous y êtes",
+    "acceptedBody": "Bienvenue dans {name}.",
+    "continueToDashboard": "Continuer vers le tableau de bord",
+    "unavailableTitle": "Invitation indisponible",
+    "goToDashboard": "Aller au tableau de bord",
+    "errors": {
+      "tokenMissing": "Jeton d'invitation manquant.",
+      "loadFailed": "Impossible de charger l'invitation.",
+      "invalidOrRevoked": "Ce lien d'invitation est invalide ou a été révoqué.",
+      "alreadyAccepted": "Cette invitation a déjà été acceptée.",
+      "expired": "Cette invitation a expiré. Demandez à l'administrateur du workspace d'en envoyer une nouvelle.",
+      "emailMismatch": "Cette invitation a été envoyée à une autre adresse e-mail. Connectez-vous avec le compte invité.",
+      "expiredShort": "Cette invitation a expiré.",
+      "alreadyUsed": "Cette invitation a déjà été utilisée.",
+      "notFound": "Cette invitation n'est plus valide.",
+      "acceptFailed": "Une erreur s'est produite lors de l'acceptation. Veuillez réessayer."
+    }
+  },
+  "layout": {
+    "loadFailed": "Impossible de charger la mise en page.",
+    "retry": "Réessayer",
+    "loading": "Chargement de la mise en page…"
+  },
+  "marketplace": {
+    "adminOnly": "Seuls les propriétaires et administrateurs du workspace peuvent gérer les intégrations.",
+    "pluginInstalledNeedsSetup": "Plugin installé. Ces connexions doivent encore être configurées : {names}.",
+    "pluginInstallPartialFailed": "Certains éléments du plugin n'ont pas pu être installés : {names}.",
+    "installFailed": "Impossible d'installer l'intégration."
+  },
+  "attachments": {
+    "tooLarge": "« {name} » est trop volumineux pour être téléversé",
+    "exceedsLimit": "« {name} » dépasse la limite de téléversement de {limit}"
   }
 }

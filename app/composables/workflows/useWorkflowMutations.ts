@@ -1,4 +1,5 @@
 import { normalizeNode, normalizeNodePatch, type WorkflowGraph, type WorkflowNode, type WorkflowWire } from '~/composables/workflows/useWorkflows'
+import { WORKFLOW_START_ID, WORKFLOW_END_ID } from '~/composables/workflows/useWorkflowLayout'
 
 // Shared mutation ops for the workflow graph. User-driven drag-to-connect
 // and orchestrator-driven granular tools both run through `applyOp`, so the
@@ -166,10 +167,14 @@ export function applyOp(graph: WorkflowGraph, op: WorkflowOp): ApplyResult | App
       if (!toAnchored && !toDetached) {
         return { ok: false, error: 'wire_add: to_id or to_pos is required' }
       }
-      if (fromAnchored && findNodeIndex(next.nodes, wire.from_id) < 0) {
+      // Start / End are valid anchor endpoints (Start only as a source, End
+      // only as a target) even though they aren't real nodes, so a user-drawn
+      // Start→node / node→End wire persists into the graph like any other. The
+      // reversed cases (from End / to Start) fall through to the error.
+      if (fromAnchored && wire.from_id !== WORKFLOW_START_ID && findNodeIndex(next.nodes, wire.from_id) < 0) {
         return { ok: false, error: `wire_add: from_id ${wire.from_id} does not match any node` }
       }
-      if (toAnchored && findNodeIndex(next.nodes, wire.to_id) < 0) {
+      if (toAnchored && wire.to_id !== WORKFLOW_END_ID && findNodeIndex(next.nodes, wire.to_id) < 0) {
         return { ok: false, error: `wire_add: to_id ${wire.to_id} does not match any node` }
       }
       if (!wire.id || wire.id.trim() === '') wire.id = newID('wire')

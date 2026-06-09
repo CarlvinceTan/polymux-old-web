@@ -213,7 +213,7 @@ const localPrimaryRiskyForTeam = computed(() =>
 function loadData() {
   const wsId = currentWorkspaceId.value
   if (!wsId) return
-  fetchMembers(wsId)
+  fetchMembers(wsId, { force: true })
   refreshUsageFromSupabase(wsId)
   refreshDrive(driveConnectionBroken.value).catch(() => {})
   refreshLocalProbe()

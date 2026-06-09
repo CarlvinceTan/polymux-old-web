@@ -48,6 +48,7 @@ export interface WorkspaceIntegration {
 }
 
 export function useMarketplace() {
+  const { t } = useI18n()
   const { currentWorkspace } = useWorkspaces()
   const toast = useAppToast()
 
@@ -187,7 +188,7 @@ export function useMarketplace() {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
     if (!isAdmin.value) {
-      toast.show('Only workspace owners and admins can manage integrations.', 'error')
+      toast.show(t('marketplace.adminOnly'), 'error')
       return
     }
     const item = (catalog.value ?? []).find(i => i.id === id)
@@ -216,18 +217,18 @@ export function useMarketplace() {
       if (res.kind === 'plugin') {
         if (res.requires_oauth_children.length) {
           const names = res.requires_oauth_children.map(nameForSlug).join(', ')
-          toast.show(`Plugin installed. These connections still need to be set up: ${names}.`, 'info')
+          toast.show(t('marketplace.pluginInstalledNeedsSetup', { names }), 'info')
         }
         if (res.failed_children.length) {
           const names = res.failed_children.map(c => nameForSlug(c.slug)).join(', ')
-          toast.show(`Some plugin items failed to install: ${names}.`, 'error')
+          toast.show(t('marketplace.pluginInstallPartialFailed', { names }), 'error')
         }
       }
     }
     catch (err) {
       console.error('[useMarketplace] install failed', err)
       const message = (err as { statusMessage?: string })?.statusMessage
-        || 'Failed to install integration.'
+        || t('marketplace.installFailed')
       toast.show(message, 'error')
     }
   }
@@ -236,7 +237,7 @@ export function useMarketplace() {
     const workspaceId = currentWorkspace.value?.id
     if (!workspaceId) return
     if (!isAdmin.value) {
-      toast.show('Only workspace owners and admins can manage integrations.', 'error')
+      toast.show(t('marketplace.adminOnly'), 'error')
       return
     }
     try {

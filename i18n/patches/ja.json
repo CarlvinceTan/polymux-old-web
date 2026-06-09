@@ -1,0 +1,317 @@
+{
+  "common": {
+    "duplicate": "複製",
+    "info": "情報",
+    "download": "ダウンロード",
+    "workspace": "ワークスペース",
+    "retry": "再試行"
+  },
+  "workspaceMenu": {
+    "llmKeysTitle": "LLM API キー",
+    "llmKeysDesc": "独自の LLM API キーを設定できます。設定すると、このワークスペースのすべての実行で共有キーの代わりにあなたのキーが使われ、トークンは週間予算ではなくプロバイダーアカウントから消費されます。"
+  },
+  "llmKeys": {
+    "addKey": "キーを追加",
+    "loading": "キーを読み込み中…",
+    "empty": "LLM キーはまだ設定されていません。このワークスペースの実行では共有サーバーキーが使われます。",
+    "provider": "プロバイダー",
+    "apiKey": "API キー",
+    "baseUrl": "ベース URL",
+    "baseUrlOptional": "（任意）",
+    "keyHint": "キーは保存時に暗号化されます。最後の4文字のみ表示され、完全なキーは取得できません。",
+    "baseUrlHint": "空白のままにするとサーバーのデフォルトを使用します。プロキシ、Azure OpenAI、その他の互換エンドポイント用にカスタム URL を設定できます。",
+    "rotate": "更新",
+    "remove": "削除",
+    "saveKey": "キーを保存",
+    "lastUsed": "最終使用 {when}",
+    "savedToast": "{provider} キーを保存しました（…{lastFour}）。",
+    "removedToast": "{provider} キーを削除しました。",
+    "confirmRemove": "{provider} API キー（…{lastFour}）を削除しますか？今後の実行は共有サーバーキーにフォールバックします。",
+    "relativeNever": "なし",
+    "relativeJustNow": "たった今",
+    "relativeMinutesAgo": "{n}分前",
+    "relativeHoursAgo": "{n}時間前",
+    "relativeDaysAgo": "{n}日前",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
+  },
+  "storage": {
+    "moveModalTitle": "移動先…",
+    "moveToast": {
+      "movedOne": "{n} 件を移動しました",
+      "movedMany": "{n} 件を移動しました",
+      "cloudLimit": "プランのクラウドストレージ上限に達しました。",
+      "failed": "移動に失敗しました: {reason}",
+      "partial": "{migrated} 件を移動、{failed} 件が失敗",
+      "unknownError": "不明なエラー",
+      "movingOne": "{n} 件を移動中…",
+      "movingMany": "{n} 件を移動中…"
+    },
+    "migrateConfirm": {
+      "title": "プロバイダー間で移行しますか？",
+      "bodyOne": "この項目は移動先フォルダーとは異なるプロバイダーにあります",
+      "bodyMany": "これらの項目は移動先フォルダーとは異なるプロバイダーにあります",
+      "home": "ホーム",
+      "continueCopy": "次へ進み、コピー先",
+      "removeOriginals": "元のファイルを削除します。",
+      "cancel": "キャンセル",
+      "confirm": "移行"
+    },
+    "errors": {
+      "upgradeCloud": "クラウドストレージを利用するには Pro または Max にアップグレードしてください。",
+      "listFailed": "ファイルの一覧取得に失敗しました",
+      "signInToUpload": "ファイルをアップロードするにはサインインしてください。",
+      "localDeviceId": "このブラウザはローカルストレージ用のデバイス ID を提供できません。",
+      "localUnsupported": "このブラウザではローカルストレージはサポートされていません。",
+      "localUploadMissingId": "ローカルアップロードに失敗しました: ファイル ID がありません。",
+      "uploadFailedStatus": "アップロードに失敗しました ({status}){detail}",
+      "b2MissingFileId": "アップロードは成功しましたが B2 fileId がありませんでした。",
+      "driveMissingFileId": "アップロードは成功しましたが Drive ファイル ID がありませんでした。",
+      "uploadFailed": "ファイルのアップロードに失敗しました",
+      "deleteFailed": "ファイルの削除に失敗しました",
+      "moveFailed": "ファイルの移動に失敗しました",
+      "migrationFailed": "移行に失敗しました",
+      "saveOrderFailed": "順序の保存に失敗しました",
+      "invalidFolderName": "有効なフォルダー名を入力してください。",
+      "renameFolderFailed": "フォルダーの名前変更に失敗しました",
+      "signInToCreateFolders": "フォルダーを作成するにはサインインしてください。",
+      "createFolderFailed": "フォルダーの作成に失敗しました",
+      "copyFileFailed": "ファイルのコピーに失敗しました",
+      "signInToCopyFolders": "フォルダーをコピーするにはサインインしてください。",
+      "copyFolderFailed": "フォルダーのコピーに失敗しました",
+      "mintDownloadFailed": "ダウンロード URL の生成に失敗しました。",
+      "localDeviceOnly": "このファイルは作成したデバイスでのみ利用できます。",
+      "localCopyMissing": "このデバイスにローカルコピーが見つかりません。",
+      "downloadFailedStatus": "ダウンロードに失敗しました ({status})",
+      "downloadFailed": "ファイルのダウンロードに失敗しました"
+    }
+  },
+  "pricing": {
+    "billingPeriod": "請求期間",
+    "metaTitle": "料金",
+    "metaDescription": "AI エージェントワークスペース向けのシンプルで透明な料金体系。無料で始め、Pro、Max、Enterprise プランでスケールできます。",
+    "annual": "年払い",
+    "monthly": "月払い",
+    "purchaseNow": "今すぐ購入",
+    "redirecting": "リダイレクト中…",
+    "mostPopular": "最も人気",
+    "currentPlan": "現在のプラン",
+    "selectWorkspaceFirst": "先にアップグレードするワークスペースを選択してください。",
+    "purchaseError": "問題が発生しました。もう一度お試しください。",
+    "features": {
+      "agentsPerWorkspace": "ワークスペースあたりの AI エージェント数",
+      "weeklyTokenBudget": "週間トークン予算",
+      "monthlyWorkflowRuns": "月間ワークフロー実行数",
+      "cloudStorage": "クラウドストレージ",
+      "workspaceMembers": "ワークスペースメンバー数",
+      "byok": "独自 LLM キーの持ち込み",
+      "customWorkflows": "カスタムワークフロー",
+      "prioritySupport": "優先サポート"
+    },
+    "storage": {
+      "total": "ワークスペースストレージ",
+      "file": "ファイルサイズ上限",
+      "pullFolder": "フォルダー取得上限",
+      "artifacts": "アーティファクトストレージ"
+    },
+    "subtitle": "無料で始めて、成長に合わせてスケール。隠れた料金はありません。各ワークスペースは個別に課金 — 必要なものだけアップグレード。",
+    "upgradeTitle": "{name} のプランをアップグレード",
+    "pricingTitle": "料金"
+  },
+  "community": {
+    "metaTitle": "コミュニティ",
+    "metaDescription": "Polymux コミュニティに参加しましょう。ワークフローを共有し、質問し、他の AI エージェント開発者とつながりましょう。",
+    "title": "Polymux コミュニティ",
+    "subtitle": "Polymux ユーザー向けの更新情報、ディスカッション、リソース",
+    "searchPlaceholder": "コミュニティを検索…",
+    "searchResults": "検索結果",
+    "comingSoon": "近日公開",
+    "explore": "探索",
+    "tiles": {
+      "blog": {
+        "label": "ブログ",
+        "description": "製品アップデート、エンジニアリングノート、ガイド"
+      },
+      "documentation": {
+        "label": "ドキュメント",
+        "description": "ガイド、リファレンス、API ドキュメント"
+      },
+      "forum": {
+        "label": "フォーラム",
+        "description": "質問、意見の共有、他のユーザーとの交流"
+      }
+    },
+    "sources": {
+      "documentation": "ドキュメント",
+      "forum": "フォーラム",
+      "blog": "ブログ"
+    },
+    "searching": "検索中…",
+    "noResults": "「{query}」の結果はありません。別のキーワードをお試しください。"
+  },
+  "blog": {
+    "metaTitle": "Polymux ブログ",
+    "metaDescription": "AI エージェント、ブラウザ自動化、Polymux によるマルチエージェントオーケストレーションに関する更新、深掘り、事例紹介。",
+    "title": "Polymux ブログ",
+    "subscribe": "購読",
+    "empty": "まだ投稿がありません。後でもう一度ご確認ください。",
+    "readMore": "続きを読む",
+    "emailLabel": "メール",
+    "subtitle": "Polymux で構築するチーム向けの製品アップデート、エンジニアリングノート、ガイド — エージェントのオーケストレーション、ライブブラウザセッションの監視、信頼できる自動化の提供。",
+    "subscribeHint": "月に数回新しい記事を配信"
+  },
+  "verifyEmail": {
+    "title": "メール確認",
+    "verifying": "メールを確認中…",
+    "verifiedTitle": "メール確認完了！",
+    "verifiedBody": "Polymux ブログの購読が確認されました。ようこそ！ 🎉",
+    "failedTitle": "確認に失敗しました",
+    "backToBlog": "ブログに戻る",
+    "tokenMissing": "確認トークンがありません",
+    "verifyFailed": "メールの確認に失敗しました"
+  },
+  "invitations": {
+    "loading": "招待を読み込み中…",
+    "joinTitle": "{name} に参加",
+    "invitedAs": "{role} として参加するよう招待されました。",
+    "sentTo": "招待の送信先",
+    "decline": "辞退",
+    "accept": "招待を承諾",
+    "joining": "ワークスペースに参加中…",
+    "acceptedTitle": "参加しました",
+    "acceptedBody": "{name} へようこそ。",
+    "continueToDashboard": "ダッシュボードへ進む",
+    "unavailableTitle": "招待は利用できません",
+    "goToDashboard": "ダッシュボードへ",
+    "errors": {
+      "tokenMissing": "招待トークンがありません。",
+      "loadFailed": "招待を読み込めませんでした。",
+      "invalidOrRevoked": "この招待リンクは無効か、取り消されています。",
+      "alreadyAccepted": "この招待はすでに承諾されています。",
+      "expired": "この招待は期限切れです。ワークスペース管理者に新しい招待を依頼してください。",
+      "emailMismatch": "この招待は別のメールアドレスに送信されました。招待されたアカウントでサインインしてください。",
+      "expiredShort": "この招待は期限切れです。",
+      "alreadyUsed": "この招待はすでに使用されています。",
+      "notFound": "この招待は無効です。",
+      "acceptFailed": "承諾中に問題が発生しました。もう一度お試しください。"
+    }
+  },
+  "nav": {
+    "mainSidebar": "メインサイドバー",
+    "main": "メイン",
+    "userProfile": "ユーザープロフィール"
+  },
+  "layout": {
+    "loadFailed": "レイアウトの読み込みに失敗しました。",
+    "retry": "再試行",
+    "loading": "レイアウトを読み込み中…"
+  },
+  "marketplace": {
+    "adminOnly": "統合の管理はワークスペースのオーナーと管理者のみ可能です。",
+    "pluginInstalledNeedsSetup": "プラグインをインストールしました。次の接続はまだ設定が必要です: {names}。",
+    "pluginInstallPartialFailed": "プラグインの一部の項目のインストールに失敗しました: {names}。",
+    "installFailed": "統合のインストールに失敗しました。"
+  },
+  "attachments": {
+    "tooLarge": "「{name}」はアップロードするには大きすぎます",
+    "exceedsLimit": "「{name}」は {limit} のアップロード上限を超えています"
+  },
+  "settings": {
+    "importPasswords": "パスワードをインポート",
+    "importPasswordsHint": "Chrome、Firefox、Safari に保存されたログイン情報をワークスペースの Vault に取り込みます。",
+    "allNotificationsHint": "アプリから送信される非必須メール（ワークスペース招待、ニュースレターなど）のマスタースイッチ。重要なアカウントメッセージは引き続き届きます。"
+  },
+  "viewport": {
+    "pinBrowser": "ブラウザエージェントをピン留め",
+    "unpinBrowser": "ブラウザエージェントのピン留めを解除"
+  },
+  "integrations": {
+    "editorListingNotFound": "このリスティングが見つかりませんでした。"
+  },
+  "credentialRequest": {
+    "errorNoWorkspace": "認証情報を保存する前にワークスペースを選択してください。",
+    "errorDelete": "保存済みの認証情報を削除できませんでした。",
+    "showDetails": "詳細",
+    "hideDetails": "詳細を非表示",
+    "completedSummary": "{site} の認証情報を提供しました。",
+    "cancelledSummary": "{site} へのサインインをキャンセルしました。"
+  },
+  "install": {
+    "extension": {
+      "eyebrow": "ブラウザ拡張機能",
+      "heading": "ブラウザを接続",
+      "subtitle": "Polymux 拡張機能を接続して、自分のブラウザでローカルにエージェントを実行します。",
+      "chromeLabel": "Chrome 用にインストール"
+    }
+  },
+  "onboarding": {
+    "vault": {
+      "importCta": "ブラウザからインポート"
+    }
+  },
+  "vault": {
+    "passwords": {
+      "addTab": "手動",
+      "importTab": "ブラウザからインポート",
+      "importFromBrowser": "ブラウザからインポート",
+      "import": {
+        "action": "インポート",
+        "title": "パスワードをインポート",
+        "subtitleNative": "Polymux はこのデバイスのブラウザに保存されたパスワードを読み取れます。",
+        "subtitleWeb": "ブラウザから CSV をエクスポートし、ここにアップロードしてください。",
+        "detectedBrowsers": "インストール済みのブラウザ",
+        "scanning": "ブラウザを検索中…",
+        "noBrowsersDetected": "このデバイスでサポートされているブラウザが見つかりませんでした。",
+        "nativeDetectFailed": "ブラウザを検索できませんでした。",
+        "nativeReadFailed": "そのブラウザからパスワードを読み取れませんでした。",
+        "profileCount": "{count} プロファイル | {count} プロファイル",
+        "orManual": "または CSV エクスポートからインポート",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge、Brave など Chromium ベースのブラウザは同じエクスポート形式を使用します。",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "Chrome のパスワードマネージャーを開きます（設定 → 自動入力 → Google パスワード マネージャー）。",
+            "step2": "設定を開き、「パスワードをエクスポート」を選択し、デバイスのパスワードで確認します。",
+            "step3": "ダウンロードした CSV ファイルを以下にアップロードします。"
+          },
+          "firefox": {
+            "step1": "Firefox を開き、about:logins に移動します（または 設定 → プライバシーとセキュリティ → ログインとパスワード）。",
+            "step2": "メニュー（⋯）を開き、「ログイン情報を CSV にエクスポート」を選択します。プロンプトが表示されたら確認します。",
+            "step3": "ダウンロードした CSV ファイルを以下にアップロードします。"
+          },
+          "safari": {
+            "step1": "macOS で「パスワード」を開きます（システム設定 → パスワード、または Safari → 設定 → パスワード）。",
+            "step2": "インポートするパスワードを選択し、「ファイル → パスワードを CSV にエクスポート」を使用します。",
+            "step3": "ダウンロードした CSV ファイルを以下にアップロードします。"
+          }
+        },
+        "uploadCsv": "パスワードをインポート",
+        "parseFailed": "そのファイルを読み取れませんでした。有効なパスワードエクスポート CSV か確認してください。",
+        "noEntriesFound": "そのファイルにパスワードが見つかりませんでした。",
+        "securityNote": "インポート後は CSV を削除してください — 平文のパスワードが含まれています。",
+        "reviewSubtitle": "{count} 件のパスワードが見つかりました — インポートする項目を選択してください。 | {count} 件のパスワードが見つかりました — インポートする項目を選択してください。",
+        "searchPlaceholder": "リストをフィルター…",
+        "selectedCount": "{count} 件選択中",
+        "colName": "名前",
+        "colUsername": "ユーザー名",
+        "colSite": "サイト",
+        "duplicateHint": "Vault に既にある項目はデフォルトでチェックが外れています。",
+        "back": "戻る",
+        "importSelected": "{count} 件のパスワードをインポート | {count} 件のパスワードをインポート",
+        "importing": "インポート中…",
+        "importingSubtitle": "選択したパスワードを暗号化して保存しています。",
+        "completeTitle": "{imported} 件のパスワードをインポートしました。 | {imported} 件のパスワードをインポートしました。",
+        "completeFailed": "{failed} 件を保存できませんでした。",
+        "completeSubtitle": "完了。",
+        "done": "完了"
+      }
+    }
+  }
+}

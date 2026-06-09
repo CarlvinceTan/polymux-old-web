@@ -2152,6 +2152,7 @@ export type Database = {
           last_used_at: string | null
           last_used_by: string | null
           name: string
+          totp_secret_id: string | null
           updated_at: string
           url: string
           usage_count: number
@@ -2167,6 +2168,7 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name: string
+          totp_secret_id?: string | null
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2182,6 +2184,7 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name?: string
+          totp_secret_id?: string | null
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2336,6 +2339,7 @@ export type Database = {
           p_is_weak?: boolean
           p_name: string
           p_password: string
+          p_totp_secret?: string
           p_url: string
           p_username: string
           p_workspace_id: string
@@ -2422,6 +2426,10 @@ export type Database = {
         }
       }
       get_workspace_password_secret: {
+        Args: { p_password_id: string }
+        Returns: string
+      }
+      get_workspace_password_totp_secret: {
         Args: { p_password_id: string }
         Returns: string
       }
@@ -2546,10 +2554,12 @@ export type Database = {
       }
       update_workspace_password: {
         Args: {
+          p_clear_totp?: boolean
           p_is_weak?: boolean
           p_name: string
           p_password?: string
           p_password_id: string
+          p_totp_secret?: string
           p_url: string
           p_username: string
         }

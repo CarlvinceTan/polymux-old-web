@@ -7,7 +7,7 @@ import {
   invalidateUsageCache,
   markStickyOverBudget,
 } from '~/composables/chat/useChatPromptSendGuard'
-import { promptUpgrade } from '~/composables/account/useUpgradePlanModal'
+import { promptUpgrade, registerUpgradeChatPresenter } from '~/composables/account/useUpgradePlanModal'
 
 // Re-mount the page when the workflow id changes. `useAgentChats` keys its
 // `useState` by the sessionId captured at construction, so reusing the layout
@@ -482,6 +482,17 @@ onMounted(() => {
   viewMode.value = loadViewMode(sessionId.value) ?? 'chat'
 })
 
+// Route plan-limit prompts to an in-chat card while the chat view is the
+// visible surface; fall back to the modal (presenter returns false) in the
+// viewport/flow views, where the message stream isn't on screen.
+let unregisterUpgradePresenter: (() => void) | null = null
+onMounted(() => {
+  unregisterUpgradePresenter = registerUpgradeChatPresenter(payload =>
+    viewMode.value === 'chat' ? chats.appendUpgradePrompt(payload) : false,
+  )
+})
+onUnmounted(() => unregisterUpgradePresenter?.())
+
 watch(viewMode, (mode) => {
   saveViewMode(sessionId.value, mode)
   // Any view-mode commit clears the arm — covers both the auto-switch
@@ -668,20 +679,6 @@ provide('chat-message-feedback', messageFeedback)
       />
     </div>
 
-    <!-- Credential picker: opens whenever the orchestrator fires
-         RequestCredential. Lives at the workflow page level so the modal
-         survives across the agent / schedule / artifacts sub-tabs and the
-         pending-state outlives any single child component. -->
-    <CredentialRequestModal
-      v-if="chats.pendingCredentialRequest.value"
-      :open="true"
-      :site="chats.pendingCredentialRequest.value.site"
-      :purpose="chats.pendingCredentialRequest.value.purpose"
-      :suggested-username="chats.pendingCredentialRequest.value.suggestedUsername"
-      @submit="(v: { credentialId: string; username: string; password: string }) => chats.provideCredential(chats.pendingCredentialRequest.value!.msgId, v)"
-      @cancel="chats.provideCredential(chats.pendingCredentialRequest.value!.msgId, { cancelled: true })"
-      @update:open="(open: boolean) => { if (!open && chats.pendingCredentialRequest.value) chats.provideCredential(chats.pendingCredentialRequest.value.msgId, { cancelled: true }) }"
-    />
   </div>
   </FeatureGate>
 </template>

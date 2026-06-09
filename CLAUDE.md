@@ -61,7 +61,7 @@ Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these
   * `integrations/installed` → `app/pages/integrations/installed.vue`
   * `integrations/marketplace` → `app/pages/integrations/marketplace.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
-  * `vault/passwords` → `app/pages/vault/passwords.vue`
+  * `vault/accounts` → `app/pages/vault/accounts.vue`
   * `storage/files` → `app/pages/storage/files.vue`
   * `storage/settings` → `app/pages/storage/settings.vue`
 * Key reusable components:

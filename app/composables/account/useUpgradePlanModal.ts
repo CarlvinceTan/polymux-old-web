@@ -9,6 +9,29 @@ const modalState = ref<{ open: boolean, payload: UpgradePlanPayload | null }>({
   payload: null,
 })
 
+/**
+ * Optional presenter the chat page registers so plan-limit prompts surface as
+ * in-chat cards instead of the modal overlay while the chat view is visible.
+ * Returns true when it has presented the prompt (the modal is then skipped);
+ * false to fall through to the modal — e.g. when the user is in the viewport or
+ * flow view where the message stream isn't the visible surface.
+ */
+type UpgradeChatPresenter = (payload: UpgradePlanPayload) => boolean
+let chatPresenter: UpgradeChatPresenter | null = null
+
+/**
+ * Register the in-chat presenter and get back an unregister fn. The unregister
+ * is identity-safe: it only clears the slot if `fn` is still the active
+ * presenter, so a workflow remount (new page mounts before the old unmounts on
+ * an id change) can't have the outgoing page null out the incoming one.
+ */
+export function registerUpgradeChatPresenter(fn: UpgradeChatPresenter): () => void {
+  chatPresenter = fn
+  return () => {
+    if (chatPresenter === fn) chatPresenter = null
+  }
+}
+
 const NEXT_PLAN: Record<PlanUpgradePlanKey, PlanUpgradePlanKey | null> = {
   free: 'pro',
   pro: 'max',
@@ -29,10 +52,16 @@ export function useUpgradePlanModal() {
   return { open, payload, dismiss }
 }
 
-/** Show the upgrade plan modal when plan limits are enforced. Returns true if shown. */
+/**
+ * Surface the plan-limit prompt when plan limits are enforced. Prefers the
+ * in-chat card (when the chat presenter is registered and accepts it) and
+ * falls back to the modal overlay. Returns true if either was shown.
+ */
 export function showUpgradePlanModal(payload: UpgradePlanPayload): boolean {
   const { isPlanLimitsEnforced } = useMeFeatures()
   if (!isPlanLimitsEnforced()) return false
+
+  if (chatPresenter && chatPresenter(payload)) return true
 
   modalState.value = { open: true, payload }
   return true

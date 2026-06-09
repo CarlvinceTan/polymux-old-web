@@ -26,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const { getSignedUrl, stripUserPrefix } = useStorageFiles()
+const { t } = useI18n()
 
 const previewUrl = ref<string | null>(null)
 const textContent = ref<string | null>(null)
@@ -42,7 +43,7 @@ const isImagePreview = computed(() => props.item.icon === 'image')
 const isVideoPreview = computed(() => props.item.icon === 'video')
 const isAudioPreview = computed(() => props.item.icon === 'audio')
 const isTextPreview = computed(() =>
-  ['file-code', 'file-text', 'config', 'key', 'calendar'].includes(props.item.icon) && !isPdf.value
+  ['file-code', 'file-text', 'config', 'key', 'certificate', 'calendar'].includes(props.item.icon) && !isPdf.value
 )
 const isPreviewable = computed(() =>
   isImagePreview.value || isVideoPreview.value || isAudioPreview.value || isTextPreview.value || isPdf.value
@@ -110,7 +111,7 @@ const canDisplay = computed(() => {
                 <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Share</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.share') }}</span>
           </div>
           <!-- Manage access (permissions) -->
           <div v-if="canManageAccess" class="group/action relative">
@@ -119,7 +120,7 @@ const canDisplay = computed(() => {
                 <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Manage access</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('workspaceMenu.manageAccess') }}</span>
           </div>
           <!-- Rename -->
           <div class="group/action relative">
@@ -129,7 +130,7 @@ const canDisplay = computed(() => {
                 <path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Rename</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.rename') }}</span>
           </div>
           <!-- Move -->
           <div class="group/action relative">
@@ -140,7 +141,7 @@ const canDisplay = computed(() => {
                 <path d="m13 10 3 3-3 3" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Move</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.move') }}</span>
           </div>
           <!-- Duplicate -->
           <div class="group/action relative">
@@ -150,7 +151,7 @@ const canDisplay = computed(() => {
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Duplicate</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.duplicate') }}</span>
           </div>
           <!-- Download -->
           <div class="group/action relative">
@@ -161,7 +162,7 @@ const canDisplay = computed(() => {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Download</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.download') }}</span>
           </div>
           <!-- Info -->
           <div class="group/action relative">
@@ -172,7 +173,7 @@ const canDisplay = computed(() => {
                 <path d="M12 8h.01" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Info</span>
+            <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.info') }}</span>
           </div>
           <!-- Delete -->
           <div class="group/action relative">
@@ -185,7 +186,7 @@ const canDisplay = computed(() => {
                 <line x1="14" y1="11" x2="14" y2="17" />
               </svg>
             </button>
-            <span class="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">Delete</span>
+            <span class="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.delete') }}</span>
           </div>
           <div class="w-px h-5 bg-neutral-200 shrink-0 mx-1" />
           <!-- Close -->

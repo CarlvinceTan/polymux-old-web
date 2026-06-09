@@ -1,4 +1,4 @@
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '#imports'
 import { useAuthFetch } from '../auth/useAuthFetch'
 import { useWorkspaces } from '../account/useWorkspaces'
@@ -104,7 +104,6 @@ function pendingPromptKey(sessionID: string): string {
 export function useWorkflowList() {
   const draft = useState<WorkflowSummary | null>('chat-draft-session', () => null)
   const sessionsLoaded = useState<boolean>('chat-sessions-loaded', () => false)
-  const workflowEnsureWatchInstalled = useState<boolean>('workflow-ensure-watch-installed', () => false)
   // Per-session running indicator overrides keyed by session id. Owned by the
   // workflow page's runningKind watch — for the focused workflow it has
   // earlier, finer-grained signals than the server (orchestrator streaming /
@@ -129,10 +128,21 @@ export function useWorkflowList() {
 
   const query = useQuery({
     queryKey: computed(() => ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']),
+    // Avoid an unfiltered /sessions fetch before the workspace id is known —
+    // that pollutes the cache key and races with SidePanel bootstrap when
+    // fetchWorkspaces() is still correcting a stale localStorage id.
+    enabled: computed(() => !!currentWorkspaceId.value),
+    // Supabase Realtime (useWorkspaceEvents) push-invalidates this cache on
+    // sidebar-relevant workflow changes, so we don't need aggressive polling.
+    // A finite staleTime (not Infinity) keeps refetch-on-mount/focus as a
+    // safety net: if the realtime socket silently drops, the list still
+    // self-heals on the next navigation/focus instead of staying stale until
+    // a hard reload (the pre-realtime behaviour).
+    staleTime: 30_000,
     queryFn: async () => {
       const wsId = currentWorkspaceId.value
-      const path = wsId ? `/sessions?workspace_id=${wsId}` : '/sessions'
-      const data = await authFetch<WorkflowSummary[]>(path)
+      if (!wsId) return []
+      const data = await authFetch<WorkflowSummary[]>(`/sessions?workspace_id=${wsId}`)
       sessionsLoaded.value = true
       return visibleReal(data ?? [])
     },
@@ -251,34 +261,6 @@ export function useWorkflowList() {
     const wsId = draft.value?.workspace_id
     draft.value = null
     if (wsId) clearStoredDraftId(wsId)
-  }
-
-  /** `/sessions` omits unpersisted drafts; keep at least one sidebar row after reload or workspace fetch. */
-  async function ensureAtLeastOneWorkflow() {
-    if (!import.meta.client) return
-    if (!sessionsLoaded.value || query.isError.value) return
-    const wsId = currentWorkspaceId.value
-    if (!wsId || draft.value || realSessions.value.length > 0) return
-    await createDraft()
-  }
-
-  if (import.meta.client && !workflowEnsureWatchInstalled.value) {
-    workflowEnsureWatchInstalled.value = true
-    watch(
-      () => ({
-        loaded: sessionsLoaded.value,
-        fetching: query.isFetching.value,
-        err: query.isError.value,
-        ws: currentWorkspaceId.value,
-        empty: realSessions.value.length === 0,
-        hasDraft: !!draft.value,
-      }),
-      async (s) => {
-        if (!s.loaded || s.fetching || s.err || !s.ws || !s.empty || s.hasDraft) return
-        await createDraft()
-      },
-      { flush: 'post' },
-    )
   }
 
   // markDraftCommitted moves the in-memory draft into the query cache
@@ -547,6 +529,5 @@ export function useWorkflowList() {
     fetchMessages,
     setPendingPrompt,
     consumePendingPrompt,
-    ensureAtLeastOneWorkflow,
   }
 }

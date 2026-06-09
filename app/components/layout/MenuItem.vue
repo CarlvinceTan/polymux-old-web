@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<{
   text: string
   hasDivider?: boolean
@@ -18,6 +20,7 @@ function handleClick(event: MouseEvent) {
 <template>
   <div v-if="hasDivider" class="my-0.5 h-px bg-neutral-200 mx-2"></div>
   <button
+    v-bind="$attrs"
     class="grid grid-cols-[minmax(0,_1fr)_auto] w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors outline-none"
     :class="[
       destructive ? 'text-red-600 hover:bg-red-50' : 'text-neutral-950 hover:bg-neutral-100',

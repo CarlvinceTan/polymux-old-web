@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 export interface PricingTierItem {
   label: string
   included: boolean
@@ -75,7 +77,7 @@ const outerClass = computed(() => {
         v-if="highlighted"
         class="mt-1 inline-block rounded-full bg-neutral-950 px-2.5 py-0.5 text-xs font-medium text-white"
       >
-        Most Popular
+        {{ t('pricing.mostPopular') }}
       </span>
     </div>
 
@@ -140,7 +142,7 @@ const outerClass = computed(() => {
               : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
         "
       >
-        {{ isCurrent ? 'Current Plan' : cta }}
+        {{ isCurrent ? t('pricing.currentPlan') : cta }}
       </span>
     </div>
   </button>

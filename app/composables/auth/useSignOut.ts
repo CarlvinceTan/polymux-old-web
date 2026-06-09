@@ -16,6 +16,8 @@
  *      imminent page unload — keeps cross-device/tab sign-out working.
  *   4. Hard reload to `/`. SSR sees no cookies and renders signed-out.
  */
+import { clearUiPolicyCache } from '~/utils/uiPolicyCache'
+
 export function useSignOut() {
   const session = useSupabaseSession()
   const { url, key, cookiePrefix } = useRuntimeConfig().public.supabase
@@ -56,6 +58,7 @@ export function useSignOut() {
 
     try {
       localStorage.removeItem('polymux_current_workspace_id')
+      clearUiPolicyCache()
     }
     catch { /* ignore storage access errors */ }
 

@@ -38,7 +38,12 @@
       "error": "Erro",
       "info": "Informação",
       "loading": "Carregando…"
-    }
+    },
+    "duplicate": "Duplicar",
+    "info": "Info",
+    "download": "Baixar",
+    "workspace": "Workspace",
+    "retry": "Tentar novamente"
   },
   "upgradePlan": {
     "title": "Atualizar seu plano",
@@ -95,7 +100,9 @@
     "newWorkflow": "Novo fluxo de trabalho",
     "addWorkspace": "Adicionar área de trabalho",
     "mainSidebar": "Barra lateral principal",
-    "toggleSidebar": "Alternar barra lateral"
+    "toggleSidebar": "Alternar barra lateral",
+    "main": "Principal",
+    "userProfile": "Perfil do usuário"
   },
   "notifications": {
     "title": "Notificações",
@@ -217,7 +224,10 @@
     "emailManagedByProvider": "O e-mail é gerenciado pela sua conta vinculada e não pode ser alterado aqui.",
     "saving": "Salvando…",
     "profileUpdateError": "Falha ao atualizar o perfil. Tente novamente.",
-    "checkoutSuccess": "O seu plano foi atualizado com sucesso!"
+    "checkoutSuccess": "O seu plano foi atualizado com sucesso!",
+    "importPasswords": "Importar senhas",
+    "importPasswordsHint": "Traga logins salvos do Chrome, Firefox ou Safari para o cofre do seu workspace.",
+    "allNotificationsHint": "Interruptor principal para e-mails não essenciais enviados pelo app (convites ao workspace, newsletter, etc.). Mensagens importantes da conta continuarão chegando."
   },
   "chat": {
     "welcomeGreeting": "Como posso ajudar, {name}?",
@@ -257,6 +267,7 @@
     "saving": "Salvando…",
     "cancel": "Cancelar",
     "run": "Executar",
+    "runNeedsSave": "Salve o fluxo de trabalho antes de executá-lo",
     "running": "Executando…",
     "stop": "Parar",
     "history": "Histórico",
@@ -430,7 +441,9 @@
     "closeExpanded": "Fechar visualização expandida",
     "reconnecting": "Reconectando",
     "runAgent": "Executar",
-    "stopAgent": "Parar"
+    "stopAgent": "Parar",
+    "pinBrowser": "Fixar agente do navegador",
+    "unpinBrowser": "Desafixar agente do navegador"
   },
   "browser": {
     "addAgent": "Adicionar agente do navegador",
@@ -513,6 +526,7 @@
     "editorNoVersion": "Sem versão ainda",
     "editorBundleNoItems": "Nenhum item neste bundle ainda.",
     "editorSearchPlaceholder": "Pesquisar suas publicações…",
+    "editorDocs": "Documentação",
     "editorNoResults": "Nenhuma publicação corresponde à sua pesquisa.",
     "editorSortRecent": "Atualizados recentemente",
     "searchPlaceholder": "Pesquisar no marketplace…",
@@ -578,7 +592,8 @@
     "editorLayoutBodyHelp": "HTML, CSS e JS brutos. Renderizado dentro de um iframe isolado.",
     "filterLayouts": "Layouts",
     "categoryLayout": "Layout",
-    "official": "Oficial"
+    "official": "Oficial",
+    "editorListingNotFound": "Esta listagem não foi encontrada."
   },
   "workspace": {
     "team": "Equipe",
@@ -685,7 +700,9 @@
     "avatarErrorType": "Escolha uma imagem (PNG, JPG, WebP ou GIF).",
     "avatarErrorSize": "A imagem deve ter no máximo 1 MB.",
     "avatarErrorRead": "Não foi possível ler esta imagem. Pode estar corrompida.",
-    "identityUpdateError": "Não foi possível atualizar o espaço. Tente novamente."
+    "identityUpdateError": "Não foi possível atualizar o espaço. Tente novamente.",
+    "llmKeysTitle": "Chaves de API LLM",
+    "llmKeysDesc": "Use sua própria chave de API LLM. Quando definida, cada execução neste workspace usa sua chave em vez da compartilhada — os tokens são debitados da sua conta do provedor, não do seu orçamento semanal."
   },
   "storage": {
     "workspace": "Área de trabalho",
@@ -834,6 +851,7 @@
       "video": "Vídeo",
       "audio": "Áudio",
       "key": "Chave",
+      "certificate": "Certificado",
       "archive": "Arquivo compactado",
       "calendar": "Calendário",
       "spreadsheet": "Planilha",
@@ -866,6 +884,55 @@
       "images": "Imagens",
       "documents": "Documentos",
       "videos": "Vídeos"
+    },
+    "moveModalTitle": "Mover para…",
+    "moveToast": {
+      "movedOne": "{n} item movido",
+      "movedMany": "{n} itens movidos",
+      "cloudLimit": "Limite de armazenamento em nuvem atingido para o seu plano.",
+      "failed": "Falha ao mover: {reason}",
+      "partial": "{migrated} movidos, {failed} falharam",
+      "unknownError": "erro desconhecido",
+      "movingOne": "Movendo {n} item…",
+      "movingMany": "Movendo {n} itens…"
+    },
+    "migrateConfirm": {
+      "title": "Migrar entre provedores?",
+      "bodyOne": "Este item está em um provedor diferente da pasta de destino",
+      "bodyMany": "Estes itens estão em um provedor diferente da pasta de destino",
+      "home": "Início",
+      "continueCopy": "Continuar para copiá-los para",
+      "removeOriginals": "e remover os originais.",
+      "cancel": "Cancelar",
+      "confirm": "Migrar"
+    },
+    "errors": {
+      "upgradeCloud": "Atualize para Pro ou Max para usar o armazenamento em nuvem.",
+      "listFailed": "Falha ao listar arquivos",
+      "signInToUpload": "Entre para enviar arquivos.",
+      "localDeviceId": "Este navegador não pode fornecer um ID de dispositivo para armazenamento local.",
+      "localUnsupported": "Armazenamento local não é suportado neste navegador.",
+      "localUploadMissingId": "Falha no envio local: ID do arquivo ausente.",
+      "uploadFailedStatus": "Falha no envio ({status}){detail}",
+      "b2MissingFileId": "Envio bem-sucedido, mas fileId B2 ausente.",
+      "driveMissingFileId": "Envio bem-sucedido, mas ID do arquivo Drive ausente.",
+      "uploadFailed": "Falha ao enviar arquivo",
+      "deleteFailed": "Falha ao excluir arquivos",
+      "moveFailed": "Falha ao mover arquivo",
+      "migrationFailed": "Falha na migração",
+      "saveOrderFailed": "Falha ao salvar ordem",
+      "invalidFolderName": "Digite um nome de pasta válido.",
+      "renameFolderFailed": "Falha ao renomear pasta",
+      "signInToCreateFolders": "Entre para criar pastas.",
+      "createFolderFailed": "Falha ao criar pasta",
+      "copyFileFailed": "Falha ao copiar arquivo",
+      "signInToCopyFolders": "Entre para copiar pastas.",
+      "copyFolderFailed": "Falha ao copiar pasta",
+      "mintDownloadFailed": "Falha ao gerar URL de download.",
+      "localDeviceOnly": "Este arquivo só está disponível no dispositivo que o criou.",
+      "localCopyMissing": "Cópia local não encontrada neste dispositivo.",
+      "downloadFailedStatus": "Falha no download ({status})",
+      "downloadFailed": "Falha ao baixar arquivo"
     }
   },
   "contact": {
@@ -991,6 +1058,13 @@
     "savedToStorage": "Guardado no armazenamento",
     "noPreview": "Pré-visualização não disponível",
     "noPreviewDesc": "Descarregue este ficheiro para ver o seu conteúdo.",
+    "viewMode": "Modo de visualização do artefacto",
+    "preview": "Pré-visualização",
+    "raw": "Raw",
+    "rawLoading": "A carregar ficheiro raw...",
+    "rawUnavailable": "A vista raw não está disponível para este ficheiro.",
+    "rawLoadError": "Não foi possível carregar a vista raw.",
+    "rawLoadStatus": "Não foi possível carregar a vista raw ({status}).",
     "typeImage": "Imagem",
     "typeCode": "Código",
     "typeDocument": "Documento",
@@ -1006,6 +1080,7 @@
     "promoting": "A guardar…",
     "promoted": "Guardado em {path}",
     "promoteError": "Não foi possível guardar no armazenamento. Tente novamente.",
+    "downloadError": "Não foi possível descarregar o artefacto.",
     "deleteError": "Não foi possível excluir o artefacto."
   },
   "landing": {
@@ -1055,10 +1130,22 @@
       "monthly": "Mensal",
       "purchaseNow": "Comprar agora",
       "plans": {
-        "free": { "name": "Free", "cta": "Começar" },
-        "pro": { "name": "Pro", "cta": "Selecionar plano" },
-        "max": { "name": "Max", "cta": "Selecionar plano" },
-        "enterprise": { "name": "Enterprise", "cta": "Falar com vendas" }
+        "free": {
+          "name": "Free",
+          "cta": "Começar"
+        },
+        "pro": {
+          "name": "Pro",
+          "cta": "Selecionar plano"
+        },
+        "max": {
+          "name": "Max",
+          "cta": "Selecionar plano"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "cta": "Falar com vendas"
+        }
       },
       "comparison": {
         "agentsPerWorkspace": "Agentes de IA por workspace",
@@ -1217,10 +1304,10 @@
   },
   "vault": {
     "passwords": {
-      "searchPlaceholder": "Pesquisar senhas…",
+      "searchPlaceholder": "Pesquisar contas…",
       "yourPasswords": "Suas senhas",
-      "addPassword": "Adicionar senha",
-      "addPasswordTitle": "Adicionar senha",
+      "addPassword": "Adicionar conta",
+      "addPasswordTitle": "Adicionar conta",
       "filterBy": "Filtrar por",
       "sortBy": "Ordenar por",
       "all": "Todas",
@@ -1232,28 +1319,99 @@
       "lastUsed": "Último uso",
       "oldestFirst": "Mais antigas primeiro",
       "savedBy": "Salvo por {name}",
+      "savedAt": "Salvo {when}",
       "lastUsedBy": "Última utilização por {name} · {when}",
+      "lastUsedAt": "Última utilização {when}",
       "unknownUser": "desconhecido",
-      "view": "Visualizar",
+      "details": "Detalhes",
+      "detailsSection": "Detalhes",
       "edit": "Editar",
-      "empty": "Nenhuma senha salva ainda",
-      "noResults": "Nenhuma senha corresponde à sua pesquisa.",
+      "empty": "Nenhuma conta salva ainda",
+      "noResults": "Nenhuma conta corresponde à sua pesquisa.",
       "urlLabel": "URL",
       "urlPlaceholder": "exemplo.pt",
       "usernameLabel": "Usuário ou e-mail",
       "usernamePlaceholder": "voce{'@'}exemplo.pt",
       "passwordLabel": "Senha",
       "passwordPlaceholder": "Digite a senha",
-      "editPasswordTitle": "Editar senha",
+      "editPasswordTitle": "Editar conta",
+      "openSite": "Abrir site",
       "newPasswordLabel": "Nova senha (deixe em branco para manter a atual)",
       "newPasswordPlaceholder": "Digite a nova senha",
       "viewPasswordTitle": "Ver senha",
       "revealPassword": "Revelar",
       "hidePassword": "Ocultar",
       "copyPassword": "Copiar senha",
+      "totpSetupLabel": "Chave do autenticador (opcional)",
+      "totpSetupPlaceholder": "Link otpauth:// ou chave secreta",
+      "totpSetupHint": "Cole a chave de configuração ou o link otpauth:// da configuração de dois fatores do site.",
+      "totpInvalid": "Isso não parece uma chave de autenticador válida.",
+      "totpCodeLabel": "Código de dois fatores",
+      "totpError": "Não foi possível carregar o código",
+      "copyCode": "Copiar código",
+      "totpBadge": "2FA",
+      "totpBadgeTitle": "Autenticação de dois fatores ativada",
       "copied": "Copiado!",
       "loading": "Carregando senhas…",
-      "saving": "Salvando…"
+      "saving": "Salvando…",
+      "addTab": "Manual",
+      "importTab": "Importar do navegador",
+      "importFromBrowser": "Importar do navegador",
+      "import": {
+        "action": "Importar",
+        "title": "Importar senhas",
+        "subtitleNative": "O Polymux pode ler senhas salvas em navegadores neste dispositivo.",
+        "subtitleWeb": "Exporte um CSV do seu navegador e envie-o aqui.",
+        "detectedBrowsers": "Navegadores instalados",
+        "scanning": "Procurando navegadores…",
+        "noBrowsersDetected": "Nenhum navegador compatível encontrado neste dispositivo.",
+        "nativeDetectFailed": "Não foi possível procurar navegadores.",
+        "nativeReadFailed": "Não foi possível ler senhas desse navegador.",
+        "profileCount": "{count} perfil | {count} perfis",
+        "orManual": "Ou importar de uma exportação CSV",
+        "browsers": {
+          "chromium": "Chrome",
+          "chromiumHint": "Edge, Brave e outros navegadores baseados em Chromium usam o mesmo formato de exportação.",
+          "firefox": "Firefox",
+          "safari": "Safari"
+        },
+        "instructions": {
+          "chromium": {
+            "step1": "Abra o gerenciador de senhas do Chrome (Configurações → Preenchimento automático → Google Password Manager).",
+            "step2": "Abra Configurações, escolha Exportar senhas e confirme com a senha do seu dispositivo.",
+            "step3": "Envie o arquivo CSV baixado abaixo."
+          },
+          "firefox": {
+            "step1": "Abra o Firefox e vá para about:logins (ou Configurações → Privacidade e segurança → Logins e senhas).",
+            "step2": "Abra o menu (⋯) e escolha Exportar logins para CSV. Confirme quando solicitado.",
+            "step3": "Envie o arquivo CSV baixado abaixo."
+          },
+          "safari": {
+            "step1": "No macOS, abra Senhas (Ajustes do Sistema → Senhas, ou Safari → Configurações → Senhas).",
+            "step2": "Selecione as senhas desejadas e use Arquivo → Exportar senhas para CSV.",
+            "step3": "Envie o arquivo CSV baixado abaixo."
+          }
+        },
+        "uploadCsv": "Importar senhas",
+        "parseFailed": "Não foi possível ler esse arquivo. Verifique se é um CSV de exportação de senhas válido.",
+        "noEntriesFound": "Nenhuma senha encontrada nesse arquivo.",
+        "securityNote": "Exclua o CSV após importar — ele contém suas senhas em texto simples.",
+        "reviewSubtitle": "{count} senha encontrada — escolha o que importar. | {count} senhas encontradas — escolha o que importar.",
+        "searchPlaceholder": "Filtrar lista…",
+        "selectedCount": "{count} selecionados",
+        "colName": "Nome",
+        "colUsername": "Usuário",
+        "colSite": "Site",
+        "duplicateHint": "Entradas já no seu cofre ficam desmarcadas por padrão.",
+        "back": "Voltar",
+        "importSelected": "Importar {count} senha | Importar {count} senhas",
+        "importing": "Importando…",
+        "importingSubtitle": "Criptografando e salvando suas senhas selecionadas.",
+        "completeTitle": "{imported} senha importada. | {imported} senhas importadas.",
+        "completeFailed": "{failed} não puderam ser salvas.",
+        "completeSubtitle": "Concluído.",
+        "done": "Concluído"
+      }
     },
     "signIns": {
       "sectionTitle": "Logins salvos",
@@ -1263,7 +1421,7 @@
       "forget": "Esquecer"
     },
     "tabs": {
-      "passwords": "Senhas",
+      "accounts": "Contas",
       "wallet": "Carteira"
     },
     "wallet": {
@@ -1444,7 +1602,13 @@
     "saving": "A guardar…",
     "saveAndUse": "Guardar e usar",
     "errorReveal": "Não foi possível obter a palavra-passe guardada.",
-    "errorSave": "Não foi possível guardar a credencial no cofre."
+    "errorSave": "Não foi possível guardar a credencial no cofre.",
+    "errorNoWorkspace": "Selecione um workspace antes de salvar credenciais.",
+    "errorDelete": "Não foi possível excluir a credencial salva.",
+    "showDetails": "Detalhes",
+    "hideDetails": "Ocultar detalhes",
+    "completedSummary": "Credenciais fornecidas para {site}.",
+    "cancelledSummary": "Login cancelado para {site}."
   },
   "schedule": {
     "title": "Agendar",
@@ -1561,13 +1725,36 @@
     "multiTitleSuffix": "{n} itens"
   },
   "pricing": {
-    "billingPeriod": "Período de faturação",
+    "billingPeriod": "Período de cobrança",
     "storage": {
-      "total": "Armazenamento do espaço",
-      "file": "Tamanho máximo por arquivo",
-      "pullFolder": "Limite de pull de pasta",
+      "total": "Armazenamento do workspace",
+      "file": "Limite de tamanho por arquivo",
+      "pullFolder": "Limite de extração de pasta",
       "artifacts": "Armazenamento de artefatos"
-    }
+    },
+    "metaTitle": "Preços",
+    "metaDescription": "Preços simples e transparentes para workspaces de agentes de IA. Comece grátis e escale com os planos Pro, Max e Enterprise.",
+    "annual": "Anual",
+    "monthly": "Mensal",
+    "purchaseNow": "Comprar agora",
+    "redirecting": "Redirecionando…",
+    "mostPopular": "Mais popular",
+    "currentPlan": "Plano atual",
+    "selectWorkspaceFirst": "Selecione um workspace para atualizar primeiro.",
+    "purchaseError": "Algo deu errado. Tente novamente.",
+    "features": {
+      "agentsPerWorkspace": "Agentes de IA por workspace",
+      "weeklyTokenBudget": "Orçamento semanal de tokens",
+      "monthlyWorkflowRuns": "Execuções mensais de workflows",
+      "cloudStorage": "Armazenamento em nuvem",
+      "workspaceMembers": "Membros do workspace",
+      "byok": "Traga suas próprias chaves LLM",
+      "customWorkflows": "Workflows personalizados",
+      "prioritySupport": "Suporte prioritário"
+    },
+    "subtitle": "Comece grátis. Escale conforme cresce. Sem taxas ocultas. Cada workspace é cobrado separadamente — faça upgrade apenas nos que precisar.",
+    "upgradeTitle": "Fazer upgrade do plano de {name}",
+    "pricingTitle": "Preços"
   },
   "install": {
     "versionBadge": "Polymux para desktop · v{version}",
@@ -1624,6 +1811,12 @@
       "description": "A nossa documentação cobre verificação, atualizações e resolução de problemas para cada plataforma.",
       "readGuide": "Ler guia de instalação",
       "contactSupport": "Contactar o suporte"
+    },
+    "extension": {
+      "eyebrow": "Extensão do navegador",
+      "heading": "Conecte seu navegador",
+      "subtitle": "Conecte a extensão Polymux para executar agentes localmente no seu próprio navegador.",
+      "chromeLabel": "Instalar para Chrome"
     }
   },
   "docs": {
@@ -1721,20 +1914,25 @@
     "getStarted": "Começar",
     "stepLabel": "Passo {current} de {total}",
     "welcome": {
-      "title": "Bem-vindo ao Polymux",
-      "description": "Execute fluxos com IA que navegam pela web, lidam com arquivos e agem em seu nome."
+      "title": "Bem-vindo ao seu novo workspace",
+      "description": "Tudo no Polymux vive em um workspace — alterne entre equipes e projetos pessoais, convide membros e mantenha fluxos, arquivos e segredos isolados."
     },
     "workflows": {
-      "title": "Crie fluxos visualmente",
-      "description": "Componha passos em um quadro, execute em um cronograma e inspecione cada resultado."
+      "title": "Crie e execute fluxos",
+      "description": "Componha passos de agente em um canvas de fluxo e veja-os trabalhar em viewports do navegador ao vivo — tudo em um só lugar."
     },
-    "browser": {
-      "title": "Um navegador que acompanha",
-      "description": "Veja em tempo real os fluxos operando o navegador, ou assuma o controle quando precisar."
+    "storage": {
+      "title": "Arquivos do workspace",
+      "description": "Envie, organize e mova arquivos e pastas. Os fluxos podem ler e gravar no armazenamento por você."
+    },
+    "integrations": {
+      "title": "Conecte suas ferramentas",
+      "description": "Instale integrações do marketplace para que os fluxos alcancem Slack, GitHub, bancos de dados e mais."
     },
     "vault": {
-      "title": "Seu cofre, seus segredos",
-      "description": "Guarde senhas e credenciais com segurança para que os fluxos façam login por você."
+      "title": "Senhas e carteira",
+      "description": "Armazene credenciais e gerencie a carteira do agente para que os fluxos façam login e paguem serviços com segurança.",
+      "importCta": "Importar do seu navegador"
     },
     "terms": {
       "title": "Algumas coisas a saber",
@@ -1750,5 +1948,126 @@
       "footnoteEnd": ".",
       "acknowledgement": "Li e entendi o acima e consinto com a exposição e o compartilhamento de dados descritos durante o beta do Polymux."
     }
+  },
+  "llmKeys": {
+    "addKey": "Adicionar chave",
+    "loading": "Carregando chaves…",
+    "empty": "Nenhuma chave LLM configurada ainda. As execuções neste workspace usam a chave compartilhada do servidor.",
+    "provider": "Provedor",
+    "apiKey": "Chave de API",
+    "baseUrl": "URL base",
+    "baseUrlOptional": "(opcional)",
+    "keyHint": "A chave é criptografada em repouso. Exibimos apenas os quatro últimos caracteres; a chave completa não pode ser recuperada.",
+    "baseUrlHint": "Deixe em branco para usar o padrão do servidor. Defina uma URL personalizada para proxies, Azure OpenAI ou outros endpoints compatíveis.",
+    "rotate": "Rotacionar",
+    "remove": "Remover",
+    "saveKey": "Salvar chave",
+    "lastUsed": "Último uso {when}",
+    "savedToast": "Chave {provider} salva (…{lastFour}).",
+    "removedToast": "Chave {provider} removida.",
+    "confirmRemove": "Remover a chave de API {provider} (…{lastFour})? Execuções futuras voltarão à chave compartilhada do servidor.",
+    "relativeNever": "nunca",
+    "relativeJustNow": "agora mesmo",
+    "relativeMinutesAgo": "há {n} min",
+    "relativeHoursAgo": "há {n} h",
+    "relativeDaysAgo": "há {n} d",
+    "providers": {
+      "anthropic": "Anthropic (Claude)",
+      "openai": "OpenAI (GPT)",
+      "gemini": "Google Gemini"
+    }
+  },
+  "community": {
+    "metaTitle": "Comunidade",
+    "metaDescription": "Junte-se à comunidade Polymux. Compartilhe workflows, faça perguntas e conecte-se com outros criadores de agentes de IA.",
+    "title": "Comunidade Polymux",
+    "subtitle": "Atualizações, discussões e recursos para usuários Polymux",
+    "searchPlaceholder": "Buscar na comunidade…",
+    "searchResults": "Resultados da busca",
+    "comingSoon": "Em breve",
+    "explore": "Explorar",
+    "tiles": {
+      "blog": {
+        "label": "Blog",
+        "description": "Atualizações do produto, notas de engenharia e guias"
+      },
+      "documentation": {
+        "label": "Documentação",
+        "description": "Guias, referências e documentação da API"
+      },
+      "forum": {
+        "label": "Fórum",
+        "description": "Faça perguntas, compartilhe ideias, conecte-se com outros"
+      }
+    },
+    "sources": {
+      "documentation": "Documentação",
+      "forum": "Fórum",
+      "blog": "Blog"
+    },
+    "searching": "Pesquisando…",
+    "noResults": "Nenhum resultado para \"{query}\". Tente outras palavras-chave."
+  },
+  "blog": {
+    "metaTitle": "Blog Polymux",
+    "metaDescription": "Atualizações, análises aprofundadas e estudos de caso sobre agentes de IA, automação de navegador e orquestração multiagente com Polymux.",
+    "title": "Blog Polymux",
+    "subscribe": "Assinar",
+    "empty": "Nenhuma publicação ainda. Volte em breve.",
+    "readMore": "Leia mais",
+    "emailLabel": "E-mail",
+    "subtitle": "Atualizações de produto, notas de engenharia e guias para equipes que constroem com Polymux — orquestre agentes, acompanhe sessões de navegador ao vivo e entregue automações confiáveis.",
+    "subscribeHint": "Novos posts algumas vezes por mês"
+  },
+  "verifyEmail": {
+    "title": "Verificar e-mail",
+    "verifying": "Verificando seu e-mail…",
+    "verifiedTitle": "E-mail verificado!",
+    "verifiedBody": "Sua assinatura do blog Polymux foi confirmada. Bem-vindo! 🎉",
+    "failedTitle": "Falha na verificação",
+    "backToBlog": "Voltar ao blog",
+    "tokenMissing": "Token de verificação ausente",
+    "verifyFailed": "Falha ao verificar e-mail"
+  },
+  "invitations": {
+    "loading": "Carregando convite…",
+    "joinTitle": "Entrar em {name}",
+    "invitedAs": "Você foi convidado a entrar como {role}.",
+    "sentTo": "Convite enviado para",
+    "decline": "Recusar",
+    "accept": "Aceitar convite",
+    "joining": "Entrando no workspace…",
+    "acceptedTitle": "Você entrou",
+    "acceptedBody": "Bem-vindo a {name}.",
+    "continueToDashboard": "Continuar para o painel",
+    "unavailableTitle": "Convite indisponível",
+    "goToDashboard": "Ir para o painel",
+    "errors": {
+      "tokenMissing": "Token de convite ausente.",
+      "loadFailed": "Não foi possível carregar o convite.",
+      "invalidOrRevoked": "Este link de convite é inválido ou foi revogado.",
+      "alreadyAccepted": "Este convite já foi aceito.",
+      "expired": "Este convite expirou. Peça ao administrador do workspace para enviar um novo.",
+      "emailMismatch": "Este convite foi enviado para outro e-mail. Entre com a conta convidada.",
+      "expiredShort": "Este convite expirou.",
+      "alreadyUsed": "Este convite já foi usado.",
+      "notFound": "Este convite não é mais válido.",
+      "acceptFailed": "Algo deu errado ao aceitar. Tente novamente."
+    }
+  },
+  "layout": {
+    "loadFailed": "Falha ao carregar o layout.",
+    "retry": "Tentar novamente",
+    "loading": "Carregando layout…"
+  },
+  "marketplace": {
+    "adminOnly": "Somente proprietários e administradores do workspace podem gerenciar integrações.",
+    "pluginInstalledNeedsSetup": "Plugin instalado. Estas conexões ainda precisam ser configuradas: {names}.",
+    "pluginInstallPartialFailed": "Alguns itens do plugin falharam ao instalar: {names}.",
+    "installFailed": "Falha ao instalar a integração."
+  },
+  "attachments": {
+    "tooLarge": "\"{name}\" é grande demais para enviar",
+    "exceedsLimit": "\"{name}\" excede o limite de upload de {limit}"
   }
 }

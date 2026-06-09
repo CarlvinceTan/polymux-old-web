@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  redirect: '/vault/passwords',
+  redirect: '/vault/accounts',
 })
 </script>
 

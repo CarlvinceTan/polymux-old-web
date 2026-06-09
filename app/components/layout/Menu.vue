@@ -124,8 +124,8 @@ defineExpose({
         :class="[
           'fixed bg-white overflow-y-auto max-h-[80vh] z-[60]',
           compact
-            ? 'rounded-xl py-0.5 shadow-md shadow-black/[0.06] ring-1 ring-neutral-200/70'
-            : 'rounded-2xl py-1 shadow-lg ring-1 ring-neutral-200',
+            ? 'rounded-xl shadow-md shadow-black/[0.06] ring-1 ring-neutral-200/70'
+            : 'rounded-2xl shadow-lg ring-1 ring-neutral-200',
           width ?? '',
         ]"
         :style="measured ? posStyle : { ...posStyle, visibility: 'hidden' }"

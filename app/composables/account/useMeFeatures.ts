@@ -21,17 +21,13 @@
 // `plan_limits` (upstream RPM) and `extension_mode` without using this module.
 
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
+import { resolveFeatureFlagValue, STRICT_OPT_IN_FLAGS } from '~/utils/featureFlagResolve'
+import { readCachedFeatureFlag } from '~/utils/uiPolicyCache'
 
 type FlagState = {
   ready: boolean
   enabled: Record<string, boolean>
 }
-
-// Must stay aligned with model/featureflag.go strict opt-in keys.
-const STRICT_OPT_IN = new Set([
-  'wallet',
-  'extension_mode',
-])
 
 const state = ref<FlagState>({ ready: false, enabled: {} })
 
@@ -54,17 +50,17 @@ function ensureListener() {
   syncFromWindow()
 }
 
-function getPostHogClient() {
+function getPostHogClient(): { isFeatureEnabled: (k: string) => boolean | undefined } | null {
   if (!import.meta.client) return null
   const ph = (useNuxtApp().$posthog ?? null) as
     | { isFeatureEnabled?: (k: string) => boolean | undefined }
     | null
   if (!ph || typeof ph.isFeatureEnabled !== 'function') return null
-  return ph
+  return ph as { isFeatureEnabled: (k: string) => boolean | undefined }
 }
 
 function isStrictOptIn(key: string): boolean {
-  return STRICT_OPT_IN.has(key)
+  return STRICT_OPT_IN_FLAGS.has(key)
 }
 
 function resolveFeatureFlag(key: string): boolean {
@@ -73,21 +69,7 @@ function resolveFeatureFlag(key: string): boolean {
   }
 
   const ph = getPostHogClient()
-  if (!ph) {
-    // PostHog disabled (no public key). Fail open.
-    return true
-  }
-
-  const strict = isStrictOptIn(key)
-  if (!state.value.ready) {
-    return strict ? false : true
-  }
-
-  const v = ph.isFeatureEnabled(key)
-  if (v === undefined) {
-    return strict ? false : true
-  }
-  return Boolean(v)
+  return resolveFeatureFlagValue(ph, key, state.value.ready, !ph)
 }
 
 export function useMeFeatures() {
@@ -137,10 +119,18 @@ export function useMeFeatures() {
   }
 
   function isPlanLimitsEnforced(): boolean {
+    if (import.meta.client && !state.value.ready) {
+      const cached = readCachedFeatureFlag('plan_limits')
+      if (cached !== null) return cached
+    }
     return resolveFeatureFlag('plan_limits')
   }
 
   function hasAccountAccess(): boolean {
+    if (import.meta.client && !state.value.ready) {
+      const cached = readCachedFeatureFlag('account_access')
+      if (cached !== null) return cached
+    }
     return resolveFeatureFlag('account_access')
   }
 

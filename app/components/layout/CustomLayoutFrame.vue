@@ -28,6 +28,7 @@ const props = defineProps<{
 }>()
 
 const { currentWorkspace } = useWorkspaces()
+const { t } = useI18n()
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 
 const layoutKey = computed(() => `custom-layout:${currentWorkspace.value?.id}:${props.workspaceIntegrationId}`)
@@ -149,18 +150,18 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col">
     <div v-if="pending && !data" class="flex flex-1 items-center justify-center text-body-md text-neutral-500">
-      Loading layout…
+      {{ t('layout.loading') }}
     </div>
     <div v-else-if="error" class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
       <p class="text-body-md text-neutral-700">
-        Failed to load layout.
+        {{ t('layout.loadFailed') }}
       </p>
       <button
         type="button"
         class="rounded-md bg-neutral-950 px-3 py-1.5 text-label-md font-medium text-white transition-colors hover:bg-neutral-800"
         @click="refresh()"
       >
-        Retry
+        {{ t('layout.retry') }}
       </button>
     </div>
     <iframe

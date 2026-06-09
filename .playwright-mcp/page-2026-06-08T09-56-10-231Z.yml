@@ -1,0 +1,256 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "Home" [ref=e7] [cursor=pointer]:
+          - generic [ref=e8]:
+            - img [ref=e9]
+            - generic [ref=e11]: Polymux
+        - navigation [ref=e12]:
+          - button "Home" [ref=e13]
+          - button "Features" [ref=e14]
+          - button "Pricing" [ref=e15]
+          - link "Community" [ref=e16] [cursor=pointer]:
+            - /url: /community
+          - link "Contact Us" [ref=e17] [cursor=pointer]:
+            - /url: /contact
+      - generic [ref=e18]:
+        - link "Install Apps" [ref=e19] [cursor=pointer]:
+          - /url: /install-apps
+        - button "Language" [ref=e22] [cursor=pointer]
+        - link "Sign in" [ref=e24] [cursor=pointer]:
+          - /url: /sign-in?redirect=/
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e29]:
+        - button "Back" [ref=e30]:
+          - img [ref=e31]
+        - heading "Pricing" [level=1] [ref=e33]
+      - paragraph [ref=e34]: Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
+      - group "Billing period" [ref=e36]:
+        - button "Annual" [pressed] [ref=e37]
+        - button "Monthly" [ref=e38]
+      - generic [ref=e39]:
+        - button "Free AI Agents per workspace (2) Weekly Token Budget (100K) Monthly Workflow Runs (50) Cloud Storage (—) Per-file size limit (100 MB) Artifact storage (50 MB) Workspace Members (3) Bring Your Own LLM Keys Custom Workflows Priority Support — Get Started" [ref=e40]:
+          - heading "Free" [level=3] [ref=e42]
+          - list [ref=e43]:
+            - listitem [ref=e44]:
+              - img [ref=e45]
+              - generic [ref=e47]: AI Agents per workspace (2)
+            - listitem [ref=e48]:
+              - img [ref=e49]
+              - generic [ref=e51]: Weekly Token Budget (100K)
+            - listitem [ref=e52]:
+              - img [ref=e53]
+              - generic [ref=e55]: Monthly Workflow Runs (50)
+            - listitem [ref=e56]:
+              - img [ref=e57]
+              - generic [ref=e59]: Cloud Storage (—)
+            - listitem [ref=e60]:
+              - img [ref=e61]
+              - generic [ref=e63]: Per-file size limit (100 MB)
+            - listitem [ref=e64]:
+              - img [ref=e65]
+              - generic [ref=e67]: Artifact storage (50 MB)
+            - listitem [ref=e68]:
+              - img [ref=e69]
+              - generic [ref=e71]: Workspace Members (3)
+            - listitem [ref=e72]:
+              - img [ref=e73]
+              - generic [ref=e75]: Bring Your Own LLM Keys
+            - listitem [ref=e76]:
+              - img [ref=e77]
+              - generic [ref=e79]: Custom Workflows
+            - listitem [ref=e80]:
+              - img [ref=e81]
+              - generic [ref=e83]: Priority Support
+          - generic [ref=e84]:
+            - generic [ref=e87]: —
+            - generic [ref=e88]: Get Started
+        - button "Pro Most Popular AI Agents per workspace (8) Weekly Token Budget (2M) Monthly Workflow Runs (500) Cloud Storage (2 GB) Per-file size limit (5 GB) Artifact storage (200 MB) Workspace Members (10) Bring Your Own LLM Keys Custom Workflows Priority Support — Select Plan" [pressed] [ref=e89]:
+          - generic [ref=e90]:
+            - heading "Pro" [level=3] [ref=e91]
+            - generic [ref=e92]: Most Popular
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - img [ref=e95]
+              - generic [ref=e97]: AI Agents per workspace (8)
+            - listitem [ref=e98]:
+              - img [ref=e99]
+              - generic [ref=e101]: Weekly Token Budget (2M)
+            - listitem [ref=e102]:
+              - img [ref=e103]
+              - generic [ref=e105]: Monthly Workflow Runs (500)
+            - listitem [ref=e106]:
+              - img [ref=e107]
+              - generic [ref=e109]: Cloud Storage (2 GB)
+            - listitem [ref=e110]:
+              - img [ref=e111]
+              - generic [ref=e113]: Per-file size limit (5 GB)
+            - listitem [ref=e114]:
+              - img [ref=e115]
+              - generic [ref=e117]: Artifact storage (200 MB)
+            - listitem [ref=e118]:
+              - img [ref=e119]
+              - generic [ref=e121]: Workspace Members (10)
+            - listitem [ref=e122]:
+              - img [ref=e123]
+              - generic [ref=e125]: Bring Your Own LLM Keys
+            - listitem [ref=e126]:
+              - img [ref=e127]
+              - generic [ref=e129]: Custom Workflows
+            - listitem [ref=e130]:
+              - img [ref=e131]
+              - generic [ref=e133]: Priority Support
+          - generic [ref=e134]:
+            - generic [ref=e137]: —
+            - generic [ref=e138]: Select Plan
+        - button "Max AI Agents per workspace (20) Weekly Token Budget (5M) Monthly Workflow Runs (5,000) Cloud Storage (20 GB) Per-file size limit (20 GB) Artifact storage (2 GB) Workspace Members (50) Bring Your Own LLM Keys Custom Workflows Priority Support — Select Plan" [ref=e139]:
+          - heading "Max" [level=3] [ref=e141]
+          - list [ref=e142]:
+            - listitem [ref=e143]:
+              - img [ref=e144]
+              - generic [ref=e146]: AI Agents per workspace (20)
+            - listitem [ref=e147]:
+              - img [ref=e148]
+              - generic [ref=e150]: Weekly Token Budget (5M)
+            - listitem [ref=e151]:
+              - img [ref=e152]
+              - generic [ref=e154]: Monthly Workflow Runs (5,000)
+            - listitem [ref=e155]:
+              - img [ref=e156]
+              - generic [ref=e158]: Cloud Storage (20 GB)
+            - listitem [ref=e159]:
+              - img [ref=e160]
+              - generic [ref=e162]: Per-file size limit (20 GB)
+            - listitem [ref=e163]:
+              - img [ref=e164]
+              - generic [ref=e166]: Artifact storage (2 GB)
+            - listitem [ref=e167]:
+              - img [ref=e168]
+              - generic [ref=e170]: Workspace Members (50)
+            - listitem [ref=e171]:
+              - img [ref=e172]
+              - generic [ref=e174]: Bring Your Own LLM Keys
+            - listitem [ref=e175]:
+              - img [ref=e176]
+              - generic [ref=e178]: Custom Workflows
+            - listitem [ref=e179]:
+              - img [ref=e180]
+              - generic [ref=e182]: Priority Support
+          - generic [ref=e183]:
+            - generic [ref=e186]: —
+            - generic [ref=e187]: Select Plan
+        - button "Enterprise AI Agents per workspace (50) Weekly Token Budget (Unlimited) Monthly Workflow Runs (Unlimited) Cloud Storage (200 GB) Per-file size limit (100 GB) Artifact storage (20 GB) Workspace Members (Custom) Bring Your Own LLM Keys Custom Workflows Priority Support — Contact Sales" [ref=e188]:
+          - heading "Enterprise" [level=3] [ref=e190]
+          - list [ref=e191]:
+            - listitem [ref=e192]:
+              - img [ref=e193]
+              - generic [ref=e195]: AI Agents per workspace (50)
+            - listitem [ref=e196]:
+              - img [ref=e197]
+              - generic [ref=e199]: Weekly Token Budget (Unlimited)
+            - listitem [ref=e200]:
+              - img [ref=e201]
+              - generic [ref=e203]: Monthly Workflow Runs (Unlimited)
+            - listitem [ref=e204]:
+              - img [ref=e205]
+              - generic [ref=e207]: Cloud Storage (200 GB)
+            - listitem [ref=e208]:
+              - img [ref=e209]
+              - generic [ref=e211]: Per-file size limit (100 GB)
+            - listitem [ref=e212]:
+              - img [ref=e213]
+              - generic [ref=e215]: Artifact storage (20 GB)
+            - listitem [ref=e216]:
+              - img [ref=e217]
+              - generic [ref=e219]: Workspace Members (Custom)
+            - listitem [ref=e220]:
+              - img [ref=e221]
+              - generic [ref=e223]: Bring Your Own LLM Keys
+            - listitem [ref=e224]:
+              - img [ref=e225]
+              - generic [ref=e227]: Custom Workflows
+            - listitem [ref=e228]:
+              - img [ref=e229]
+              - generic [ref=e231]: Priority Support
+          - generic [ref=e232]:
+            - generic [ref=e235]: —
+            - generic [ref=e236]: Contact Sales
+      - button "Purchase now" [ref=e238]
+  - contentinfo [ref=e239]:
+    - generic [ref=e240]:
+      - generic [ref=e241]:
+        - generic [ref=e242]:
+          - button "Home" [ref=e243] [cursor=pointer]:
+            - generic [ref=e244]:
+              - img [ref=e245]
+              - generic [ref=e247]: Polymux
+          - paragraph [ref=e248]: Build, deploy, and manage intelligent AI agents that automate your workflows.
+        - generic [ref=e249]:
+          - generic [ref=e250]:
+            - heading "Product" [level=4] [ref=e251]
+            - list [ref=e252]:
+              - listitem [ref=e253]:
+                - link "Home" [ref=e254] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e255]:
+                - link "Features" [ref=e256] [cursor=pointer]:
+                  - /url: /#features
+              - listitem [ref=e257]:
+                - link "Pricing" [ref=e258] [cursor=pointer]:
+                  - /url: /#pricing
+          - generic [ref=e259]:
+            - heading "Community" [level=4] [ref=e260]
+            - list [ref=e261]:
+              - listitem [ref=e262]:
+                - link "Blog" [ref=e263] [cursor=pointer]:
+                  - /url: /blog
+              - listitem [ref=e264]:
+                - link "Documentation" [ref=e265] [cursor=pointer]:
+                  - /url: /documentation
+              - listitem [ref=e266]:
+                - link "Forum" [ref=e267] [cursor=pointer]:
+                  - /url: /forum
+          - generic [ref=e268]:
+            - heading "Company" [level=4] [ref=e269]
+            - list [ref=e270]:
+              - listitem [ref=e271]:
+                - link "About us" [ref=e272] [cursor=pointer]:
+                  - /url: /about-us
+              - listitem [ref=e273]:
+                - link "Contact Us" [ref=e274] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e275]:
+            - heading "Legal" [level=4] [ref=e276]
+            - list [ref=e277]:
+              - listitem [ref=e278]:
+                - link "Privacy Policy" [ref=e279] [cursor=pointer]:
+                  - /url: /privacy-policy
+              - listitem [ref=e280]:
+                - link "Terms of Service" [ref=e281] [cursor=pointer]:
+                  - /url: /terms-of-service
+              - listitem [ref=e282]:
+                - link "Cookie Policy" [ref=e283] [cursor=pointer]:
+                  - /url: /cookie-policy
+      - generic [ref=e284]:
+        - paragraph [ref=e285]: © 2026 Polymux. All rights reserved.
+        - generic [ref=e286]:
+          - link "LinkedIn" [ref=e287] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/polymuxai/
+            - img [ref=e288]
+          - link "X" [ref=e290] [cursor=pointer]:
+            - /url: https://x.com/PolymuxAI
+            - img [ref=e291]
+          - link "Instagram" [ref=e293] [cursor=pointer]:
+            - /url: https://www.instagram.com/polymuxai/
+            - img [ref=e294]
+          - link "YouTube" [ref=e296] [cursor=pointer]:
+            - /url: https://www.youtube.com/channel/UCWk26NQhk-l1g-AV9dnUpgw
+            - img [ref=e297]
+          - link "Facebook" [ref=e299] [cursor=pointer]:
+            - /url: https://www.facebook.com/profile.php?id=61589842064261&sk=about
+            - img [ref=e300]
+          - link "Reddit" [ref=e302] [cursor=pointer]:
+            - /url: https://www.reddit.com/r/polymux/
+            - img [ref=e303]

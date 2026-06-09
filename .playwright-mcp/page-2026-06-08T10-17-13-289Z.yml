@@ -1,0 +1,406 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e45]:
+    - banner [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - button "Home" [ref=e49] [cursor=pointer]:
+            - generic [ref=e50]:
+              - img [ref=e51]
+              - generic [ref=e53]: Polymux
+          - navigation [ref=e54]:
+            - button "Home" [ref=e55]
+            - button "Features" [ref=e56]
+            - button "Pricing" [ref=e57]
+            - link "Community" [ref=e58] [cursor=pointer]:
+              - /url: /community
+            - link "Contact Us" [ref=e59] [cursor=pointer]:
+              - /url: /contact
+        - generic [ref=e60]:
+          - link "Install Apps" [ref=e61] [cursor=pointer]:
+            - /url: /install-apps
+            - text: Install Apps
+          - button "Account menu" [ref=e64]:
+            - generic [ref=e65]: C
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - heading "AI agents for the live web Live browser sessions." [level=1] [ref=e72]:
+              - generic [ref=e73]: AI agents for the live web
+              - status "Live browser sessions." [ref=e74]:
+                - generic [ref=e76]:
+                  - generic [ref=e77]: Live browser sessions.
+                  - generic [ref=e78]: Multi-agent handoffs.
+            - paragraph [ref=e79]: Deploy, manage, and scale intelligent AI agents that automate your workflows. From simple tasks to complex multi-agent orchestration — Polymux puts you in control.
+            - generic [ref=e80]:
+              - link "Use now" [ref=e81] [cursor=pointer]:
+                - /url: /workflow/new
+              - link "Join the Community" [ref=e82] [cursor=pointer]:
+                - /url: /community
+          - generic [ref=e86]:
+            - generic [ref=e88]:
+              - img [ref=e89]
+              - generic [ref=e91]: Demo 1
+            - generic:
+              - generic:
+                - img
+                - generic: Demo 2
+            - generic:
+              - generic:
+                - img
+                - generic: Demo 3
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - heading "Everything you need to automate" [level=2] [ref=e95]
+            - paragraph [ref=e96]: Powerful features to build, deploy, and manage AI-powered workflows at any scale.
+          - generic [ref=e99]:
+            - generic [ref=e102]:
+              - generic [ref=e108]:
+                - img [ref=e109]
+                - generic [ref=e111]: Demo
+              - generic [ref=e113]:
+                - generic [ref=e114]: "01"
+                - heading "Multi-Agent Orchestration" [level=3] [ref=e115]
+                - paragraph [ref=e116]: Deploy and coordinate multiple AI agents working in parallel. Each agent operates independently with its own browser session, tools, and context — while Polymux keeps them all in sync.
+            - generic [ref=e119]:
+              - generic [ref=e125]:
+                - img [ref=e126]
+                - generic [ref=e128]: Demo
+              - generic [ref=e130]:
+                - generic [ref=e131]: "02"
+                - heading "Live Browser Sessions" [level=3] [ref=e132]
+                - paragraph [ref=e133]: Watch your agents interact with websites in real-time. Every click, scroll, and form fill is streamed live to your dashboard, giving you full visibility into automated workflows.
+            - generic [ref=e136]:
+              - generic [ref=e142]:
+                - img [ref=e143]
+                - generic [ref=e145]: Demo
+              - generic [ref=e147]:
+                - generic [ref=e148]: "03"
+                - heading "Secure Vault" [level=3] [ref=e149]
+                - paragraph [ref=e150]: Enterprise-grade encryption for your credentials, API keys, and sensitive data. Agents access exactly what they need without exposing your secrets, with full audit logging.
+            - generic [ref=e153]:
+              - generic [ref=e159]:
+                - img [ref=e160]
+                - generic [ref=e162]: Demo
+              - generic [ref=e164]:
+                - generic [ref=e165]: "04"
+                - heading "Smart Marketplace" [level=3] [ref=e166]
+                - paragraph [ref=e167]: Discover and install pre-built agents, workflows, and integrations. Connect your favourite tools in seconds, or publish your own automations for others to use.
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - img [ref=e172]
+              - text: Priced per workspace
+            - heading "Simple, transparent pricing" [level=2] [ref=e175]
+            - paragraph [ref=e176]: Start free. Scale as you grow. No hidden fees. Every workspace is billed separately — upgrade only the ones you need.
+          - group "Billing period" [ref=e178]:
+            - button "Annual" [pressed] [ref=e179]
+            - button "Monthly" [ref=e180]
+          - generic [ref=e181]:
+            - button "Free AI Agents per workspace (3) Monthly Tasks per workspace (100) Browser Sessions per workspace (2) Workspace Storage (100 MB) Workspace Members (3) Custom Workflows Priority Support $0 /mo Current Plan" [disabled] [ref=e182]:
+              - heading "Free" [level=3] [ref=e184]
+              - list [ref=e185]:
+                - listitem [ref=e186]:
+                  - img [ref=e187]
+                  - generic [ref=e189]: AI Agents per workspace (3)
+                - listitem [ref=e190]:
+                  - img [ref=e191]
+                  - generic [ref=e193]: Monthly Tasks per workspace (100)
+                - listitem [ref=e194]:
+                  - img [ref=e195]
+                  - generic [ref=e197]: Browser Sessions per workspace (2)
+                - listitem [ref=e198]:
+                  - img [ref=e199]
+                  - generic [ref=e201]: Workspace Storage (100 MB)
+                - listitem [ref=e202]:
+                  - img [ref=e203]
+                  - generic [ref=e205]: Workspace Members (3)
+                - listitem [ref=e206]:
+                  - img [ref=e207]
+                  - generic [ref=e209]: Custom Workflows
+                - listitem [ref=e210]:
+                  - img [ref=e211]
+                  - generic [ref=e213]: Priority Support
+              - generic [ref=e214]:
+                - generic [ref=e216]:
+                  - generic [ref=e217]: $0
+                  - generic [ref=e218]: /mo
+                - generic [ref=e219]: Current Plan
+            - button "Pro Most Popular AI Agents per workspace (10) Monthly Tasks per workspace (1,000) Browser Sessions per workspace (8) Workspace Storage (5 GB) Workspace Members (10) Custom Workflows Priority Support $24 /mo $29/mo Select Plan" [pressed] [ref=e220]:
+              - generic [ref=e221]:
+                - heading "Pro" [level=3] [ref=e222]
+                - generic [ref=e223]: Most Popular
+              - list [ref=e224]:
+                - listitem [ref=e225]:
+                  - img [ref=e226]
+                  - generic [ref=e228]: AI Agents per workspace (10)
+                - listitem [ref=e229]:
+                  - img [ref=e230]
+                  - generic [ref=e232]: Monthly Tasks per workspace (1,000)
+                - listitem [ref=e233]:
+                  - img [ref=e234]
+                  - generic [ref=e236]: Browser Sessions per workspace (8)
+                - listitem [ref=e237]:
+                  - img [ref=e238]
+                  - generic [ref=e240]: Workspace Storage (5 GB)
+                - listitem [ref=e241]:
+                  - img [ref=e242]
+                  - generic [ref=e244]: Workspace Members (10)
+                - listitem [ref=e245]:
+                  - img [ref=e246]
+                  - generic [ref=e248]: Custom Workflows
+                - listitem [ref=e249]:
+                  - img [ref=e250]
+                  - generic [ref=e252]: Priority Support
+              - generic [ref=e253]:
+                - generic [ref=e254]:
+                  - generic [ref=e255]:
+                    - generic [ref=e256]: $24
+                    - generic [ref=e257]: /mo
+                  - generic [ref=e258]: $29/mo
+                - generic [ref=e259]: Select Plan
+            - button "Max AI Agents per workspace (50) Monthly Tasks per workspace (10,000) Browser Sessions per workspace (20) Workspace Storage (50 GB) Workspace Members (50) Custom Workflows Priority Support $65 /mo $79/mo Select Plan" [ref=e260]:
+              - heading "Max" [level=3] [ref=e262]
+              - list [ref=e263]:
+                - listitem [ref=e264]:
+                  - img [ref=e265]
+                  - generic [ref=e267]: AI Agents per workspace (50)
+                - listitem [ref=e268]:
+                  - img [ref=e269]
+                  - generic [ref=e271]: Monthly Tasks per workspace (10,000)
+                - listitem [ref=e272]:
+                  - img [ref=e273]
+                  - generic [ref=e275]: Browser Sessions per workspace (20)
+                - listitem [ref=e276]:
+                  - img [ref=e277]
+                  - generic [ref=e279]: Workspace Storage (50 GB)
+                - listitem [ref=e280]:
+                  - img [ref=e281]
+                  - generic [ref=e283]: Workspace Members (50)
+                - listitem [ref=e284]:
+                  - img [ref=e285]
+                  - generic [ref=e287]: Custom Workflows
+                - listitem [ref=e288]:
+                  - img [ref=e289]
+                  - generic [ref=e291]: Priority Support
+              - generic [ref=e292]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]:
+                    - generic [ref=e295]: $65
+                    - generic [ref=e296]: /mo
+                  - generic [ref=e297]: $79/mo
+                - generic [ref=e298]: Select Plan
+            - button "Enterprise AI Agents per workspace (Custom) Monthly Tasks per workspace (Unlimited) Browser Sessions per workspace (Custom) Workspace Storage (Unlimited) Workspace Members (Custom) Custom Workflows Priority Support Custom Contact Sales" [ref=e299]:
+              - heading "Enterprise" [level=3] [ref=e301]
+              - list [ref=e302]:
+                - listitem [ref=e303]:
+                  - img [ref=e304]
+                  - generic [ref=e306]: AI Agents per workspace (Custom)
+                - listitem [ref=e307]:
+                  - img [ref=e308]
+                  - generic [ref=e310]: Monthly Tasks per workspace (Unlimited)
+                - listitem [ref=e311]:
+                  - img [ref=e312]
+                  - generic [ref=e314]: Browser Sessions per workspace (Custom)
+                - listitem [ref=e315]:
+                  - img [ref=e316]
+                  - generic [ref=e318]: Workspace Storage (Unlimited)
+                - listitem [ref=e319]:
+                  - img [ref=e320]
+                  - generic [ref=e322]: Workspace Members (Custom)
+                - listitem [ref=e323]:
+                  - img [ref=e324]
+                  - generic [ref=e326]: Custom Workflows
+                - listitem [ref=e327]:
+                  - img [ref=e328]
+                  - generic [ref=e330]: Priority Support
+              - generic [ref=e331]:
+                - generic [ref=e334]: Custom
+                - generic [ref=e335]: Contact Sales
+          - button "Purchase now" [ref=e337]
+        - generic [ref=e338]:
+          - generic [ref=e340]:
+            - heading "Loved by people everywhere" [level=2] [ref=e341]
+            - paragraph [ref=e342]: See what our users have to say about Polymux.
+          - generic [ref=e344]:
+            - generic [ref=e346]:
+              - img [ref=e348]
+              - paragraph [ref=e350]: Polymux has completely transformed how we handle automation. The multi-agent system is incredibly powerful and intuitive to configure.
+              - generic [ref=e351]:
+                - generic [ref=e352]: SC
+                - generic [ref=e353]:
+                  - paragraph [ref=e354]: Sarah Chen
+                  - paragraph [ref=e355]: "@sarachen"
+            - generic [ref=e357]:
+              - img [ref=e359]
+              - paragraph [ref=e361]: Best AI orchestration platform I've used. The live browser sessions feature alone is worth the subscription price.
+              - generic [ref=e362]:
+                - generic [ref=e363]: MR
+                - generic [ref=e364]:
+                  - paragraph [ref=e365]: Marcus Rodriguez
+                  - paragraph [ref=e366]: "@mrodriguez"
+            - generic [ref=e368]:
+              - img [ref=e370]
+              - paragraph [ref=e372]: We deployed 15 agents in our first week. The marketplace made it incredibly easy to get started with pre-built workflows.
+              - generic [ref=e373]:
+                - generic [ref=e374]: EW
+                - generic [ref=e375]:
+                  - paragraph [ref=e376]: Emily Watson
+                  - paragraph [ref=e377]: "@emwatson"
+            - generic [ref=e379]:
+              - img [ref=e381]
+              - paragraph [ref=e383]: The vault feature gives us peace of mind with our API credentials. Enterprise-grade security with a developer-friendly interface.
+              - generic [ref=e384]:
+                - generic [ref=e385]: DP
+                - generic [ref=e386]:
+                  - paragraph [ref=e387]: David Park
+                  - paragraph [ref=e388]: "@dpark"
+            - generic [ref=e390]:
+              - img [ref=e392]
+              - paragraph [ref=e394]: Polymux turned a 3-hour manual process into a 5-minute automated workflow. Our team's productivity has skyrocketed since adopting it.
+              - generic [ref=e395]:
+                - generic [ref=e396]: LT
+                - generic [ref=e397]:
+                  - paragraph [ref=e398]: Lisa Thompson
+                  - paragraph [ref=e399]: "@lisathompson"
+            - generic [ref=e401]:
+              - img [ref=e403]
+              - paragraph [ref=e405]: The real-time browser preview is a game changer. Being able to watch agents work gives us full visibility and confidence in our automations.
+              - generic [ref=e406]:
+                - generic [ref=e407]: JM
+                - generic [ref=e408]:
+                  - paragraph [ref=e409]: James Miller
+                  - paragraph [ref=e410]: "@jmiller"
+            - generic [ref=e412]:
+              - img [ref=e414]
+              - paragraph [ref=e416]: Polymux has completely transformed how we handle automation. The multi-agent system is incredibly powerful and intuitive to configure.
+              - generic [ref=e417]:
+                - generic [ref=e418]: SC
+                - generic [ref=e419]:
+                  - paragraph [ref=e420]: Sarah Chen
+                  - paragraph [ref=e421]: "@sarachen"
+            - generic [ref=e423]:
+              - img [ref=e425]
+              - paragraph [ref=e427]: Best AI orchestration platform I've used. The live browser sessions feature alone is worth the subscription price.
+              - generic [ref=e428]:
+                - generic [ref=e429]: MR
+                - generic [ref=e430]:
+                  - paragraph [ref=e431]: Marcus Rodriguez
+                  - paragraph [ref=e432]: "@mrodriguez"
+            - generic [ref=e434]:
+              - img [ref=e436]
+              - paragraph [ref=e438]: We deployed 15 agents in our first week. The marketplace made it incredibly easy to get started with pre-built workflows.
+              - generic [ref=e439]:
+                - generic [ref=e440]: EW
+                - generic [ref=e441]:
+                  - paragraph [ref=e442]: Emily Watson
+                  - paragraph [ref=e443]: "@emwatson"
+            - generic [ref=e445]:
+              - img [ref=e447]
+              - paragraph [ref=e449]: The vault feature gives us peace of mind with our API credentials. Enterprise-grade security with a developer-friendly interface.
+              - generic [ref=e450]:
+                - generic [ref=e451]: DP
+                - generic [ref=e452]:
+                  - paragraph [ref=e453]: David Park
+                  - paragraph [ref=e454]: "@dpark"
+            - generic [ref=e456]:
+              - img [ref=e458]
+              - paragraph [ref=e460]: Polymux turned a 3-hour manual process into a 5-minute automated workflow. Our team's productivity has skyrocketed since adopting it.
+              - generic [ref=e461]:
+                - generic [ref=e462]: LT
+                - generic [ref=e463]:
+                  - paragraph [ref=e464]: Lisa Thompson
+                  - paragraph [ref=e465]: "@lisathompson"
+            - generic [ref=e467]:
+              - img [ref=e469]
+              - paragraph [ref=e471]: The real-time browser preview is a game changer. Being able to watch agents work gives us full visibility and confidence in our automations.
+              - generic [ref=e472]:
+                - generic [ref=e473]: JM
+                - generic [ref=e474]:
+                  - paragraph [ref=e475]: James Miller
+                  - paragraph [ref=e476]: "@jmiller"
+        - generic [ref=e478]:
+          - heading "Excited?" [level=2] [ref=e479]
+          - generic [ref=e480]:
+            - link "Join the Community" [ref=e481] [cursor=pointer]:
+              - /url: /community
+            - link "Use now" [ref=e482] [cursor=pointer]:
+              - /url: /workflow/new
+    - contentinfo [ref=e483]:
+      - generic [ref=e484]:
+        - generic [ref=e485]:
+          - generic [ref=e486]:
+            - button "Home" [ref=e487] [cursor=pointer]:
+              - generic [ref=e488]:
+                - img [ref=e489]
+                - generic [ref=e491]: Polymux
+            - paragraph [ref=e492]: Build, deploy, and manage intelligent AI agents that automate your workflows.
+          - generic [ref=e493]:
+            - generic [ref=e494]:
+              - heading "Product" [level=4] [ref=e495]
+              - list [ref=e496]:
+                - listitem [ref=e497]:
+                  - link "Home" [ref=e498] [cursor=pointer]:
+                    - /url: /
+                - listitem [ref=e499]:
+                  - link "Features" [ref=e500] [cursor=pointer]:
+                    - /url: /#features
+                - listitem [ref=e501]:
+                  - link "Pricing" [ref=e502] [cursor=pointer]:
+                    - /url: /#pricing
+            - generic [ref=e503]:
+              - heading "Community" [level=4] [ref=e504]
+              - list [ref=e505]:
+                - listitem [ref=e506]:
+                  - link "Blog" [ref=e507] [cursor=pointer]:
+                    - /url: /blog
+                - listitem [ref=e508]:
+                  - link "Documentation" [ref=e509] [cursor=pointer]:
+                    - /url: /documentation
+                - listitem [ref=e510]:
+                  - link "Forum" [ref=e511] [cursor=pointer]:
+                    - /url: /forum
+            - generic [ref=e512]:
+              - heading "Company" [level=4] [ref=e513]
+              - list [ref=e514]:
+                - listitem [ref=e515]:
+                  - link "About us" [ref=e516] [cursor=pointer]:
+                    - /url: /about-us
+                - listitem [ref=e517]:
+                  - link "Contact Us" [ref=e518] [cursor=pointer]:
+                    - /url: /contact
+            - generic [ref=e519]:
+              - heading "Legal" [level=4] [ref=e520]
+              - list [ref=e521]:
+                - listitem [ref=e522]:
+                  - link "Privacy Policy" [ref=e523] [cursor=pointer]:
+                    - /url: /privacy-policy
+                - listitem [ref=e524]:
+                  - link "Terms of Service" [ref=e525] [cursor=pointer]:
+                    - /url: /terms-of-service
+                - listitem [ref=e526]:
+                  - link "Cookie Policy" [ref=e527] [cursor=pointer]:
+                    - /url: /cookie-policy
+        - generic [ref=e528]:
+          - paragraph [ref=e529]: © 2026 Polymux. All rights reserved.
+          - generic [ref=e530]:
+            - link "LinkedIn" [ref=e531] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/polymuxai/
+              - img [ref=e532]
+            - link "X" [ref=e534] [cursor=pointer]:
+              - /url: https://x.com/PolymuxAI
+              - img [ref=e535]
+            - link "Instagram" [ref=e537] [cursor=pointer]:
+              - /url: https://www.instagram.com/polymuxai/
+              - img [ref=e538]
+            - link "YouTube" [ref=e540] [cursor=pointer]:
+              - /url: https://www.youtube.com/channel/UCWk26NQhk-l1g-AV9dnUpgw
+              - img [ref=e541]
+            - link "Facebook" [ref=e543] [cursor=pointer]:
+              - /url: https://www.facebook.com/profile.php?id=61589842064261&sk=about
+              - img [ref=e544]
+            - link "Reddit" [ref=e546] [cursor=pointer]:
+              - /url: https://www.reddit.com/r/polymux/
+              - img [ref=e547]
+  - region "Notifications (F8)":
+    - list

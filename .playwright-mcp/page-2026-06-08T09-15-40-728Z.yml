@@ -1,0 +1,205 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - complementary "Main sidebar" [ref=e7]:
+      - generic [ref=e10] [cursor=pointer]:
+        - generic [ref=e11]: MY
+        - generic [ref=e12]:
+          - generic [ref=e13]:
+            - generic [ref=e14]: My Workspace
+            - img [ref=e15]
+          - generic [ref=e17]: Owner
+      - navigation "Main" [ref=e18]:
+        - list [ref=e19]:
+          - listitem [ref=e20]:
+            - button "New Workflow" [ref=e21]:
+              - img [ref=e22]
+              - generic [ref=e24]: New Workflow
+          - listitem [ref=e25]:
+            - button "Search" [ref=e26]:
+              - img [ref=e27]
+              - generic [ref=e30]: Search
+          - listitem [ref=e31]:
+            - link "Integrations" [ref=e32] [cursor=pointer]:
+              - /url: /integrations/installed
+              - img [ref=e34]
+              - generic [ref=e39]: Integrations
+          - listitem [ref=e40]:
+            - link "Storage" [ref=e41] [cursor=pointer]:
+              - /url: /storage/files
+              - img [ref=e42]
+              - generic [ref=e45]: Storage
+          - listitem [ref=e46]:
+            - link "Vault" [ref=e47] [cursor=pointer]:
+              - /url: /vault/accounts
+              - img [ref=e48]
+              - generic [ref=e51]: Vault
+        - generic [ref=e52]:
+          - heading "Workflows" [level=3] [ref=e53]
+          - list [ref=e123]:
+            - listitem [ref=e124]:
+              - generic [ref=e125]:
+                - generic "Comparing Critic Scores for Top Weekend Movie" [ref=e126]
+                - img [ref=e127] [cursor=pointer]
+            - listitem [ref=e131]:
+              - generic [ref=e132]:
+                - generic "Checking Heading on Example.com" [ref=e133]
+                - img [ref=e134] [cursor=pointer]
+            - listitem [ref=e138]:
+              - generic [ref=e139]:
+                - generic "E2E Run Validation (parallel)" [ref=e140]
+                - img [ref=e141] [cursor=pointer]
+            - listitem [ref=e145]:
+              - generic [ref=e146]:
+                - generic "E2E Run Validation (linear)" [ref=e147]
+                - img [ref=e148] [cursor=pointer]
+            - listitem [ref=e152]:
+              - generic [ref=e153]:
+                - generic "Sunmi Device Transfer Workflow" [ref=e154]
+                - img [ref=e155] [cursor=pointer]
+            - listitem [ref=e159]:
+              - generic [ref=e160]:
+                - generic "Automating Sunmi Device Transfer" [ref=e161]
+                - img [ref=e162] [cursor=pointer]
+            - listitem [ref=e166]:
+              - generic [ref=e167]:
+                - generic "Building the Workflow" [ref=e168]
+                - img [ref=e169] [cursor=pointer]
+            - listitem [ref=e173]:
+              - generic [ref=e174]:
+                - generic "Creating Sunmi Device Transfer Workflow" [ref=e175]
+                - img [ref=e176] [cursor=pointer]
+            - listitem [ref=e180]:
+              - generic [ref=e181]:
+                - generic "Autolayout spacing capture 2026-06-02T04-51-48-873Z" [ref=e182]
+                - img [ref=e183] [cursor=pointer]
+            - listitem [ref=e187]:
+              - generic [ref=e188]:
+                - generic "Sunmi Device Transfer Workflow" [ref=e189]
+                - img [ref=e190] [cursor=pointer]
+            - listitem [ref=e194]:
+              - generic [ref=e195]:
+                - generic "Creating Sunmi Device Transfer Workflow" [ref=e196]
+                - img [ref=e197] [cursor=pointer]
+            - listitem [ref=e201]:
+              - generic [ref=e202]:
+                - generic "Running Command" [ref=e203]
+                - img [ref=e204] [cursor=pointer]
+            - listitem [ref=e208]:
+              - generic [ref=e209]:
+                - generic "Accepting Offer" [ref=e210]
+                - img [ref=e211] [cursor=pointer]
+            - listitem [ref=e215]:
+              - generic [ref=e216]:
+                - generic "New Workflow" [ref=e217]
+                - img [ref=e218] [cursor=pointer]
+            - listitem [ref=e222]:
+              - generic [ref=e223]:
+                - generic "Accepting Offer" [ref=e224]
+                - img [ref=e225] [cursor=pointer]
+            - listitem [ref=e229]:
+              - generic [ref=e230]:
+                - generic "Creating Sunmi Device Transfer Workflow" [ref=e231]
+                - img [ref=e232] [cursor=pointer]
+            - listitem [ref=e236]:
+              - generic [ref=e237]:
+                - generic "Generating Fruit CSV File" [ref=e238]
+                - img [ref=e239] [cursor=pointer]
+            - listitem [ref=e243]:
+              - generic [ref=e244]:
+                - generic "Generating Languages JSON File" [ref=e245]
+                - img [ref=e246] [cursor=pointer]
+            - listitem [ref=e250]:
+              - generic [ref=e251]:
+                - generic "Creating Top Tech News Summary" [ref=e252]
+                - img [ref=e253] [cursor=pointer]
+            - listitem [ref=e257]:
+              - generic [ref=e258]:
+                - generic "Generating JSON List of All Countries" [ref=e259]
+                - img [ref=e260] [cursor=pointer]
+            - listitem [ref=e264]:
+              - generic [ref=e265]:
+                - generic "Calculating Primes Up to 50" [ref=e266]
+                - img [ref=e267] [cursor=pointer]
+            - listitem [ref=e271]:
+              - generic [ref=e272]:
+                - generic "Generating Solar System Planets CSV" [ref=e273]
+                - img [ref=e274] [cursor=pointer]
+            - listitem [ref=e278]:
+              - generic [ref=e279]:
+                - generic "New Workflow" [ref=e280]
+                - img [ref=e281] [cursor=pointer]
+            - listitem [ref=e285]:
+              - generic [ref=e286]:
+                - generic "Finding Most Viewed YouTube Video Today" [ref=e287]
+                - img [ref=e288] [cursor=pointer]
+            - listitem [ref=e292]:
+              - generic [ref=e293]:
+                - generic "Use FlareHQ TeamHub Web Login" [ref=e294]
+                - img [ref=e295] [cursor=pointer]
+            - listitem [ref=e299]:
+              - generic [ref=e300]:
+                - generic "New Workflow" [ref=e301]
+                - img [ref=e302] [cursor=pointer]
+      - button "User profile carlvince Free plan" [ref=e67]:
+        - img "User profile" [ref=e68]: C
+        - generic [ref=e69]:
+          - paragraph [ref=e70]: carlvince
+          - paragraph [ref=e71]: Free plan
+    - generic [ref=e73]:
+      - banner [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - button "Toggle sidebar" [ref=e77] [cursor=pointer]:
+              - generic [ref=e78]:
+                - img [ref=e79]
+                - generic [ref=e81]: Polymux
+            - navigation [ref=e82]:
+              - link "Installed" [ref=e83] [cursor=pointer]:
+                - /url: /integrations/installed
+              - link "Marketplace" [ref=e84] [cursor=pointer]:
+                - /url: /integrations/marketplace
+              - link "Publish" [ref=e85] [cursor=pointer]:
+                - /url: /integrations/publish
+          - generic [ref=e86]:
+            - link "Documentation" [ref=e87] [cursor=pointer]:
+              - /url: /documentation/plugin-overview
+              - text: Documentation
+            - button "Notifications" [ref=e90]:
+              - img [ref=e91]
+      - generic [ref=e96]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - img [ref=e102]
+            - textbox "Search your listings…" [ref=e105]
+          - button "New" [active] [ref=e106]:
+            - img [ref=e107]
+          - button "Filter by" [ref=e110]:
+            - text: Filter by
+            - img [ref=e111]
+          - button "Sort by" [ref=e114]:
+            - text: Sort by
+            - img [ref=e115]
+        - generic [ref=e120]:
+          - generic:
+            - paragraph: Nothing published yet
+            - paragraph: Click New to publish your first workflow, integration, or plugin.
+  - region "Notifications (F8)":
+    - list
+  - dialog "What kind of thing are you publishing?" [ref=e308]:
+    - button "Close" [ref=e309]
+    - banner [ref=e311]:
+      - heading "What kind of thing are you publishing?" [level=2] [ref=e312]
+    - generic [ref=e315]:
+      - button "Connection Code-based — manifest in your repo, HTTPS webhook handlers." [ref=e316]:
+        - generic [ref=e319]:
+          - paragraph [ref=e320]: Connection
+          - paragraph [ref=e321]: Code-based — manifest in your repo, HTTPS webhook handlers.
+      - button "Workflow Publish an existing workflow definition for others to install." [ref=e322]:
+        - generic [ref=e325]:
+          - paragraph [ref=e326]: Workflow
+          - paragraph [ref=e327]: Publish an existing workflow definition for others to install.
+      - button "Plugin Bundle connections and workflows together as one installable item." [ref=e328]:
+        - generic [ref=e331]:
+          - paragraph [ref=e332]: Plugin
+          - paragraph [ref=e333]: Bundle connections and workflows together as one installable item.
+  - button "Feedback" [ref=e306] [cursor=pointer]

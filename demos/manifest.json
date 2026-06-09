@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "defaults": {
+    "useVideoHero": false,
+    "viewport": { "width": 1200, "height": 720 },
+    "baseUrl": "http://localhost:3000",
+    "outputDir": "public/demos",
+    "session": {
+      "storageState": "demos/.session/user.json"
+    },
+    "recast": {
+      "speedUp": {
+        "duringIdle": 2.5,
+        "duringUserAction": 1.0,
+        "duringNetworkWait": 2.0,
+        "minSegmentDuration": 300
+      },
+      "autoZoom": {
+        "clickLevel": 1.2,
+        "inputLevel": 1.28,
+        "idleLevel": 1.0,
+        "centerBias": 0.25,
+        "transitionMs": 450
+      },
+      "cursorOverlay": {
+        "approachMs": 350
+      },
+      "clickEffect": {
+        "sound": false,
+        "opacity": 0.35,
+        "radius": 24,
+        "duration": 350
+      },
+      "interpolate": {
+        "fps": 30,
+        "mode": "blend",
+        "quality": "fast",
+        "passes": 1
+      },
+      "render": {
+        "format": "mp4",
+        "fps": 30,
+        "crf": 23
+      }
+    },
+    "demoRecast": {
+      "speedUp": {
+        "duringIdle": 4.0,
+        "duringUserAction": 2.5,
+        "duringNetworkWait": 3.5,
+        "minSegmentDuration": 120
+      },
+      "autoZoom": {
+        "clickLevel": 1.32,
+        "inputLevel": 1.38,
+        "idleLevel": 1.0,
+        "centerBias": 0.1,
+        "transitionMs": 550
+      },
+      "cursorOverlay": {
+        "approachMs": 320
+      },
+      "clickEffect": {
+        "sound": false,
+        "opacity": 0.28,
+        "radius": 20,
+        "duration": 320
+      },
+      "interpolate": {
+        "fps": 30,
+        "mode": "blend",
+        "quality": "fast",
+        "passes": 1
+      }
+    }
+  },
+  "slides": [
+    {
+      "key": "welcome",
+      "recording": {
+        "route": "/dashboard/console",
+        "steps": [
+          { "waitFor": "[data-testid=workspace-dropdown-trigger]" },
+          { "wait": 2500 },
+          { "click": "[data-testid=workspace-dropdown-trigger]" },
+          { "wait": 5000 },
+          { "click": "[data-testid=workspace-dropdown-trigger]" },
+          { "wait": 3500 },
+          { "click": "a[href=\"/storage/files\"]" },
+          { "wait": 6000 },
+          { "click": "a[href=\"/integrations/installed\"]" },
+          { "wait": 5500 },
+          { "click": "[data-testid=workspace-dropdown-trigger]" },
+          { "wait": 5000 },
+          { "click": "[data-testid=workspace-dropdown-trigger]" },
+          { "wait": 6000 }
+        ]
+      }
+    },
+    {
+      "key": "workflows",
+      "recording": {
+        "route": "/dashboard/console",
+        "steps": [
+          { "waitFor": "[data-testid=workflow-flow-view-tab]" },
+          { "wait": 3500 },
+          { "click": "[data-testid=workflow-flow-view-tab]" },
+          { "wait": 6000 },
+          { "click": "[data-testid=viewport-view-tab]" },
+          { "waitFor": "[data-testid=viewport-gallery]" },
+          { "wait": 8000 },
+          { "click": "[data-testid=workflow-flow-view-tab]" },
+          { "waitFor": "[data-testid=workflow-canvas]" },
+          { "wait": 5500 },
+          { "click": "[data-testid=workflow-add-node-button]" },
+          { "wait": 5000 },
+          { "click": "[data-testid=viewport-view-tab]" },
+          { "wait": 7500 },
+          { "click": "[data-testid=workflow-flow-view-tab]" },
+          { "wait": 6000 }
+        ]
+      }
+    },
+    {
+      "key": "storage",
+      "recording": {
+        "route": "/storage/files",
+        "steps": [
+          { "waitFor": "[data-testid=storage-upload-button]" },
+          { "wait": 2500 },
+          { "click": "[data-testid=storage-upload-button]" },
+          { "wait": 8000 },
+          { "click": "[data-testid=storage-new-folder-button]" },
+          { "wait": 6000 },
+          { "click": "[data-testid=storage-upload-button]" },
+          { "wait": 7000 },
+          { "click": "[data-testid=storage-new-folder-button]" },
+          { "wait": 6000 },
+          { "click": "[data-testid=storage-new-folder-button]" },
+          { "wait": 7000 },
+          { "click": "[data-testid=storage-upload-button]" },
+          { "wait": 8000 }
+        ]
+      }
+    },
+    {
+      "key": "integrations",
+      "recording": {
+        "route": "/integrations/marketplace",
+        "steps": [
+          { "waitFor": "[data-testid^=integration-card-]" },
+          { "wait": 2500 },
+          { "click": "[data-testid^=integration-card-]" },
+          { "wait": 7000 },
+          { "press": "Escape" },
+          { "wait": 2000 },
+          { "click": "[data-testid^=integration-card-]" },
+          { "wait": 8000 },
+          { "press": "Escape" },
+          { "wait": 2000 },
+          { "click": "[data-testid^=integration-card-]" },
+          { "wait": 7000 },
+          { "press": "Escape" },
+          { "wait": 2000 },
+          { "click": "[data-testid^=integration-card-]" },
+          { "wait": 6000 }
+        ]
+      }
+    },
+    {
+      "key": "vault",
+      "recording": {
+        "route": "/vault/accounts",
+        "steps": [
+          { "waitFor": "[data-testid=vault-add-password-button]" },
+          { "wait": 2500 },
+          { "click": "[data-testid=vault-add-password-button]" },
+          { "wait": 5000 },
+          { "press": "Escape" },
+          { "wait": 1500 },
+          { "click": "[data-testid=vault-wallet-tab]" },
+          { "wait": 9000 },
+          { "click": "[data-testid=vault-accounts-tab]" },
+          { "wait": 6000 },
+          { "click": "[data-testid=vault-add-password-button]" },
+          { "wait": 5000 },
+          { "press": "Escape" },
+          { "wait": 1500 },
+          { "click": "[data-testid=vault-wallet-tab]" },
+          { "wait": 8000 },
+          { "click": "[data-testid=vault-accounts-tab]" },
+          { "wait": 6000 }
+        ]
+      }
+    },
+    { "key": "terms" }
+  ]
+}

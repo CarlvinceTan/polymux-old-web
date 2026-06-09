@@ -54,6 +54,7 @@ const downloadsLabel = computed(() => {
 <template>
   <button
     type="button"
+    :data-testid="`integration-card-${id}`"
     class="ghost-panel ghost-panel-hover group flex flex-col gap-3 rounded-xl bg-white p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
     @click="$emit('open')"
   >

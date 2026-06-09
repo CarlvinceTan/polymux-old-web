@@ -13,12 +13,15 @@ const user = useSupabaseUser()
 const {
   workspaces,
   currentWorkspace,
+  currentWorkspaceDisplayName,
   currentWorkspaceId,
   switchWorkspace,
   fetchWorkspaces,
   members: workspaceMembers,
   fetchMembers: fetchWorkspaceMembers,
 } = useWorkspaces()
+
+useWorkspaceEvents()
 
 const { navigateToPricing } = usePlanUpgradeNavigation()
 
@@ -29,7 +32,6 @@ const {
   runningOverrides,
   fetchSessions,
   createDraft,
-  ensureAtLeastOneWorkflow,
   renameSession,
   reorderWorkflows,
   deleteSession,
@@ -94,9 +96,12 @@ watch(
     // realSessions already comes back ordered by workflows.position desc, so
     // the server is the only source of order — no client-side resort and no
     // localStorage layer to reconcile.
-    const ordered = realSessions.value.map(project)
-    const projectedDraft = draft.value ? project(draft.value) : null
-    const next = projectedDraft ? [projectedDraft, ...ordered] : ordered
+    //
+    // The in-flight "New Workflow" draft is intentionally NOT rendered as a
+    // list row. Pressing "New Workflow" highlights the nav button and shows
+    // /workflow/new; the workflow only joins this list once the user sends
+    // their first prompt (markDraftCommitted promotes it into realSessions).
+    const next = realSessions.value.map(project)
     displaySessions.value.splice(0, displaySessions.value.length, ...next)
   },
   { deep: true, immediate: true },
@@ -257,7 +262,6 @@ async function bootstrapData() {
     }
   }
   finally {
-    await ensureAtLeastOneWorkflow()
     bootstrapping.value = false
   }
 }
@@ -306,7 +310,7 @@ const navItems = computed(() => {
   return [
     { to: '/integrations/installed', label: t('nav.integrations'), key: 'integrations' },
     { to: '/storage/files', label: t('nav.storage'), key: 'storage' },
-    { to: '/vault/passwords', label: t('nav.vault'), key: 'vault' },
+    { to: '/vault/accounts', label: t('nav.vault'), key: 'vault' },
   ]
 })
 
@@ -350,7 +354,7 @@ function isActive(path: string) {
   if (path === '/storage/files') {
     return route.path.startsWith('/storage')
   }
-  if (path === '/vault/passwords') {
+  if (path === '/vault/accounts') {
     return route.path.startsWith('/vault')
   }
   return route.path === path || route.path.startsWith(`${path}/`)
@@ -374,12 +378,13 @@ const activeWorkflowId = computed(() => {
   return m?.[1]
 })
 const isWorkflowListItemActive = (id: string) => {
-  if (activeWorkflowId.value === id) return true
-  // The draft row carries a real uuid but the URL slug for the new-workflow
-  // page is the literal "new" — match the draft entry whenever the user is
-  // on /workflow/new.
-  return activeWorkflowId.value === DRAFT_WORKFLOW_ID && draft.value?.id === id
+  return activeWorkflowId.value === id
 }
+
+// The "New Workflow" nav button carries the active highlight (like the
+// Integrations/Storage/Vault items) while the user is on /workflow/new —
+// the draft no longer appears as a list row, so this is its only affordance.
+const isNewWorkflowActive = computed(() => activeWorkflowId.value === DRAFT_WORKFLOW_ID)
 
 function openWorkflow(id: string) {
   // Draft rows route to the static `/workflow/new` page even though the row's
@@ -448,12 +453,11 @@ function closeWorkspaceDropdown() {
 }
 
 function canDeleteWorkflow(id: string): boolean {
-  // The "New Workflow" draft is always pinned at the top of the list and the
-  // list must never be empty. So when the draft is the only entry, deletion
-  // is a no-op — there's nothing meaningful to fall back to.
+  // Only persisted workflows render as list rows now (the draft is invisible
+  // until it commits), so every deletable row is fair game — an empty list is
+  // a valid state, with "New Workflow" the way back in.
   const target = sessions.value.find(s => s.id === id)
-  if (target?.is_draft && sessions.value.length === 1) return false
-  return true
+  return !target?.is_draft
 }
 
 function requestDeleteWorkflow(id: string) {
@@ -472,8 +476,9 @@ async function runDeleteWorkflow(id: string) {
   activeDropdownIndex.value = null
 
   if (sessions.value.length === 0) {
-    // Deleted the last entry — seed a fresh draft so the list is never empty.
-    await createDraft()
+    // Deleted the last workflow — an empty list is fine now. Send the user to
+    // the new-workflow page (its onMounted re-creates the draft) if they were
+    // viewing the row that just vanished.
     if (wasActive) await navigateTo(`/workflow/${DRAFT_WORKFLOW_ID}`)
     return
   }
@@ -666,7 +671,7 @@ onUnmounted(() => {
 
 <template>
   <aside class="flex h-full min-h-0 w-full max-h-full flex-col overflow-hidden bg-neutral-100 py-3 px-3 lg:w-[272px]"
-    aria-label="Main sidebar">
+    :aria-label="t('nav.mainSidebar')">
     <!-- Logo & CTA -->
     <div class="shrink-0 space-y-4">
       <div class="relative">
@@ -680,7 +685,7 @@ onUnmounted(() => {
           <!-- Title & Company -->
           <div class="flex flex-col flex-1 min-w-0">
             <div class="flex items-end justify-between">
-              <span class="text-base font-bold text-neutral-950 truncate min-w-0 flex-1 mr-2">{{ currentWorkspace?.name || 'Loading...' }}</span>
+              <span class="text-base font-bold text-neutral-950 truncate min-w-0 flex-1 mr-2">{{ currentWorkspaceDisplayName || currentWorkspace?.name || t('common.loading') }}</span>
               <svg class="size-4.5 text-neutral-500 mb-px transition-opacity"
                 :class="isWorkspaceDropdownOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-active:opacity-100'"
                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -699,7 +704,7 @@ onUnmounted(() => {
           <!-- Current workspace header -->
           <div class="min-w-0 px-3 pb-2 pt-1.5">
             <p class="truncate text-sm font-semibold text-neutral-950">
-              {{ currentWorkspace?.name || 'Workspace' }}
+              {{ currentWorkspace?.name || t('common.workspace') }}
             </p>
             <p class="truncate text-[11px] text-neutral-500">
               {{ workspacePlanLabel }} · {{ memberCountText }}
@@ -763,12 +768,16 @@ onUnmounted(() => {
     </div>
 
     <!-- Navigation (scrollable) -->
-    <nav class="mt-6 flex-1 flex flex-col min-h-0 overflow-hidden" aria-label="Main">
+    <nav class="mt-6 flex-1 flex flex-col min-h-0 overflow-hidden" :aria-label="t('nav.main')">
       <ul class="flex flex-col gap-1 shrink-0">
         <!-- New Workflow -->
         <li>
           <button type="button" @click="createWorkflow"
-            class="relative flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none hover:bg-neutral-200/60">
+            class="relative flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-nav text-neutral-950 transition-colors outline-none"
+            :class="(!isSearchOpen && isNewWorkflowActive) ? 'font-semibold' : 'hover:bg-neutral-200/60'">
+            <span v-if="!isSearchOpen && isNewWorkflowActive"
+              class="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-neutral-950"
+              aria-hidden="true" />
             <svg class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
@@ -805,13 +814,14 @@ onUnmounted(() => {
             <span v-if="!isSearchOpen && isMainNavItemActive(item.to)"
               class="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-neutral-950"
               aria-hidden="true" />
+            <!-- Integrations: VSCode-style extensions icon (three squares + rotated diamond top-right) -->
             <svg v-if="item.key === 'integrations'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
               aria-hidden="true">
-              <path d="M12 22v-5" />
-              <path d="M9 8V2" />
-              <path d="M15 8V2" />
-              <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+              <rect x="3" y="3" width="7" height="7" rx="2" />
+              <rect x="3" y="14" width="7" height="7" rx="2" />
+              <rect x="14" y="14" width="7" height="7" rx="2" />
+              <rect x="14" y="3" width="7" height="7" rx="2" transform="rotate(45 17.5 6.5)" />
             </svg>
             <!-- Storage: box/archive icon -->
             <svg v-else-if="item.key === 'storage'" class="size-4 shrink-0 text-neutral-950" viewBox="0 0 24 24"
@@ -840,8 +850,8 @@ onUnmounted(() => {
         <h3 class="mb-2 pl-2.5 text-meta font-semibold uppercase tracking-wide text-neutral-500 shrink-0">{{ t('nav.workflows') }}
         </h3>
 
-        <!-- Skeleton rows while bootstrapping -->
-        <ul v-if="bootstrapping" class="flex flex-col gap-0.5 flex-1 overflow-hidden pb-4" aria-busy="true">
+        <!-- Skeleton rows while bootstrapping with no cached data yet -->
+        <ul v-if="bootstrapping && !realSessions.length" class="flex flex-col gap-0.5 flex-1 overflow-hidden pb-4" aria-busy="true">
           <li v-for="n in 5" :key="n" class="flex items-center rounded-md py-1.5 pl-2.5 pr-2">
             <span class="h-3.5 rounded bg-neutral-200 animate-pulse" :style="{ width: `${50 + (n * 13) % 40}%` }" />
           </li>
@@ -861,7 +871,7 @@ onUnmounted(() => {
             class="relative wf-item"
             :class="session.is_draft ? 'wf-draft' : ''"
           >
-            <div v-if="editingId !== session.id" @click="openWorkflow(session.id)"
+            <div v-if="editingId !== session.id" :data-testid="`wf-row-${session.id}`" @click="openWorkflow(session.id)"
               @mouseenter="hoveredWorkflowId = session.id"
               @mouseleave="hoveredWorkflowId = null"
               class="relative flex w-full cursor-pointer items-center rounded-md py-1.5 pl-2.5 pr-2 text-left text-nav text-neutral-950 outline-none"
@@ -952,7 +962,7 @@ onUnmounted(() => {
 
                 <Teleport to="body">
                   <div v-if="activeDropdownIndex === session.id"
-                    class="fixed z-9999 mt-1 w-32 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden workflow-list-dropdown"
+                    class="fixed z-9999 mt-1 w-32 rounded-md bg-white shadow-lg ring-1 ring-neutral-200 overflow-hidden workflow-list-dropdown"
                     :style="{ top: getDropdownPosition(session.id).top + 'px', left: getDropdownPosition(session.id).left + 'px' }">
                   <button @click.stop :disabled="session.is_draft"
                     class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav transition-colors"
@@ -964,7 +974,7 @@ onUnmounted(() => {
                       <polyline points="16 6 12 2 8 6" />
                       <line x1="12" y1="2" x2="12" y2="15" />
                     </svg>
-                    Share
+                    {{ t('common.share') }}
                   </button>
                   <button @click.stop="startRename(session.id, session.title)"
                     :disabled="session.is_draft"
@@ -976,7 +986,7 @@ onUnmounted(() => {
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
-                    Rename
+                    {{ t('common.rename') }}
                   </button>
                   <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
                   <button @click.stop="requestDeleteWorkflow(session.id)"
@@ -989,7 +999,7 @@ onUnmounted(() => {
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                     </svg>
-                    Delete
+                    {{ t('common.delete') }}
                   </button>
                   </div>
                 </Teleport>
@@ -1025,7 +1035,7 @@ onUnmounted(() => {
             />
           </template>
           <AccountIcon v-else :initials="(userName || 'U').split(' ').map(n => n[0]).join('').substring(0, 2)
-            .toUpperCase()" size="md" color="bg-neutral-800" role="img" aria-label="User profile" />
+            .toUpperCase()" size="md" color="bg-neutral-800" role="img" :aria-label="t('nav.userProfile')" />
           <div class="min-w-0 flex-1 text-left">
             <p class="truncate font-semibold text-neutral-950">
               {{ userName }}
@@ -1037,7 +1047,7 @@ onUnmounted(() => {
         </button>
 
         <Menu v-if="isProfileDropdownOpen" ref="profileDropdownRef" :open="isProfileDropdownOpen" placement="above" width="w-full">
-        <div class="px-3 py-1.5 text-xs text-neutral-500 truncate">
+        <div class="px-3 pt-2 pb-1.5 text-xs text-neutral-500 truncate">
           {{ userEmail }}
         </div>
         <div class="my-0.5 h-px bg-neutral-200 mx-2"></div>
@@ -1114,7 +1124,7 @@ onUnmounted(() => {
         <div
           v-if="isProfileDropdownOpen && isLanguageOpen"
           ref="languagePanelRef"
-          class="fixed w-44 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          class="fixed w-44 overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-neutral-200 z-[9999]"
           :style="languagePanelStyle"
         >
           <button
@@ -1138,7 +1148,7 @@ onUnmounted(() => {
         <div
           v-if="isProfileDropdownOpen && isHelpOpen"
           ref="helpPanelRef"
-          class="fixed w-52 rounded-2xl bg-white py-1 shadow-lg ring-1 ring-neutral-200 z-[9999]"
+          class="fixed w-52 overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-neutral-200 z-[9999]"
           :style="helpPanelStyle"
         >
           <button

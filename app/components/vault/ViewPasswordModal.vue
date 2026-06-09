@@ -7,19 +7,78 @@ const props = defineProps<{
   name: string
   url: string
   username: string
+  hasTotp?: boolean
+  savedByName: string
+  lastUsedByName?: string | null
+  lastUsed?: string
+  createdAt?: string
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
+  edit: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+function timeAgo(ts: string | null | undefined): string {
+  if (!ts) return ''
+  const then = new Date(ts).getTime()
+  if (Number.isNaN(then)) return ''
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  const rtf = new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return rtf.format(-diffMin, 'minute')
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return rtf.format(-diffHr, 'hour')
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 30) return rtf.format(-diffDay, 'day')
+  const diffMo = Math.floor(diffDay / 30)
+  if (diffMo < 12) return rtf.format(-diffMo, 'month')
+  return new Date(then).toLocaleDateString(locale.value)
+}
+
+const lastUsedAgo = computed(() => timeAgo(props.lastUsed))
+const createdAgo = computed(() => timeAgo(props.createdAt))
 const { revealPassword } = usePasswords()
 const { copy, copied } = useClipboard()
 
 const secret = ref<string | null>(null)
 const revealed = ref(false)
 const loading = ref(false)
+const imgError = ref(false)
+
+// Identity shown in the header — favicon + readable hostname — mirrors the card.
+const normalizedUrl = computed(() =>
+  props.url.startsWith('http') ? props.url : `https://${props.url}`,
+)
+const hostname = computed(() => {
+  try {
+    return new URL(normalizedUrl.value).hostname.replace(/^www\./, '')
+  }
+  catch {
+    return props.url
+  }
+})
+const faviconSrc = computed(() => {
+  try {
+    return `https://www.google.com/s2/favicons?sz=64&domain=${new URL(normalizedUrl.value).hostname}`
+  }
+  catch {
+    return `https://www.google.com/s2/favicons?sz=64&domain=${props.url}`
+  }
+})
+
+// Per-field copy feedback: a single useClipboard `copied` flag is shared, so we
+// track which row was last copied to scope the checkmark to that row.
+const copiedField = ref<string | null>(null)
+function copyField(field: string, value: string | null | undefined) {
+  if (!value) return
+  copy(value)
+  copiedField.value = field
+}
+watch(copied, (v) => { if (!v) copiedField.value = null })
 
 async function handleReveal() {
   if (secret.value !== null) {
@@ -32,13 +91,10 @@ async function handleReveal() {
   loading.value = false
 }
 
-function handleCopy() {
-  if (secret.value) copy(secret.value)
-}
-
 function handleClose() {
   secret.value = null
   revealed.value = false
+  copiedField.value = null
   emit('update:open', false)
 }
 
@@ -50,8 +106,12 @@ watch(() => props.open, (val) => {
   if (!val) {
     secret.value = null
     revealed.value = false
+    copiedField.value = null
   }
 })
+
+// Different account selected while the modal stays mounted — retry its favicon.
+watch(() => props.url, () => { imgError.value = false })
 
 onMounted(() => document.addEventListener('keydown', handleKeydown))
 onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
@@ -84,59 +144,154 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             aria-modal="true"
             @click.stop
           >
-            <div class="relative px-5 pt-5 pb-5">
+            <!-- Header: favicon + name + hostname -->
+            <div class="relative flex items-start gap-3 px-5 pt-5 pb-4">
+              <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
+                <img
+                  v-if="!imgError"
+                  :src="faviconSrc"
+                  :alt="name"
+                  class="size-6 object-contain"
+                  @error="imgError = true"
+                >
+                <svg
+                  v-else
+                  class="size-6 text-neutral-500"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="7.5" cy="15.5" r="5.5" />
+                  <path d="m21 2-9.6 9.6" />
+                  <path d="m15.5 7.5 3 3L22 7l-3-3" />
+                </svg>
+              </div>
+
+              <div class="min-w-0 flex-1 pr-6">
+                <h2 class="truncate text-base font-semibold text-neutral-900">{{ name }}</h2>
+                <p class="truncate text-meta text-neutral-500">{{ hostname }}</p>
+              </div>
+
               <button
                 type="button"
-                class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                class="absolute right-4 top-4 text-neutral-400 transition-colors hover:text-neutral-700"
+                :aria-label="t('common.close')"
                 @click="handleClose"
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
+            </div>
 
-              <h2 class="text-sm font-semibold text-neutral-900 pr-8 mb-5">{{ name }}</h2>
-
-              <div class="space-y-4">
-                <div>
-                  <p class="text-xs font-medium text-neutral-500 mb-1">{{ t('vault.passwords.urlLabel') }}</p>
-                  <p class="text-sm text-neutral-950 truncate">{{ url }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-medium text-neutral-500 mb-1">{{ t('vault.passwords.usernameLabel') }}</p>
-                  <p class="text-sm text-neutral-950">{{ username }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-medium text-neutral-500 mb-1.5">{{ t('vault.passwords.passwordLabel') }}</p>
-                  <div class="flex items-center gap-2">
-                    <span class="flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-950 tracking-widest select-all">
-                      {{ revealed && secret ? secret : '••••••••••••' }}
-                    </span>
-                    <button
-                      type="button"
-                      class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-950 disabled:opacity-50"
-                      :disabled="loading"
-                      :aria-label="revealed ? t('vault.passwords.hidePassword') : t('vault.passwords.revealPassword')"
-                      @click="handleReveal"
-                    >
-                      <svg v-if="loading" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/></svg>
-                      <svg v-else-if="revealed" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                      <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-950 disabled:opacity-50"
-                      :disabled="!secret"
-                      :aria-label="copied ? t('vault.passwords.copied') : t('vault.passwords.copyPassword')"
-                      @click="handleCopy"
-                    >
-                      <svg v-if="copied" class="size-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12" /></svg>
-                      <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                    </button>
+            <!-- Credential fields -->
+            <div class="px-5">
+              <div class="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200">
+                <!-- URL -->
+                <div class="flex items-center gap-2 px-3.5 py-2.5">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-medium text-neutral-500">{{ t('vault.passwords.urlLabel') }}</p>
+                    <p class="truncate text-sm text-neutral-950">{{ url }}</p>
                   </div>
+                  <a
+                    :href="normalizedUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950"
+                    :aria-label="t('vault.passwords.openSite')"
+                    :title="t('vault.passwords.openSite')"
+                  >
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                  </a>
+                  <button
+                    type="button"
+                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950"
+                    :aria-label="t('common.copy')"
+                    @click="copyField('url', url)"
+                  >
+                    <svg v-if="copiedField === 'url'" class="size-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
                 </div>
+
+                <!-- Username -->
+                <div class="flex items-center gap-2 px-3.5 py-2.5">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-medium text-neutral-500">{{ t('vault.passwords.usernameLabel') }}</p>
+                    <p class="truncate text-sm text-neutral-950">{{ username }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950"
+                    :aria-label="t('common.copy')"
+                    @click="copyField('username', username)"
+                  >
+                    <svg v-if="copiedField === 'username'" class="size-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
+                </div>
+
+                <!-- Password -->
+                <div class="flex items-center gap-2 px-3.5 py-2.5">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-medium text-neutral-500">{{ t('vault.passwords.passwordLabel') }}</p>
+                    <p class="truncate font-mono text-sm tracking-wider text-neutral-950 select-all">{{ revealed && secret ? secret : '••••••••••••' }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950 disabled:opacity-40 disabled:hover:text-neutral-400"
+                    :disabled="loading"
+                    :aria-label="revealed ? t('vault.passwords.hidePassword') : t('vault.passwords.revealPassword')"
+                    @click="handleReveal"
+                  >
+                    <svg v-if="loading" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/></svg>
+                    <svg v-else-if="revealed" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950 disabled:opacity-40 disabled:hover:text-neutral-400"
+                    :disabled="!secret"
+                    :aria-label="t('vault.passwords.copyPassword')"
+                    @click="copyField('password', secret)"
+                  >
+                    <svg v-if="copiedField === 'password'" class="size-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
+                </div>
+
+                <!-- Two-factor (TOTP) code -->
+                <TotpCode v-if="hasTotp" :key="passwordId" :password-id="passwordId" />
               </div>
             </div>
 
-            <div class="flex justify-end border-t border-neutral-100 px-5 py-3.5">
+            <!-- Details -->
+            <div class="px-5 pb-5 pt-4">
+              <p class="mb-2 text-xs font-medium text-neutral-500">{{ t('vault.passwords.detailsSection') }}</p>
+              <div class="space-y-1.5 text-sm text-neutral-600">
+                <p>{{ t('vault.passwords.savedBy', { name: savedByName }) }}</p>
+                <p v-if="createdAgo">
+                  {{ t('vault.passwords.savedAt', { when: createdAgo }) }}
+                </p>
+                <p v-if="lastUsedByName && lastUsedAgo">
+                  {{ t('vault.passwords.lastUsedBy', { name: lastUsedByName, when: lastUsedAgo }) }}
+                </p>
+                <p v-else-if="lastUsedAgo" class="text-neutral-500">
+                  {{ t('vault.passwords.lastUsedAt', { when: lastUsedAgo }) }}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3.5">
+              <button
+                type="button"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+                @click="emit('edit')"
+              >
+                {{ t('vault.passwords.edit') }}
+              </button>
               <button
                 type="button"
                 class="rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"

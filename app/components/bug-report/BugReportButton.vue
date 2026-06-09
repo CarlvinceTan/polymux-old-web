@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const hovered = ref(false)
 const open = ref(false)
 
@@ -44,10 +46,10 @@ onUnmounted(() => document.removeEventListener('mousedown', onPointerDownOutside
           ref="panelRef"
           class="fixed bottom-5 right-5 z-[9999] w-[340px] rounded-2xl bg-white ring-1 ring-neutral-200 shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
           role="dialog"
-          aria-label="Report a bug"
+          :aria-label="t('common.reportBug')"
         >
           <div class="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
-            <h3 class="text-sm font-semibold text-neutral-900">Report a Bug</h3>
+            <h3 class="text-sm font-semibold text-neutral-900">{{ t('bugReport.heading') }}</h3>
             <button
               type="button"
               class="rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
@@ -80,14 +82,14 @@ onUnmounted(() => document.removeEventListener('mousedown', onPointerDownOutside
             v-if="hovered && !open"
             class="mr-[-20px] flex h-10 cursor-pointer items-center overflow-hidden whitespace-nowrap rounded-l-full bg-neutral-900 pl-4 pr-[28px] text-xs font-medium text-white shadow-lg"
           >
-            Report a bug
+            {{ t('common.reportBug') }}
           </span>
         </Transition>
 
         <button
           type="button"
           class="relative z-10 flex size-10 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg transition-shadow hover:shadow-xl"
-          aria-label="Report a bug"
+          :aria-label="t('common.reportBug')"
         >
           <UIcon name="i-heroicons-bug-ant" class="size-5" />
         </button>

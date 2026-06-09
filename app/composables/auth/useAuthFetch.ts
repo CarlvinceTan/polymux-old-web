@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getPostHogBrowserSessionId, getPostHogDistinctId } from '~/utils/posthogContext'
 
 // Module-level cache of the current access token. Supabase already keeps the
 // session in memory, but `getSession()` is async — every authFetch awaits a
@@ -7,30 +8,37 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // adds up. We mirror the token here once via onAuthStateChange and read it
 // synchronously per call.
 let cachedToken: string | null = null
+let cachedExpiresAt = 0
 let pendingRefresh: Promise<string | null> | null = null
 let listenerInstalled = false
+
+function tokenExpiresSoon(): boolean {
+  if (!cachedExpiresAt) return true
+  return Date.now() / 1000 > cachedExpiresAt - 60
+}
+
+function cacheSession(session: { access_token: string; expires_at?: number } | null | undefined) {
+  cachedToken = session?.access_token ?? null
+  cachedExpiresAt = session?.expires_at ?? 0
+}
 
 function installListener(supabase: SupabaseClient) {
   if (listenerInstalled || !import.meta.client) return
   listenerInstalled = true
-  // Seed the cache from whatever session supabase already has in memory.
   supabase.auth.getSession().then(({ data }) => {
-    cachedToken = data.session?.access_token ?? null
+    cacheSession(data.session)
   }).catch(() => {})
   supabase.auth.onAuthStateChange((_event, session) => {
-    cachedToken = session?.access_token ?? null
+    cacheSession(session)
   })
 }
 
 async function resolveToken(supabase: SupabaseClient): Promise<string | null> {
-  if (cachedToken) return cachedToken
-  // First call (before the seed promise resolves) or signed-out state. Fall
-  // back to getSession() — coalesce concurrent callers so we make at most one
-  // round-trip while the cache is cold.
+  if (cachedToken && !tokenExpiresSoon()) return cachedToken
   if (!pendingRefresh) {
     pendingRefresh = supabase.auth.getSession()
       .then(({ data }) => {
-        cachedToken = data.session?.access_token ?? null
+        cacheSession(data.session)
         return cachedToken
       })
       .catch(() => null)
@@ -51,15 +59,32 @@ export function useAuthFetch() {
     if (!token) throw new Error('Not authenticated')
 
     const { headers: optsHeaders, ...rest } = opts
-    return apiFetch<T>(path, {
+    const phSession = getPostHogBrowserSessionId()
+    const phDistinct = getPostHogDistinctId()
+    const buildOpts = (t: string) => ({
       baseURL,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${t}`,
         'Content-Type': 'application/json',
+        ...(phSession ? { 'X-POSTHOG-SESSION-ID': phSession } : {}),
+        ...(phDistinct ? { 'X-POSTHOG-DISTINCT-ID': phDistinct } : {}),
         ...(optsHeaders as Record<string, string> | undefined),
       },
       ...rest,
     })
+
+    try {
+      return await apiFetch<T>(path, buildOpts(token))
+    }
+    catch (err: unknown) {
+      const status = (err as { status?: number })?.status
+      if (status !== 401) throw err
+      cachedToken = null
+      cachedExpiresAt = 0
+      const fresh = await resolveToken(supabase)
+      if (!fresh || fresh === token) throw err
+      return apiFetch<T>(path, buildOpts(fresh))
+    }
   }
 
   return { authFetch }

@@ -3,12 +3,14 @@ import { onClickOutside } from '@vueuse/core'
 
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Community',
+  title: () => t('community.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Join the Polymux community. Share workflows, ask questions, and connect with other AI agent builders.',
+      content: () => t('community.metaDescription'),
     },
   ],
 })
@@ -34,38 +36,32 @@ const trimmedQuery = computed(() => searchQuery.value.trim())
 const showSearchPanel = computed(() => searchPanelOpen.value && trimmedQuery.value.length >= 2)
 
 interface CommunityTile {
-  label: string
-  description: string
+  labelKey: 'blog' | 'documentation' | 'forum'
   icon: string
   to?: string
   disabled?: boolean
 }
 
-const tiles: CommunityTile[] = [
+const tiles = computed<CommunityTile[]>(() => [
   {
-    label: 'Blog',
-    description: 'Product updates, engineering notes, and guides',
+    labelKey: 'blog',
     icon: 'i-heroicons-newspaper-20-solid',
     to: '/blog',
   },
   {
-    label: 'Documentation',
-    description: 'Guides, references, and API docs',
+    labelKey: 'documentation',
     icon: 'i-heroicons-book-open-20-solid',
     to: '/documentation',
   },
   {
-    label: 'Forum',
-    description: 'Ask questions, share ideas, connect with others',
+    labelKey: 'forum',
     icon: 'i-heroicons-chat-bubble-left-right-20-solid',
     to: '/forum',
   },
-]
+])
 
-const SOURCE_LABELS: Record<CommunitySearchHit['source'], string> = {
-  documentation: 'Documentation',
-  forum: 'Forum',
-  blog: 'Blog',
+function sourceLabel(source: CommunitySearchHit['source']): string {
+  return t(`community.sources.${source}`)
 }
 
 const SOURCE_ICONS: Record<CommunitySearchHit['source'], string> = {
@@ -145,10 +141,10 @@ function onSearchKeydown(e: KeyboardEvent) {
       <!-- Hero section -->
       <header class="text-center">
         <h1 class="font-serif text-[2.75rem] leading-[1.08] tracking-tight text-neutral-950 sm:text-5xl">
-          Polymux Community
+          {{ t('community.title') }}
         </h1>
         <p class="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-neutral-600">
-          Updates, discussions, and resources for Polymux users
+          {{ t('community.subtitle') }}
         </p>
 
         <!-- Search bar -->
@@ -167,7 +163,7 @@ function onSearchKeydown(e: KeyboardEvent) {
               v-model="searchQuery"
               name="community-search"
               type="search"
-              placeholder="Search community..."
+              :placeholder="t('community.searchPlaceholder')"
               autocomplete="off"
               class="min-w-0 flex-1 bg-transparent text-neutral-950 placeholder-neutral-500 outline-none"
               @focus="searchPanelOpen = true"
@@ -180,15 +176,15 @@ function onSearchKeydown(e: KeyboardEvent) {
             class="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-lg border border-neutral-200 bg-white text-left shadow-lg"
             role="region"
             aria-live="polite"
-            aria-label="Search results"
+            :aria-label="t('community.searchResults')"
           >
             <div v-if="searchLoading" class="px-4 py-4 text-sm text-neutral-500">
-              Searching…
+              {{ t('community.searching') }}
             </div>
 
             <ul
               v-else-if="searchHits.length > 0"
-              class="max-h-[31.5rem] divide-y divide-neutral-100 overflow-y-auto overscroll-contain py-1"
+              class="max-h-[31.5rem] divide-y divide-neutral-100 overflow-y-auto overscroll-contain"
             >
               <li v-for="hit in searchHits" :key="`${hit.source}-${hit.url}`">
                 <NuxtLink
@@ -201,7 +197,7 @@ function onSearchKeydown(e: KeyboardEvent) {
                     </span>
                     <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[0.6875rem] font-medium text-neutral-600">
                       <UIcon :name="SOURCE_ICONS[hit.source]" class="size-3" />
-                      {{ hit.meta ?? SOURCE_LABELS[hit.source] }}
+                      {{ hit.meta ?? sourceLabel(hit.source) }}
                     </span>
                   </div>
                   <span
@@ -214,7 +210,7 @@ function onSearchKeydown(e: KeyboardEvent) {
             </ul>
 
             <div v-else class="px-4 py-4 text-sm text-neutral-500">
-              No results for “{{ trimmedQuery }}”. Try different keywords.
+              {{ t('community.noResults', { query: trimmedQuery }) }}
             </div>
           </div>
         </div>
@@ -226,7 +222,7 @@ function onSearchKeydown(e: KeyboardEvent) {
       <div class="grid gap-6 sm:grid-cols-3">
         <NuxtLink
           v-for="tile in tiles"
-          :key="tile.label"
+          :key="tile.labelKey"
           :to="tile.to"
           :class="[
             'group relative rounded-xl border border-neutral-200 p-6 transition-all',
@@ -237,20 +233,20 @@ function onSearchKeydown(e: KeyboardEvent) {
         >
           <div v-if="tile.disabled" class="absolute right-4 top-4">
             <span class="inline-flex items-center rounded-full bg-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-700">
-              Coming soon
+              {{ t('community.comingSoon') }}
             </span>
           </div>
 
           <UIcon :name="tile.icon" class="size-8 text-neutral-400 group-hover:text-neutral-600" />
           <h3 class="mt-4 text-lg font-semibold text-neutral-950">
-            {{ tile.label }}
+            {{ t(`community.tiles.${tile.labelKey}.label`) }}
           </h3>
           <p class="mt-2 text-sm leading-relaxed text-neutral-600">
-            {{ tile.description }}
+            {{ t(`community.tiles.${tile.labelKey}.description`) }}
           </p>
 
           <div v-if="!tile.disabled" class="mt-4 flex items-center text-sm font-medium text-neutral-700 group-hover:text-neutral-950">
-            Explore
+            {{ t('community.explore') }}
             <UIcon name="i-heroicons-arrow-right-20-solid" class="ml-2 size-4 transition-transform group-hover:translate-x-1" />
           </div>
         </NuxtLink>

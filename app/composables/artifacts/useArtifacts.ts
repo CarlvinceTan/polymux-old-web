@@ -38,7 +38,7 @@ function artifactTypeFromName(name: string, mime: string | null | undefined): Ar
   return 'other'
 }
 
-function rowToArtifact(row: ArtifactRow): SandboxArtifact {
+export function rowToArtifact(row: ArtifactRow): SandboxArtifact {
   return {
     id: row.id,
     name: row.name,
@@ -154,21 +154,30 @@ export function useArtifacts(sessionId: Ref<string>) {
     }
   }
 
-  async function downloadArtifact(artifact: SandboxArtifact) {
-    const link = document.createElement('a')
-    if (artifact.content) {
-      const blob = new Blob([artifact.content], { type: artifact.mimeType ?? 'text/plain' })
-      link.href = URL.createObjectURL(blob)
+  async function downloadArtifact(artifact: SandboxArtifact): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `/api/workflows/${sessionId.value}/artifacts/${artifact.id}/download`,
+        { credentials: 'include' },
+      )
+      if (!response.ok) return false
+
+      const blob = await response.blob()
+      const fileName = artifact.name.split('/').pop() || artifact.name || 'download'
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+      return true
     }
-    else {
-      const url = await getDownloadUrl(artifact.id)
-      if (!url) return
-      link.href = url
+    catch (err) {
+      console.error('[useArtifacts] downloadArtifact failed', err)
+      return false
     }
-    link.download = artifact.name
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   async function promote(artifactId: string, path: string): Promise<{ storage_path: string }> {

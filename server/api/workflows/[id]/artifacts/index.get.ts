@@ -29,9 +29,16 @@ export interface ArtifactRow {
   preview_url: string | null
 }
 
-function isPreviewable(mime: string | null): boolean {
-  if (!mime) return false
-  return mime.startsWith('image/') || mime.startsWith('video/')
+function isPreviewable(name: string, mime: string | null): boolean {
+  if (mime) {
+    return mime.startsWith('image/')
+      || mime.startsWith('video/')
+      || mime.startsWith('audio/')
+      || mime === 'application/pdf'
+      || mime === 'text/html'
+  }
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  return ext === 'pdf' || ext === 'html' || ext === 'htm'
 }
 
 export default defineEventHandler(async (event) => {
@@ -56,7 +63,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const rows = (data ?? []) as Omit<ArtifactRow, 'preview_url'>[]
-  const previewable = rows.filter(r => r.storage_path && isPreviewable(r.mime_type))
+  const previewable = rows.filter(r => r.storage_path && isPreviewable(r.name, r.mime_type))
   const previewMap = new Map<string, string>()
   if (previewable.length > 0) {
     // All artifacts in a workflow share one workspace_id, so we resolve the

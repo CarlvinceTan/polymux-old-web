@@ -1,0 +1,147 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "Home" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Polymux
+      - generic [ref=e11]: /
+      - generic [ref=e12]: Docs
+    - searchbox [ref=e16]
+    - button "Language" [ref=e19]:
+      - generic [ref=e20]: English
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - navigation [ref=e24]:
+        - generic [ref=e25]:
+          - button "Getting started" [expanded] [ref=e26]:
+            - generic [ref=e27]: Getting started
+          - list [ref=e29]:
+            - listitem [ref=e30]:
+              - link "Introduction" [ref=e31] [cursor=pointer]:
+                - /url: /documentation/introduction
+            - listitem [ref=e32]:
+              - link "Quickstart" [ref=e33] [cursor=pointer]:
+                - /url: /documentation/quickstart
+            - listitem [ref=e34]:
+              - link "Installation" [ref=e35] [cursor=pointer]:
+                - /url: /documentation/installation
+        - generic [ref=e36]:
+          - button "Using Polymux" [expanded] [ref=e37]:
+            - generic [ref=e38]: Using Polymux
+          - list [ref=e40]:
+            - listitem [ref=e41]:
+              - link "Workspaces and members" [ref=e42] [cursor=pointer]:
+                - /url: /documentation/workspaces
+            - listitem [ref=e43]:
+              - link "Vault basics" [ref=e44] [cursor=pointer]:
+                - /url: /documentation/vault
+            - listitem [ref=e45]:
+              - link "FAQ" [ref=e46] [cursor=pointer]:
+                - /url: /documentation/faq
+        - generic [ref=e47]:
+          - button "Building plugins" [expanded] [ref=e48]:
+            - generic [ref=e49]: Building plugins
+          - list [ref=e51]:
+            - listitem [ref=e52]:
+              - link "Plugin overview" [ref=e53] [cursor=pointer]:
+                - /url: /documentation/plugin-overview
+            - listitem [ref=e54]:
+              - link "Build your first plugin" [ref=e55] [cursor=pointer]:
+                - /url: /documentation/plugin-build
+            - listitem [ref=e56]:
+              - link "Manifest reference" [ref=e57] [cursor=pointer]:
+                - /url: /documentation/plugin-manifest
+            - listitem [ref=e58]:
+              - link "Publishing checklist" [ref=e59] [cursor=pointer]:
+                - /url: /documentation/publishing
+        - generic [ref=e60]:
+          - button "Connections" [expanded] [ref=e61]:
+            - generic [ref=e62]: Connections
+          - list [ref=e64]:
+            - listitem [ref=e65]:
+              - link "Connections overview" [ref=e66] [cursor=pointer]:
+                - /url: /documentation/connections-overview
+            - listitem [ref=e67]:
+              - link "Building a connection" [ref=e68] [cursor=pointer]:
+                - /url: /documentation/connections-build
+        - generic [ref=e69]:
+          - button "API" [expanded] [ref=e70]:
+            - generic [ref=e71]: API
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "API overview" [ref=e75] [cursor=pointer]:
+                - /url: /documentation/api-overview
+            - listitem [ref=e76]:
+              - link "Authentication" [ref=e77] [cursor=pointer]:
+                - /url: /documentation/authentication
+    - main [ref=e78]:
+      - generic [ref=e79]:
+        - article [ref=e80]:
+          - heading "Introduction" [level=1] [ref=e81]
+          - paragraph [ref=e82]: Polymux is a platform for building, running, and sharing AI agents that work the web on your behalf. Agents drive real browser sessions, hand off to one another, store secrets in a vault, and replay their runs — all from a workspace your team controls.
+          - paragraph [ref=e83]:
+            - text: This documentation is split into two parts. The
+            - strong [ref=e84]: User guide
+            - text: walks through installing Polymux, getting set up, and using the product day-to-day. The
+            - strong [ref=e85]: Developer guide
+            - text: explains how to build and publish packaged workflows and connections so other people can install them in one click.
+          - paragraph [ref=e86]:
+            - text: If you have not used Polymux before, start with
+            - link "Quickstart" [ref=e87] [cursor=pointer]:
+              - /url: /documentation/quickstart
+            - text: . If you arrived here looking for an API reference, jump straight to the
+            - link "API overview" [ref=e88] [cursor=pointer]:
+              - /url: /documentation/api-overview
+            - text: .
+          - heading "What Polymux gives you" [level=2] [ref=e89]
+          - paragraph [ref=e90]: "Polymux is built around three primitives:"
+          - list [ref=e91]:
+            - listitem [ref=e92]:
+              - strong [ref=e93]: Sessions
+              - text: — a single conversation with one agent, backed by a live browser. Sessions stream every click, scroll, and form fill to your dashboard.
+            - listitem [ref=e94]:
+              - strong [ref=e95]: Workflows
+              - text: — a directed graph of agents, viewports, and tools. Workflows are versioned, can be scheduled, and can be packaged for the marketplace.
+            - listitem [ref=e96]:
+              - strong [ref=e97]: Workspaces
+              - text: — the shared container for your team's workflows, vault entries, files, and billing. Members are added by invitation and assigned roles.
+          - paragraph [ref=e98]: These three concepts come up everywhere in the rest of the docs. If a section uses one without explaining it, this is the page to come back to.
+          - heading "What's new" [level=2] [ref=e99]
+          - paragraph [ref=e100]:
+            - text: This documentation site is itself live work-in-progress. Pages marked
+            - emphasis [ref=e101]: Draft
+            - text: in the sidebar are stubs. If a topic is missing entirely, the
+            - link "forum" [ref=e102] [cursor=pointer]:
+              - /url: /forum
+            - text: is the fastest way to ask.
+          - heading "How to read these docs" [level=2] [ref=e103]
+          - paragraph [ref=e104]: The left sidebar groups pages into sections. The right rail tracks where you are on the current page and lets you jump between headings. Every page ends with links to the previous and next page in reading order, so you can step through the whole guide from start to finish without going back to the sidebar.
+          - paragraph [ref=e105]: Polymux is in active development. We bump these pages whenever the product changes, so it is worth checking back if you are following an older guide.
+        - navigation [ref=e106]:
+          - link "Next Quickstart" [ref=e108] [cursor=pointer]:
+            - /url: /documentation/quickstart
+            - generic [ref=e109]: Next
+            - generic [ref=e111]: Quickstart
+        - generic [ref=e112]:
+          - generic [ref=e113]: © 2026 Polymux. All rights reserved.
+          - generic [ref=e114]:
+            - link "Contact" [ref=e115] [cursor=pointer]:
+              - /url: /contact
+            - link "Forum" [ref=e116] [cursor=pointer]:
+              - /url: /forum
+            - link "Privacy Policy" [ref=e117] [cursor=pointer]:
+              - /url: /privacy-policy
+    - complementary [ref=e118]:
+      - generic [ref=e119]:
+        - heading "On this page" [level=4] [ref=e120]
+        - list [ref=e121]:
+          - listitem [ref=e122]:
+            - link "What Polymux gives you" [ref=e123] [cursor=pointer]:
+              - /url: "#what-polymux-gives-you"
+          - listitem [ref=e124]:
+            - link "What's new" [ref=e125] [cursor=pointer]:
+              - /url: "#whats-new"
+          - listitem [ref=e126]:
+            - link "How to read these docs" [ref=e127] [cursor=pointer]:
+              - /url: "#how-to-read-these-docs"

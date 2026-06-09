@@ -6,47 +6,18 @@ const props = defineProps<{
   name: string
   url: string
   username: string
-  lastUsed?: string
-  // Provenance, resolved to display names by the parent (passwords.vue) so
-  // this component stays purely presentational. lastUsedByName is null when
-  // the credential has never been revealed yet — the card then shows only
-  // "Saved by X" without the second line.
-  savedByName?: string
-  lastUsedByName?: string | null
+  hasTotp?: boolean
 }>()
 
 const emit = defineEmits<{
   view: [id: string]
-  edit: [id: string]
   delete: [id: string]
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const imgError = ref(false)
 const isOpen = ref(false)
 const dropdownPos = ref({ top: 0, left: 0 })
-
-// Lightweight relative time formatter. The codebase has no shared
-// time-ago helper today; introducing a util for a single card site feels
-// premature, so we keep this inline. Falls back to a locale-aware absolute
-// date when the diff is past the year horizon.
-const lastUsedAgo = computed(() => {
-  if (!props.lastUsed) return ''
-  const then = new Date(props.lastUsed).getTime()
-  if (Number.isNaN(then)) return ''
-  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000))
-  const rtf = new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' })
-  if (diffSec < 60) return rtf.format(-diffSec, 'second')
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return rtf.format(-diffMin, 'minute')
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return rtf.format(-diffHr, 'hour')
-  const diffDay = Math.floor(diffHr / 24)
-  if (diffDay < 30) return rtf.format(-diffDay, 'day')
-  const diffMo = Math.floor(diffDay / 30)
-  if (diffMo < 12) return rtf.format(-diffMo, 'month')
-  return new Date(then).toLocaleDateString(locale.value)
-})
 
 const faviconSrc = computed(() => {
   try {
@@ -59,6 +30,7 @@ const faviconSrc = computed(() => {
 })
 
 function toggleDropdown(event: MouseEvent) {
+  event.stopPropagation()
   if (isOpen.value) {
     isOpen.value = false
     return
@@ -66,6 +38,17 @@ function toggleDropdown(event: MouseEvent) {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   dropdownPos.value = { top: rect.bottom, left: rect.left }
   isOpen.value = true
+}
+
+function handleCardClick() {
+  emit('view', props.id)
+}
+
+function handleCardKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    handleCardClick()
+  }
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -82,7 +65,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 </script>
 
 <template>
-  <div class="ghost-panel group relative flex items-start gap-3 rounded-lg bg-white p-4 transition-all hover:border-neutral-400 hover:shadow-sm">
+  <div
+    class="ghost-panel group relative flex cursor-pointer items-start gap-3 rounded-lg bg-white p-4 transition-all hover:border-neutral-400 hover:shadow-sm"
+    role="button"
+    tabindex="0"
+    @click="handleCardClick"
+    @keydown="handleCardKeydown"
+  >
     <div class="size-9 shrink-0 rounded-lg flex items-center justify-center bg-neutral-100 border border-neutral-200 overflow-hidden">
       <img
         v-if="!imgError"
@@ -112,12 +101,17 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       <p class="truncate font-semibold text-body-md text-neutral-950">{{ name }}</p>
       <p class="truncate text-meta text-neutral-500">{{ url }}</p>
       <p class="truncate text-meta text-neutral-400">{{ username }}</p>
-      <p v-if="savedByName" class="mt-1 truncate text-meta text-neutral-400">
-        {{ t('vault.passwords.savedBy', { name: savedByName }) }}
-      </p>
-      <p v-if="lastUsedByName && lastUsedAgo" class="truncate text-meta text-neutral-400">
-        {{ t('vault.passwords.lastUsedBy', { name: lastUsedByName, when: lastUsedAgo }) }}
-      </p>
+      <span
+        v-if="hasTotp"
+        class="mt-1.5 inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500"
+        :title="t('vault.passwords.totpBadgeTitle')"
+      >
+        <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        {{ t('vault.passwords.totpBadge') }}
+      </span>
     </div>
 
     <svg
@@ -127,7 +121,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
-      @click="toggleDropdown"
+      @click.stop="toggleDropdown"
     >
       <circle cx="12" cy="5" r="2" />
       <circle cx="12" cy="12" r="2" />
@@ -138,7 +132,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       <div
         v-if="isOpen"
         :class="`pw-dropdown-${id}`"
-        class="fixed z-[9999] mt-1 w-28 rounded-md bg-white py-1 shadow-lg ring-1 ring-neutral-200 overflow-hidden"
+        class="fixed z-[9999] mt-1 w-28 rounded-md bg-white shadow-lg ring-1 ring-neutral-200 overflow-hidden"
         :style="{ top: dropdownPos.top + 'px', left: dropdownPos.left + 'px' }"
       >
         <button
@@ -146,19 +140,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           @click.stop="emit('view', id); isOpen = false"
         >
           <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+            <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
           </svg>
-          {{ t('vault.passwords.view') }}
-        </button>
-        <button
-          class="flex w-full items-center gap-2 px-2.5 py-1.5 text-nav text-neutral-950 hover:bg-neutral-100 cursor-pointer transition-colors"
-          @click.stop="emit('edit', id); isOpen = false"
-        >
-          <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-          {{ t('vault.passwords.edit') }}
+          {{ t('vault.passwords.details') }}
         </button>
         <div class="my-0.5 h-px bg-neutral-200 mx-2" />
         <button

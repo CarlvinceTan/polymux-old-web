@@ -68,7 +68,7 @@ const canManageMembers = computed(() => myRole.value === 'owner' || myRole.value
 function loadData() {
   const ws = currentWorkspace.value
   if (!ws) return
-  fetchMembers(ws.id)
+  fetchMembers(ws.id, { force: true })
   if (canManageMembers.value) fetchInvitations(ws.id)
 }
 
@@ -656,7 +656,7 @@ onUnmounted(() => {
     >
       <div
         v-if="activeMenuKey"
-        class="mm-action-menu fixed z-[70] w-44 overflow-hidden rounded-lg bg-white py-1 shadow-lg ring-1 ring-neutral-200"
+        class="mm-action-menu fixed z-[70] w-44 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-neutral-200"
         :style="{ top: menuPos.top + 'px', left: menuPos.left + 'px' }"
       >
         <template v-if="activeMenuMember">

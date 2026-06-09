@@ -7,6 +7,7 @@ import type {
   AgentThinkingPayload,
   ToolDescriptorPayload,
   PageNavigatedPayload,
+  WorkflowAgentNodePayload,
   AgentPriority,
   SpawnBrowserAgentPayload,
   CloseBrowserAgentPayload,
@@ -15,6 +16,11 @@ import type {
 import type { SessionHandle } from '../workflows/useWorkflowSession'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 import { browserAgentCapFromPlan } from '~/utils/planLimits'
+import {
+  resolveInitialBrowserAgentCap,
+  resolveWorkspacePlan,
+  writeLimitPolicySnapshot,
+} from '~/utils/uiPolicyCache'
 
 const URL_RE = /https?:\/\/[^\s"',)}\]]+/
 const PINNED_STORAGE_KEY_PREFIX = 'polymux_viewport_pinned:'
@@ -57,8 +63,37 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
     }
   }, { immediate: true })
   const browserMode = computed(() => viewports.value.length > 0)
-  const { currentWorkspace } = useWorkspaces()
-  const browserAgentCap = ref(browserAgentCapFromPlan(currentWorkspace.value?.plan))
+  const { currentWorkspace, currentWorkspaceId } = useWorkspaces()
+  const { isPlanLimitsEnforced, ready: flagsReady } = useMeFeatures()
+
+  function workspaceIdForPolicy(): string | null {
+    return currentWorkspace.value?.id ?? currentWorkspaceId.value
+  }
+
+  function effectiveWorkspacePlan(): string | null {
+    return resolveWorkspacePlan(
+      workspaceIdForPolicy(),
+      currentWorkspace.value?.plan,
+    )
+  }
+
+  function persistCapPolicy(cap: number) {
+    const workspaceId = workspaceIdForPolicy()
+    if (!workspaceId) return
+    writeLimitPolicySnapshot({
+      workspaceId,
+      workspacePlan: effectiveWorkspacePlan() ?? 'free',
+      planLimitsEnforced: isPlanLimitsEnforced(),
+      browserAgentCap: cap,
+    })
+  }
+
+  const initialCap = resolveInitialBrowserAgentCap(
+    workspaceIdForPolicy(),
+    effectiveWorkspacePlan(),
+  )
+  const browserAgentCap = ref(initialCap.cap)
+  const browserAgentCapResolved = ref(initialCap.resolved)
   const activeAgentId = ref<string | null>(null)
   // Flips true the first time a real session_state lands. While false, the
   // watch below ignores `state === null` so a pre-WS REST hydrate (via
@@ -221,11 +256,20 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
         for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
         pendingUrlUpdates.clear()
         receivedAnyState = false
+        browserAgentCapResolved.value = false
+        const resetCap = resolveInitialBrowserAgentCap(
+          workspaceIdForPolicy(),
+          effectiveWorkspacePlan(),
+        )
+        browserAgentCap.value = resetCap.cap
+        browserAgentCapResolved.value = resetCap.resolved
         return
       }
       receivedAnyState = true
       setViewports((state.browser_agents ?? []).map(payloadToViewport))
       browserAgentCap.value = state.browser_agent_cap ?? 0
+      browserAgentCapResolved.value = true
+      persistCapPolicy(browserAgentCap.value)
       if (activeAgentId.value && !viewports.value.some(v => v.agentId === activeAgentId.value)) {
         activeAgentId.value = null
       }
@@ -236,6 +280,45 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
       warnIfOverCap('session_state sync')
     },
     { immediate: true },
+  )
+
+  watch(
+    () => workspaceIdForPolicy(),
+    (workspaceId) => {
+      if (receivedAnyState) return
+      const resetCap = resolveInitialBrowserAgentCap(
+        workspaceId,
+        effectiveWorkspacePlan(),
+      )
+      browserAgentCap.value = resetCap.cap
+      browserAgentCapResolved.value = resetCap.resolved
+    },
+  )
+
+  watch(
+    [flagsReady, () => isPlanLimitsEnforced(), () => workspaceIdForPolicy(), () => effectiveWorkspacePlan()],
+    () => {
+      if (receivedAnyState || browserAgentCapResolved.value) return
+      if (!flagsReady.value) return
+
+      if (!isPlanLimitsEnforced()) {
+        browserAgentCap.value = 0
+        browserAgentCapResolved.value = true
+        persistCapPolicy(0)
+        return
+      }
+
+      browserAgentCap.value = browserAgentCapFromPlan(effectiveWorkspacePlan())
+    },
+  )
+
+  watch(
+    () => currentWorkspace.value?.plan,
+    (plan) => {
+      if (!plan || receivedAnyState || browserAgentCapResolved.value) return
+      if (!flagsReady.value || !isPlanLimitsEnforced()) return
+      browserAgentCap.value = browserAgentCapFromPlan(plan)
+    },
   )
 
   // Pre-WS hydration from the workflow row's persisted `last_browser_states`
@@ -327,12 +410,22 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
     updateViewport(p.agent_id, { currentAction: p.text.toUpperCase() })
   }
 
+  // During a workflow run, label the agent's viewport with the node it's
+  // executing. Fires on each node (incl. re-task of the same branch agent and
+  // each fan-out branch) so the viewport reflects the current step.
+  function handleWorkflowAgentNode(p: WorkflowAgentNodePayload) {
+    if (!p.agent_id) return
+    if (!viewports.value.some(v => v.agentId === p.agent_id)) return
+    updateViewport(p.agent_id, { currentNodeId: p.node_id, currentNodeTitle: p.node_title ?? '' })
+  }
+
   session.on<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   session.on<BrowserClosedPayload>('browser_closed', handleBrowserClosed)
   session.on<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   session.on<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
   session.on<ToolDescriptorPayload>('tool_descriptor', handleToolDescriptor)
   session.on<PageNavigatedPayload>('page_navigated', handlePageNavigated)
+  session.on<WorkflowAgentNodePayload>('workflow_agent_node', handleWorkflowAgentNode)
 
   onUnmounted(() => {
     session.off('browser_spawned', handleBrowserSpawned)
@@ -341,6 +434,7 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
     session.off('agent_thinking', handleAgentThinking)
     session.off('tool_descriptor', handleToolDescriptor)
     session.off('page_navigated', handlePageNavigated)
+    session.off('workflow_agent_node', handleWorkflowAgentNode)
     for (const handle of pendingUrlUpdates.values()) clearTimeout(handle)
     pendingUrlUpdates.clear()
   })
@@ -380,6 +474,7 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
     viewports: readonly(viewports),
     browserMode: readonly(browserMode),
     browserAgentCap: readonly(browserAgentCap),
+    browserAgentCapResolved: readonly(browserAgentCapResolved),
     closeViewport,
     togglePin,
     spawnBrowserAgent,

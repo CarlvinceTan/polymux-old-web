@@ -11,6 +11,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const { t } = useI18n()
+
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString(undefined, {
@@ -115,7 +117,7 @@ const rows = computed(() => {
               class="px-4 py-2 rounded-lg text-body-md font-medium bg-neutral-950 text-white hover:bg-neutral-800 transition-colors"
               @click="emit('close')"
             >
-              Done
+              {{ t('storage.share.done') }}
             </button>
           </div>
         </div>

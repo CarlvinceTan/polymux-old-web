@@ -77,6 +77,7 @@ async function saveProfile() {
 }
 
 const { settings: userSettings, saving: blogSubscriptionSaving, fetchSettings } = useUserSettings()
+const { open: openImportModal } = usePasswordImportModal()
 
 watch(isOpen, async (open) => {
   if (open && user.value) {
@@ -144,16 +145,6 @@ async function saveVoiceAutoShutoff() {
 }
 
 const geo = useGeolocation({ active: false })
-
-/** Empty when permission is granted — no explanatory subtitle needed. */
-const locationPermissionHint = computed(() => {
-  switch (geo.permissionState.value) {
-    case 'granted': return ''
-    case 'denied': return t('settings.locationDenied')
-    case 'unsupported': return t('settings.locationUnsupported')
-    default: return t('settings.locationPrompt')
-  }
-})
 
 type SettingsSubpage = 'payment' | 'delete-account'
 
@@ -435,6 +426,15 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
                   <!-- General -->
                   <SettingsSection :title="t('settings.general')">
+                    <SettingsSectionRow clickable @click="openImportModal(); isOpen = false">
+                      <template #icon>
+                        <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                      </template>
+                      <template #label>{{ t('settings.importPasswords') }}</template>
+                      <template #trailing>
+                        <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
+                      </template>
+                    </SettingsSectionRow>
                     <SettingsDropdown
                       icon="i-heroicons-language-20-solid"
                       :label="t('settings.language')"
@@ -443,23 +443,15 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       :visible-count="5"
                       @update:model-value="changeLocale($event)"
                     />
-                    <div>
-                      <SettingsSectionRow>
-                        <template #icon>
-                          <UIcon name="i-heroicons-map-pin-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                        </template>
-                        <template #label>{{ t('settings.locationSharing') }}</template>
-                        <template #trailing>
-                          <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
-                        </template>
-                      </SettingsSectionRow>
-                      <p
-                        v-if="locationPermissionHint"
-                        class="px-5 pb-3 text-label-md text-neutral-400"
-                      >
-                        {{ locationPermissionHint }}
-                      </p>
-                    </div>
+                    <SettingsSectionRow>
+                      <template #icon>
+                        <UIcon name="i-heroicons-map-pin-20-solid" class="size-4 shrink-0 text-neutral-500" />
+                      </template>
+                      <template #label>{{ t('settings.locationSharing') }}</template>
+                      <template #trailing>
+                        <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
+                      </template>
+                    </SettingsSectionRow>
                     <SettingsSectionRow>
                       <template #icon>
                         <UIcon name="i-heroicons-microphone-20-solid" class="size-4 shrink-0 text-neutral-500" />

@@ -2,6 +2,7 @@
 defineOptions({ inheritAttrs: false })
 
 import { nextTick, ref, watch } from 'vue'
+import type { AgentChatsHandle } from '~/composables/chat/useAgentChats'
 import type { ChatMessage, ChatMessageAttachment, CursorState, ViewportState } from '~/composables/types'
 
 export type { ChatMessage, ViewportState }
@@ -26,7 +27,9 @@ const props = defineProps<{
   showWorkingIndicator?: boolean
   waitingForAgent?: boolean
   browserAgentsActive?: boolean
+  agentsActive?: boolean
   browserAgentCap?: number
+  browserAgentCapResolved?: boolean
   hideViewSwitch?: boolean
   hideTitle?: boolean
   reconnecting?: boolean
@@ -41,6 +44,8 @@ const props = defineProps<{
    * the user message in edit mode.
    */
   beforeEdit?: (text: string, attachments: ChatMessageAttachment[]) => boolean | Promise<boolean>
+  /** Orchestrator chats handle for inline credential pickers in the message list. */
+  chats?: AgentChatsHandle
 }>()
 
 const { attachments, addFiles, removeFile, clearAll } = useAttachments()
@@ -57,6 +62,7 @@ const browserMode = defineModel<'server' | 'extension'>('browserMode', { default
 
 const emit = defineEmits<{
   send: [value: string, attachments: ChatMessageAttachment[]]
+  pause: []
   welcomeSuggestion: []
   closeViewport: [agentId: string]
   togglePinViewport: [agentId: string]
@@ -164,6 +170,7 @@ function onJumpClick() {
           :workspace-id="workspaceId"
           :feedback="feedback"
           :before-edit-submit="beforeEdit"
+          :chats="chats"
           @edit-message="relayEdit"
           @feedback-change="(id, rating) => emit('feedback-change', id, rating)"
           @jump-button-state="onJumpButtonState"
@@ -184,6 +191,7 @@ function onJumpClick() {
           :cursor-positions="cursorPositions"
           :show-cursor="showCursor"
           :browser-agent-cap="props.browserAgentCap"
+          :browser-agent-cap-resolved="props.browserAgentCapResolved"
           :reconnecting="props.reconnecting"
           class="min-h-0 flex-1"
           @close-viewport="emit('closeViewport', $event)"
@@ -242,6 +250,7 @@ function onJumpClick() {
             </button>
             <button
               type="button"
+              data-testid="viewport-view-tab"
               class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
               :class="inViewport
                 ? 'bg-white text-neutral-900 shadow-sm'
@@ -254,6 +263,7 @@ function onJumpClick() {
             </button>
             <button
               type="button"
+              data-testid="workflow-flow-view-tab"
               class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
               :class="inFlow
                 ? 'bg-white text-neutral-900 shadow-sm'
@@ -304,7 +314,9 @@ function onJumpClick() {
             v-model:browser-mode="browserMode"
             :hint="t('chat.messagePlaceholder')"
             :attachments="attachments"
+            :agents-active="agentsActive"
             @send="onSend"
+            @pause="emit('pause')"
             @attach-files="onAttachFiles"
             @remove-file="onRemoveFile"
           />

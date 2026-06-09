@@ -6,10 +6,12 @@ const user = useSupabaseUser()
 const {
   notifications,
   hasNotifications,
+  hasUnread,
   clearAll,
   fetchAll,
   subscribe,
   teardown,
+  markAllRead,
 } = useNotifications()
 
 const open = ref(false)
@@ -22,6 +24,8 @@ onClickOutside(containerRef, () => { open.value = false }, {
 
 function toggle() {
   open.value = !open.value
+  // Opening the inbox counts as reading — clear the unread badge.
+  if (open.value) markAllRead()
 }
 
 function formatRelativeTime(iso: string) {
@@ -126,7 +130,7 @@ watch(user, (u) => {
         <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
       </svg>
       <span
-        v-if="hasNotifications"
+        v-if="hasUnread"
         class="absolute right-2 top-2 block size-1.5 rounded-full bg-red-500 ring-2 ring-white"
         aria-hidden="true"
       />
@@ -148,7 +152,7 @@ watch(user, (u) => {
       <div v-if="!hasNotifications" class="px-3 py-6 text-center text-xs text-neutral-400">
         {{ t('notifications.empty') }}
       </div>
-      <ul v-else class="max-h-96 overflow-y-auto py-1">
+      <ul v-else class="max-h-96 overflow-y-auto">
         <li
           v-for="n in notifications"
           :key="n.id"

@@ -8,6 +8,10 @@ const props = withDefaults(defineProps<{
   url?: string
   agentName?: string
   currentAction?: string
+  /** During a workflow run, the node this viewport's agent is executing.
+   *  Rendered as a leading step chip so the viewport reflects the current
+   *  node — kept separate from `currentAction` (live tool action). */
+  currentNodeTitle?: string
   isWorking?: boolean
   isDone?: boolean
   /** Solid red status line — agent ended in failed/stopped/interrupted. */
@@ -53,6 +57,7 @@ const props = withDefaults(defineProps<{
   isDone: false,
   isFailed: false,
   isPinned: false,
+  currentNodeTitle: '',
   showBar: true,
   showActionText: true,
   thumbnail: false,
@@ -236,6 +241,15 @@ function runStopClick(e: Event) {
         :class="thumbnail ? 'gap-1 text-2xs text-neutral-600 sm:text-caption' : 'gap-3 text-body-md'"
       >
         <div class="flex min-w-0 items-baseline gap-1">
+          <!-- Workflow step chip — which node this viewport is currently
+               executing. Shown only during a workflow run (currentNodeTitle
+               set); truncates so it never crowds out the agent label. -->
+          <span
+            v-if="currentNodeTitle"
+            class="max-w-[45%] shrink-0 truncate self-center rounded bg-neutral-100 px-1 py-px font-medium normal-case text-neutral-600"
+            :class="thumbnail ? 'text-2xs' : 'text-2xs sm:text-caption'"
+            :title="currentNodeTitle"
+          >{{ currentNodeTitle }}</span>
           <span
             class="shrink-0 truncate font-bold uppercase"
             :class="thumbnail ? 'text-neutral-600' : 'text-secondary'"
