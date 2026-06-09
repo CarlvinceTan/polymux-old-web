@@ -341,7 +341,6 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    goApiUrl: (process.env.GO_API_URL || "http://localhost:8081").replace(/\/+$/, ''),
     resendApiKey: process.env.RESEND_API_KEY || "",
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",

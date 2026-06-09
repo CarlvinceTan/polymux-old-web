@@ -10,8 +10,7 @@ let _timer: ReturnType<typeof setInterval> | null = null
 let _initialized = false
 
 function _healthUrl() {
-  // Same-origin Nitro health route checks the Go backend via server-only
-  // goApiUrl, while app data and WebSockets use public serverUrl directly.
+  // Same-origin Nitro health route checks the Go backend via serverUrl.
   return '/api/health'
 }
 

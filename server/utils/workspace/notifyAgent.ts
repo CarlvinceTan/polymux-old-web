@@ -7,14 +7,14 @@
 
 export async function notifyPermissionsChanged(workspaceId: string): Promise<void> {
   const cfg = useRuntimeConfig()
-  const goApiUrl = cfg.goApiUrl
+  const serverUrl = cfg.public.serverUrl
   const token = cfg.polymuxSecret
-  if (!goApiUrl || !token) {
+  if (!serverUrl || !token) {
     return
   }
 
   try {
-    await $fetch(`${goApiUrl}/internal/permissions-invalidated`, {
+    await $fetch(`${serverUrl}/internal/permissions-invalidated`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
