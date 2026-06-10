@@ -143,6 +143,9 @@ function onStopAgent(agentId: string) {
 }
 
 function onPauseOrchestrator() {
+  for (const v of vp.viewports.value) {
+    if (v.isWorking) chats.stopAgent(v.agentId)
+  }
   chats.pauseOrchestrator()
 }
 

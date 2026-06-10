@@ -65,12 +65,12 @@ function readBucketName(): string {
  * instead so a leak only exposes one workspace's bytes.
  */
 export function readMasterCredentials(): B2Credentials {
-  const applicationKeyId = process.env.B2_APPLICATION_KEY_ID || ''
-  const applicationKey = process.env.B2_APPLICATION_KEY || ''
+  const applicationKeyId = process.env.B2_MASTER_KEY_ID || ''
+  const applicationKey = process.env.B2_MASTER_KEY || ''
   if (!applicationKeyId || !applicationKey) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'B2 master not configured (B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY).',
+      statusMessage: 'B2 master not configured (B2_MASTER_KEY_ID / B2_MASTER_KEY).',
     })
   }
   return { applicationKeyId, applicationKey }

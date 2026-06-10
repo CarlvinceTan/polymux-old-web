@@ -166,7 +166,7 @@ export default defineEventHandler(async (event) => {
     }
   }
   catch (err) {
-    console.error('[internal/session-open] b2 key mint failed; Go will use master key fallback', err)
+    console.warn('[internal/session-open] b2 key mint failed; Go will use master key fallback', err)
   }
 
   return {

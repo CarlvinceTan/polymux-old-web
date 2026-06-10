@@ -1,5 +1,5 @@
 // Per-workspace Backblaze B2 application key lifecycle. The master key
-// (B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY env vars) holds `writeKeys`
+// (B2_MASTER_KEY_ID / B2_MASTER_KEY env vars) holds `writeKeys`
 // capability; this module uses it ONLY to mint and revoke per-workspace
 // sub-keys. Every workspace-scoped B2 operation then uses the sub-key, so
 // a leak of one workspace's key cannot reach another workspace's bytes.
@@ -26,13 +26,13 @@ interface MasterEnv {
 }
 
 function readMasterEnv(): MasterEnv {
-  const applicationKeyId = process.env.B2_APPLICATION_KEY_ID || ''
-  const applicationKey = process.env.B2_APPLICATION_KEY || ''
+  const applicationKeyId = process.env.B2_MASTER_KEY_ID || ''
+  const applicationKey = process.env.B2_MASTER_KEY || ''
   const bucketName = process.env.B2_BUCKET_NAME || ''
   if (!applicationKeyId || !applicationKey || !bucketName) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'B2 not configured (B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY / B2_BUCKET_NAME).',
+      message: 'B2 not configured (B2_MASTER_KEY_ID / B2_MASTER_KEY / B2_BUCKET_NAME).',
     })
   }
   return { applicationKeyId, applicationKey, bucketName }
@@ -64,7 +64,7 @@ async function authorizeMaster(): Promise<MasterAuth> {
     const body = await resp.text()
     throw createError({
       statusCode: 502,
-      statusMessage: `b2_authorize_account (master): ${resp.status} ${body.slice(0, 200)}`,
+      message: `b2_authorize_account (master): ${resp.status} ${body.slice(0, 200)}`,
     })
   }
   const payload = await resp.json() as {
@@ -173,7 +173,7 @@ export async function mintWorkspaceKey(
     const body = await resp.text()
     throw createError({
       statusCode: 502,
-      statusMessage: `b2_create_key: ${resp.status} ${body.slice(0, 200)}`,
+      message: `b2_create_key: ${resp.status} ${body.slice(0, 200)}`,
     })
   }
   const payload = await resp.json() as {
@@ -197,7 +197,7 @@ export async function mintWorkspaceKey(
     await deleteB2Key(payload.applicationKeyId).catch(() => {})
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to persist workspace B2 key: ${upsertErr.message}`,
+      message: `Failed to persist workspace B2 key: ${upsertErr.message}`,
     })
   }
 
@@ -306,7 +306,7 @@ async function deleteB2Key(applicationKeyId: string): Promise<void> {
     const body = await resp.text()
     throw createError({
       statusCode: 502,
-      statusMessage: `b2_delete_key: ${resp.status} ${body.slice(0, 200)}`,
+      message: `b2_delete_key: ${resp.status} ${body.slice(0, 200)}`,
     })
   }
 }
