@@ -351,7 +351,7 @@
       "agent": "Agente",
       "schedule": "Programación",
       "artifacts": "Artefactos",
-      "stealth": "Stealth"
+      "stealth": "Configuración"
     },
     "liveBadge": "En vivo",
     "resizeNode": "Redimensionar",
@@ -2272,7 +2272,7 @@
     "currency": "Currency"
   },
   "stealth": {
-    "title": "Stealth",
+    "title": "Configuración",
     "mode": {
       "label": "Browser mode",
       "description": "Where this workflow's agents run. Change it from the chat input."

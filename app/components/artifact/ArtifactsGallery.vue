@@ -335,7 +335,7 @@ function bulkDeleteConfirmed() {
           </button>
         </template>
         <template v-else>
-          <span class="px-2 text-xs font-medium text-neutral-700">{{ t('artifacts.bulkDeleteConfirm', selected.size, { count: selected.size }) }}</span>
+          <span class="px-2 text-xs font-medium text-neutral-700">{{ t('artifacts.bulkDeleteConfirm', { count: selected.size }, selected.size) }}</span>
           <button
             type="button"
             class="rounded-full px-2.5 py-1 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100"

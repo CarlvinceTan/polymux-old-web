@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       agreement_acceptances: {
@@ -1387,7 +1362,6 @@ export type Database = {
         Row: {
           all_notifications_enabled: boolean
           blog_newsletter_subscribed: boolean
-          cloaked_browser_enabled: boolean
           created_at: string
           settings: Json
           show_cursor_overlay: boolean
@@ -1398,7 +1372,6 @@ export type Database = {
         Insert: {
           all_notifications_enabled?: boolean
           blog_newsletter_subscribed?: boolean
-          cloaked_browser_enabled?: boolean
           created_at?: string
           settings?: Json
           show_cursor_overlay?: boolean
@@ -1409,7 +1382,6 @@ export type Database = {
         Update: {
           all_notifications_enabled?: boolean
           blog_newsletter_subscribed?: boolean
-          cloaked_browser_enabled?: boolean
           created_at?: string
           settings?: Json
           show_cursor_overlay?: boolean
@@ -2573,7 +2545,6 @@ export type Database = {
         Returns: {
           all_notifications_enabled: boolean
           blog_newsletter_subscribed: boolean
-          cloaked_browser_enabled: boolean
           created_at: string
           settings: Json
           show_cursor_overlay: boolean
@@ -2744,7 +2715,6 @@ export type Database = {
         Args: {
           p_all_notifications_enabled?: boolean
           p_blog_newsletter_subscribed?: boolean
-          p_cloaked_browser_enabled?: boolean
           p_settings?: Json
           p_show_cursor_overlay?: boolean
           p_voice_auto_shutoff_seconds?: number
@@ -2752,7 +2722,6 @@ export type Database = {
         Returns: {
           all_notifications_enabled: boolean
           blog_newsletter_subscribed: boolean
-          cloaked_browser_enabled: boolean
           created_at: string
           settings: Json
           show_cursor_overlay: boolean
@@ -2912,9 +2881,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       share_permission_level: ["viewer", "editor"],

@@ -134,7 +134,7 @@ async function onBulkSave(items: SandboxArtifact[]) {
       failed++
     }
   }
-  if (saved) toast.show(t('artifacts.bulkSaved', saved, { count: saved }), 'info', 3000)
+  if (saved) toast.show(t('artifacts.bulkSaved', { count: saved }, saved), 'info', 3000)
   if (failed) toast.show(t('artifacts.promoteError'), 'error', 4000)
 }
 

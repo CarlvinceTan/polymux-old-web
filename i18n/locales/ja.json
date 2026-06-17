@@ -351,7 +351,7 @@
       "agent": "エージェント",
       "schedule": "スケジュール",
       "artifacts": "アーティファクト",
-      "stealth": "Stealth"
+      "stealth": "設定"
     },
     "liveBadge": "ライブ",
     "resizeNode": "サイズ変更",
@@ -2272,7 +2272,7 @@
     "currency": "Currency"
   },
   "stealth": {
-    "title": "Stealth",
+    "title": "設定",
     "mode": {
       "label": "Browser mode",
       "description": "Where this workflow's agents run. Change it from the chat input."

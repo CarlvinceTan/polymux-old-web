@@ -351,7 +351,7 @@
       "agent": "에이전트",
       "schedule": "일정",
       "artifacts": "아티팩트",
-      "stealth": "Stealth"
+      "stealth": "설정"
     },
     "liveBadge": "라이브",
     "resizeNode": "크기 조정",
@@ -2272,7 +2272,7 @@
     "currency": "Currency"
   },
   "stealth": {
-    "title": "Stealth",
+    "title": "설정",
     "mode": {
       "label": "Browser mode",
       "description": "Where this workflow's agents run. Change it from the chat input."
