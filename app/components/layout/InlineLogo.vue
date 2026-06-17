@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type LogoSize = 'sm' | 'md' | 'lg' | 'xl'
+type LogoSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
 const SIZES: Record<LogoSize, { mark: string; text: string; gap: string }> = {
   sm: {
@@ -21,6 +21,11 @@ const SIZES: Record<LogoSize, { mark: string; text: string; gap: string }> = {
     mark: 'size-10 shrink-0',
     text: 'text-xl font-semibold tracking-tight leading-none',
     gap: 'gap-1.5',
+  },
+  '2xl': {
+    mark: 'size-14 shrink-0',
+    text: 'text-3xl font-semibold tracking-tight leading-none',
+    gap: 'gap-2',
   },
 }
 

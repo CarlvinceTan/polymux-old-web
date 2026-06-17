@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
   const [docHits, forumResult, blogResult] = await Promise.all([
     searchDocs(q, locale, perSource),
     supabase.rpc('list_forum_discussions', {
-      p_category: null,
+      p_category: undefined,
       p_sort: 'latest',
       p_search: q,
       p_limit: perSource,

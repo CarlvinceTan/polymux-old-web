@@ -28,6 +28,7 @@ export function useAttachments() {
   const config = useRuntimeConfig()
   const supabase = useSupabaseClient()
   const { show: showToast } = useAppToast()
+  const { authFetch } = useAuthFetch()
 
   async function getAuthToken(): Promise<string> {
     const { data: { session } } = await supabase.auth.getSession()
@@ -41,17 +42,10 @@ export function useAttachments() {
     if (existing) return existing
     const p = (async () => {
       try {
-        const token = await getAuthToken()
-        const baseURL = config.public.serverUrl as string
         const params = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
-        const res = await fetch(`${baseURL}/upload-config${params}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (typeof data.max_upload_size === 'number') {
-            maxUploadSize.value = data.max_upload_size
-          }
+        const data = await authFetch<{ max_upload_size?: number }>(`/upload-config${params}`)
+        if (typeof data.max_upload_size === 'number') {
+          maxUploadSize.value = data.max_upload_size
         }
       } catch {
         // Silently fall back to no client-side check
@@ -67,7 +61,7 @@ export function useAttachments() {
     for (const file of Array.from(files)) {
       if (maxUploadSize.value && file.size > maxUploadSize.value) {
         showToast(
-          `"${file.name}" exceeds the ${formatSize(maxUploadSize.value)} upload limit`,
+          t('attachments.exceedsLimit', { name: file.name, limit: formatSize(maxUploadSize.value) }),
           'warning',
         )
         continue
@@ -168,13 +162,7 @@ export function useAttachments() {
     attachments.value = attachments.value.filter(a => a.id !== id)
 
     if (entry && entry.status === 'done' && sessionId) {
-      getAuthToken().then((token) => {
-        const baseURL = config.public.serverUrl as string
-        fetch(`${baseURL}/sessions/${sessionId}/files/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {})
-      }).catch(() => {})
+      authFetch(`/sessions/${sessionId}/files/${id}`, { method: 'DELETE' }).catch(() => {})
     }
   }
 

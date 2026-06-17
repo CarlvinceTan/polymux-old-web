@@ -108,16 +108,31 @@ function fmtKind(kind: ItemCategory): string {
   return t('integrations.editorNewPlugin')
 }
 
-function fmtVisibility(v: EditorMyListing['visibility']): string {
-  if (v === 'private') return t('integrations.editorVisibilityPrivate')
-  if (v === 'unlisted') return t('integrations.editorVisibilityUnlisted')
-  return t('integrations.editorVisibilityPublic')
+type ListingStatus = 'draft' | 'private' | 'unlisted' | 'public' | 'yanked'
+
+const STATUS_META: Record<ListingStatus, { labelKey: string, descKey?: string, dot: string, pill: string }> = {
+  draft: { labelKey: 'integrations.editorStatusDraft', descKey: 'integrations.editorStatusDraftDesc', dot: 'bg-neutral-400', pill: 'bg-neutral-100 text-neutral-600' },
+  private: { labelKey: 'integrations.editorVisibilityPrivate', descKey: 'integrations.editorStatusPrivateDesc', dot: 'bg-blue-500', pill: 'bg-blue-50 text-blue-700' },
+  unlisted: { labelKey: 'integrations.editorVisibilityUnlisted', descKey: 'integrations.editorStatusUnlistedDesc', dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
+  public: { labelKey: 'integrations.editorVisibilityPublic', descKey: 'integrations.editorStatusPublicDesc', dot: 'bg-green-500', pill: 'bg-green-50 text-green-700' },
+  yanked: { labelKey: 'integrations.editorYanked', dot: 'bg-red-500', pill: 'bg-red-50 text-red-700' },
 }
 
-function fmtStatus(s?: string): string {
-  if (s === 'published') return t('integrations.editorPublished')
-  if (s === 'yanked') return t('integrations.editorYanked')
-  return t('integrations.editorStatusDraft')
+// A listing's effective, user-facing status merges publish state with visibility:
+// an unpublished/draft version reads "Draft" regardless of visibility; once
+// published it reads as its audience — Private (workspace-only), Unlisted, or Public.
+function effectiveStatus(item: EditorMyListing): ListingStatus {
+  const s = item.current_version?.status
+  if (!item.current_version || s === 'draft') return 'draft'
+  if (s === 'yanked') return 'yanked'
+  if (item.visibility === 'unlisted') return 'unlisted'
+  if (item.visibility === 'public') return 'public'
+  return 'private'
+}
+
+function statusOf(item: EditorMyListing): { dot: string, pill: string, label: string, title: string } {
+  const meta = STATUS_META[effectiveStatus(item)]
+  return { dot: meta.dot, pill: meta.pill, label: t(meta.labelKey), title: t(meta.descKey ?? meta.labelKey) }
 }
 
 function startNew() {
@@ -299,27 +314,20 @@ onUnmounted(() => {
               {{ item.description }}
             </p>
 
-            <div class="flex items-center justify-between gap-2 text-label-md text-neutral-500">
-              <div class="flex items-center gap-2">
-                <span
-                  class="rounded-md px-2 py-0.5 font-medium"
-                  :class="item.visibility === 'public'
-                    ? 'bg-green-50 text-green-700'
-                    : item.visibility === 'unlisted'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'bg-neutral-100 text-neutral-600'"
-                >
-                  {{ fmtVisibility(item.visibility) }}
-                </span>
-                <span
-                  v-if="item.current_version"
-                  class="rounded-md bg-neutral-100 px-2 py-0.5 font-medium text-neutral-600"
-                >
-                  {{ t('integrations.editorVersion', { version: item.current_version.version }) }}
-                </span>
-              </div>
-              <span class="font-medium">
-                {{ fmtStatus(item.current_version?.status) }}
+            <div class="flex items-center gap-2 text-label-md text-neutral-500">
+              <span
+                class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium"
+                :class="statusOf(item).pill"
+                :title="statusOf(item).title"
+              >
+                <span class="size-1.5 rounded-full" :class="statusOf(item).dot" aria-hidden="true" />
+                {{ statusOf(item).label }}
+              </span>
+              <span
+                v-if="item.current_version"
+                class="rounded-md bg-neutral-100 px-2 py-0.5 font-medium text-neutral-600"
+              >
+                {{ t('integrations.editorVersion', { version: item.current_version.version }) }}
               </span>
             </div>
           </NuxtLink>

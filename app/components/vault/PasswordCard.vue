@@ -6,7 +6,6 @@ const props = defineProps<{
   name: string
   url: string
   username: string
-  hasTotp?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -101,17 +100,6 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       <p class="truncate font-semibold text-body-md text-neutral-950">{{ name }}</p>
       <p class="truncate text-meta text-neutral-500">{{ url }}</p>
       <p class="truncate text-meta text-neutral-400">{{ username }}</p>
-      <span
-        v-if="hasTotp"
-        class="mt-1.5 inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500"
-        :title="t('vault.passwords.totpBadgeTitle')"
-      >
-        <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-        {{ t('vault.passwords.totpBadge') }}
-      </span>
     </div>
 
     <svg

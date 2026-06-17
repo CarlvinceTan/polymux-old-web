@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
+import { formatBytesShort } from '~/composables/storage/useStorageUsage'
 
 const props = defineProps<{
   artifact: SandboxArtifact
@@ -11,48 +12,84 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const previewLines = computed(() => {
-  if (!props.artifact.content) return ''
-  return props.artifact.content.split('\n').slice(0, 6).join('\n')
+const typeLabel = computed(() => {
+  switch (props.artifact.type) {
+    case 'image': return t('artifacts.typeImage')
+    case 'code': return t('artifacts.typeCode')
+    case 'document': return t('artifacts.typeDocument')
+    case 'video': return t('artifacts.typeVideo')
+    case 'audio': return t('artifacts.typeAudio')
+    case 'archive': return t('artifacts.typeArchive')
+    default: return t('artifacts.typeOther')
+  }
 })
+
+// Type label, with a size suffix when the artifact has a known byte count.
+// Sandbox-created code artifacts often report size 0, in which case the bar
+// shows just the type so the meta line never reads "Code · 0 B".
+const subtitle = computed(() => {
+  const size = props.artifact.size > 0 ? formatBytesShort(props.artifact.size) : ''
+  return size ? `${typeLabel.value} · ${size}` : typeLabel.value
+})
+
+const showThumb = computed(() => props.artifact.type === 'image' && !!props.artifact.url)
 </script>
 
 <template>
+  <!-- Full-width bar: leading type icon (or image thumbnail), file name with a
+       type·size meta line, and a trailing chevron. Clicking routes to the
+       artifacts surface for this artifact (handled by the parent's @open). -->
   <button
     type="button"
     data-testid="artifact-chat-card"
-    class="my-2 flex w-full max-w-md overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm ring-1 ring-neutral-950/5 transition hover:border-neutral-300 hover:shadow-md"
+    :aria-label="`${t('chat.openArtifactRef')} — ${artifact.name}`"
+    class="group my-2 flex w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white py-2.5 pr-3 pl-2.5 text-left shadow-sm ring-1 ring-neutral-950/5 transition hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
     @click="emit('open', artifact)"
   >
-    <div class="aspect-[4/3] w-28 shrink-0 bg-neutral-50 flex items-center justify-center overflow-hidden border-r border-neutral-100">
+    <span class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-neutral-500">
       <img
-        v-if="artifact.type === 'image' && artifact.url"
+        v-if="showThumb"
         :src="artifact.url"
         :alt="artifact.name"
-        class="h-full w-full object-cover"
+        class="size-full object-cover"
         loading="lazy"
       >
-      <pre
-        v-else-if="artifact.content"
-        class="h-full w-full overflow-hidden p-2 text-[9px] leading-tight font-mono text-neutral-500 whitespace-pre-wrap break-all"
-      >{{ previewLines }}</pre>
-      <svg
-        v-else
-        class="size-7 text-neutral-300"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0l-1.91 1.909.47.47a.75.75 0 1 1-1.06 1.06L6.53 8.091a.75.75 0 0 0-1.06 0l-2.97 2.97ZM12 7a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" clip-rule="evenodd" />
+      <svg v-else-if="artifact.type === 'image'" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
       </svg>
-    </div>
-    <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5 p-3">
-      <span class="text-xs font-medium text-neutral-950 truncate">{{ artifact.name }}</span>
-      <span class="text-[11px] text-neutral-500">{{ t('chat.openArtifactRef') }}</span>
-    </div>
+      <svg v-else-if="artifact.type === 'code'" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+      </svg>
+      <svg v-else-if="artifact.type === 'video'" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m22 8-6 4 6 4V8Z" /><rect x="2" y="6" width="14" height="12" rx="2" />
+      </svg>
+      <svg v-else-if="artifact.type === 'audio'" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+      </svg>
+      <svg v-else-if="artifact.type === 'archive'" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 8v13H3V8" /><path d="M1 3h22v5H1z" /><path d="M10 12h4" />
+      </svg>
+      <svg v-else class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" />
+      </svg>
+    </span>
+
+    <span class="flex min-w-0 flex-1 flex-col">
+      <span class="truncate text-sm font-medium text-neutral-900">{{ artifact.name }}</span>
+      <span class="truncate text-[11px] text-neutral-500">{{ subtitle }}</span>
+    </span>
+
+    <svg
+      class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
   </button>
 </template>

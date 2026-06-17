@@ -2,6 +2,23 @@ import Stripe from 'stripe'
 
 let _stripe: Stripe | null = null
 
+/**
+ * End of the current paid period. As of API version 2026-04-22 Stripe moved
+ * `current_period_end` off the Subscription and onto each subscription item,
+ * so we read it from the first item. Returns an ISO string for Postgres, or
+ * null when the subscription has no items / period yet.
+ */
+export function subscriptionPeriodEndISO(sub: Stripe.Subscription): string | null {
+  const epoch = sub.items?.data?.[0]?.current_period_end
+  if (!epoch || !Number.isFinite(epoch)) return null
+  return new Date(epoch * 1000).toISOString()
+}
+
+/** The active price id on the subscription's first item, or null. */
+export function subscriptionPriceId(sub: Stripe.Subscription): string | null {
+  return sub.items?.data?.[0]?.price?.id ?? null
+}
+
 export function useStripe(): Stripe {
   if (!_stripe) {
     const config = useRuntimeConfig()

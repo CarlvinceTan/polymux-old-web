@@ -1,11 +1,6 @@
-import { useCustomTabs } from '~/composables/integrations/useCustomTabs'
-
 export function useVaultNavTabs() {
-  const { t } = useI18n()
-  const headerTabs = computed(() => ({
-    [t('vault.tabs.accounts')]: '/vault/accounts',
-    [t('vault.tabs.wallet')]: '/vault/wallet',
-  }))
-  const { tabs: customTabs } = useCustomTabs('vault')
-  return { headerTabs, customTabs }
+  return useNavTabs('vault', [
+    { i18nKey: 'vault.tabs.accounts', path: '/vault/accounts' },
+    { i18nKey: 'vault.tabs.wallet', path: '/vault/wallet' },
+  ])
 }

@@ -348,8 +348,7 @@ export function useWorkflowList() {
       })
     } catch (err) {
       if (previous) queryClient.setQueryData(key, previous)
-      const e = err as { status?: number }
-      if (e?.status === 404) return
+      if (getErrorStatus(err) === 404) return
       console.error('[useWorkflowList] renameSession failed', err)
     }
   }
@@ -446,11 +445,11 @@ export function useWorkflowList() {
         lastErr = null
         break
       } catch (err) {
-        const e = err as { status?: number }
-        if (e?.status === 403) return null
+        const status = getErrorStatus(err)
+        if (status === 403) return null
         lastErr = err
         if (attempt === 0) {
-          console.warn('[useWorkflowList] fetchMessages transient failure, retrying', { path, status: e?.status, err })
+          console.warn('[useWorkflowList] fetchMessages transient failure, retrying', { path, status, err })
           await new Promise(r => setTimeout(r, 400))
         }
       }

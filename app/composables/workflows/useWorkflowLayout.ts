@@ -1,4 +1,4 @@
-import type { WorkflowGraph, WorkflowNode, WorkflowWire } from '~/composables/workflows/useWorkflows'
+import type { WorkflowGraph, WorkflowNode, WorkflowWire, WireSide } from '~/composables/workflows/useWorkflows'
 import {
   clampIntermediateColumns,
   computeAutoLayoutGeometry,
@@ -49,19 +49,7 @@ export interface LayoutModel {
 export const WORKFLOW_START_ID = '__workflow_start__'
 export const WORKFLOW_END_ID = '__workflow_end__'
 
-type LayoutSide = 'left' | 'right' | 'top' | 'bottom'
-
-// buildAdjacency returns a forward-only adjacency map. Wires with a
-// non-zero max_iterations are treated as back-wires for layering purposes
-// (they're allowed to cycle so they can't drive column assignment).
-function buildAdjacency(wires: readonly WorkflowWire[]): Map<string, WorkflowWire[]> {
-  const out = new Map<string, WorkflowWire[]>()
-  for (const w of wires) {
-    if (!out.has(w.from_id)) out.set(w.from_id, [])
-    out.get(w.from_id)!.push(w)
-  }
-  return out
-}
+type LayoutSide = WireSide
 
 // assignLayers walks the graph from the entry set, treating capped wires
 // (max_iterations > 0) as if they didn't exist for layering. The remaining
@@ -314,10 +302,6 @@ export function buildLayout(graph: WorkflowGraph): LayoutModel {
   // above like any other wire, so a node only attaches to Start/End when the
   // user wires it — which is what lets the executor run only what flows from
   // Start.
-
-  // Build the unused adjacency map only for completeness; not currently used
-  // beyond layering. Kept as a hook for future styling decisions.
-  void buildAdjacency(graph.wires)
 
   const columnCount = endCol + 1
   let rowCount = 1

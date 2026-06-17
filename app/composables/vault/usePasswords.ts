@@ -6,8 +6,6 @@ export interface PasswordEntry {
   lastUsed: string
   usageCount: number
   weak: boolean
-  /** Whether an authenticator (TOTP) secret is stored alongside this credential. */
-  hasTotp: boolean
   // Provenance — shown in the password details modal. UUIDs;
   // the UI resolves them to display names via useWorkspaces().members and
   // falls back to "unknown" when the user has left the workspace.
@@ -24,7 +22,6 @@ interface WorkspacePasswordRow {
   url: string
   username: string
   vault_secret_id: string
-  totp_secret_id: string | null
   is_weak: boolean
   usage_count: number
   last_used_at: string | null
@@ -42,7 +39,6 @@ function toEntry(row: WorkspacePasswordRow): PasswordEntry {
     lastUsed: row.last_used_at ?? row.created_at,
     usageCount: row.usage_count,
     weak: row.is_weak,
-    hasTotp: row.totp_secret_id != null,
     createdBy: row.created_by,
     lastUsedBy: row.last_used_by,
     createdAt: row.created_at,
@@ -58,8 +54,8 @@ export function isWeakPassword(password: string): boolean {
 }
 
 export function usePasswords() {
+  const { t } = useI18n()
   const supabase = useSupabaseClient()
-  const user = useSupabaseUser()
   const { currentWorkspace } = useWorkspaces()
   const queryClient = useQueryClient()
 
@@ -99,7 +95,6 @@ export function usePasswords() {
     username: string,
     password: string,
     name: string,
-    totpSecret?: string,
   ): Promise<PasswordEntry | null> {
     const id = wsId.value
     if (!id) return null
@@ -112,7 +107,6 @@ export function usePasswords() {
         p_username: username,
         p_password: password,
         p_is_weak: isWeakPassword(password),
-        p_totp_secret: totpSecret?.trim() || undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
@@ -122,61 +116,16 @@ export function usePasswords() {
       return entry
     }
     catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to save password'
+      error.value = e instanceof Error ? e.message : t('vault.passwords.errors.saveFailed')
       return null
     }
   }
 
-  async function revealPassword(pwdId: string): Promise<string | null> {
-    error.value = null
-    try {
-      const { data, error: err } = await supabase.rpc('get_workspace_password_secret', {
-        p_password_id: pwdId,
-      })
-      if (err) throw err
-      let userId: string | undefined = user.value?.id
-      if (!userId) {
-        const { data: authData } = await supabase.auth.getUser()
-        userId = authData?.user?.id
-      }
-      const id = wsId.value
-      if (id) {
-        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) => {
-          const arr = [...(old ?? [])]
-          const idx = arr.findIndex(p => p.id === pwdId)
-          if (idx !== -1) {
-            arr[idx] = {
-              ...arr[idx]!,
-              usageCount: (arr[idx]!.usageCount ?? 0) + 1,
-              lastUsed: new Date().toISOString(),
-              lastUsedBy: userId ?? arr[idx]!.lastUsedBy,
-            }
-          }
-          return arr
-        })
-      }
-      return data as string
-    }
-    catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to reveal password'
-      return null
-    }
-  }
-
-  async function revealTotpSecret(pwdId: string): Promise<string | null> {
-    error.value = null
-    try {
-      const { data, error: err } = await supabase.rpc('get_workspace_password_totp_secret', {
-        p_password_id: pwdId,
-      })
-      if (err) throw err
-      return (data as string | null) ?? null
-    }
-    catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to reveal authenticator key'
-      return null
-    }
-  }
+  // NOTE: there is deliberately no client-side password reveal. Passwords are
+  // encrypted at rest in Supabase Vault and can only be decrypted server-side
+  // (service-role) for agent injection — the get_workspace_password_secret RPC
+  // has been dropped and its client EXECUTE grant revoked (SOC 2). The browser
+  // never receives a stored plaintext password.
 
   async function updatePassword(
     pwdId: string,
@@ -184,7 +133,6 @@ export function usePasswords() {
     url: string,
     username: string,
     password?: string,
-    totp?: { secret?: string, clear?: boolean },
   ): Promise<PasswordEntry | null> {
     error.value = null
     try {
@@ -195,8 +143,6 @@ export function usePasswords() {
         p_username: username,
         p_password: password ?? undefined,
         p_is_weak: password !== undefined ? isWeakPassword(password) : undefined,
-        p_totp_secret: totp?.secret?.trim() || undefined,
-        p_clear_totp: totp?.clear ?? undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
@@ -212,7 +158,7 @@ export function usePasswords() {
       return entry
     }
     catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to update password'
+      error.value = e instanceof Error ? e.message : t('vault.passwords.errors.updateFailed')
       return null
     }
   }
@@ -254,7 +200,7 @@ export function usePasswords() {
       return true
     }
     catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to delete password'
+      error.value = e instanceof Error ? e.message : t('vault.passwords.errors.deleteFailed')
       return false
     }
   }
@@ -266,8 +212,6 @@ export function usePasswords() {
     fetchPasswords,
     addPassword,
     importPasswords,
-    revealPassword,
-    revealTotpSecret,
     updatePassword,
     deletePassword,
   }

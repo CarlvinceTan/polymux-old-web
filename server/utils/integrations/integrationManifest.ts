@@ -32,10 +32,58 @@ export interface IntegrationManifestRequiresConnector {
   min_scopes?: string[]
 }
 
+export type IntegrationCredentialType = 'oauth_client' | 'api_key' | 'basic' | 'custom'
+export type IntegrationCredentialFulfillment = 'managed' | 'byo' | 'managed_or_byo'
+
+export interface IntegrationManifestCredential {
+  /** Unique key within the manifest; how the resolver references this credential. */
+  key: string
+  type: IntegrationCredentialType
+  /** Informational provider id (e.g. "google", "microsoft"). */
+  provider?: string
+  /** Secret field names the platform must hold (e.g. ["client_id", "client_secret"]). */
+  fields: string[]
+  /** OAuth scopes this credential is consented for (oauth_client). */
+  scopes?: string[]
+  /**
+   * Who supplies it:
+   *  - managed: Polymux provisions it during review (endorsed/first-party only).
+   *  - byo: each workspace supplies its own.
+   *  - managed_or_byo: managed default with a per-workspace override.
+   */
+  fulfillment: IntegrationCredentialFulfillment
+  rationale?: string
+  /** Help page for a workspace admin bringing their own. */
+  byo_help_url?: string
+}
+
+/**
+ * Where an integration's tools execute. Polymux is always the *client* — it
+ * never hosts the plugin's compute. The transport says whose machine the tool
+ * runs on:
+ *  - 'https'  : Polymux POSTs an HMAC-signed webhook to `base_url`. The author
+ *               hosts a plain HTTPS service (the v1 default).
+ *  - 'mcp'    : the author hosts a remote MCP server at `base_url`; Polymux
+ *               connects as a thin MCP client (`tools/call`). This is the
+ *               "host it yourself over HTTP" path. (Tier 1)
+ *  - 'client' : the tool runs in the user's Polymux native app / browser
+ *               extension — zero server compute. (Tier 2)
+ *
+ * A native-only plugin declares `'client'`. To instead host that same plugin
+ * over HTTP, the author republishes with `'mcp'` (or `'https'`) plus a
+ * `base_url` — the override the marketplace exposes.
+ */
+export type IntegrationTransport = 'https' | 'mcp' | 'client'
+
 export interface IntegrationManifestRuntime {
-  /** Reserved for future client-side execution; only 'https' supported in v1. */
-  transport: 'https'
-  base_url: string
+  transport: IntegrationTransport
+  /**
+   * Endpoint Polymux calls. Required (and must be https://) for 'https' and
+   * 'mcp'. Must be omitted for 'client' — there is no server endpoint; the
+   * tool is dispatched to the connected app/extension over the realtime
+   * channel and addressed by tool name.
+   */
+  base_url?: string
   request_timeout_ms?: number
 }
 
@@ -45,7 +93,12 @@ export interface IntegrationManifestTool {
   description?: string
   /** JSON Schema-shaped object. We pass it through to the orchestrator unchanged. */
   input_schema?: Record<string, unknown>
-  handler: { method: 'POST' | 'GET', path: string }
+  /**
+   * HTTPS webhook route, relative to `runtime.base_url`. Required for transport
+   * 'https'. For 'mcp' and 'client' the tool is addressed by `name`
+   * (MCP `tools/call`), so the handler is omitted.
+   */
+  handler?: { method: 'POST' | 'GET', path: string }
   side_effects?: 'none' | 'read_only' | 'external_write'
 }
 
@@ -85,6 +138,7 @@ export interface IntegrationManifest {
   category: IntegrationManifestCategory
   permissions?: IntegrationManifestPermissions
   requires_connectors?: IntegrationManifestRequiresConnector[]
+  credentials?: IntegrationManifestCredential[]
   runtime: IntegrationManifestRuntime
   tools?: IntegrationManifestTool[]
   events?: IntegrationManifestEvent[]
@@ -224,17 +278,73 @@ export function validateManifest(input: unknown): IntegrationManifest {
     })
   }
 
+  // credentials (optional)
+  let credentials: IntegrationManifestCredential[] | undefined
+  if (input.credentials !== undefined) {
+    if (!Array.isArray(input.credentials)) {
+      throw new ManifestValidationError('credentials', 'must be an array')
+    }
+    const seenKeys = new Set<string>()
+    credentials = input.credentials.map((c, i) => {
+      if (!isObject(c)) {
+        throw new ManifestValidationError(`credentials[${i}]`, 'must be an object')
+      }
+      const key = expectString(c.key, `credentials[${i}].key`)
+      if (seenKeys.has(key)) {
+        throw new ManifestValidationError(`credentials[${i}].key`, `duplicate credential key '${key}'`)
+      }
+      seenKeys.add(key)
+      const type = expectString(c.type, `credentials[${i}].type`)
+      if (!['oauth_client', 'api_key', 'basic', 'custom'].includes(type)) {
+        throw new ManifestValidationError(`credentials[${i}].type`, 'must be oauth_client|api_key|basic|custom')
+      }
+      const fulfillment = expectString(c.fulfillment, `credentials[${i}].fulfillment`)
+      if (!['managed', 'byo', 'managed_or_byo'].includes(fulfillment)) {
+        throw new ManifestValidationError(`credentials[${i}].fulfillment`, 'must be managed|byo|managed_or_byo')
+      }
+      const fields = expectStringArray(c.fields, `credentials[${i}].fields`)
+      if (fields.length === 0) {
+        throw new ManifestValidationError(`credentials[${i}].fields`, 'must list at least one field')
+      }
+      const cred: IntegrationManifestCredential = {
+        key,
+        type: type as IntegrationCredentialType,
+        fulfillment: fulfillment as IntegrationCredentialFulfillment,
+        fields,
+        provider: optionalString(c.provider, `credentials[${i}].provider`),
+        scopes: optionalStringArray(c.scopes, `credentials[${i}].scopes`),
+        rationale: optionalString(c.rationale, `credentials[${i}].rationale`),
+        byo_help_url: optionalString(c.byo_help_url, `credentials[${i}].byo_help_url`),
+      }
+      if (cred.byo_help_url && !cred.byo_help_url.startsWith('https://')) {
+        throw new ManifestValidationError(`credentials[${i}].byo_help_url`, 'must use https://')
+      }
+      return cred
+    })
+  }
+
   // runtime (required)
   if (!isObject(input.runtime)) {
     throw new ManifestValidationError('runtime', 'must be an object')
   }
   const transport = expectString(input.runtime.transport, 'runtime.transport')
-  if (transport !== 'https') {
-    throw new ManifestValidationError('runtime.transport', "v1 supports only 'https'")
+  if (!['https', 'mcp', 'client'].includes(transport)) {
+    throw new ManifestValidationError('runtime.transport', 'must be https|mcp|client')
   }
-  const baseUrl = expectString(input.runtime.base_url, 'runtime.base_url')
-  if (!baseUrl.startsWith('https://')) {
-    throw new ManifestValidationError('runtime.base_url', 'must use https:// scheme')
+  let baseUrl: string | undefined
+  if (transport === 'client') {
+    // Client-executed plugins have no server endpoint; the tool is dispatched
+    // to the connected native app / extension. A base_url here is a mistake
+    // (likely a hosted plugin mislabelled), so reject it rather than ignore.
+    if (input.runtime.base_url !== undefined) {
+      throw new ManifestValidationError('runtime.base_url', "must be omitted for transport 'client'")
+    }
+  }
+  else {
+    baseUrl = expectString(input.runtime.base_url, 'runtime.base_url')
+    if (!baseUrl.startsWith('https://')) {
+      throw new ManifestValidationError('runtime.base_url', 'must use https:// scheme')
+    }
   }
   let timeout: number | undefined
   if (input.runtime.request_timeout_ms !== undefined) {
@@ -243,7 +353,7 @@ export function validateManifest(input: unknown): IntegrationManifest {
     }
     timeout = input.runtime.request_timeout_ms
   }
-  const runtime: IntegrationManifestRuntime = { transport: 'https', base_url: baseUrl, request_timeout_ms: timeout }
+  const runtime: IntegrationManifestRuntime = { transport: transport as IntegrationTransport, base_url: baseUrl, request_timeout_ms: timeout }
 
   // tools (optional)
   let tools: IntegrationManifestTool[] | undefined
@@ -259,7 +369,14 @@ export function validateManifest(input: unknown): IntegrationManifest {
         name: expectString(t.name, `tools[${i}].name`),
         title: optionalString(t.title, `tools[${i}].title`),
         description: optionalString(t.description, `tools[${i}].description`),
-        handler: expectMethodPath(t.handler, `tools[${i}].handler`),
+      }
+      // A handler (webhook route) is only meaningful for 'https'. For 'mcp'
+      // and 'client' the tool is addressed by name, so the handler is optional.
+      if (t.handler !== undefined) {
+        tool.handler = expectMethodPath(t.handler, `tools[${i}].handler`)
+      }
+      else if (transport === 'https') {
+        throw new ManifestValidationError(`tools[${i}].handler`, "required for transport 'https'")
       }
       if (t.input_schema !== undefined) {
         if (!isObject(t.input_schema)) {
@@ -378,6 +495,7 @@ export function validateManifest(input: unknown): IntegrationManifest {
     category: category as IntegrationManifestCategory,
     permissions,
     requires_connectors,
+    credentials,
     runtime,
     tools,
     events,

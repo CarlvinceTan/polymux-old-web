@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = withDefaults(
   defineProps<{
     /** Lines shown in sequence; each step folds the top face down onto the front. */
@@ -113,7 +115,7 @@ const liveLabel = computed(() => frontText.value || topText.value)
       v-if="n === 0"
       class="rbd-empty text-neutral-400"
     >
-      <slot name="empty">Add phrases to rotate.</slot>
+      <slot name="empty">{{ t('landing.hero.rotatingEmpty') }}</slot>
     </div>
     <div
       v-else-if="n === 1"

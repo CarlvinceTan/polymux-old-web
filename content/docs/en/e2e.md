@@ -18,7 +18,7 @@ Interactive UI checks for the Nuxt web app use playwright-cli from the **polymux
 ## Working directory and screenshots
 
 ```bash
-cd /home/polymux/code/polymux
+cd <polymux-root>
 playwright-cli open http://localhost:3000/workflow/new
 playwright-cli snapshot
 playwright-cli screenshot --filename=.playwright-cli/screenshots/web/workflow-new.png

@@ -42,6 +42,16 @@ export interface EmailLayoutOptions {
   extraHtml?: string
 }
 
+/**
+ * Source-of-truth branded email chrome (logo, card, CTA, paste-link, footer)
+ * shared by all web-sent emails.
+ *
+ * MIRROR: the Go backend re-implements this exact layout in
+ * polymux/internal/server/admin_governance.go (`inviteEmailHTML`) for invites
+ * sent from the maintainer console. Nuxt and Go share no code here, so the two
+ * copies will silently drift — if you change the layout or branding here, make
+ * the matching change there (and vice-versa).
+ */
 export function renderEmailLayout(opts: EmailLayoutOptions): string {
   const title = escapeHtml(opts.title)
   const intro = escapeHtml(opts.intro)
@@ -181,6 +191,61 @@ export function renderTeamMessageLayout(opts: {
   </table>
 </body>
 </html>`
+}
+
+const TEAM_INBOX = 'team@polymux.com'
+const TEAM_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Shared handler for the "user sends a message to the Polymux team" endpoints
+ * (contact form, bug reports). Reads + validates the {title, email, content}
+ * body, then dispatches a team-layout email. The two callers differ only in
+ * the from-name, the layout heading, and how the subject lines are derived.
+ */
+export async function submitTeamMessage(
+  event: H3Event,
+  opts: {
+    fromName: string
+    layoutTitle: string
+    subject: (title: string) => string
+    /** Subject line shown inside the email body. Defaults to the raw title. */
+    subjectLine?: (title: string) => string
+  },
+): Promise<{ ok: true }> {
+  const body = await readBody<{
+    title?: unknown
+    email?: unknown
+    content?: unknown
+  }>(event)
+
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+  const email = typeof body.email === 'string' ? body.email.trim() : ''
+  const content = typeof body.content === 'string' ? body.content.trim() : ''
+
+  if (!title) {
+    throw createError({ statusCode: 400, statusMessage: 'Title is required.' })
+  }
+  if (!email || !TEAM_EMAIL_RE.test(email)) {
+    throw createError({ statusCode: 400, statusMessage: 'A valid email is required.' })
+  }
+  if (!content) {
+    throw createError({ statusCode: 400, statusMessage: 'Message is required.' })
+  }
+
+  await sendEmail({
+    from: `${opts.fromName} <onboarding@resend.dev>`,
+    to: [TEAM_INBOX],
+    replyTo: email,
+    subject: opts.subject(title),
+    html: renderTeamMessageLayout({
+      title: opts.layoutTitle,
+      fromEmail: email,
+      subjectLine: (opts.subjectLine ?? ((t) => t))(title),
+      bodyHtml: escapeHtml(content).replace(/\n/g, '<br>'),
+    }),
+  })
+
+  return { ok: true as const }
 }
 
 export interface SendEmailOptions {

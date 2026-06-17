@@ -107,10 +107,6 @@ function setDraft(key: string, level: GrantLevel | 'inherit') {
   draft.value = new Map(draft.value)
 }
 
-function memberDisplayName(m: WorkspaceMember) {
-  return m.display_name || m.email?.split('@')[0] || `${m.user_id.substring(0, 8)}…`
-}
-
 function computedEffective(userId: string): GrantLevel {
   const override = draft.value.get(userId)
   if (override && override !== 'inherit') return override
@@ -204,7 +200,7 @@ onMounted(loadState)
         leave-to-class="opacity-0 scale-95"
         appear
       >
-        <div class="w-full max-w-xl mx-4 rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200 overflow-hidden">
+        <div class="w-full max-w-xl mx-4 rounded-2xl bg-white modal-surface overflow-hidden">
           <!-- Title -->
           <div class="relative px-5 pt-5 pb-4">
             <button
@@ -221,7 +217,7 @@ onMounted(loadState)
             <p class="mt-0.5 text-xs text-neutral-500 truncate">{{ subtitle }}</p>
           </div>
 
-          <div class="px-5 pb-5 border-t border-neutral-100 space-y-5 pt-4">
+          <div class="px-5 pb-5 space-y-5 pt-1">
             <div v-if="errorMessage" class="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
               <p class="text-xs text-red-700">{{ errorMessage }}</p>
             </div>
@@ -241,7 +237,7 @@ onMounted(loadState)
               <!-- All workspace members (default) -->
               <div>
                 <p class="text-xs font-medium text-neutral-500 mb-2">{{ t('permissions.defaultSection') }}</p>
-                <div class="flex items-center justify-between gap-3 p-3 rounded-lg border border-neutral-200">
+                <div class="flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-3">
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-neutral-950">{{ t('permissions.allMembers') }}</p>
                     <p class="text-xs text-neutral-400">{{ t('permissions.allMembersDescription') }}</p>
@@ -266,11 +262,11 @@ onMounted(loadState)
                 <div v-if="otherMembers.length === 0" class="py-4 text-center">
                   <p class="text-sm text-neutral-400">{{ t('permissions.noOtherMembers') }}</p>
                 </div>
-                <div v-else class="space-y-2 max-h-64 overflow-y-auto">
+                <div v-else class="max-h-64 divide-y divide-neutral-200/80 overflow-y-auto">
                   <div
                     v-for="m in otherMembers"
                     :key="m.user_id"
-                    class="flex items-center justify-between gap-3 p-3 rounded-lg border border-neutral-200"
+                    class="flex items-center justify-between gap-3 py-3"
                   >
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium text-neutral-950 truncate">{{ memberDisplayName(m) }}</p>
@@ -295,7 +291,7 @@ onMounted(loadState)
             </template>
           </div>
 
-          <div class="border-t border-neutral-100 px-5 py-3.5 flex items-center justify-end gap-2">
+          <div class="px-5 py-3.5 flex items-center justify-end gap-2">
             <button
               class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
               @click="emit('close')"

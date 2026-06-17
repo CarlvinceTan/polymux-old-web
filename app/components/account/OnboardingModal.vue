@@ -256,7 +256,7 @@ if (import.meta.client) {
               </div>
             </Transition>
 
-            <div class="relative flex items-center justify-between border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+            <div class="relative flex items-center justify-between bg-neutral-50/60 px-5 py-3">
               <button
                 type="button"
                 class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium outline-none ring-neutral-950 transition-colors focus-visible:ring-2"

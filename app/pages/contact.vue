@@ -1,17 +1,17 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Contact',
+  title: () => t('contact.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries.',
+      content: () => t('contact.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 const route = useRoute()
 
 const title = ref('')

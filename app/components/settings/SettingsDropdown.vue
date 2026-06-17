@@ -91,15 +91,15 @@ function select(value: string) {
       leave-to-class="opacity-0 max-h-0"
     >
       <div v-if="isOpen" class="overflow-hidden">
-        <div class="relative border-t border-neutral-200/90">
+        <div class="relative">
           <div
             v-if="isScrollable"
-            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-linear-to-b from-neutral-50/80 to-transparent transition-opacity duration-150"
+            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-linear-to-b from-white to-transparent transition-opacity duration-150"
             :class="showTopFade ? 'opacity-100' : 'opacity-0'"
           />
           <div
             ref="scrollRef"
-            class="bg-neutral-50/50 overflow-y-auto overscroll-contain scrollbar-hide"
+            class="mb-2 overflow-y-auto overscroll-contain rounded-xl bg-neutral-50 p-1 ring-1 ring-neutral-200/70 scrollbar-hide"
             :style="listStyle"
             @scroll="onScroll"
           >
@@ -107,7 +107,7 @@ function select(value: string) {
               v-for="opt in options"
               :key="opt.value"
               type="button"
-              class="flex w-full items-center justify-between px-5 py-2.5 text-left text-body-md transition-colors hover:bg-neutral-100"
+              class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-body-md transition-colors hover:bg-white"
               :class="opt.value === modelValue ? 'font-medium text-neutral-950' : 'text-neutral-600'"
               @click="select(opt.value)"
             >
@@ -121,7 +121,7 @@ function select(value: string) {
           </div>
           <div
             v-if="isScrollable"
-            class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-linear-to-t from-neutral-50/80 to-transparent transition-opacity duration-150"
+            class="pointer-events-none absolute inset-x-0 bottom-2 z-10 h-5 bg-linear-to-t from-neutral-50 to-transparent transition-opacity duration-150"
             :class="showBottomFade ? 'opacity-100' : 'opacity-0'"
           />
         </div>

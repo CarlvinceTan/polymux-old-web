@@ -97,8 +97,13 @@ export default defineEventHandler(async (event) => {
     signingSecret: loaded.signingSecret,
   })
   if (!dispatch.ok) {
+    const statusCode = (dispatch.code === 'tool_not_found' || dispatch.code === 'misconfigured')
+      ? 400
+      : dispatch.code === 'client_unavailable'
+          ? 409
+          : 502
     throw createError({
-      statusCode: dispatch.code === 'tool_not_found' ? 400 : 502,
+      statusCode,
       statusMessage: `Dispatch failed (${dispatch.code}): ${dispatch.message}`,
     })
   }

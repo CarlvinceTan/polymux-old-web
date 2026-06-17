@@ -33,15 +33,10 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    "/dashboard": { redirect: "/dashboard/home" },
-    "/config": { redirect: "/settings" },
-    "/config/settings": { redirect: "/settings" },
     "/workspace": { redirect: "/integrations/installed" },
     "/integrations": { redirect: "/integrations/installed" },
     "/dashboard/integrations": { redirect: "/integrations/installed" },
     "/dashboard/marketplace": { redirect: "/integrations/marketplace" },
-    "/storage": { redirect: "/storage/workspace" },
-    "/storage/personal": { redirect: "/storage/workspace" },
     "/vault": { redirect: "/vault/accounts" },
     "/documentation": { redirect: "/documentation/introduction" },
   },
@@ -213,6 +208,7 @@ export default defineNuxtConfig({
       "/documentation/publishing",
       "/documentation/connections-overview",
       "/documentation/connections-build",
+      "/documentation/connections-port",
       "/documentation/api-overview",
       "/documentation/authentication",
       "/forum",
@@ -284,6 +280,11 @@ export default defineNuxtConfig({
     // In dev, allow the auth cookie over plain HTTP so LAN-IP access works (browsers drop Secure cookies on non-secure origins, which breaks the auth flow when hitting the dev server from another device).
     cookieOptions: {
       secure: process.env.NODE_ENV === "production",
+      // Share the auth session across subdomains (the product + admin.polymux.com)
+      // in production. Set COOKIE_DOMAIN=.polymux.com on the PROD env only — leave
+      // it unset on localhost and *.vercel.app previews (host-scoped cookies),
+      // since a mismatched domain silently breaks login.
+      domain: process.env.COOKIE_DOMAIN || undefined,
     },
   },
   i18n: {
@@ -315,8 +316,6 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: [
         "@internationalized/date",
-        "@vue/devtools-core",
-        "@vue/devtools-kit",
         "@vueuse/core",
         "dompurify",
         "marked",
@@ -355,6 +354,13 @@ export default defineNuxtConfig({
       posthogPublicKey: process.env.POSTHOG_PUBLIC_KEY || "",
       posthogHost: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
       extensionId: process.env.EXTENSION_ID || "",
+      // Chrome Web Store listing URL for the extension. Empty until the
+      // extension is published — the install page shows "Coming soon" while
+      // unset, then renders an "Install for Chrome" button once configured.
+      extensionStoreUrl: process.env.EXTENSION_STORE_URL || "",
+      // Publishable key for in-app (embedded) Stripe Checkout. Safe to expose.
+      // Must belong to the SAME account as STRIPE_SECRET_KEY.
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "",
     },
   },
   css: ["~/assets/css/main.css"],

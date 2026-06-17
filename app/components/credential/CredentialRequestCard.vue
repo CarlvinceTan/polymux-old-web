@@ -14,12 +14,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [value: { credentialId: string; username: string; password: string }]
+  submit: [value: { credentialId: string; username: string; allowAgentFill: boolean }]
   cancel: []
 }>()
 
 const { t, locale } = useI18n()
-const { passwords, fetchPasswords, addPassword, updatePassword, revealPassword, deletePassword, error: vaultError } = usePasswords()
+const { passwords, fetchPasswords, addPassword, updatePassword, deletePassword, error: vaultError } = usePasswords()
 const { members, fetchMembers, currentWorkspaceId } = useWorkspaces()
 
 const selectedId = ref<string | null>(null)
@@ -29,6 +29,10 @@ const newPassword = ref('')
 const showNewPassword = ref(false)
 const submitting = ref(false)
 const error = ref<string | null>(null)
+// Default OFF: the agent signs in via the blindfold secure_login path. Opting
+// in additionally lets the agent enter this credential with the plain fill
+// tools as a fallback (less isolated — the agent operates the page directly).
+const allowAgentFill = ref(false)
 
 const siteHost = computed(() => extractCredentialHost(props.request.site) || props.request.site)
 
@@ -112,27 +116,17 @@ function toggleDetails(entryId: string, event: Event) {
   expandedId.value = expandedId.value === entryId ? null : entryId
 }
 
-async function handleUseExisting() {
+function handleUseExisting() {
   if (!selectedId.value) return
   const match = passwords.value.find(p => p.id === selectedId.value)
   if (!match) return
-  submitting.value = true
-  error.value = null
-  try {
-    const password = await revealPassword(match.id)
-    if (password == null) {
-      error.value = vaultError.value || t('credentialRequest.errorReveal')
-      return
-    }
-    emit('submit', {
-      credentialId: match.id,
-      username: match.username,
-      password,
-    })
-  }
-  finally {
-    submitting.value = false
-  }
+  // Send only the id + username. The server decrypts the secret server-side and
+  // injects it into the browser fill — the password is never revealed here.
+  emit('submit', {
+    credentialId: match.id,
+    username: match.username,
+    allowAgentFill: allowAgentFill.value,
+  })
 }
 
 async function handleSaveAndUse() {
@@ -164,7 +158,9 @@ async function handleSaveAndUse() {
       error.value = vaultError.value || t('credentialRequest.errorSave')
       return
     }
-    emit('submit', { credentialId: entry.id, username: u, password: p })
+    // The new credential is saved (encrypted) via the vault RPC above; we send
+    // only its id + username. The server reads the secret back server-side.
+    emit('submit', { credentialId: entry.id, username: u, allowAgentFill: allowAgentFill.value })
   }
   finally {
     submitting.value = false
@@ -208,12 +204,21 @@ onMounted(() => {
     </template>
 
     <template v-else>
-      <i18n-t keypath="credentialRequest.heading" tag="h3" class="text-sm font-semibold text-neutral-900 mb-1">
-        <template #site>
-          <span class="text-neutral-700">{{ siteHost || request.site }}</span>
-        </template>
-      </i18n-t>
-      <p class="text-xs text-neutral-500 mb-3">{{ request.purpose }}</p>
+      <div class="mb-3 flex items-start gap-3">
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+          <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <i18n-t keypath="credentialRequest.heading" tag="h3" class="text-sm font-semibold text-neutral-900">
+            <template #site>
+              <span class="text-neutral-700">{{ siteHost || request.site }}</span>
+            </template>
+          </i18n-t>
+          <p class="mt-0.5 text-xs text-neutral-500">{{ request.purpose }}</p>
+        </div>
+      </div>
 
       <div v-if="matching.length > 0" class="mb-4">
         <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('credentialRequest.useSavedLabel') }}</label>
@@ -323,6 +328,15 @@ onMounted(() => {
 
         <p v-if="error" class="text-xs text-red-600">{{ error }}</p>
       </div>
+
+      <label class="mt-3 flex items-start gap-2 text-xs text-neutral-500">
+        <input
+          v-model="allowAgentFill"
+          type="checkbox"
+          class="mt-0.5 size-3.5 shrink-0 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-950/20"
+        >
+        <span>{{ t('credentialRequest.allowAgentFill') }}</span>
+      </label>
 
       <div class="mt-4 flex justify-end gap-2">
         <button

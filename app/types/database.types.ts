@@ -609,6 +609,56 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_credentials: {
+        Row: {
+          created_at: string
+          credential_key: string
+          credential_type: string
+          fields_enc: Json
+          hint: Json
+          id: string
+          integration_id: string
+          provider: string | null
+          provisioned_by: string | null
+          scopes: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credential_key: string
+          credential_type: string
+          fields_enc?: Json
+          hint?: Json
+          id?: string
+          integration_id: string
+          provider?: string | null
+          provisioned_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credential_key?: string
+          credential_type?: string
+          fields_enc?: Json
+          hint?: Json
+          id?: string
+          integration_id?: string
+          provider?: string | null
+          provisioned_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_credentials_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_install_events: {
         Row: {
           actor_user_id: string
@@ -866,6 +916,10 @@ export type Database = {
           is_verified: boolean
           kind: string
           name: string
+          review_notes: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           slug: string
           source_repo_url: string | null
           tags: string[]
@@ -886,6 +940,10 @@ export type Database = {
           is_verified?: boolean
           kind: string
           name: string
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug: string
           source_repo_url?: string | null
           tags?: string[]
@@ -906,6 +964,10 @@ export type Database = {
           is_verified?: boolean
           kind?: string
           name?: string
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string
           source_repo_url?: string | null
           tags?: string[]
@@ -1023,18 +1085,21 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string
+          is_owner: boolean
           user_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           email: string
+          is_owner?: boolean
           user_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
           email?: string
+          is_owner?: boolean
           user_id?: string
         }
         Relationships: []
@@ -1453,7 +1518,7 @@ export type Database = {
           status: string
           trigger: string
           workflow_id: string
-          workflow_version_id: string
+          workflow_version_id: string | null
         }
         Insert: {
           claimed_at?: string | null
@@ -1469,7 +1534,7 @@ export type Database = {
           status?: string
           trigger?: string
           workflow_id: string
-          workflow_version_id: string
+          workflow_version_id?: string | null
         }
         Update: {
           claimed_at?: string | null
@@ -1485,7 +1550,7 @@ export type Database = {
           status?: string
           trigger?: string
           workflow_id?: string
-          workflow_version_id?: string
+          workflow_version_id?: string | null
         }
         Relationships: [
           {
@@ -1630,6 +1695,8 @@ export type Database = {
           is_running: boolean
           last_browser_mode: string
           last_browser_states: Json
+          last_cloaked_enabled: boolean
+          last_humanize_enabled: boolean
           last_viewport_urls: Json
           name: string
           position: number
@@ -1646,6 +1713,8 @@ export type Database = {
           is_running?: boolean
           last_browser_mode?: string
           last_browser_states?: Json
+          last_cloaked_enabled?: boolean
+          last_humanize_enabled?: boolean
           last_viewport_urls?: Json
           name: string
           position?: number
@@ -1662,6 +1731,8 @@ export type Database = {
           is_running?: boolean
           last_browser_mode?: string
           last_browser_states?: Json
+          last_cloaked_enabled?: boolean
+          last_humanize_enabled?: boolean
           last_viewport_urls?: Json
           name?: string
           position?: number
@@ -1839,6 +1910,63 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "workspace_file_permissions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_integration_credentials: {
+        Row: {
+          created_at: string
+          created_by: string
+          credential_key: string
+          credential_type: string
+          fields_enc: Json
+          hint: Json
+          id: string
+          integration_id: string
+          last_used_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          credential_key: string
+          credential_type: string
+          fields_enc?: Json
+          hint?: Json
+          id?: string
+          integration_id: string
+          last_used_at?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          credential_key?: string
+          credential_type?: string
+          fields_enc?: Json
+          hint?: Json
+          id?: string
+          integration_id?: string
+          last_used_at?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_integration_credentials_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_integration_credentials_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2152,7 +2280,6 @@ export type Database = {
           last_used_at: string | null
           last_used_by: string | null
           name: string
-          totp_secret_id: string | null
           updated_at: string
           url: string
           usage_count: number
@@ -2168,7 +2295,6 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name: string
-          totp_secret_id?: string | null
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2184,7 +2310,6 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name?: string
-          totp_secret_id?: string | null
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2266,32 +2391,56 @@ export type Database = {
       workspaces: {
         Row: {
           avatar_url: string | null
+          billing_period: string | null
+          cancel_at_period_end: boolean
           created_at: string
           created_by: string | null
+          current_period_end: string | null
           id: string
           name: string
           plan: string
+          scheduled_plan: string | null
           slug: string
+          stripe_customer_id: string | null
+          stripe_schedule_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          billing_period?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
           created_by?: string | null
+          current_period_end?: string | null
           id?: string
           name: string
           plan?: string
+          scheduled_plan?: string | null
           slug: string
+          stripe_customer_id?: string | null
+          stripe_schedule_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          billing_period?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
           created_by?: string | null
+          current_period_end?: string | null
           id?: string
           name?: string
           plan?: string
+          scheduled_plan?: string | null
           slug?: string
+          stripe_customer_id?: string | null
+          stripe_schedule_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2304,6 +2453,13 @@ export type Database = {
       accept_workspace_invitation: {
         Args: { invite_token: string }
         Returns: Json
+      }
+      admin_lookup_user_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          user_email: string
+          user_id: string
+        }[]
       }
       capture_workspace_browser_cookies: {
         Args: { p_cookies: Json; p_origin: string; p_workspace_id: string }
@@ -2339,7 +2495,6 @@ export type Database = {
           p_is_weak?: boolean
           p_name: string
           p_password: string
-          p_totp_secret?: string
           p_url: string
           p_username: string
           p_workspace_id: string
@@ -2370,12 +2525,20 @@ export type Database = {
         Args: { p_name: string; p_slug: string }
         Returns: {
           avatar_url: string | null
+          billing_period: string | null
+          cancel_at_period_end: boolean
           created_at: string
           created_by: string | null
+          current_period_end: string | null
           id: string
           name: string
           plan: string
+          scheduled_plan: string | null
           slug: string
+          stripe_customer_id: string | null
+          stripe_schedule_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -2424,14 +2587,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      get_workspace_password_secret: {
-        Args: { p_password_id: string }
-        Returns: string
-      }
-      get_workspace_password_totp_secret: {
-        Args: { p_password_id: string }
-        Returns: string
       }
       get_workspace_role: {
         Args: { ws_id: string }
@@ -2534,6 +2689,8 @@ export type Database = {
           is_running: boolean
           last_browser_mode: string
           last_browser_states: Json
+          last_cloaked_enabled: boolean
+          last_humanize_enabled: boolean
           last_viewport_urls: Json
           name: string
           position: number
@@ -2554,12 +2711,10 @@ export type Database = {
       }
       update_workspace_password: {
         Args: {
-          p_clear_totp?: boolean
           p_is_weak?: boolean
           p_name: string
           p_password?: string
           p_password_id: string
-          p_totp_secret?: string
           p_url: string
           p_username: string
         }
@@ -2611,6 +2766,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      vault_password_secret_for_service: {
+        Args: { p_password_id: string; p_workspace_id: string }
+        Returns: string
       }
       wipe_descendant_file_permissions: {
         Args: { p_path: string; p_workspace_id: string }

@@ -7,7 +7,6 @@ const props = defineProps<{
   name: string
   url: string
   username: string
-  hasTotp?: boolean
   savedByName: string
   lastUsedByName?: string | null
   lastUsed?: string
@@ -41,12 +40,8 @@ function timeAgo(ts: string | null | undefined): string {
 
 const lastUsedAgo = computed(() => timeAgo(props.lastUsed))
 const createdAgo = computed(() => timeAgo(props.createdAt))
-const { revealPassword } = usePasswords()
 const { copy, copied } = useClipboard()
 
-const secret = ref<string | null>(null)
-const revealed = ref(false)
-const loading = ref(false)
 const imgError = ref(false)
 
 // Identity shown in the header — favicon + readable hostname — mirrors the card.
@@ -80,20 +75,7 @@ function copyField(field: string, value: string | null | undefined) {
 }
 watch(copied, (v) => { if (!v) copiedField.value = null })
 
-async function handleReveal() {
-  if (secret.value !== null) {
-    revealed.value = !revealed.value
-    return
-  }
-  loading.value = true
-  secret.value = await revealPassword(props.passwordId)
-  revealed.value = true
-  loading.value = false
-}
-
 function handleClose() {
-  secret.value = null
-  revealed.value = false
   copiedField.value = null
   emit('update:open', false)
 }
@@ -103,11 +85,7 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 watch(() => props.open, (val) => {
-  if (!val) {
-    secret.value = null
-    revealed.value = false
-    copiedField.value = null
-  }
+  if (!val) copiedField.value = null
 })
 
 // Different account selected while the modal stays mounted — retry its favicon.
@@ -139,7 +117,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         >
           <div
             v-if="props.open"
-            class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            class="w-full max-w-md overflow-hidden rounded-2xl bg-white modal-surface"
             role="dialog"
             aria-modal="true"
             @click.stop
@@ -233,38 +211,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   </button>
                 </div>
 
-                <!-- Password -->
+                <!-- Password — encrypted at rest; never revealed or copied from the UI -->
                 <div class="flex items-center gap-2 px-3.5 py-2.5">
                   <div class="min-w-0 flex-1">
                     <p class="text-xs font-medium text-neutral-500">{{ t('vault.passwords.passwordLabel') }}</p>
-                    <p class="truncate font-mono text-sm tracking-wider text-neutral-950 select-all">{{ revealed && secret ? secret : '••••••••••••' }}</p>
+                    <p class="truncate font-mono text-sm tracking-wider text-neutral-400">••••••••••••</p>
                   </div>
-                  <button
-                    type="button"
-                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950 disabled:opacity-40 disabled:hover:text-neutral-400"
-                    :disabled="loading"
-                    :aria-label="revealed ? t('vault.passwords.hidePassword') : t('vault.passwords.revealPassword')"
-                    @click="handleReveal"
-                  >
-                    <svg v-if="loading" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/></svg>
-                    <svg v-else-if="revealed" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                  </button>
-                  <button
-                    type="button"
-                    class="flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-950 disabled:opacity-40 disabled:hover:text-neutral-400"
-                    :disabled="!secret"
-                    :aria-label="t('vault.passwords.copyPassword')"
-                    @click="copyField('password', secret)"
-                  >
-                    <svg v-if="copiedField === 'password'" class="size-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    <svg v-else class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                  </button>
+                  <svg class="size-4 shrink-0 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                 </div>
 
-                <!-- Two-factor (TOTP) code -->
-                <TotpCode v-if="hasTotp" :key="passwordId" :password-id="passwordId" />
               </div>
+              <p class="mt-2 px-1 text-xs text-neutral-400">{{ t('vault.passwords.passwordsLockedNote') }}</p>
             </div>
 
             <!-- Details -->
@@ -284,7 +241,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               </div>
             </div>
 
-            <div class="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex items-center justify-between gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"

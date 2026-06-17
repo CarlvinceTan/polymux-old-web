@@ -6,7 +6,7 @@
 
 export const STRICT_OPT_IN_FLAGS = new Set([
   'wallet',
-  'extension_mode',
+  'chrome_extension',
   'apple_login',
 ])
 
@@ -18,7 +18,7 @@ export const KNOWN_FEATURE_FLAGS = [
   'integrations',
   'forum',
   'wallet',
-  'extension_mode',
+  'chrome_extension',
   'apple_login',
 ] as const
 

@@ -30,6 +30,7 @@ const headerTabs = computed(() => {
     [t('workflow.tabs.agent')]: `${base}/agent`,
     [t('workflow.tabs.schedule')]: `${base}/schedule`,
     [t('workflow.tabs.artifacts')]: `${base}/artifacts`,
+    [t('workflow.tabs.stealth')]: `${base}/stealth`,
   } satisfies Record<string, string>
 })
 
@@ -148,7 +149,7 @@ const workflowTitle = computed(() => {
   const s = sessions.value.find(s => s.id === sessionId.value)
   if (s?.title && s.title !== 'New Workflow') return s.title
   if (chats.summarisedTitle.value) return chats.summarisedTitle.value
-  return s?.title || 'New Workflow'
+  return s?.title || t('common.newWorkflow')
 })
 
 const { currentWorkspace } = useWorkspaces()
@@ -186,7 +187,7 @@ session.on<ErrorPayload>('error', (p) => {
     promptUpgrade(
       { reason: 'browser_agent_limit' },
       {
-        message: 'Browser agent limit reached for your plan. Upgrade for more.',
+        message: t('upgradePlan.reasons.browserAgentLimit.body'),
         duration: 8000,
       },
     )
@@ -633,6 +634,108 @@ watch(() => vp.viewports.value.length, (len, prev) => {
   }
 })
 
+// ── Stealth (Agent Humaniser / cloaked browser) ──────────────────────────────
+// Per-session anti-detection toggles surfaced in the Stealth tab.
+//
+// Agent Humaniser is server-synced (mirrors browserMode): sessionStorage is a
+// pre-WS hint, set_humanize persists the choice to the workflow row, and the
+// session_state echo is canonical (adopted on every reconnect). Only the midas
+// browser driver acts on it; with other drivers the toggle is inert.
+//
+// Cloaked browser is server-synced the same way: set_cloaked persists the
+// choice and the midas driver launches the cloaked vs plain Chromium per
+// session (takes effect on the next browser sub-agent).
+const HUMANIZE_KEY_PREFIX = 'polymux_workflow_humanize:'
+const CLOAKED_KEY_PREFIX = 'polymux_workflow_cloaked:'
+
+function loadStealthFlag(prefix: string, id: string): boolean {
+  if (!import.meta.client) return true
+  if (!id || id === DRAFT_WORKFLOW_ID) return true
+  try {
+    const raw = sessionStorage.getItem(prefix + id)
+    return raw === null ? true : raw === '1'
+  } catch {
+    return true
+  }
+}
+
+function saveStealthFlag(prefix: string, id: string, on: boolean) {
+  if (!import.meta.client) return
+  if (!id || id === DRAFT_WORKFLOW_ID) return
+  try {
+    sessionStorage.setItem(prefix + id, on ? '1' : '0')
+  } catch {}
+}
+
+const humanizeEnabled = ref(true)
+const cloakedEnabled = ref(true)
+
+// Same race-guards as browserMode: skip echoing the server's own value back at
+// it, and block client→server writes until the first session_state echo lands
+// (so mount-time sessionStorage hydration can't clobber a cross-device choice).
+let suppressNextHumanizeSend = false
+let humanizeReady = false
+let suppressNextCloakedSend = false
+let cloakedReady = false
+
+onMounted(() => {
+  humanizeEnabled.value = loadStealthFlag(HUMANIZE_KEY_PREFIX, sessionId.value)
+  cloakedEnabled.value = loadStealthFlag(CLOAKED_KEY_PREFIX, sessionId.value)
+})
+
+watch(humanizeEnabled, (on) => {
+  saveStealthFlag(HUMANIZE_KEY_PREFIX, sessionId.value, on)
+  if (suppressNextHumanizeSend) {
+    suppressNextHumanizeSend = false
+    return
+  }
+  if (!humanizeReady) return
+  session.send('set_humanize', { enabled: on })
+})
+
+watch(cloakedEnabled, (on) => {
+  saveStealthFlag(CLOAKED_KEY_PREFIX, sessionId.value, on)
+  if (suppressNextCloakedSend) {
+    suppressNextCloakedSend = false
+    return
+  }
+  if (!cloakedReady) return
+  session.send('set_cloaked', { enabled: on })
+})
+
+watch(sessionId, (id) => {
+  humanizeEnabled.value = loadStealthFlag(HUMANIZE_KEY_PREFIX, id)
+  cloakedEnabled.value = loadStealthFlag(CLOAKED_KEY_PREFIX, id)
+  humanizeReady = false
+  cloakedReady = false
+})
+
+// Reconcile with the server's echo on every session_state — canonical, like
+// browserMode. Adopt the server value without re-echoing it back.
+watch(
+  () => session.sessionState.value?.humanize,
+  (serverHumanize) => {
+    if (typeof serverHumanize !== 'boolean') return
+    if (serverHumanize !== humanizeEnabled.value) {
+      suppressNextHumanizeSend = true
+      humanizeEnabled.value = serverHumanize
+    }
+    humanizeReady = true
+  },
+)
+
+watch(
+  () => session.sessionState.value?.cloaked,
+  (serverCloaked) => {
+    if (typeof serverCloaked !== 'boolean') return
+    if (serverCloaked !== cloakedEnabled.value) {
+      suppressNextCloakedSend = true
+      cloakedEnabled.value = serverCloaked
+    }
+    cloakedReady = true
+  },
+)
+
 function armAutoSwitch() {
   autoSwitchArmed.value = true
 }
@@ -655,6 +758,8 @@ provide('chat-preset-prompt', presetPrompt)
 provide('chat-title-requested', titleRequested)
 provide('chat-view-mode', viewMode)
 provide('chat-browser-mode', browserMode)
+provide('chat-humanize-enabled', humanizeEnabled)
+provide('chat-cloaked-enabled', cloakedEnabled)
 provide('chat-arm-auto-switch', armAutoSwitch)
 provide('chat-on-rename', onRename)
 provide('chat-on-close-viewport', (agentId: string) => { vp.closeViewport(agentId); chats.drop(agentId) })

@@ -1,4 +1,5 @@
 export const useMailingList = () => {
+  const { t } = useI18n()
   const email = ref('')
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -18,19 +19,19 @@ export const useMailingList = () => {
     const trimmedEmail = emailValue.trim()
 
     if (!trimmedEmail) {
-      error.value = 'Email required'
+      error.value = t('blog.emailRequired')
       return
     }
 
     if (!validateEmail(trimmedEmail)) {
-      error.value = 'Please enter a valid email'
+      error.value = t('blog.invalidEmail')
       return
     }
 
     loading.value = true
 
     try {
-      const response = await $fetch('/api/mailing-list/subscribe', {
+      await $fetch('/api/mailing-list/subscribe', {
         method: 'POST',
         body: {
           email: trimmedEmail,
@@ -51,11 +52,11 @@ export const useMailingList = () => {
         error.value = err.message
       }
       else if (typeof err === 'object' && err !== null && 'data' in err) {
-        const errorData = err as any
-        error.value = errorData.data?.message || 'Failed to subscribe'
+        const errorData = err as { data?: { message?: string } }
+        error.value = errorData.data?.message || t('blog.subscribeFailed')
       }
       else {
-        error.value = 'Failed to subscribe. Please try again.'
+        error.value = t('blog.subscribeFailedRetry')
       }
     }
     finally {

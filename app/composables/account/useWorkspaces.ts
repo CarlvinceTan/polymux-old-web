@@ -23,6 +23,22 @@ export interface WorkspaceMember {
   email?: string
 }
 
+/** Display name for a member: explicit name, else email local-part, else a short user-id stub. */
+export function memberDisplayName(m: WorkspaceMember): string {
+  return m.display_name || m.email?.split('@')[0] || `${m.user_id.substring(0, 8)}…`
+}
+
+/** Member email, or an em-dash placeholder when absent. */
+export function memberEmail(m: WorkspaceMember): string {
+  return m.email || '—'
+}
+
+/** Up-to-two-letter uppercase initials for a member avatar. */
+export function memberInitials(m: WorkspaceMember): string {
+  const name = m.display_name || m.email || m.user_id
+  return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+}
+
 export interface WorkspaceInvitation {
   id: string
   workspace_id: string
@@ -52,6 +68,7 @@ export interface InviteError {
 }
 
 function parseInviteError(err: unknown): InviteError {
+  const { t } = useI18n()
   // ofetch surfaces server response bodies under `data` on the thrown
   // FetchError. We accept anything that looks like the Go API's JSON error
   // envelope; fall back to a generic message for transport-level failures.
@@ -69,7 +86,7 @@ function parseInviteError(err: unknown): InviteError {
       pending: data.pending,
     }
   }
-  return { ok: false, error: e?.message || 'Failed to send invitation.' }
+  return { ok: false, error: e?.message || t('workspaceCreate.inviteFailed') }
 }
 
 export function isInviteError(value: WorkspaceInvitation | InviteError | null): value is InviteError {
@@ -82,13 +99,14 @@ export const WORKSPACE_NAME_MAX_LENGTH = 20
 const WORKSPACE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
 
 export function validateWorkspaceName(name: string): { ok: true } | { ok: false; error: string } {
+  const { t } = useI18n()
   const trimmed = name.trim()
-  if (!trimmed) return { ok: false, error: 'Workspace name is required.' }
+  if (!trimmed) return { ok: false, error: t('workspaceCreate.nameRequired') }
   if (trimmed.length > WORKSPACE_NAME_MAX_LENGTH) {
-    return { ok: false, error: `Workspace name must be ${WORKSPACE_NAME_MAX_LENGTH} characters or fewer.` }
+    return { ok: false, error: t('workspaceCreate.nameTooLong', { max: WORKSPACE_NAME_MAX_LENGTH }) }
   }
   if (!WORKSPACE_NAME_PATTERN.test(trimmed)) {
-    return { ok: false, error: 'Only letters, numbers, and spaces are allowed.' }
+    return { ok: false, error: t('workspaceCreate.nameInvalidChars') }
   }
   return { ok: true }
 }

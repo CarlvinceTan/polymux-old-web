@@ -12,7 +12,7 @@ const DEFAULT_ORDER: StorageProvider[] = ['google-drive', 'b2', 'local']
 // web/server/utils/billing/planLimits.ts; keep in sync.
 const PLANS_WITH_CLOUD = new Set(['pro', 'max', 'enterprise'])
 
-export function planHasCloud(plan: string | undefined | null): boolean {
+function planHasCloud(plan: string | undefined | null): boolean {
   if (!plan) return false
   return PLANS_WITH_CLOUD.has(plan.toLowerCase().trim())
 }
@@ -43,6 +43,17 @@ let healthProbed = false
 export function useStoragePreferences() {
   const { isInstalled } = useMarketplace()
   const { currentWorkspace } = useWorkspaces()
+  const { t } = useI18n()
+
+  /** Localized display label for a storage provider (t-at-call-time, locale-reactive). */
+  function providerLabel(provider: StorageProvider): string {
+    switch (provider) {
+      case 'google-drive': return t('storage.settings.providerGoogleDrive')
+      case 'b2': return t('storage.settings.providerCloud')
+      case 'local': return t('storage.settings.providerLocal')
+      default: return provider
+    }
+  }
 
   const saveOrder = useState<StorageProvider[]>('storage-save-order', () => readPersisted())
   const localHealth = useState<ProviderStatus>('storage-local-health', () => 'unavailable')
@@ -128,6 +139,7 @@ export function useStoragePreferences() {
   return {
     saveOrder: readonly(saveOrder),
     providerStatus,
+    providerLabel,
     resolvedOrder,
     moveUp,
     moveDown,

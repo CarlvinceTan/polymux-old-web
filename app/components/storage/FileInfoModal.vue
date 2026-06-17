@@ -31,19 +31,13 @@ const location = computed(() => {
   return '/' + segments.join('/')
 })
 
-const providerLabel = computed(() => {
-  const map: Record<string, string> = {
-    'google-drive': 'Google Drive',
-    local: 'Local',
-  }
-  return map[props.item.provider] ?? props.item.provider
-})
+const { providerLabel } = useStoragePreferences()
 
 const rows = computed(() => {
   const items: { label: string; value: string }[] = [
     { label: 'Type', value: props.item.kind === 'folder' ? 'Folder' : 'File' },
     { label: 'Location', value: location.value },
-    { label: 'Storage', value: providerLabel.value },
+    { label: 'Storage', value: providerLabel(props.item.provider) },
   ]
   if (props.size !== undefined) {
     items.splice(1, 0, { label: 'Size', value: formatSize(props.size) })
@@ -75,7 +69,7 @@ const rows = computed(() => {
         enter-to-class="opacity-100 scale-100"
         appear
       >
-        <div class="w-full max-w-sm mx-4 rounded-2xl bg-white border border-neutral-200 shadow-2xl overflow-hidden">
+        <div class="w-full max-w-sm mx-4 rounded-2xl bg-white modal-surface overflow-hidden">
           <!-- Header -->
           <div class="flex items-center gap-3 px-5 pt-5 pb-4">
             <div class="size-9 rounded-lg flex items-center justify-center bg-neutral-100 shrink-0">
@@ -100,7 +94,7 @@ const rows = computed(() => {
           </div>
 
           <!-- Info rows -->
-          <div class="border-t border-neutral-100 px-5 py-4 space-y-3">
+          <div class="px-5 pb-4 pt-1 space-y-3">
             <div
               v-for="row in rows"
               :key="row.label"
@@ -112,7 +106,7 @@ const rows = computed(() => {
           </div>
 
           <!-- Footer -->
-          <div class="border-t border-neutral-100 px-5 py-3 flex justify-end">
+          <div class="px-5 py-3 flex justify-end">
             <button
               class="px-4 py-2 rounded-lg text-body-md font-medium bg-neutral-950 text-white hover:bg-neutral-800 transition-colors"
               @click="emit('close')"

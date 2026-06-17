@@ -108,6 +108,45 @@ async function onDelete(artifact: SandboxArtifact) {
     selectedArtifact.value = null
   }
 }
+
+// ---- Bulk (multi-select) actions -------------------------------------------
+// Sequential to avoid the browser's "allow multiple downloads" gate and to keep
+// per-item error attribution simple.
+async function onBulkDownload(items: SandboxArtifact[]) {
+  let failed = 0
+  for (const a of items) {
+    if (!(await downloadArtifact(a))) failed++
+  }
+  if (failed) toast.show(t('artifacts.downloadError'), 'error', 4000)
+}
+
+// "Save all" promotes each artifact to canonical storage under its own filename.
+async function onBulkSave(items: SandboxArtifact[]) {
+  let saved = 0
+  let failed = 0
+  for (const a of items) {
+    try {
+      await promote(a.id, a.name)
+      saved++
+    }
+    catch (err) {
+      console.error('[artifacts] bulk promote failed', err)
+      failed++
+    }
+  }
+  if (saved) toast.show(t('artifacts.bulkSaved', saved, { count: saved }), 'info', 3000)
+  if (failed) toast.show(t('artifacts.promoteError'), 'error', 4000)
+}
+
+async function onBulkDelete(items: SandboxArtifact[]) {
+  let failed = 0
+  for (const a of items) {
+    const ok = await removeArtifact(a.id)
+    if (!ok) failed++
+    else if (selectedArtifact.value?.id === a.id) selectedArtifact.value = null
+  }
+  if (failed) toast.show(t('artifacts.deleteError'), 'error', 4000)
+}
 </script>
 
 <template>
@@ -130,6 +169,9 @@ async function onDelete(artifact: SandboxArtifact) {
           @download="onDownload"
           @save="onSave"
           @delete="onDelete"
+          @bulk-download="onBulkDownload"
+          @bulk-save="onBulkSave"
+          @bulk-delete="onBulkDelete"
         />
       </template>
     </div>

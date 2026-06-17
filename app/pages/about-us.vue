@@ -1,17 +1,17 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'About Us',
+  title: () => t('legalDocs.about.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Polymux builds the orchestration layer for AI agents on the live web. Learn about our mission, team, and roadmap.',
+      content: () => t('legalDocs.about.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 </script>
 
 <template>

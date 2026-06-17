@@ -41,14 +41,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'No editable fields supplied.' })
   }
 
+  // Public listing is gated behind team review. Requesting 'public' doesn't flip
+  // visibility here — it submits the integration for review (review_status →
+  // pending_review); a maintainer approves it in console, which is what actually
+  // sets visibility='public'. An already-approved integration may go public directly.
+  let requestedPublic = false
   if (patch.visibility !== undefined) {
     if (typeof patch.visibility !== 'string' || !VISIBILITY_OPTIONS.includes(patch.visibility)) {
       throw createError({ statusCode: 400, statusMessage: 'visibility must be private|unlisted|public.' })
     }
-    // Until a public review process lands (Phase 4), only private/unlisted are
-    // user-selectable. Reject 'public' to keep the marketplace gated.
     if (patch.visibility === 'public') {
-      throw createError({ statusCode: 403, statusMessage: 'Public visibility is not yet user-selectable.' })
+      requestedPublic = true
+      delete patch.visibility
     }
   }
   if (patch.tags !== undefined) {
@@ -72,11 +76,11 @@ export default defineEventHandler(async (event) => {
 
   // RLS will reject if the row isn't owned by this user. Look it up first
   // so we can surface a clear 404 vs 403.
-  const existing = await sb.from('integrations').select('id, author_user_id, is_first_party').eq('id', id).single()
+  const existing = await sb.from('integrations').select('id, author_user_id, is_first_party, review_status').eq('id', id).single()
   if (existing.error || !existing.data) {
     throw createError({ statusCode: 404, statusMessage: 'Integration not found.' })
   }
-  const e = existing.data as { author_user_id?: string | null, is_first_party?: boolean }
+  const e = existing.data as { author_user_id?: string | null, is_first_party?: boolean, review_status?: string }
   if (e.is_first_party) {
     throw createError({ statusCode: 403, statusMessage: 'First-party integrations are read-only here.' })
   }
@@ -84,10 +88,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "You don't own this integration." })
   }
 
-  const update = await sb.from('integrations').update(patch as Record<string, unknown>).eq('id', id).select('id, slug, name, description, visibility, tags, icon_url, homepage_url, source_repo_url, updated_at').single()
+  // Requesting public submits for review, unless the integration was already
+  // approved (then it may go public directly).
+  const finalPatch: Record<string, unknown> = { ...patch }
+  let submittedForReview = false
+  if (requestedPublic) {
+    if (e.review_status === 'approved') {
+      finalPatch.visibility = 'public'
+    }
+    else {
+      finalPatch.review_status = 'pending_review'
+      finalPatch.review_notes = null
+      submittedForReview = true
+    }
+  }
+
+  const update = await sb.from('integrations').update(finalPatch).eq('id', id).select('id, slug, name, description, visibility, review_status, tags, icon_url, homepage_url, source_repo_url, updated_at').single()
   if (update.error || !update.data) {
     console.error('[marketplace patch] update failed', update.error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to update integration.' })
   }
-  return update.data
+  return { ...update.data, submitted_for_review: submittedForReview }
 })

@@ -249,7 +249,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             </div>
 
             <!-- Footer -->
-            <div class="flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex justify-end gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"

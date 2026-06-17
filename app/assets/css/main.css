@@ -204,6 +204,32 @@ body {
   display: none;
 }
 
+/* Auth inputs (sign-in / sign-up / forgot-password / reset-password).
+   When a field is autofilled, Chrome/Safari override it with a grey
+   background and light text, which clashes with the otherwise white
+   field. Match the prompt-input filled look instead — white inside,
+   dark text. Chrome locks the autofill `background-color` against author
+   styles, so we paint over it with a large inset `box-shadow` (which it
+   doesn't lock) and force the text colour via `-webkit-text-fill-color`. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: var(--color-neutral-900) !important;
+  caret-color: var(--color-neutral-900);
+}
+
+/* Focused + autofilled: keep the white fill but re-add the input's focus
+   ring (the inset fill above would otherwise clobber the `focus:ring-2`
+   box-shadow). The second, outset shadow recreates `ring-neutral-950/10`. */
+.auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset, 0 0 0 2px rgba(10, 10, 10, 0.1) !important;
+  box-shadow: 0 0 0 1000px #ffffff inset, 0 0 0 2px rgba(10, 10, 10, 0.1) !important;
+  -webkit-text-fill-color: var(--color-neutral-900) !important;
+  caret-color: var(--color-neutral-900);
+}
+
 /* Glassmorphism utility */
 .glass {
   background: rgba(255, 255, 255, 0.8);
@@ -247,6 +273,15 @@ body {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.05),
     0 4px 18px rgba(26, 28, 28, 0.09);
+}
+
+/* Modal surface — a single soft lift + hairline edge for dialog containers.
+   Replaces the older heavy two-layer modal shadow
+   (`shadow-[0_8px_30px…,0_2px_8px…] ring-1 ring-neutral-200`) so dialogs read
+   calmer and don't stack competing shadows. Pair with `rounded-2xl bg-white`. */
+.modal-surface {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 24px 70px -12px rgba(26, 28, 28, 0.22);
 }
 
 /* StatusLine.vue — global keyframes so scoped CSS + Tailwind don’t strip/mismatch names.

@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: workspace, error: wsError } = await admin
     .from('workspaces')
-    .select('id, plan')
+    .select('id, plan, stripe_customer_id')
     .eq('id', workspaceId)
     .single()
   if (wsError || !workspace) {
@@ -57,13 +57,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const stripe = useStripe()
-  const origin = getRequestURL(event).origin
 
+  // Elements with Checkout Sessions (Stripe's recommended pattern, ui_mode
+  // 'elements'): the Checkout Session owns the customer + subscription
+  // lifecycle, so we just hand its client secret to the client's Payment
+  // Element. The `checkout.session.completed` webhook grants the plan after a
+  // successful payment — no manual incomplete-subscription handling needed.
+  // Card-only keeps the Payment Element compact (Link's "save info / phone"
+  // enrollment block would otherwise add height and force a scroll); add
+  // wallets/'link' to `payment_method_types` to re-enable them.
   const session = await stripe.checkout.sessions.create({
+    ui_mode: 'elements',
     mode: 'subscription',
-    customer_email: user.email,
+    payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
-    adaptive_pricing: { enabled: true },
+    // Reuse the workspace's customer when we have one, else create from email.
+    ...(workspace.stripe_customer_id
+      ? { customer: workspace.stripe_customer_id }
+      : { customer_email: user.email }),
     metadata: {
       userId: user.sub,
       workspaceId,
@@ -76,12 +87,11 @@ export default defineEventHandler(async (event) => {
         planKey,
       },
     },
-    success_url: `${origin}/settings?checkout=success&workspaceId=${workspaceId}`,
-    cancel_url: `${origin}/pricing?workspaceId=${workspaceId}&current=${workspace.plan ?? 'free'}`,
   })
 
-  if (!session.url) {
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create checkout session.' })
+  const clientSecret = session.client_secret
+  if (!clientSecret) {
+    throw createError({ statusCode: 500, statusMessage: 'Failed to start payment.' })
   }
 
   const sessionId = getHeader(event, 'x-posthog-session-id')
@@ -99,5 +109,5 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return { url: session.url }
+  return { clientSecret }
 })

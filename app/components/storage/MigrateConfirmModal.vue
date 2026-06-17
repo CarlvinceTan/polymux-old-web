@@ -34,8 +34,8 @@ const emit = defineEmits<{
 }>()
 
 const providerLabels = computed<Record<StorageProvider, string>>(() => ({
-  'google-drive': 'Google Drive',
-  'local': 'This device',
+  'google-drive': t('storage.settings.providerGoogleDrive'),
+  'local': t('storage.settings.providerThisDevice'),
   'b2': t('storage.settings.providerCloud'),
 }))
 
@@ -71,7 +71,7 @@ const totalItems = computed(() =>
         leave-to-class="opacity-0 scale-95"
         appear
       >
-        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200 overflow-hidden">
+        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white modal-surface overflow-hidden">
           <!-- Header -->
           <div class="relative px-5 pt-5 pb-4">
             <button
@@ -99,7 +99,7 @@ const totalItems = computed(() =>
           </div>
 
           <!-- Body: one section per source provider -->
-          <div class="border-t border-neutral-100 px-5 py-4 space-y-4 max-h-80 overflow-y-auto">
+          <div class="px-5 pb-4 pt-1 space-y-4 max-h-80 overflow-y-auto">
             <div v-for="group in groups" :key="group.sourceProvider">
               <div class="flex items-center gap-2 text-xs text-neutral-500 mb-2">
                 <StorageProviderIcon :provider="group.sourceProvider" inline />
@@ -130,7 +130,7 @@ const totalItems = computed(() =>
           </div>
 
           <!-- Footer -->
-          <div class="border-t border-neutral-100 px-5 py-3.5 flex items-center justify-end gap-2">
+          <div class="px-5 py-3.5 flex items-center justify-end gap-2">
             <button
               class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-50"
               :disabled="isMigrating"

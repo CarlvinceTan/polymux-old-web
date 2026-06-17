@@ -13,73 +13,94 @@ export interface DocsNavEntry {
 }
 
 export interface DocsNavSection {
+  id: string
   title: string
   entries: DocsNavEntry[]
 }
 
-const SECTIONS: DocsNavSection[] = [
+const SECTION_DEFS = [
   {
-    title: 'Getting started',
+    id: 'gettingStarted',
+    titleKey: 'docs.nav.sections.gettingStarted',
     entries: [
-      { slug: 'introduction', title: 'Introduction' },
-      { slug: 'quickstart', title: 'Quickstart' },
-      { slug: 'installation', title: 'Installation' },
+      { slug: 'introduction', titleKey: 'docs.nav.entries.introduction' },
+      { slug: 'quickstart', titleKey: 'docs.nav.entries.quickstart' },
+      { slug: 'installation', titleKey: 'docs.nav.entries.installation' },
     ],
   },
   {
-    title: 'Using Polymux',
+    id: 'usingPolymux',
+    titleKey: 'docs.nav.sections.usingPolymux',
     entries: [
-      { slug: 'workspaces', title: 'Workspaces and members' },
-      { slug: 'vault', title: 'Vault basics' },
-      { slug: 'faq', title: 'FAQ' },
+      { slug: 'workspaces', titleKey: 'docs.nav.entries.workspaces' },
+      { slug: 'vault', titleKey: 'docs.nav.entries.vault' },
+      { slug: 'faq', titleKey: 'docs.nav.entries.faq' },
     ],
   },
   {
-    title: 'Building plugins',
+    id: 'buildingPlugins',
+    titleKey: 'docs.nav.sections.buildingPlugins',
     entries: [
-      { slug: 'plugin-overview', title: 'Plugin overview' },
-      { slug: 'plugin-build', title: 'Build your first plugin' },
-      { slug: 'plugin-manifest', title: 'Manifest reference' },
-      { slug: 'publishing', title: 'Publishing checklist' },
+      { slug: 'plugin-overview', titleKey: 'docs.nav.entries.pluginOverview' },
+      { slug: 'plugin-build', titleKey: 'docs.nav.entries.pluginBuild' },
+      { slug: 'plugin-manifest', titleKey: 'docs.nav.entries.pluginManifest' },
+      { slug: 'publishing', titleKey: 'docs.nav.entries.publishing' },
     ],
   },
   {
-    title: 'Connections',
+    id: 'connections',
+    titleKey: 'docs.nav.sections.connections',
     entries: [
-      { slug: 'connections-overview', title: 'Connections overview' },
-      { slug: 'connections-build', title: 'Building a connection' },
+      { slug: 'connections-overview', titleKey: 'docs.nav.entries.connectionsOverview' },
+      { slug: 'connections-build', titleKey: 'docs.nav.entries.connectionsBuild' },
+      { slug: 'connections-port', titleKey: 'docs.nav.entries.connectionsPort' },
     ],
   },
   {
-    title: 'API',
+    id: 'api',
+    titleKey: 'docs.nav.sections.api',
     entries: [
-      { slug: 'api-overview', title: 'API overview' },
-      { slug: 'authentication', title: 'Authentication' },
+      { slug: 'api-overview', titleKey: 'docs.nav.entries.apiOverview' },
+      { slug: 'authentication', titleKey: 'docs.nav.entries.authentication' },
     ],
   },
-]
-
-const FLAT: DocsNavEntry[] = SECTIONS.flatMap((s) => s.entries)
+] as const
 
 export const DEFAULT_DOC_SLUG = 'introduction'
 
 export function useDocsNav() {
+  const { t } = useI18n()
+
+  const sections = computed<DocsNavSection[]>(() =>
+    SECTION_DEFS.map(section => ({
+      id: section.id,
+      title: t(section.titleKey),
+      entries: section.entries.map(entry => ({
+        slug: entry.slug,
+        title: t(entry.titleKey),
+      })),
+    })),
+  )
+
+  const flat = computed(() => sections.value.flatMap(section => section.entries))
+
   function findEntry(slug: string): DocsNavEntry | null {
-    return FLAT.find((e) => e.slug === slug) ?? null
+    return flat.value.find(entry => entry.slug === slug) ?? null
   }
 
-  function neighbours(slug: string): { prev: DocsNavEntry | null; next: DocsNavEntry | null } {
-    const i = FLAT.findIndex((e) => e.slug === slug)
+  function neighbours(slug: string): { prev: DocsNavEntry | null, next: DocsNavEntry | null } {
+    const entries = flat.value
+    const i = entries.findIndex(entry => entry.slug === slug)
     if (i === -1) return { prev: null, next: null }
     return {
-      prev: i > 0 ? FLAT[i - 1] ?? null : null,
-      next: i < FLAT.length - 1 ? FLAT[i + 1] ?? null : null,
+      prev: i > 0 ? entries[i - 1] ?? null : null,
+      next: i < entries.length - 1 ? entries[i + 1] ?? null : null,
     }
   }
 
   return {
-    sections: SECTIONS,
-    flat: FLAT,
+    sections,
+    flat,
     findEntry,
     neighbours,
   }

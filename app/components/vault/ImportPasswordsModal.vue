@@ -5,7 +5,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  imported: [count: number]
 }>()
 
 const { t } = useI18n()
@@ -14,17 +13,9 @@ function close() {
   emit('update:open', false)
 }
 
-function handleImported(count: number) {
-  emit('imported', count)
-}
-
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && props.open) close()
 }
-
-watch(() => props.open, (open) => {
-  if (open) return
-})
 
 onMounted(() => document.addEventListener('keydown', handleKeydown))
 onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
@@ -52,13 +43,13 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         >
           <div
             v-if="props.open"
-            class="flex max-h-[min(85svh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            class="flex max-h-[min(85svh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white modal-surface"
             role="dialog"
             aria-modal="true"
             :aria-label="t('vault.passwords.import.title')"
             @click.stop
           >
-            <div class="relative shrink-0 border-b border-neutral-100 px-5 py-4">
+            <div class="relative shrink-0 px-5 py-4">
               <button
                 type="button"
                 class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
@@ -74,7 +65,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             <div class="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-4">
               <ImportPasswordsPanel
                 :active="props.open"
-                @imported="handleImported"
                 @done="close"
               />
             </div>

@@ -123,17 +123,6 @@ type Row = MemberRow | InvitationRow
 
 const roleSortOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 }
 
-function memberDisplayName(m: WorkspaceMember) {
-  return m.display_name || m.email?.split('@')[0] || m.user_id.substring(0, 8) + '…'
-}
-function memberEmail(m: WorkspaceMember) {
-  return m.email || '—'
-}
-function memberInitials(m: WorkspaceMember) {
-  const name = m.display_name || m.email || m.user_id
-  return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
-}
-
 const filteredRows = computed<Row[]>(() => {
   const q = memberSearch.value.toLowerCase().trim()
   let memberRows: MemberRow[] = members.value.map(m => ({ kind: 'member' as const, member: m }))
@@ -634,7 +623,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Footer -->
-            <div class="shrink-0 border-t border-neutral-100 bg-neutral-50/60 px-5 py-2 text-[11px] font-medium text-neutral-500">
+            <div class="shrink-0 bg-neutral-50/60 px-5 py-2 text-[11px] font-medium text-neutral-500">
               {{ memberCount }} {{ memberCount === 1 ? t('workspaceMenu.memberSingular') : t('workspaceMenu.memberPlural') }}
               <template v-if="pendingCount > 0">
                 <span class="text-neutral-300"> · </span>{{ pendingCount }} {{ t('workspaceMenu.pendingLabel') }}
@@ -724,7 +713,7 @@ onUnmounted(() => {
             aria-modal="true"
             @click.stop
           >
-            <div class="flex items-start justify-between border-b border-neutral-100 px-5 py-3.5">
+            <div class="flex items-start justify-between px-5 py-3.5">
               <div>
                 <h3 class="text-sm font-semibold text-neutral-950">{{ t('workspaceMenu.inviteMembers') }}</h3>
                 <p class="mt-0.5 text-[11px] text-neutral-500">{{ t('workspaceMenu.inviteDesc') }}</p>
@@ -746,7 +735,7 @@ onUnmounted(() => {
                   v-model="inviteEmails"
                   name="invite-emails"
                   rows="3"
-                  placeholder="alice@example.com, bob@example.com"
+                  :placeholder="t('workspaceMenu.inviteEmailsPlaceholder')"
                   class="mt-1.5 w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 placeholder:text-neutral-400"
                 />
               </div>
@@ -763,7 +752,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex justify-end gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
@@ -811,7 +800,7 @@ onUnmounted(() => {
             aria-modal="true"
             @click.stop
           >
-            <div class="flex items-start justify-between border-b border-neutral-100 px-5 py-3.5">
+            <div class="flex items-start justify-between px-5 py-3.5">
               <div>
                 <h3 class="text-sm font-semibold text-neutral-950">{{ t('workspaceMenu.manageAccess') }}</h3>
                 <p class="mt-0.5 text-[11px] text-neutral-500">
@@ -849,7 +838,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex justify-end gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"

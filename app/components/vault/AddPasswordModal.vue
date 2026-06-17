@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
-import { tryParseTotpInput } from '~/composables/vault/totp'
+import { derivePasswordName, normalizeImportUrl } from '~/utils/vault/passwordImport'
 
 const props = defineProps<{
   open: boolean
@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'add': [entry: { name: string; url: string; username: string; password: string; totpSecret?: string }]
+  'add': [entry: { name: string; url: string; username: string; password: string }]
 }>()
 
 const { t } = useI18n()
@@ -20,27 +20,12 @@ const url = ref('')
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
-const totpKey = ref('')
-
-// Only block on a non-empty key that doesn't parse; empty = no authenticator.
-const totpInvalid = computed(() => totpKey.value.trim() !== '' && !tryParseTotpInput(totpKey.value))
-
-function extractDomain(input: string): string {
-  try {
-    const href = input.startsWith('http') ? input : `https://${input}`
-    return new URL(href).hostname
-  }
-  catch {
-    return input.replace(/\/.*$/, '').replace(/^https?:\/\//, '')
-  }
-}
 
 function resetForm() {
   url.value = ''
   username.value = ''
   password.value = ''
   showPassword.value = false
-  totpKey.value = ''
 }
 
 function resetState() {
@@ -50,19 +35,14 @@ function resetState() {
 
 function handleSubmit() {
   if (!url.value.trim() || !username.value.trim() || !password.value.trim()) return
-  if (totpInvalid.value) return
 
-  const domain = extractDomain(url.value.trim())
-  const parts = domain.replace(/^www\./, '').split('.')
-  const name = parts[0] || domain
-  const fullUrl = url.value.trim().startsWith('http') ? url.value.trim() : `https://${url.value.trim()}`
+  const trimmedUrl = url.value.trim()
 
   emit('add', {
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    url: fullUrl,
+    name: derivePasswordName(trimmedUrl),
+    url: normalizeImportUrl(trimmedUrl),
     username: username.value.trim(),
     password: password.value.trim(),
-    totpSecret: totpKey.value.trim() || undefined,
   })
 
   resetState()
@@ -113,7 +93,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         >
           <div
             v-if="props.open"
-            class="flex max-h-[min(85svh,640px)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            class="flex max-h-[min(85svh,640px)] w-full flex-col overflow-hidden rounded-2xl bg-white modal-surface"
             :class="tab === 'import' ? 'max-w-lg' : 'max-w-md'"
             role="dialog"
             aria-modal="true"
@@ -136,7 +116,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <button
                   type="button"
                   class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-                  :class="tab === 'add' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'"
+                  :class="tab === 'add' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200/80' : 'text-neutral-500'"
                   @click="tab = 'add'"
                 >
                   {{ t('vault.passwords.addTab') }}
@@ -144,7 +124,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <button
                   type="button"
                   class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-                  :class="tab === 'import' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'"
+                  :class="tab === 'import' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200/80' : 'text-neutral-500'"
                   @click="tab = 'import'"
                 >
                   {{ t('vault.passwords.importTab') }}
@@ -199,23 +179,9 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </button>
                   </div>
                 </div>
-
-                <div>
-                  <label class="block text-xs font-medium text-neutral-500 mb-1.5">{{ t('vault.passwords.totpSetupLabel') }}</label>
-                  <input
-                    v-model="totpKey"
-                    name="vault-totp"
-                    autocomplete="off"
-                    :placeholder="t('vault.passwords.totpSetupPlaceholder')"
-                    class="w-full rounded-lg border bg-white py-2 px-3 font-mono text-sm text-neutral-950 outline-none transition focus:ring-2 focus:ring-neutral-950/10 placeholder:font-sans placeholder:text-neutral-400"
-                    :class="totpInvalid ? 'border-red-300 focus:border-red-400' : 'border-neutral-200 focus:border-neutral-400'"
-                  />
-                  <p v-if="totpInvalid" class="mt-1 text-xs text-red-500">{{ t('vault.passwords.totpInvalid') }}</p>
-                  <p v-else class="mt-1 text-xs text-neutral-400">{{ t('vault.passwords.totpSetupHint') }}</p>
-                </div>
               </div>
 
-              <div class="mt-auto flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+              <div class="mt-auto flex justify-end gap-2 px-5 py-3.5">
                 <button
                   type="button"
                   class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
@@ -226,7 +192,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                 <button
                   type="button"
                   class="rounded-lg bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
-                  :disabled="!url.trim() || !username.trim() || !password.trim() || totpInvalid"
+                  :disabled="!url.trim() || !username.trim() || !password.trim()"
                   @click="handleSubmit"
                 >
                   {{ t('common.save') }}

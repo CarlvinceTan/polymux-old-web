@@ -129,9 +129,10 @@ function maybePromptCloudUpgrade(err: unknown, fallbackMessage?: string): boolea
     || (e?.statusCode === 413 && message.toLowerCase().includes('cloud storage'))
   if (!isCloudPlanGate) return false
 
+  const { t } = useI18n()
   promptUpgrade(
     { reason: 'cloud_storage', message: message || undefined },
-    { message: message || fallbackMessage || 'Upgrade to Pro or Max to use Cloud storage.' },
+    { message: message || fallbackMessage || t('storage.errors.upgradeCloud') },
   )
   return true
 }
@@ -180,6 +181,29 @@ export function useStorageFiles() {
       if (err instanceof Error) return err.message
     }
     return fallback
+  }
+
+  // Shared wrapper for the storage mutation methods: flips isLoading on, clears
+  // the message sink, runs fn, maps a thrown error to the sink via errorMessage,
+  // and always resets isLoading in finally. Inner early `return false`/`return
+  // true` (and any message fn sets on the sink itself) flow through unchanged.
+  async function withLoading(
+    fn: () => Promise<boolean>,
+    opts: { fallbackKey: string, sink?: Ref<string | null> },
+  ): Promise<boolean> {
+    const sink = opts.sink ?? error
+    isLoading.value = true
+    sink.value = null
+    try {
+      return await fn()
+    }
+    catch (err) {
+      sink.value = errorMessage(err, t(opts.fallbackKey))
+      return false
+    }
+    finally {
+      isLoading.value = false
+    }
   }
 
   async function listFiles(pathSegments: string[], opts?: { force?: boolean }): Promise<StorageDirectory> {
@@ -360,10 +384,8 @@ export function useStorageFiles() {
     }
   }
 
-  async function deleteFiles(paths: string[], kind: 'file' | 'folder' = 'file'): Promise<boolean> {
-    isLoading.value = true
-    error.value = null
-    try {
+  function deleteFiles(paths: string[], kind: 'file' | 'folder' = 'file'): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!base) return false
       await $fetch(`${base}/delete`, {
@@ -371,18 +393,11 @@ export function useStorageFiles() {
         body: { paths, kind },
       })
       return true
-    } catch (err) {
-      error.value = errorMessage(err, t('storage.errors.deleteFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.deleteFailed' })
   }
 
-  async function moveFile(fromPath: string, toPath: string, kind: 'file' | 'folder' = 'file'): Promise<boolean> {
-    isLoading.value = true
-    error.value = null
-    try {
+  function moveFile(fromPath: string, toPath: string, kind: 'file' | 'folder' = 'file'): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!base) return false
       await $fetch(`${base}/move`, {
@@ -390,12 +405,7 @@ export function useStorageFiles() {
         body: { from: fromPath, to: toPath, kind },
       })
       return true
-    } catch (err) {
-      error.value = errorMessage(err, t('storage.errors.moveFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.moveFailed' })
   }
 
   // Cross-provider migration: moves items to `targetParent` AND switches their
@@ -588,10 +598,8 @@ export function useStorageFiles() {
     return moveFile(filePath, newPath)
   }
 
-  async function renameFolder(folderPath: string, newName: string): Promise<boolean> {
-    isLoading.value = true
-    error.value = null
-    try {
+  function renameFolder(folderPath: string, newName: string): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!base) return false
       const safeName = sanitizeFolderSegment(newName)
@@ -609,18 +617,11 @@ export function useStorageFiles() {
         body: { from: trimmed, to: newPath, kind: 'folder' },
       })
       return true
-    } catch (err) {
-      error.value = errorMessage(err, t('storage.errors.renameFolderFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.renameFolderFailed' })
   }
 
-  async function createFolder(pathSegments: string[], name: string): Promise<boolean> {
-    isLoading.value = true
-    folderOpMessage.value = null
-    try {
+  function createFolder(pathSegments: string[], name: string): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!authUserId() || !base) {
         folderOpMessage.value = t('storage.errors.signInToCreateFolders')
@@ -643,12 +644,7 @@ export function useStorageFiles() {
         },
       })
       return true
-    } catch (err) {
-      folderOpMessage.value = errorMessage(err, t('storage.errors.createFolderFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.createFolderFailed', sink: folderOpMessage })
   }
 
   async function getSignedUrl(filePath: string, expiresIn = 3600): Promise<string | null> {
@@ -679,10 +675,8 @@ export function useStorageFiles() {
     }
   }
 
-  async function copyStorageFile(fromRelativePath: string, toRelativePath: string): Promise<boolean> {
-    isLoading.value = true
-    error.value = null
-    try {
+  function copyStorageFile(fromRelativePath: string, toRelativePath: string): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!base) return false
       await $fetch(`${base}/copy`, {
@@ -690,18 +684,11 @@ export function useStorageFiles() {
         body: { from: fromRelativePath, to: toRelativePath, kind: 'file' },
       })
       return true
-    } catch (err) {
-      error.value = errorMessage(err, t('storage.errors.copyFileFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.copyFileFailed' })
   }
 
-  async function copyStorageFolder(sourceSegments: string[], destName: string): Promise<boolean> {
-    isLoading.value = true
-    folderOpMessage.value = null
-    try {
+  function copyStorageFolder(sourceSegments: string[], destName: string): Promise<boolean> {
+    return withLoading(async () => {
       const base = baseUrl()
       if (!authUserId() || !base) {
         folderOpMessage.value = t('storage.errors.signInToCopyFolders')
@@ -720,12 +707,7 @@ export function useStorageFiles() {
         body: { from, to, kind: 'folder' },
       })
       return true
-    } catch (err) {
-      folderOpMessage.value = errorMessage(err, t('storage.errors.copyFolderFailed'))
-      return false
-    } finally {
-      isLoading.value = false
-    }
+    }, { fallbackKey: 'storage.errors.copyFolderFailed', sink: folderOpMessage })
   }
 
   async function downloadFile(filePath: string): Promise<boolean> {

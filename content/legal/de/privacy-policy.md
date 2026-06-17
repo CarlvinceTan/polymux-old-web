@@ -1,4 +1,4 @@
-_Last updated: May 2, 2026_
+_Last updated: June 14, 2026_
 
 Diese Datenschutzrichtlinie beschreibt, wie **Polymux** („wir", „uns" oder „unser") Informationen erfasst, verwendet und weitergibt, wenn Sie unsere Websites, Anwendungen und zugehörigen Dienste (zusammenfassend als **Dienste** bezeichnet) nutzen. Durch die Nutzung der Dienste stimmen Sie dieser Richtlinie zu.
 
@@ -80,6 +80,25 @@ Sie können Google-Nutzerdaten jederzeit aus Polymux entfernen:
 - **Fordern Sie die Löschung bestimmter Daten an**, indem Sie uns über die Kontaktseite kontaktieren. Wir antworten innerhalb einer angemessenen Frist und bestätigen, sobald die Löschung abgeschlossen ist.
 
 Verbleibende Kopien in verschlüsselten Backups werden gemäß unserem Standard-Backup-Rotationsplan gelöscht (nicht länger als 90 Tage).
+
+## Browser-Erweiterung
+
+Dieser Abschnitt beschreibt die Datenpraktiken der **Polymux-Browser-Erweiterung** — einer optionalen Chrome-Erweiterung, mit der Polymux Browser-Aufgaben in Ihrem eigenen Browser statt in einem serverseitig gehosteten ausführen kann. Er gilt nur, wenn Sie die Erweiterung installieren und mit Ihrem Polymux-Server verbinden.
+
+### Worauf die Erweiterung zugreift
+
+Wenn Sie eine Browser-Aufgabe mit aktivierter Erweiterung starten, öffnet die Erweiterung einen dedizierten Tab und führt **nur in diesem Tab** die vom Aufgabenschritt erforderlichen Schritte aus — Navigation, Lesen der Seite, Klicken, Tippen und Aufnehmen von Screenshots. Dazu verarbeitet sie:
+
+- **Seiteninhalte des für die Aufgabe gesteuerten Tabs** — Text der Seite, Barrierefreiheitsstruktur, Screenshots sowie URL und Titel des Tabs.
+- **Ein Kopplungs-Token**, lokal in Ihrem Browser gespeichert, das zum erneuten Verbinden der Erweiterung mit Ihrem Polymux-Server ohne erneute Kopplung verwendet wird.
+
+Die Erweiterung agiert **nur auf Tabs, die sie für eine Polymux-Aufgabe öffnet**. Sie liest nicht Ihren Browserverlauf, Ihre anderen Tabs, Ihre Lesezeichen oder Seiten, für die Sie keine Polymux-Aufgabe gestartet haben.
+
+### Wie die Erweiterung diese Daten verwendet und weitergibt
+
+Seiteninhalte und Aufgabenergebnisse werden über eine verschlüsselte Verbindung an **den Polymux-Server übertragen, mit dem Sie gekoppelt sind** — Ihr eigenes Backend — damit die Aufgabe ausgeführt werden kann und der Fortschritt in Ihrer Polymux-Sitzung angezeigt wird. Diese Daten werden nur an diesen gekoppelten Server gesendet; die Erweiterung sendet sie **nicht** an Dritte und **verkauft oder übermittelt** sie **nicht** für Werbung oder Zwecke, die nichts mit der Ausführung der von Ihnen angeforderten Aufgaben zu tun haben.
+
+Das Kopplungs-Token wird nur im lokalen Erweiterungsspeicher Ihres Browsers gespeichert und ausschließlich zur Authentifizierung der Verbindung mit Ihrem Server verwendet. Sie können die Verbindung jederzeit im Popup der Erweiterung trennen — wobei das gespeicherte Token gelöscht wird — oder die Erweiterung entfernen.
 
 ## Verwendung von Informationen
 

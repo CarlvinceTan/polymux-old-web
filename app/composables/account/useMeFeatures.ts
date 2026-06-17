@@ -99,23 +99,12 @@ export function useMeFeatures() {
     return resolveFeatureFlag(key)
   }
 
-  /** @deprecated Use isEnabled — kept for callers that referenced the strict helper directly. */
-  function isEnabledStrict(key: string, absentResult: boolean): boolean {
-    if (!import.meta.client) return absentResult
-    const ph = getPostHogClient()
-    if (!ph) return absentResult ? false : true
-    if (!state.value.ready) return absentResult
-    const v = ph.isFeatureEnabled(key)
-    if (v === undefined) return absentResult
-    return Boolean(v)
-  }
-
   function isWalletEnabled(): boolean {
     return resolveFeatureFlag('wallet')
   }
 
   function isExtensionModeGloballyAllowed(): boolean {
-    return resolveFeatureFlag('extension_mode')
+    return resolveFeatureFlag('chrome_extension')
   }
 
   function isPlanLimitsEnforced(): boolean {
@@ -134,22 +123,13 @@ export function useMeFeatures() {
     return resolveFeatureFlag('account_access')
   }
 
-  async function refresh() {
-    const ph = getPostHogClient() as { reloadFeatureFlags?: () => void } | null
-    if (ph?.reloadFeatureFlags) {
-      ph.reloadFeatureFlags()
-    }
-  }
-
   return {
     ready,
     posthogConfigured,
     isEnabled,
-    isEnabledStrict,
     isWalletEnabled,
     isExtensionModeGloballyAllowed,
     isPlanLimitsEnforced,
     hasAccountAccess,
-    refresh,
   }
 }

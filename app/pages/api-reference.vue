@@ -1,17 +1,17 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'API Reference',
+  title: () => t('legalDocs.apiReference.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Polymux REST API reference. Endpoints for agents, workflows, sessions, vault, and storage. Authentication, examples, and error codes.',
+      content: () => t('legalDocs.apiReference.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 </script>
 
 <template>

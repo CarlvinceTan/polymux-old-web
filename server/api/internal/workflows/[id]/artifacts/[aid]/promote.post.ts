@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { cloudCap, fileCap } from '~~/server/utils/billing/planLimits'
 import { planLimitsEnforce } from '~~/server/utils/billing/planLimitsEnforce'
@@ -27,7 +28,7 @@ interface Body {
 }
 
 async function assertCloudCapacity(
-  admin: ReturnType<typeof serverSupabaseServiceRole>,
+  admin: SupabaseClient,
   workspaceId: string,
   targetPath: string,
   sizeBytes: number,

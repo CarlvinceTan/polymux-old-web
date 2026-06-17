@@ -148,7 +148,7 @@ onMounted(() => {
         leave-to-class="opacity-0 scale-95"
         appear
       >
-        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200 overflow-hidden">
+        <div class="w-full max-w-lg mx-4 rounded-2xl bg-white modal-surface overflow-hidden">
 
           <!-- Title -->
           <div class="relative px-5 pt-5 pb-4">
@@ -166,7 +166,7 @@ onMounted(() => {
           </div>
 
           <!-- Body -->
-          <div class="px-5 pb-5 border-t border-neutral-100 space-y-5 pt-4">
+          <div class="px-5 pb-5 space-y-5 pt-1">
 
             <!-- Status messages -->
             <div v-if="errorMessage" class="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
@@ -198,7 +198,7 @@ onMounted(() => {
                   :key="level"
                   class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
                   :class="permissionLevel === level
-                    ? 'bg-white text-neutral-950 shadow-sm ring-1 ring-neutral-200/80'
+                    ? 'bg-white text-neutral-950 ring-1 ring-neutral-200/80'
                     : 'text-neutral-500 hover:text-neutral-700'"
                   @click="permissionLevel = level"
                 >
@@ -213,14 +213,14 @@ onMounted(() => {
               <div v-if="availableWorkspaces.length === 0" class="py-6 text-center">
                 <p class="text-sm text-neutral-400">{{ t('storage.share.noOtherWorkspaces') }}</p>
               </div>
-              <div v-else class="space-y-2 max-h-56 overflow-y-auto">
+              <div v-else class="max-h-56 divide-y divide-neutral-200/80 overflow-y-auto">
                 <label
                   v-for="workspace in availableWorkspaces"
                   :key="workspace.id"
-                  class="flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer"
+                  class="flex cursor-pointer items-center gap-3 px-1 py-3 transition-colors"
                   :class="isWorkspaceSelected(workspace.id)
-                    ? 'bg-neutral-50 border-neutral-400'
-                    : 'border-neutral-200 hover:bg-neutral-50'"
+                    ? 'bg-neutral-50'
+                    : 'hover:bg-neutral-50/60'"
                 >
                   <input
                     type="checkbox"
@@ -239,7 +239,7 @@ onMounted(() => {
           </div>
 
           <!-- Footer -->
-          <div class="border-t border-neutral-100 px-5 py-3.5 flex items-center justify-end gap-2">
+          <div class="px-5 py-3.5 flex items-center justify-end gap-2">
             <button
               class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"
               @click="emit('close')"

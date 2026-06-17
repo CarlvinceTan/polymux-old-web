@@ -66,6 +66,6 @@ export default defineEventHandler(async (event) => {
 
   setHeader(event, 'Content-Type', contentType)
   setHeader(event, 'Content-Disposition', attachmentDisposition(fileName))
-  setHeader(event, 'Content-Length', String(body.byteLength))
+  setHeader(event, 'Content-Length', body.byteLength)
   return body
 })

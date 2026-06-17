@@ -162,8 +162,8 @@ const passwordListPlaceholder = computed(
   () => filteredPasswords.value.length === 0,
 )
 
-async function handleAdd(entry: { name: string; url: string; username: string; password: string; totpSecret?: string }) {
-  await addPassword(entry.url, entry.username, entry.password, entry.name, entry.totpSecret)
+async function handleAdd(entry: { name: string; url: string; username: string; password: string }) {
+  await addPassword(entry.url, entry.username, entry.password, entry.name)
 }
 
 function handleView(id: string) {
@@ -332,7 +332,6 @@ onUnmounted(() => {
               :name="pw.name"
               :url="pw.url"
               :username="pw.username"
-              :has-totp="pw.hasTotp"
               @view="handleView"
               @delete="handleDelete"
             />
@@ -417,7 +416,6 @@ onUnmounted(() => {
       :name="activePassword.name"
       :url="activePassword.url"
       :username="activePassword.username"
-      :has-totp="activePassword.hasTotp"
       :saved-by-name="nameFor(activePassword.createdBy)"
       :last-used-by-name="activePassword.lastUsedBy ? nameFor(activePassword.lastUsedBy) : null"
       :last-used="activePassword.lastUsed"

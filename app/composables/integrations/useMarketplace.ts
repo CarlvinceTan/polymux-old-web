@@ -249,7 +249,7 @@ export function useMarketplace() {
     catch (err) {
       console.error('[useMarketplace] uninstall failed', err)
       const message = (err as { statusMessage?: string })?.statusMessage
-        || 'Failed to disconnect integration.'
+        || t('integrations.disconnectFailed')
       toast.show(message, 'error')
     }
   }

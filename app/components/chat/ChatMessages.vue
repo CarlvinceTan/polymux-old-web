@@ -193,6 +193,13 @@ defineExpose({ scrollToBottom })
             @cancel="props.chats?.provideCredential(msg.credentialRequest!.msgId, { cancelled: true })"
           />
         </div>
+        <div v-else-if="msg.role === 'agent' && msg.otpRequest" class="px-1">
+          <OtpRequestCard
+            :request="msg.otpRequest"
+            @submit="(v) => props.chats?.provideOtp(msg.otpRequest!.msgId, v)"
+            @cancel="props.chats?.provideOtp(msg.otpRequest!.msgId, { cancelled: true })"
+          />
+        </div>
         <div v-else-if="msg.role === 'agent' && msg.artifactPreview" class="px-1">
           <ArtifactChatCard
             :artifact="msg.artifactPreview"

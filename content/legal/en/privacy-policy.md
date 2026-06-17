@@ -1,4 +1,4 @@
-_Last updated: May 2, 2026_
+_Last updated: June 14, 2026_
 
 This Privacy Policy describes how **Polymux** (“we”, “us”, or “our”) collects, uses, and shares information when you use our websites, applications, and related services (collectively, the **Services**). By using the Services, you agree to this policy.
 
@@ -80,6 +80,25 @@ You can remove Google user data from Polymux at any time:
 - **Request deletion of specific data** by contacting us through the Contact page. We will respond within a reasonable period and confirm once deletion is complete.
 
 Residual copies in encrypted backups are purged on our standard backup-rotation schedule (no longer than 90 days).
+
+## Browser extension
+
+This section describes the data practices of the **Polymux browser extension** — an optional Chrome extension that lets Polymux run browser tasks in your own browser instead of a server-hosted one. It applies only if you install the extension and pair it with your Polymux server.
+
+### What the extension accesses
+
+When you start a browser task with the extension enabled, the extension opens a dedicated tab and, **on that tab only**, performs the steps the task requires — navigating, reading the page, clicking, typing, and capturing screenshots. To do this it processes:
+
+- **Page content of the tab it controls for the task** — the page's text, accessibility structure, screenshots, and the tab's URL and title.
+- **A pairing token**, stored locally in your browser, used to reconnect the extension to your Polymux server without re-pairing.
+
+The extension acts **only on the tabs it opens for a Polymux task**. It does not read your browsing history, your other tabs, your bookmarks, or any page you have not directed a Polymux task to operate on.
+
+### How the extension uses and shares this data
+
+Page content and task results are transmitted over an encrypted connection to **the Polymux server you have paired with** — your own backend — so that the task can run and its progress can be shown in your Polymux session. This data is sent only to that paired server; the extension does **not** send it to any third party, and does **not** sell or transfer it for advertising or any purpose unrelated to performing the tasks you request.
+
+The pairing token is stored only in your browser's local extension storage and is used solely to authenticate the connection to your server. You can disconnect at any time from the extension's popup — which clears the stored token — or by removing the extension.
 
 ## How we use information
 

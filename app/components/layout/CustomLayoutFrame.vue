@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
       v-else
       ref="iframeEl"
       :key="data?.updated_at"
-      :title="data?.tab_label ?? 'Custom layout'"
+      :title="data?.tab_label ?? t('layout.customLayoutFallback')"
       :srcdoc="srcdoc"
       sandbox="allow-scripts"
       class="min-h-0 min-w-0 flex-1 border-0 bg-white"

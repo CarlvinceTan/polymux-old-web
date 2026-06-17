@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n()
 const user = useSupabaseUser()
 const { email, loading, error, isSubscribed, showSuccessMessage, subscribe, reset } = useMailingList()
 const { settings, saving: settingsSaving, saveSettings } = useUserSettings()
@@ -32,14 +33,13 @@ async function toggleBlogSubscription() {
     >
       <div :class="user ? 'min-w-0 flex-1 text-left' : ''">
         <h2 class="font-serif text-2xl tracking-tight text-neutral-950">
-          Never miss a post
+          {{ t('blog.newsletterHeading') }}
         </h2>
         <p
           class="mt-2 text-sm leading-relaxed text-neutral-600"
           :class="user ? 'max-w-lg' : 'mx-auto max-w-md'"
         >
-          Occasional email with releases and deep dives. No spam &mdash; unsubscribe
-          anytime.
+          {{ t('blog.newsletterBody') }}
         </p>
         <p
           v-if="error"
@@ -55,7 +55,7 @@ async function toggleBlogSubscription() {
           :class="user ? 'max-w-lg' : 'mx-auto max-w-md'"
           role="status"
         >
-          Check your email to verify your subscription
+          {{ t('blog.verifyEmailPrompt') }}
         </p>
       </div>
 
@@ -65,14 +65,14 @@ async function toggleBlogSubscription() {
         class="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row sm:items-stretch"
         @submit="handleSubmit"
       >
-        <label class="sr-only" for="blog-newsletter-email">Email</label>
+        <label class="sr-only" for="blog-newsletter-email">{{ t('blog.emailLabel') }}</label>
         <input
           id="blog-newsletter-email"
           v-model="email"
           type="email"
           name="email"
           autocomplete="email"
-          placeholder="youremail@example.com"
+          :placeholder="t('contact.emailPlaceholder')"
           :disabled="loading || isSubscribed"
           class="min-h-11 w-full flex-1 rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none ring-neutral-950 transition-[box-shadow,border-color] focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/10 disabled:bg-neutral-100 disabled:opacity-60"
         >
@@ -88,7 +88,7 @@ async function toggleBlogSubscription() {
           <Icon v-if="loading" name="eos-icons:loading" />
           <Icon v-else-if="isSubscribed" name="heroicons:check-20-solid" />
           <span>
-            {{ loading ? 'Subscribing...' : isSubscribed ? 'Subscribed' : 'Subscribe' }}
+            {{ loading ? t('blog.subscribing') : isSubscribed ? t('blog.subscribed') : t('blog.subscribe') }}
           </span>
         </button>
       </form>
@@ -104,7 +104,7 @@ async function toggleBlogSubscription() {
           class="min-h-11 shrink-0 rounded-lg bg-neutral-950 px-8 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           @click="toggleBlogSubscription"
         >
-          {{ settingsSaving ? '...' : 'Subscribe' }}
+          {{ settingsSaving ? '...' : t('blog.subscribe') }}
         </button>
       </div>
     </div>

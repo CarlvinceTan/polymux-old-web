@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkspaceMember } from '~/composables/account/useWorkspaces'
+import { normalizePlanKey, type PlanUpgradePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
 import {
   browserAgentCapFromPlan,
   maxFileUploadBytesFromPlan,
@@ -11,7 +11,7 @@ import { weekStartUtc } from '~/utils/weekStartUtc'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 
@@ -31,13 +31,7 @@ const { cards: storageUsageCards, refreshDrive, driveConnectionBroken } = useSto
 const { isInstalled } = useMarketplace()
 const { resolvedOrder } = useStoragePreferences()
 
-type PlanKey = 'free' | 'pro' | 'max' | 'enterprise'
-
-const planKey = computed<PlanKey>(() => {
-  const raw = (currentWorkspace.value?.plan as string | undefined)?.toLowerCase().trim() ?? ''
-  if (raw === 'pro' || raw === 'max' || raw === 'enterprise' || raw === 'free') return raw
-  return 'free'
-})
+const planKey = computed(() => normalizePlanKey(currentWorkspace.value?.plan as string | undefined))
 const planSlug = computed(() => currentWorkspace.value?.plan ?? null)
 const planLabel = computed(() => planKey.value.charAt(0).toUpperCase() + planKey.value.slice(1))
 const showUpgrade = computed(() => planKey.value !== 'enterprise')
@@ -49,7 +43,7 @@ const workflowRunsCap = computed(() => workflowRunsMonthlyCapFromPlan(planSlug.v
 const browserAgentsCap = computed(() => browserAgentCapFromPlan(planSlug.value))
 const maxFileBytes = computed(() => maxFileUploadBytesFromPlan(planSlug.value))
 
-const PLAN_ACCENT: Record<PlanKey, string> = {
+const PLAN_ACCENT: Record<PlanUpgradePlanKey, string> = {
   free: 'bg-neutral-300',
   pro: 'bg-blue-400',
   max: 'bg-amber-400',
@@ -67,6 +61,68 @@ const canTransferOwnership = computed(() => myRole.value === 'owner')
 const canDeleteWorkspace = computed(() => myRole.value === 'owner')
 const isOnlyWorkspace = computed(() => workspaces.value.length <= 1)
 
+// ---- Subscription management (cancel / downgrade at period end) ----
+const {
+  status: subStatus,
+  actionLoading: subActionLoading,
+  error: subError,
+  fetchStatus: fetchSubStatus,
+  cancel: cancelSubscription,
+  downgrade: downgradeSubscription,
+  resume: resumeSubscription,
+} = useSubscription(currentWorkspaceId)
+
+const isPaidPlan = computed(() => planKey.value === 'pro' || planKey.value === 'max')
+const hasSubscription = computed(() => subStatus.value?.hasSubscription === true)
+const pendingCancel = computed(() => subStatus.value?.cancelAtPeriodEnd === true)
+const pendingDowngradePlan = computed(() => subStatus.value?.scheduledPlan ?? null)
+const hasPendingChange = computed(() => pendingCancel.value || !!pendingDowngradePlan.value)
+// Pro is the only paid tier below Max; Pro itself can only cancel (→ Free).
+const canDowngradeToPro = computed(() => planKey.value === 'max')
+const showPlanManagement = computed(() => canManageWorkspace.value && isPaidPlan.value && hasSubscription.value)
+
+const periodEndLabel = computed(() => {
+  const iso = subStatus.value?.currentPeriodEnd
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  try { return new Intl.DateTimeFormat(locale.value, { dateStyle: 'long' }).format(d) }
+  catch { return d.toISOString().slice(0, 10) }
+})
+
+function planLabelOf(plan?: string | null): string {
+  const p = (plan || 'free').toLowerCase()
+  return p.charAt(0).toUpperCase() + p.slice(1)
+}
+
+// Cancel / downgrade confirmation modal
+const cancelModalOpen = ref(false)
+const cancelModalMode = ref<'cancel' | 'downgrade'>('cancel')
+const cancelTargetPlan = ref('free')
+
+function openCancelModal() {
+  cancelModalMode.value = 'cancel'
+  cancelTargetPlan.value = 'free'
+  subError.value = ''
+  cancelModalOpen.value = true
+}
+function openDowngradeModal() {
+  cancelModalMode.value = 'downgrade'
+  cancelTargetPlan.value = 'pro'
+  subError.value = ''
+  cancelModalOpen.value = true
+}
+async function confirmPlanChange() {
+  const ok = cancelModalMode.value === 'cancel'
+    ? await cancelSubscription()
+    : await downgradeSubscription(cancelTargetPlan.value)
+  if (ok) cancelModalOpen.value = false
+}
+async function handleResume() {
+  subError.value = ''
+  await resumeSubscription()
+}
+
 const transferableMembers = computed(() =>
   members.value.filter(m => m.user_id !== user.value?.id),
 )
@@ -80,19 +136,12 @@ const transferDisplayMembers = computed(() => {
 const tokenUsedWeekly = ref<number | null>(null)
 const workflowRunsMonth = ref<number | null>(null)
 
-type RpcSupabase = {
-  rpc: (
-    name: string,
-    args: Record<string, string>,
-  ) => Promise<{ data: unknown, error: { message: string } | null }>
-}
-
 async function refreshUsageFromSupabase(wsId: string) {
   tokenUsedWeekly.value = null
   workflowRunsMonth.value = null
 
   const weekStart = weekStartUtc()
-  const sb = supabase as unknown as RpcSupabase
+  const sb = supabase as unknown as RpcCapable
 
   try {
     const { data: tok, error: eTok } = await sb.rpc('get_workspace_token_usage', {
@@ -217,6 +266,7 @@ function loadData() {
   refreshUsageFromSupabase(wsId)
   refreshDrive(driveConnectionBroken.value).catch(() => {})
   refreshLocalProbe()
+  fetchSubStatus().catch(() => {})
 }
 
 watch(isOpen, (open) => {
@@ -267,7 +317,7 @@ async function handleTransferOwnership() {
       user.value.id,
     )
     if (!result.ok) {
-      transferError.value = 'Failed to transfer ownership. Please try again.'
+      transferError.value = t('workspaceMenu.transferOwnershipFailed')
       return
     }
     isTransferOpen.value = false
@@ -299,7 +349,7 @@ async function handleDeleteWorkspace() {
   try {
     const result = await deleteWorkspace(currentWorkspace.value.id)
     if (!result.ok) {
-      deleteError.value = 'Failed to delete workspace. Please try again.'
+      deleteError.value = t('workspaceMenu.deleteWorkspaceFailed')
       return
     }
     isDeleteOpen.value = false
@@ -341,9 +391,6 @@ async function saveName() {
   }
 }
 
-const AVATAR_MAX_INPUT_BYTES = 1 * 1024 * 1024
-const AVATAR_OUTPUT_SIZE = 256
-const AVATAR_OUTPUT_QUALITY = 0.85
 const avatarInput = ref<HTMLInputElement | null>(null)
 const isAvatarSaving = ref(false)
 const workspaceInitials = computed(() =>
@@ -353,34 +400,6 @@ const workspaceInitials = computed(() =>
 function triggerAvatarPicker() {
   if (!canManageWorkspace.value || isAvatarSaving.value) return
   avatarInput.value?.click()
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode-failed')) }
-    img.src = url
-  })
-}
-
-function cropImageToDataURL(img: HTMLImageElement): string {
-  const side = Math.min(img.naturalWidth, img.naturalHeight)
-  const sx = Math.floor((img.naturalWidth - side) / 2)
-  const sy = Math.floor((img.naturalHeight - side) / 2)
-  const canvas = document.createElement('canvas')
-  canvas.width = AVATAR_OUTPUT_SIZE
-  canvas.height = AVATAR_OUTPUT_SIZE
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('canvas-unsupported')
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_OUTPUT_SIZE, AVATAR_OUTPUT_SIZE)
-  let dataUrl = canvas.toDataURL('image/webp', AVATAR_OUTPUT_QUALITY)
-  if (!dataUrl.startsWith('data:image/webp')) {
-    dataUrl = canvas.toDataURL('image/jpeg', AVATAR_OUTPUT_QUALITY)
-  }
-  return dataUrl
 }
 
 async function handleAvatarSelected(event: Event) {
@@ -432,17 +451,6 @@ async function removeAvatar() {
   finally {
     isAvatarSaving.value = false
   }
-}
-
-function memberDisplayName(m: WorkspaceMember) {
-  return m.display_name || m.email || m.user_id.substring(0, 8) + '…'
-}
-function memberEmail(m: WorkspaceMember) {
-  return m.email || '—'
-}
-function memberInitials(m: WorkspaceMember) {
-  const name = m.display_name || m.email || m.user_id
-  return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -774,6 +782,80 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       </p>
                     </div>
                   </div>
+
+                  <!-- Plan management: cancel / downgrade at period end -->
+                  <div v-if="showPlanManagement" class="mt-5 border-t border-neutral-100 pt-4">
+                    <!-- Pending scheduled change → banner + resume -->
+                    <div
+                      v-if="hasPendingChange"
+                      class="flex items-start gap-2.5 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200/60"
+                    >
+                      <svg
+                        class="mt-0.5 size-4 shrink-0 text-amber-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                      </svg>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-xs leading-relaxed text-amber-900">
+                          <template v-if="pendingCancel">
+                            {{ periodEndLabel
+                              ? t('workspaceMenu.scheduledCancelBanner', { plan: planLabel, date: periodEndLabel })
+                              : t('workspaceMenu.scheduledCancelBannerNoDate', { plan: planLabel }) }}
+                          </template>
+                          <template v-else>
+                            {{ periodEndLabel
+                              ? t('workspaceMenu.scheduledDowngradeBanner', { plan: planLabel, target: planLabelOf(pendingDowngradePlan), date: periodEndLabel })
+                              : t('workspaceMenu.scheduledDowngradeBannerNoDate', { plan: planLabel, target: planLabelOf(pendingDowngradePlan) }) }}
+                          </template>
+                        </p>
+                        <div class="mt-2 flex items-center gap-3">
+                          <button
+                            type="button"
+                            class="rounded-md bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                            :disabled="subActionLoading"
+                            @click="handleResume"
+                          >
+                            {{ subActionLoading ? t('workspaceMenu.keeping') : t('workspaceMenu.keepPlan') }}
+                          </button>
+                          <p v-if="subError" class="text-[11px] text-red-600">{{ subError }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- No pending change → manage actions -->
+                    <div v-else class="flex items-start justify-between gap-4">
+                      <div class="min-w-0 flex-1">
+                        <p class="text-xs font-medium text-neutral-950">{{ t('workspaceMenu.managePlan') }}</p>
+                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.managePlanDesc') }}</p>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-2 self-center">
+                        <button
+                          v-if="canDowngradeToPro"
+                          type="button"
+                          class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                          @click="openDowngradeModal"
+                        >
+                          {{ t('workspaceMenu.downgradeToPro') }}
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                          @click="openCancelModal"
+                        >
+                          {{ t('workspaceMenu.cancelPlan') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </section>
 
                 <!-- BYOK / LLM Keys -->
@@ -851,7 +933,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             aria-modal="true"
             @click.stop
           >
-            <div class="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
+            <div class="flex items-center justify-between px-5 py-3.5">
               <div>
                 <h3 class="text-sm font-semibold text-neutral-950">
                   {{ transferStep === 'select' ? t('workspaceMenu.transferOwnership') : t('workspaceMenu.confirmTransfer') }}
@@ -926,7 +1008,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               </div>
             </div>
 
-            <div class="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex items-center justify-between gap-2 px-5 py-3.5">
               <button
                 v-if="transferStep === 'confirm'"
                 type="button"
@@ -997,7 +1079,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
             aria-modal="true"
             @click.stop
           >
-            <div class="flex items-start justify-between border-b border-neutral-100 px-5 py-3.5">
+            <div class="flex items-start justify-between px-5 py-3.5">
               <div>
                 <h3 class="text-sm font-semibold text-neutral-950">
                   {{ isOnlyWorkspace ? t('workspaceMenu.cannotDelete') : t('workspaceMenu.deleteWorkspace') }}
@@ -1034,7 +1116,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex justify-end gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-50"
@@ -1058,4 +1140,16 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Cancel / downgrade confirmation (teleports itself; stacks above settings) -->
+  <WorkspaceCancelPlanModal
+    v-model:open="cancelModalOpen"
+    :mode="cancelModalMode"
+    :current-plan="planKey"
+    :target-plan="cancelTargetPlan"
+    :period-end="subStatus?.currentPeriodEnd ?? null"
+    :busy="subActionLoading"
+    :error-message="subError"
+    @confirm="confirmPlanChange"
+  />
 </template>

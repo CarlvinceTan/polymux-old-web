@@ -39,11 +39,12 @@ Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these
 
 ## Internationalisation
 
-* When making UI changes that add, modify, or remove user-facing text, always update all locale files under `i18n/locales/` — not just `en.json`.
-* After editing any locale JSON, verify the change across all 8 locale files: `en`, `ko`, `zh`, `ja`, `de`, `fr`, `es`, `pt`.
+* All user-facing UI text must go through i18n (`useI18n()` + `t('…')`) and exist in every locale file under `i18n/locales/` (`en`, `ko`, `zh`, `ja`, `de`, `fr`, `es`, `pt`).
+* **Admin pages are English-only.** Routes under `/admin` (layout `admin`, `app/pages/admin/*`) are maintainer tools — do not add i18n keys or translations for them.
+* After editing any locale JSON, verify the change across all 8 locale files — not just `en.json`. Run `node scripts/i18n-sync-from-en.mjs` to fill missing keys from English, then add real translations in `i18n/patches/` as needed.
 * The `@` symbol is a special character in vue-i18n (linked messages). Always escape it as `{'@'}` in locale JSON values. Failure to do so causes a build error (`Invalid linked format`, error code 10).
   * Example: `"usernamePlaceholder": "you{'@'}example.com"` instead of `"usernamePlaceholder": "you@example.com"`
-* New i18n keys follow the pattern of the nearest existing keys in the `settings` object (e.g. `settings.responseCompletions`).
+* New i18n keys follow the pattern of the nearest existing keys in the same namespace (e.g. `settings.responseCompletions`, `workspaceMenu.manageMembers`).
 
 ## Refactoring & Hygiene
 

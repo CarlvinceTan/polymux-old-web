@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { UpgradePlanPayload, UpgradePlanReason } from '~/types/upgradePlan'
-import type { PlanUpgradePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
+import { normalizePlanKey, type PlanUpgradePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
 import { useAppToast } from '~/composables/ui/useAppToast'
 import { useMeFeatures } from '~/composables/account/useMeFeatures'
 
@@ -77,10 +77,7 @@ export function promptUpgrade(
 }
 
 export function suggestedUpgradePlan(currentPlan?: string | null): PlanUpgradePlanKey | null {
-  const raw = (currentPlan ?? 'free').toLowerCase().trim()
-  const key: PlanUpgradePlanKey =
-    raw === 'pro' || raw === 'max' || raw === 'enterprise' || raw === 'free' ? raw : 'free'
-  return NEXT_PLAN[key]
+  return NEXT_PLAN[normalizePlanKey(currentPlan)]
 }
 
 export function upgradePlanReasonKey(reason: UpgradePlanReason): string {

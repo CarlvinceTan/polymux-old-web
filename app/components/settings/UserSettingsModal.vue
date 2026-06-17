@@ -96,7 +96,6 @@ function changeLocale(code: string) {
   void setLocale(code as typeof locale.value)
 }
 
-
 async function saveBlogSubscription(value: boolean) {
   try {
     await useUserSettings().saveSettings({ blog_newsletter_subscribed: value })
@@ -146,6 +145,30 @@ async function saveVoiceAutoShutoff() {
 
 const geo = useGeolocation({ active: false })
 
+const locationDescription = computed(() => {
+  switch (geo.permissionState.value) {
+    case 'granted': return t('settings.locationGranted')
+    case 'denied': return t('settings.locationDenied')
+    case 'unsupported': return t('settings.locationUnsupported')
+    default: return t('settings.locationPrompt')
+  }
+})
+
+/* ---- Navigation ---- */
+type SettingsTab = 'general' | 'appearance' | 'account' | 'notifications' | 'data' | 'privacy'
+
+const activeTab = ref<SettingsTab>('general')
+
+const tabs = computed(() => [
+  { key: 'general' as const, label: t('settings.general'), icon: 'i-heroicons-cog-6-tooth' },
+  { key: 'appearance' as const, label: t('settings.appearance'), icon: 'i-heroicons-swatch' },
+  { key: 'notifications' as const, label: t('settings.notifications'), icon: 'i-heroicons-bell' },
+  { key: 'data' as const, label: t('settings.dataControls'), icon: 'i-heroicons-circle-stack' },
+  { key: 'account' as const, label: t('settings.account'), icon: 'i-heroicons-user-circle' },
+  { key: 'privacy' as const, label: t('settings.privacyLegal'), icon: 'i-heroicons-lock-closed' },
+])
+
+/* ---- Subpages ---- */
 type SettingsSubpage = 'payment' | 'delete-account'
 
 const activeSubpage = ref<SettingsSubpage | null>(null)
@@ -165,6 +188,12 @@ function resetScroll() {
   nextTick(() => {
     if (scrollContainer.value) scrollContainer.value.scrollTop = 0
   })
+}
+
+function selectTab(tab: SettingsTab) {
+  if (activeSubpage.value) closeSubpage()
+  activeTab.value = tab
+  resetScroll()
 }
 
 function closeSubpage() {
@@ -229,8 +258,14 @@ const subpageTitle = computed(() => {
   return t('settings.deleteAccountTitle')
 })
 
+const paneTitle = computed(() =>
+  activeSubpage.value ? subpageTitle.value : t('settings.title'),
+)
+
 function closeModal() {
   closeSubpage()
+  editingProfile.value = false
+  activeTab.value = 'general'
   isOpen.value = false
 }
 
@@ -271,48 +306,67 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
           >
             <div
               v-if="isOpen"
-              class="relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
-              style="max-height: 90svh"
+              class="modal-surface relative flex w-full max-w-[43rem] flex-col overflow-hidden rounded-2xl bg-white sm:h-[30rem]"
+              style="max-height: 88svh"
               role="dialog"
               aria-modal="true"
               :aria-label="t('settings.title')"
               @click.stop
             >
-              <button
-                type="button"
-                class="absolute top-4 right-4 z-10 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
-                @click="closeModal"
-              >
-                <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
-              </button>
-              <button
-                v-if="activeSubpage"
-                type="button"
-                class="absolute top-4 left-4 z-10 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
-                @click="closeSubpage"
-              >
-                <UIcon name="i-heroicons-arrow-left-20-solid" class="size-4" />
-              </button>
+              <!-- ===== Top bar: title + close ===== -->
+              <header class="flex shrink-0 items-center justify-between gap-3 px-6 pb-4 pt-5">
+                <div class="flex min-w-0 items-center gap-2">
+                  <button
+                    v-if="activeSubpage"
+                    type="button"
+                    class="-ml-1.5 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
+                    @click="closeSubpage"
+                  >
+                    <UIcon name="i-heroicons-arrow-left-20-solid" class="size-5" />
+                  </button>
+                  <h2 class="truncate text-[1.375rem] font-semibold tracking-tight text-neutral-950">{{ paneTitle }}</h2>
+                </div>
+                <button
+                  type="button"
+                  class="rounded-md p-1 text-neutral-400 transition-colors hover:text-neutral-700"
+                  :aria-label="t('common.close')"
+                  @click="closeModal"
+                >
+                  <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
+                </button>
+              </header>
 
-              <div class="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-white to-transparent" />
-              <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-white to-transparent" />
+              <!-- ===== Tab bar (horizontal; hidden inside a subpage) ===== -->
+              <nav v-if="!activeSubpage" class="scrollbar-hide flex shrink-0 gap-1 overflow-x-auto border-b border-neutral-200 px-3">
+                <button
+                  v-for="tab in tabs"
+                  :key="tab.key"
+                  type="button"
+                  class="-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm transition-colors"
+                  :class="activeTab === tab.key
+                    ? 'border-neutral-950 font-medium text-neutral-950'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900'"
+                  @click="selectTab(tab.key)"
+                >
+                  <UIcon :name="tab.icon" class="size-[18px] shrink-0" :class="activeTab === tab.key ? 'text-neutral-950' : 'text-neutral-500'" />
+                  {{ tab.label }}
+                </button>
+              </nav>
+              <div v-else class="mx-6 shrink-0 border-t border-neutral-200/80" />
 
-              <!-- Scrollable body -->
-              <div ref="scrollContainer" class="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
-                <!-- Subpages -->
-                <div v-if="activeSubpage" class="px-5 pt-16 pb-5">
-                  <!-- Delete account -->
+              <div ref="scrollContainer" class="scrollbar-hide min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+                  <!-- ===== Subpages ===== -->
                   <template v-if="activeSubpage === 'delete-account'">
-                    <div class="flex flex-col gap-6 pb-2 text-left">
-                      <p class="text-[1.0625rem] leading-relaxed text-neutral-600">
+                    <div class="flex flex-col gap-6 pt-5 text-left">
+                      <p class="text-body-lg leading-relaxed text-neutral-600">
                         {{ t('settings.deleteAccountDesc') }}
                       </p>
                       <fieldset class="space-y-2">
                         <label
                           v-for="reason in deleteReasons"
                           :key="reason.value"
-                          class="group flex cursor-pointer items-center gap-3 rounded-lg bg-white px-4 py-3 ghost-panel transition-all"
-                          :class="deleteSelectedReason === reason.value ? 'ring-1 ring-neutral-950' : 'hover:bg-neutral-50'"
+                          class="group flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
+                          :class="deleteSelectedReason === reason.value ? 'border-neutral-950 bg-neutral-50' : 'border-neutral-200 hover:bg-neutral-50'"
                           @click="deleteSelectedReason = reason.value"
                         >
                           <span
@@ -324,15 +378,13 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                           <span class="text-body-md text-neutral-950">{{ reason.label }}</span>
                         </label>
                       </fieldset>
-                      <div>
-                        <textarea
-                          v-model="deleteDetail"
-                          name="delete-detail"
-                          :placeholder="t('settings.deleteDetailPlaceholder')"
-                          rows="3"
-                          class="w-full resize-none rounded-lg border border-neutral-200 bg-white px-4 py-3 text-body-md text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-                        />
-                      </div>
+                      <textarea
+                        v-model="deleteDetail"
+                        name="delete-detail"
+                        :placeholder="t('settings.deleteDetailPlaceholder')"
+                        rows="3"
+                        class="w-full resize-none rounded-lg border border-neutral-200 bg-white px-4 py-3 text-body-md text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                      />
                       <div class="rounded-lg border border-error-200 bg-error-50 px-4 py-3">
                         <p class="text-label-md leading-relaxed text-error-700">
                           {{ t('settings.deleteWarning') }}
@@ -350,45 +402,116 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                     </div>
                   </template>
 
-                  <!-- Payment placeholder -->
-                  <p v-else class="pb-2 text-left text-[1.0625rem] leading-relaxed text-neutral-600">
-                    {{ t('settings.paymentPlaceholder') }}
-                  </p>
-                </div>
+                  <template v-else-if="activeSubpage === 'payment'">
+                    <p class="pt-5 text-body-lg leading-relaxed text-neutral-600">
+                      {{ t('settings.paymentPlaceholder') }}
+                    </p>
+                  </template>
 
-                <!-- Main settings content -->
-                <div v-else class="flex flex-col gap-6 px-5 pt-16 pb-5">
-                  <!-- Profile -->
-                  <section class="flex flex-col items-center gap-3 py-2">
-                      <img
-                        v-if="avatarUrl && !avatarError"
-                        :src="avatarUrl"
-                        :alt="displayName"
-                        referrerpolicy="no-referrer"
-                        class="size-20 rounded-full object-cover ring-1 ring-neutral-200/80"
-                        @error="avatarError = true"
-                      >
-                      <div
-                        v-else
-                        class="btn-gradient flex size-20 items-center justify-center rounded-full text-xl font-bold text-white ring-1 ring-neutral-200/80"
-                      >
-                        {{ initials }}
-                      </div>
+                  <!-- ===== General ===== -->
+                  <template v-else-if="activeTab === 'general'">
+                    <SettingsSection>
+                      <SettingsSectionRow>
+                        <template #label>{{ t('settings.voiceAutoShutoff') }}</template>
+                        <template #description>{{ t('settings.voiceAutoShutoffHint') }}</template>
+                        <template #trailing>
+                          <input
+                            v-model.number="voiceAutoShutoffDraft"
+                            name="voice-auto-shutoff"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            :disabled="blogSubscriptionSaving"
+                            class="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-center text-body-md text-neutral-950 outline-none transition [appearance:textfield] focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            @blur="saveVoiceAutoShutoff"
+                            @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+                          >
+                        </template>
+                      </SettingsSectionRow>
+                      <SettingsSectionRow clickable @click="openImportModal(); isOpen = false">
+                        <template #label>{{ t('settings.importPasswords') }}</template>
+                        <template #description>{{ t('settings.importPasswordsHint') }}</template>
+                        <template #trailing>
+                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" />
+                        </template>
+                      </SettingsSectionRow>
+                    </SettingsSection>
+                  </template>
 
-                      <!-- Edit mode -->
-                      <template v-if="editingProfile">
-                        <div class="flex w-full max-w-xs flex-col gap-3">
+                  <!-- ===== Appearance ===== -->
+                  <template v-else-if="activeTab === 'appearance'">
+                    <SettingsSection>
+                      <SettingsDropdown
+                        :label="t('settings.language')"
+                        :options="languageOptions"
+                        :model-value="locale"
+                        :visible-count="5"
+                        @update:model-value="changeLocale($event)"
+                      />
+                    </SettingsSection>
+                  </template>
+
+                  <!-- ===== Data controls ===== -->
+                  <template v-else-if="activeTab === 'data'">
+                    <SettingsSection>
+                      <SettingsSectionRow>
+                        <template #label>{{ t('settings.locationSharing') }}</template>
+                        <template #description>{{ locationDescription }}</template>
+                        <template #trailing>
+                          <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
+                        </template>
+                      </SettingsSectionRow>
+                    </SettingsSection>
+                  </template>
+
+                  <!-- ===== Account ===== -->
+                  <template v-else-if="activeTab === 'account'">
+                    <SettingsSection>
+                      <!-- Profile -->
+                      <div class="py-4 pr-3">
+                        <div class="flex items-center gap-4">
+                          <img
+                            v-if="avatarUrl && !avatarError"
+                            :src="avatarUrl"
+                            :alt="displayName"
+                            referrerpolicy="no-referrer"
+                            class="size-12 shrink-0 rounded-full object-cover ring-1 ring-neutral-200/80"
+                            @error="avatarError = true"
+                          >
+                          <div
+                            v-else
+                            class="btn-gradient flex size-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white ring-1 ring-neutral-200/80"
+                          >
+                            {{ initials }}
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="truncate text-[0.9375rem] font-semibold text-neutral-950">{{ displayName }}</div>
+                            <div v-if="email" class="truncate text-sm text-neutral-500">{{ email }}</div>
+                          </div>
+                          <button
+                            v-if="!editingProfile"
+                            type="button"
+                            class="shrink-0 rounded-lg bg-neutral-950 px-4 py-1.5 text-sm font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                            @click="startEditProfile"
+                          >
+                            {{ t('settings.editProfile') }}
+                          </button>
+                        </div>
+
+                        <!-- Edit mode -->
+                        <div v-if="editingProfile" class="mt-4 flex flex-col gap-3 rounded-xl bg-neutral-50 p-4 ring-1 ring-neutral-200/70">
                           <div>
                             <label class="mb-1 block text-label-md font-medium text-neutral-600">{{ t('settings.displayName') }}</label>
                             <input v-model="editName" name="display-name" autocomplete="name" type="text" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400">
                           </div>
                           <div>
                             <label class="mb-1 block text-label-md font-medium text-neutral-600">{{ t('common.email') }}</label>
-                            <input v-model="editEmail" name="email" autocomplete="email" type="email" :disabled="!isEmailAuth" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400">
+                            <input v-model="editEmail" name="email" autocomplete="email" type="email" :disabled="!isEmailAuth" class="w-full rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-body-md text-neutral-950 outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400">
                             <p v-if="!isEmailAuth" class="mt-1 text-label-md text-neutral-400">{{ t('settings.emailManagedByProvider') }}</p>
                           </div>
                           <p v-if="profileError" class="text-label-md text-error-600">{{ profileError }}</p>
-                          <div class="mt-1 flex items-center justify-center gap-2">
+                          <div class="flex items-center gap-2">
                             <button type="button" :disabled="profileSaving" class="rounded-md bg-neutral-950 px-4 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="saveProfile">
                               {{ profileSaving ? t('settings.saving') : t('common.save') }}
                             </button>
@@ -397,155 +520,73 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                             </button>
                           </div>
                         </div>
-                      </template>
+                      </div>
 
-                      <!-- Display mode -->
-                      <template v-else>
-                        <div class="space-y-0.5 text-center">
-                          <h2 class="text-lg font-semibold text-neutral-950">{{ displayName }}</h2>
-                          <p v-if="email" class="text-body-md text-neutral-500">{{ email }}</p>
-                        </div>
-                        <button type="button" class="mt-1 rounded-md bg-neutral-950 px-5 py-1.5 text-body-md font-normal text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-neutral-950" @click="startEditProfile">
-                          {{ t('settings.editProfile') }}
-                        </button>
-                      </template>
-                    </section>
+                      <!-- Billing -->
+                      <SettingsSectionRow clickable @click="openPayment">
+                        <template #label>{{ t('settings.payment') }}</template>
+                        <template #trailing>
+                          <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" />
+                        </template>
+                      </SettingsSectionRow>
 
-                  <!-- Account -->
-                  <SettingsSection :title="t('settings.account')">
-                    <SettingsSectionRow clickable @click="openPayment">
-                      <template #icon>
-                        <UIcon name="i-heroicons-credit-card-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                      </template>
-                      <template #label>{{ t('settings.payment') }}</template>
-                      <template #trailing>
-                        <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                      </template>
-                    </SettingsSectionRow>
-                  </SettingsSection>
+                      <!-- Account actions -->
+                      <button type="button" class="group flex w-full items-center gap-2.5 py-4 text-left text-[0.9375rem] font-medium text-neutral-800 transition-colors hover:text-error-700" @click="openDeleteAccount">
+                        <UIcon name="i-heroicons-trash" class="size-[18px] shrink-0 text-neutral-400 transition-colors group-hover:text-error-700" />
+                        {{ t('settings.deleteAccount') }}
+                      </button>
+                      <button type="button" class="group flex w-full items-center gap-2.5 py-4 text-left text-[0.9375rem] font-medium text-error-700 transition-colors hover:text-error-800" @click="onLogOut">
+                        <UIcon name="i-heroicons-arrow-right-start-on-rectangle" class="size-[18px] shrink-0" />
+                        {{ t('common.signOut') }}
+                      </button>
+                    </SettingsSection>
+                  </template>
 
-                  <!-- General -->
-                  <SettingsSection :title="t('settings.general')">
-                    <SettingsSectionRow clickable @click="openImportModal(); isOpen = false">
-                      <template #icon>
-                        <UIcon name="i-heroicons-arrow-down-tray-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                      </template>
-                      <template #label>{{ t('settings.importPasswords') }}</template>
-                      <template #trailing>
-                        <UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" />
-                      </template>
-                    </SettingsSectionRow>
-                    <SettingsDropdown
-                      icon="i-heroicons-language-20-solid"
-                      :label="t('settings.language')"
-                      :options="languageOptions"
-                      :model-value="locale"
-                      :visible-count="5"
-                      @update:model-value="changeLocale($event)"
-                    />
-                    <SettingsSectionRow>
-                      <template #icon>
-                        <UIcon name="i-heroicons-map-pin-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                      </template>
-                      <template #label>{{ t('settings.locationSharing') }}</template>
-                      <template #trailing>
-                        <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
-                      </template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow>
-                      <template #icon>
-                        <UIcon name="i-heroicons-microphone-20-solid" class="size-4 shrink-0 text-neutral-500" />
-                      </template>
-                      <template #label>{{ t('settings.voiceAutoShutoff') }}</template>
-                      <template #trailing>
-                        <input
-                          v-model.number="voiceAutoShutoffDraft"
-                          name="voice-auto-shutoff"
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputmode="numeric"
-                          :disabled="blogSubscriptionSaving"
-                          class="w-[calc(7ch+1.375rem)] rounded-md border border-neutral-200 bg-white px-2 py-1 text-center text-body-md text-neutral-950 outline-none transition [appearance:textfield] focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          @blur="saveVoiceAutoShutoff"
-                          @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-                        >
-                      </template>
-                    </SettingsSectionRow>
-                    <!--
-                      "Display cursor" toggle (settings.showCursor / settings.showCursorHint) is
-                      intentionally hidden until midas reaches full driver parity with playwright
-                      and is the production default. Cursor positions only stream when the runtime
-                      is *browser.MidasAdapter (see polymux/cmd/api/main.go); shipping the toggle
-                      while users are still on playwright/vbrowser/extension-mode would surface
-                      a setting that does nothing for most accounts.
+                  <!-- ===== Notifications ===== -->
+                  <template v-else-if="activeTab === 'notifications'">
+                    <SettingsSection>
+                      <SettingsSectionRow>
+                        <template #label>{{ t('settings.allNotifications') }}</template>
+                        <template #description>{{ t('settings.allNotificationsHint') }}</template>
+                        <template #trailing>
+                          <SettingsToggle
+                            :model-value="userSettings.all_notifications_enabled"
+                            :disabled="blogSubscriptionSaving"
+                            @update:model-value="saveAllNotifications"
+                          />
+                        </template>
+                      </SettingsSectionRow>
+                      <SettingsSectionRow>
+                        <template #label>{{ t('settings.blogNewsletter') }}</template>
+                        <template #trailing>
+                          <SettingsToggle
+                            :model-value="userSettings.blog_newsletter_subscribed && userSettings.all_notifications_enabled"
+                            :disabled="blogSubscriptionSaving || !userSettings.all_notifications_enabled"
+                            @update:model-value="saveBlogSubscription"
+                          />
+                        </template>
+                      </SettingsSectionRow>
+                    </SettingsSection>
+                  </template>
 
-                      Wiring is in place end-to-end: user_settings.show_cursor_overlay column,
-                      useUserSettings.show_cursor_overlay, /api/user-settings PATCH, the
-                      saveShowCursorOverlay handler in <script>, plus i18n keys in all 8 locales.
-                      Re-introduce the SettingsSectionRow + hint here once midas is the default.
-                    -->
-                  </SettingsSection>
-
-                  <!-- Notifications -->
-                  <SettingsSection :title="t('settings.notifications')">
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-bell-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.allNotifications') }}</template>
-                      <template #trailing>
-                        <SettingsToggle
-                          :model-value="userSettings.all_notifications_enabled"
-                          :disabled="blogSubscriptionSaving"
-                          @update:model-value="saveAllNotifications"
-                        />
-                      </template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow>
-                      <template #icon><UIcon name="i-heroicons-newspaper-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.blogNewsletter') }}</template>
-                      <template #trailing>
-                        <SettingsToggle
-                          :model-value="userSettings.blog_newsletter_subscribed && userSettings.all_notifications_enabled"
-                          :disabled="blogSubscriptionSaving || !userSettings.all_notifications_enabled"
-                          @update:model-value="saveBlogSubscription"
-                        />
-                      </template>
-                    </SettingsSectionRow>
-                  </SettingsSection>
-
-                  <!-- Other / Legal -->
-                  <SettingsSection :title="t('settings.other')">
-                    <SettingsSectionRow clickable @click="openLegalPage('/terms-of-service')">
-                      <template #icon><UIcon name="i-heroicons-document-text-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.termsAndConditions') }}</template>
-                      <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow clickable @click="openLegalPage('/privacy-policy')">
-                      <template #icon><UIcon name="i-heroicons-shield-check-20-solid" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.privacyPolicy') }}</template>
-                      <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
-                    </SettingsSectionRow>
-                    <SettingsSectionRow clickable @click="openLegalPage('/cookie-policy')">
-                      <template #icon><UIcon name="i-ph-cookie-fill" class="size-4 shrink-0 text-neutral-500" /></template>
-                      <template #label>{{ t('settings.cookiesPolicy') }}</template>
-                      <template #trailing><UIcon name="i-heroicons-chevron-right-20-solid" class="size-4 shrink-0 text-neutral-400" /></template>
-                    </SettingsSectionRow>
-                  </SettingsSection>
-
-                  <!-- Delete & Sign out -->
-                  <div class="flex flex-col gap-2.5">
-                    <button type="button" class="flex w-full items-center justify-center gap-2.5 rounded-lg bg-white px-4 py-2.5 text-body-md font-medium text-neutral-950 transition-colors ghost-panel hover:bg-neutral-50" @click="openDeleteAccount">
-                      {{ t('settings.deleteAccount') }}
-                    </button>
-                    <button type="button" class="flex w-full items-center justify-center gap-2.5 rounded-lg bg-white px-4 py-2.5 text-body-md font-medium text-error-700 transition-colors ghost-panel hover:bg-error-50" @click="onLogOut">
-                      <UIcon name="i-heroicons-arrow-right-start-on-rectangle-20-solid" class="size-4 shrink-0" />
-                      {{ t('common.signOut') }}
-                    </button>
-                  </div>
-
-                  <div class="h-2 w-full shrink-0" aria-hidden="true" />
+                  <!-- ===== Privacy & legal ===== -->
+                  <template v-else-if="activeTab === 'privacy'">
+                    <SettingsSection>
+                      <SettingsSectionRow clickable @click="openLegalPage('/terms-of-service')">
+                        <template #label>{{ t('settings.termsAndConditions') }}</template>
+                        <template #trailing><UIcon name="i-heroicons-arrow-up-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" /></template>
+                      </SettingsSectionRow>
+                      <SettingsSectionRow clickable @click="openLegalPage('/privacy-policy')">
+                        <template #label>{{ t('settings.privacyPolicy') }}</template>
+                        <template #trailing><UIcon name="i-heroicons-arrow-up-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" /></template>
+                      </SettingsSectionRow>
+                      <SettingsSectionRow clickable @click="openLegalPage('/cookie-policy')">
+                        <template #label>{{ t('settings.cookiesPolicy') }}</template>
+                        <template #trailing><UIcon name="i-heroicons-arrow-up-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" /></template>
+                      </SettingsSectionRow>
+                    </SettingsSection>
+                  </template>
                 </div>
-              </div>
             </div>
           </Transition>
         </div>
@@ -553,4 +594,3 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
     </Teleport>
   </ClientOnly>
 </template>
-

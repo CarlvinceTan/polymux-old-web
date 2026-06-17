@@ -5,6 +5,7 @@ import {
   upgradePlanReasonKey,
 } from '~/composables/account/useUpgradePlanModal'
 import type { PlanUpgradePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
+import { browserAgentCapFromPlan, maxMembersFromPlan } from '~/utils/planLimits'
 
 /**
  * Shared inner body for the upgrade prompt — the gradient icon, title, detail
@@ -48,25 +49,12 @@ const benefitLines = computed(() => {
   }
   const planName = t(`upgradePlan.planNames.${target}`)
   return [
-    t('upgradePlan.benefits.agents', { plan: planName, count: planAgentCap(target) }),
+    t('upgradePlan.benefits.agents', { plan: planName, count: browserAgentCapFromPlan(target) }),
     t('upgradePlan.benefits.tokens', { plan: planName, count: planTokenLabel(target) }),
     t('upgradePlan.benefits.cloud', { plan: planName, size: planCloudLabel(target) }),
     t('upgradePlan.benefits.members', { plan: planName, count: planMemberCap(target) }),
   ]
 })
-
-function planAgentCap(plan: PlanUpgradePlanKey): number {
-  switch (plan) {
-    case 'free':
-      return 2
-    case 'pro':
-      return 8
-    case 'max':
-      return 20
-    case 'enterprise':
-      return 50
-  }
-}
 
 function planTokenLabel(plan: PlanUpgradePlanKey): string {
   switch (plan) {
@@ -95,16 +83,7 @@ function planCloudLabel(plan: PlanUpgradePlanKey): string {
 }
 
 function planMemberCap(plan: PlanUpgradePlanKey): string {
-  switch (plan) {
-    case 'free':
-      return '3'
-    case 'pro':
-      return '10'
-    case 'max':
-      return '50'
-    case 'enterprise':
-      return t('upgradePlan.custom')
-  }
+  return plan === 'enterprise' ? t('upgradePlan.custom') : String(maxMembersFromPlan(plan))
 }
 </script>
 

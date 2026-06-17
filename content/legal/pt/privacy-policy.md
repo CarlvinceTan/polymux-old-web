@@ -1,4 +1,4 @@
-_Last updated: May 2, 2026_
+_Last updated: June 14, 2026_
 
 Esta Política de Privacidade descreve como o **Polymux** ("nós", "nos" ou "nosso") coleta, usa e compartilha informações quando você utiliza nossos sites, aplicativos e serviços relacionados (coletivamente, os **Serviços**). Ao usar os Serviços, você concorda com esta política.
 
@@ -80,6 +80,25 @@ Você pode remover os dados do usuário do Google do Polymux a qualquer momento:
 - **Solicitar a exclusão de dados específicos** entrando em contato conosco pela página de Contato. Responderemos em um prazo razoável e confirmaremos quando a exclusão estiver concluída.
 
 Cópias residuais em backups criptografados são eliminadas em nosso cronograma padrão de rotação de backups (no máximo 90 dias).
+
+## Extensão do navegador
+
+Esta seção descreve as práticas de dados da **extensão de navegador Polymux** — uma extensão opcional do Chrome que permite ao Polymux executar tarefas de navegador no seu próprio navegador em vez de um hospedado em servidor. Aplica-se apenas se você instalar a extensão e pareá-la com o seu servidor Polymux.
+
+### O que a extensão acessa
+
+Quando você inicia uma tarefa de navegador com a extensão ativada, a extensão abre uma aba dedicada e, **somente nessa aba**, executa as etapas exigidas pela tarefa — navegar, ler a página, clicar, digitar e capturar capturas de tela. Para isso, ela processa:
+
+- **O conteúdo da página da aba que controla para a tarefa** — o texto da página, a estrutura de acessibilidade, capturas de tela, e a URL e o título da aba.
+- **Um token de pareamento**, armazenado localmente no seu navegador, usado para reconectar a extensão ao seu servidor Polymux sem novo pareamento.
+
+A extensão atua **somente nas abas que abre para uma tarefa Polymux**. Ela não lê seu histórico de navegação, suas outras abas, seus favoritos nem qualquer página em que você não tenha direcionado uma tarefa Polymux.
+
+### Como a extensão usa e compartilha esses dados
+
+O conteúdo da página e os resultados da tarefa são transmitidos por uma conexão criptografada ao **servidor Polymux com o qual você pareou** — seu próprio backend — para que a tarefa possa ser executada e seu progresso exibido na sua sessão Polymux. Esses dados são enviados apenas a esse servidor pareado; a extensão **não** os envia a terceiros e **não** os vende nem transfere para publicidade ou qualquer finalidade não relacionada à execução das tarefas que você solicita.
+
+O token de pareamento é armazenado apenas no armazenamento local da extensão no seu navegador e é usado exclusivamente para autenticar a conexão com o seu servidor. Você pode desconectar a qualquer momento pelo popup da extensão — o que limpa o token armazenado — ou removendo a extensão.
 
 ## Como usamos as informações
 

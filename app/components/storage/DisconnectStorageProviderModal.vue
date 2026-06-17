@@ -188,7 +188,7 @@ onUnmounted(() => {
           >
             <div
               v-if="open && provider"
-              class="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
+              class="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white modal-surface"
               role="dialog"
               aria-modal="true"
               :aria-label="t('storage.disconnect.title', { provider: providerLabel[provider] })"
@@ -219,7 +219,7 @@ onUnmounted(() => {
               </header>
 
               <!-- Body -->
-              <div class="border-t border-neutral-100 px-6 py-5">
+              <div class="px-6 pb-5 pt-1">
                 <!-- Phase: checking file count -->
                 <div v-if="phase === 'checking'" class="flex items-center gap-3 text-body-md text-neutral-500">
                   <UIcon name="i-heroicons-arrow-path-20-solid" class="size-4 animate-spin" />
@@ -340,7 +340,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Footer -->
-              <div class="flex items-center justify-end gap-2 border-t border-neutral-100 px-6 py-3.5">
+              <div class="flex items-center justify-end gap-2 px-6 py-3.5">
                 <button
                   type="button"
                   class="rounded-lg bg-white px-4 py-2 text-body-md font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-50"

@@ -26,9 +26,9 @@ const workspaceId = computed(() => props.workspaceId)
 const { keys, loading, error, fetchKeys, saveKey, deleteKey } = useWorkspaceLLMKeys(workspaceId)
 
 const providerOptions = computed(() => [
-  { value: 'anthropic' as const, label: t('llmKeys.providers.anthropic'), hint: 'sk-ant-…', baseHint: 'https://api.anthropic.com (default)' },
-  { value: 'openai' as const, label: t('llmKeys.providers.openai'), hint: 'sk-…', baseHint: 'https://api.openai.com/v1 (default)' },
-  { value: 'gemini' as const, label: t('llmKeys.providers.gemini'), hint: 'AIza…', baseHint: 'https://generativelanguage.googleapis.com (default)' },
+  { value: 'anthropic' as const, label: t('llmKeys.providers.anthropic'), hint: t('llmKeys.keyFormatHints.anthropic'), baseHint: t('llmKeys.baseUrlDefaults.anthropic') },
+  { value: 'openai' as const, label: t('llmKeys.providers.openai'), hint: t('llmKeys.keyFormatHints.openai'), baseHint: t('llmKeys.baseUrlDefaults.openai') },
+  { value: 'gemini' as const, label: t('llmKeys.providers.gemini'), hint: t('llmKeys.keyFormatHints.gemini'), baseHint: t('llmKeys.baseUrlDefaults.gemini') },
 ])
 
 const providerLabel = (p: WorkspaceLLMKey['provider']) =>

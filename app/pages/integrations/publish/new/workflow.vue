@@ -98,7 +98,7 @@ async function onSubmit() {
   catch (err) {
     const message = (err as { statusMessage?: string })?.statusMessage
       ?? (err as Error)?.message
-      ?? 'Publish failed'
+      ?? t('integrations.publishFailed')
     toast.show(message, 'error')
   }
   finally {

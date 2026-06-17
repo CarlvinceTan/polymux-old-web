@@ -1,4 +1,4 @@
-_Last updated: May 2, 2026_
+_Last updated: June 14, 2026_
 
 Cette Politique de confidentialité décrit comment **Polymux** (« nous », « notre » ou « nos ») collecte, utilise et partage des informations lorsque vous utilisez nos sites web, applications et services connexes (collectivement, les **Services**). En utilisant les Services, vous acceptez cette politique.
 
@@ -80,6 +80,25 @@ Vous pouvez supprimer les données utilisateur Google de Polymux à tout moment 
 - **Demander la suppression de données spécifiques** en nous contactant via la page Contact. Nous répondrons dans un délai raisonnable et confirmerons une fois la suppression effectuée.
 
 Les copies résiduelles dans les sauvegardes chiffrées sont purgées selon notre calendrier standard de rotation des sauvegardes (au plus tard sous 90 jours).
+
+## Extension de navigateur
+
+Cette section décrit les pratiques en matière de données de **l'extension de navigateur Polymux** — une extension Chrome optionnelle qui permet à Polymux d'exécuter des tâches de navigation dans votre propre navigateur plutôt que dans un navigateur hébergé sur un serveur. Elle s'applique uniquement si vous installez l'extension et l'associez à votre serveur Polymux.
+
+### Ce à quoi l'extension accède
+
+Lorsque vous démarrez une tâche de navigation avec l'extension activée, celle-ci ouvre un onglet dédié et, **uniquement sur cet onglet**, effectue les étapes requises par la tâche — navigation, lecture de la page, clics, saisie et capture d'écrans. Pour ce faire, elle traite :
+
+- **Le contenu de la page de l'onglet qu'elle contrôle pour la tâche** — le texte de la page, la structure d'accessibilité, les captures d'écran, ainsi que l'URL et le titre de l'onglet.
+- **Un jeton d'appairage**, stocké localement dans votre navigateur, utilisé pour reconnecter l'extension à votre serveur Polymux sans réappairage.
+
+L'extension agit **uniquement sur les onglets qu'elle ouvre pour une tâche Polymux**. Elle ne lit pas votre historique de navigation, vos autres onglets, vos favoris, ni aucune page sur laquelle vous n'avez pas dirigé une tâche Polymux.
+
+### Comment l'extension utilise et partage ces données
+
+Le contenu des pages et les résultats des tâches sont transmis via une connexion chiffrée au **serveur Polymux avec lequel vous êtes appairé** — votre propre backend — afin que la tâche puisse s'exécuter et que sa progression soit affichée dans votre session Polymux. Ces données ne sont envoyées qu'à ce serveur appairé ; l'extension ne les envoie **pas** à des tiers et ne les **vend ni ne les transfère** à des fins publicitaires ou à toute fin non liée à l'exécution des tâches que vous demandez.
+
+Le jeton d'appairage est stocké uniquement dans le stockage local de l'extension dans votre navigateur et sert uniquement à authentifier la connexion à votre serveur. Vous pouvez vous déconnecter à tout moment depuis la fenêtre contextuelle de l'extension — ce qui efface le jeton stocké — ou en supprimant l'extension.
 
 ## Comment nous utilisons les informations
 

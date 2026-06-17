@@ -304,6 +304,7 @@ function normalizeWithLatest(w: WorkflowWithLatest): WorkflowWithLatest {
 }
 
 export function useWorkflows() {
+  const { t } = useI18n()
   const workflows = useState<WorkflowWithLatest[]>('workflows', () => [])
   const versions = useState<WorkflowVersion[]>('workflow-versions', () => [])
   const { authFetch } = useAuthFetch()
@@ -359,9 +360,9 @@ export function useWorkflows() {
       return v
     }
     catch (err: unknown) {
-      const e = err as { status?: number; data?: { current_version?: number } }
-      if (e?.status === 409) {
-        const cur = typeof e.data?.current_version === 'number' ? e.data.current_version : 0
+      if (getErrorStatus(err) === 409) {
+        const data = (err as { data?: { current_version?: number } }).data
+        const cur = typeof data?.current_version === 'number' ? data.current_version : 0
         throw new VersionConflictError(cur)
       }
       console.error('[useWorkflows] createVersion failed', err)
@@ -379,18 +380,8 @@ export function useWorkflows() {
     }
     catch (err) {
       console.error('[useWorkflows] startRun failed', err)
-      return { error: extractServerError(err) ?? 'Unknown error' }
+      return { error: extractServerError(err) ?? t('common.unknownError') }
     }
-  }
-
-  function extractServerError(err: unknown): string | null {
-    if (!err || typeof err !== 'object') return null
-    const data = (err as { data?: unknown }).data
-    if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
-      return (data as { error: string }).error
-    }
-    const msg = (err as { message?: unknown }).message
-    return typeof msg === 'string' && msg ? msg : null
   }
 
   // Reset the workflow to a previously-saved version by deleting every
@@ -405,7 +396,7 @@ export function useWorkflows() {
     }
     catch (err) {
       console.error('[useWorkflows] resetToVersion failed', err)
-      return { error: extractServerError(err) ?? 'Unknown error' }
+      return { error: extractServerError(err) ?? t('common.unknownError') }
     }
   }
 

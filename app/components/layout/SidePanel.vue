@@ -47,40 +47,14 @@ const {
 // drag reorders silently fail.
 const displaySessions = ref<WorkflowSummary[]>([])
 
-// Stable per-row keys for the workflow `<TransitionGroup>`. Without this, the
-// draft → real-session promotion swaps `session.id` from `'new'` to a UUID,
-// which Vue treats as a key change → leave + enter animations on the same row.
-// The user-visible effect is the row collapsing and re-expanding when only the
-// title should appear to change. We carry the draft's slot key over to the
-// promoted session so the v-for key is stable across the promotion.
-let slotKeyCounter = 0
-const slotKeyForId = new Map<string, string>()
-function getOrCreateSlotKey(id: string): string {
-  let k = slotKeyForId.get(id)
-  if (!k) {
-    k = `slot-${++slotKeyCounter}`
-    slotKeyForId.set(id, k)
-  }
-  return k
-}
-function rowKey(session: WorkflowSummary): string {
-  return getOrCreateSlotKey(session.id)
-}
-
 watch(
   [realSessions, draft, currentWorkspaceId, runningOverrides],
   () => {
-    // Drafts now carry a real uuid that survives commit (see useWorkflowList:
-    // markDraftCommitted reuses the same id), so the row's v-for key stays
-    // stable without any slot-key handoff. Just GC keys for ids that left
-    // the list (deletion / workspace swap) so the map doesn't grow unbounded.
-    const liveIds = new Set<string>()
-    if (draft.value) liveIds.add(draft.value.id)
-    for (const s of realSessions.value) liveIds.add(s.id)
-    for (const id of Array.from(slotKeyForId.keys())) {
-      if (!liveIds.has(id)) slotKeyForId.delete(id)
-    }
-
+    // Drafts carry a real uuid that survives commit (see useWorkflowList:
+    // markDraftCommitted reuses the same id), so the row's v-for key
+    // (`session.id`) stays stable across the draft → real promotion without
+    // any slot-key handoff.
+    //
     // Merge runningOverrides over server data when projecting rows for the
     // template. The override map is the workflow page's authoritative read of
     // which engine is driving the row (chat vs. workflow_run); without it,
@@ -424,15 +398,6 @@ watch(isWorkspaceDropdownOpen, async (open) => {
   }
 })
 
-const workspacePlanLabel = computed(() => {
-  locale.value
-  const raw = (currentWorkspace.value?.plan as string | undefined) || 'free'
-  const k = raw.toLowerCase().trim()
-  if (k === 'pro') return t('settings.proPlan')
-  if (k === 'max') return t('settings.maxPlan')
-  if (k === 'enterprise') return t('settings.enterprisePlan')
-  return t('settings.freePlan')
-})
 
 function openWorkspaceSettings() {
   isWorkspaceSettingsOpen.value = true
@@ -707,7 +672,7 @@ onUnmounted(() => {
               {{ currentWorkspace?.name || t('common.workspace') }}
             </p>
             <p class="truncate text-[11px] text-neutral-500">
-              {{ workspacePlanLabel }} · {{ memberCountText }}
+              {{ userPlan }} · {{ memberCountText }}
             </p>
           </div>
           <div class="my-0.5 mx-2 h-px bg-neutral-200" />
@@ -867,7 +832,7 @@ onUnmounted(() => {
         >
           <li
             v-for="session in displaySessions"
-            :key="rowKey(session)"
+            :key="session.id"
             class="relative wf-item"
             :class="session.is_draft ? 'wf-draft' : ''"
           >

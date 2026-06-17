@@ -30,7 +30,7 @@ const slug = computed<string>(() => {
 })
 
 const entry = computed(() => findEntry(slug.value))
-const pageTitle = computed(() => entry.value?.title ?? 'Documentation')
+const pageTitle = computed(() => entry.value?.title ?? t('docs.fallbackTitle'))
 const neighbourPair = computed(() => neighbours(slug.value))
 const prev = computed(() => neighbourPair.value.prev)
 const next = computed(() => neighbourPair.value.next)
@@ -104,20 +104,7 @@ function decodeEntities(s: string): string {
 // identical visual treatment + copy-button behaviour. Click handling is
 // wired through `onArticleClick` on the article element below (v-html
 // strips Vue bindings, so delegation is the only way).
-function escapeAttr(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-function escapeHtmlBody(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-const copyIconSvg = '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12.5 3A1.5 1.5 0 0 1 14 4.5V6h1.5A1.5 1.5 0 0 1 17 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 15.5V14H4.5A1.5 1.5 0 0 1 3 12.5v-8A1.5 1.5 0 0 1 4.5 3zm1.5 9.5a1.5 1.5 0 0 1-1.5 1.5H7v1.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5H14zM4.5 4a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5z"/></svg>'
+const copyIconSvg ='<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12.5 3A1.5 1.5 0 0 1 14 4.5V6h1.5A1.5 1.5 0 0 1 17 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 6 15.5V14H4.5A1.5 1.5 0 0 1 3 12.5v-8A1.5 1.5 0 0 1 4.5 3zm1.5 9.5a1.5 1.5 0 0 1-1.5 1.5H7v1.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5H14zM4.5 4a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5z"/></svg>'
 const checkIconSvg = '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M15.188 5.11a.5.5 0 0 1 .752.626l-.056.084-7.5 9a.5.5 0 0 1-.738.033l-3.5-3.5-.064-.078a.501.501 0 0 1 .693-.693l.078.064 3.113 3.113 7.15-8.58z"/></svg>'
 
 function buildRenderer(): MarkedRenderer {
@@ -287,23 +274,23 @@ function closeMobileNav() {
 // Sections expand by default. The section containing the current page is
 // always forced open so the user never loses sight of where they are.
 const sectionOpen = ref<Record<string, boolean>>(
-  Object.fromEntries(sections.map((s) => [s.title, true])),
+  Object.fromEntries(sections.value.map(section => [section.id, true])),
 )
 
-function isSectionOpen(title: string): boolean {
-  return sectionOpen.value[title] ?? true
+function isSectionOpen(id: string): boolean {
+  return sectionOpen.value[id] ?? true
 }
 
-function toggleSection(title: string) {
-  sectionOpen.value[title] = !isSectionOpen(title)
+function toggleSection(id: string) {
+  sectionOpen.value[id] = !isSectionOpen(id)
 }
 
 // Keep the section containing the current slug expanded across navigations.
 watch(
   slug,
   (s) => {
-    const owning = sections.find((sec) => sec.entries.some((e) => e.slug === s))
-    if (owning) sectionOpen.value[owning.title] = true
+    const owning = sections.value.find(section => section.entries.some(entry => entry.slug === s))
+    if (owning) sectionOpen.value[owning.id] = true
   },
   { immediate: true },
 )
@@ -327,8 +314,8 @@ let searchDebounceId: ReturnType<typeof setTimeout> | null = null
 
 const slugToSection = computed(() => {
   const m = new Map<string, string>()
-  for (const section of sections) {
-    for (const e of section.entries) m.set(e.slug, section.title)
+  for (const section of sections.value) {
+    for (const entry of section.entries) m.set(entry.slug, section.title)
   }
   return m
 })
@@ -517,7 +504,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="flex size-9 shrink-0 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 lg:hidden"
-          aria-label="Open navigation"
+          :aria-label="t('docs.openNavigation')"
           @click="mobileNavOpen = !mobileNavOpen"
         >
           <UIcon :name="mobileNavOpen ? 'i-heroicons-x-mark-20-solid' : 'i-heroicons-bars-3-20-solid'" class="size-5" />
@@ -533,7 +520,7 @@ onBeforeUnmount(() => {
         >
           <InlineLogo size="lg" />
           <span class="hidden text-sm font-medium text-neutral-500 sm:inline">/</span>
-          <span class="hidden text-sm font-medium text-neutral-500 sm:inline">Docs</span>
+          <span class="hidden text-sm font-medium text-neutral-500 sm:inline">{{ t('docs.navLabel') }}</span>
         </NuxtLink>
       </div>
 
@@ -678,22 +665,22 @@ onBeforeUnmount(() => {
       <!-- Left sidebar (desktop) -->
       <aside class="sticky top-[64px] hidden h-[calc(100dvh-64px)] w-60 shrink-0 overflow-y-auto border-r border-neutral-200/80 bg-neutral-50 py-6 lg:block xl:w-64">
         <nav class="flex flex-col gap-2 px-3">
-          <div v-for="section in sections" :key="section.title">
+          <div v-for="section in sections" :key="section.id">
             <button
               type="button"
               class="flex w-full items-center justify-between rounded px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500 transition-colors hover:text-neutral-800"
-              :aria-expanded="isSectionOpen(section.title)"
-              @click="toggleSection(section.title)"
+              :aria-expanded="isSectionOpen(section.id)"
+              @click="toggleSection(section.id)"
             >
               <span>{{ section.title }}</span>
               <UIcon
                 name="i-heroicons-chevron-right-20-solid"
                 class="size-3.5 transition-transform"
-                :class="isSectionOpen(section.title) ? 'rotate-90' : ''"
+                :class="isSectionOpen(section.id) ? 'rotate-90' : ''"
                 aria-hidden="true"
               />
             </button>
-            <ul v-show="isSectionOpen(section.title)" class="mt-0.5 flex flex-col">
+            <ul v-show="isSectionOpen(section.id)" class="mt-0.5 flex flex-col">
               <li v-for="e in section.entries" :key="e.slug">
                 <NuxtLink
                   :to="`/documentation/${e.slug}`"
@@ -744,22 +731,22 @@ onBeforeUnmount(() => {
               @select="selectLocale"
             />
 
-            <div v-for="section in sections" :key="section.title">
+            <div v-for="section in sections" :key="section.id">
               <button
                 type="button"
                 class="flex w-full items-center justify-between rounded px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500 transition-colors hover:text-neutral-800"
-                :aria-expanded="isSectionOpen(section.title)"
-                @click="toggleSection(section.title)"
+                :aria-expanded="isSectionOpen(section.id)"
+                @click="toggleSection(section.id)"
               >
                 <span>{{ section.title }}</span>
                 <UIcon
                   name="i-heroicons-chevron-right-20-solid"
                   class="size-3.5 transition-transform"
-                  :class="isSectionOpen(section.title) ? 'rotate-90' : ''"
+                  :class="isSectionOpen(section.id) ? 'rotate-90' : ''"
                   aria-hidden="true"
                 />
               </button>
-              <ul v-show="isSectionOpen(section.title)" class="mt-0.5 flex flex-col">
+              <ul v-show="isSectionOpen(section.id)" class="mt-0.5 flex flex-col">
                 <li v-for="e in section.entries" :key="e.slug">
                   <NuxtLink
                     :to="`/documentation/${e.slug}`"

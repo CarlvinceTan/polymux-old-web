@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+# Cancel an in-flight run when a newer commit lands on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck + unit tests
+    runs-on: ubuntu-latest
+    # Placeholders, NOT secrets. The static checks below never call Supabase;
+    # these only satisfy the @nuxtjs/supabase module config so the logs stay
+    # free of "missing env" warnings. Real values are never needed here.
+    env:
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SECRET_KEY: sb_secret_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` runs the `postinstall` hook (`nuxt prepare`), which generates
+      # the .nuxt type scaffolding the typecheck below depends on.
+      - name: Install dependencies
+        run: npm ci
+
+      # `nuxi typecheck` runs vue-tsc over the whole app + server. It installs
+      # vue-tsc on first use if absent (pin it as a devDependency later if you
+      # want this step fully deterministic).
+      - name: Typecheck
+        run: npm run typecheck
+
+      # node:test runner over app/**/*.test.mjs (jiti-loaded TS modules).
+      - name: Unit tests
+        run: npm run test:unit

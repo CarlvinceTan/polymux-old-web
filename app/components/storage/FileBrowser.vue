@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { vDraggable } from 'vue-draggable-plus'
+import type Sortable from 'sortablejs'
+import { vDraggable, type DraggableEvent } from 'vue-draggable-plus'
 import type { StorageFile, StorageFolder } from '~/composables/storage/useStorageFiles'
 import type { SelectedItem } from '~/types/storage'
 import type { FileIconName } from '~/composables/ui/useFileIcons'
@@ -217,14 +218,14 @@ function isMoveDestinationSelected(node: MoveTreeNode): boolean {
 // writes show up. Defined here next to other move-related state.
 const availableMoveProviders = computed<StorageProvider[]>(() => storageResolvedOrder.value)
 
-const moveProviderLabels: Record<StorageProvider, string> = {
-  'google-drive': 'Google Drive',
-  'local': 'Local',
+const moveProviderLabels = computed<Record<StorageProvider, string>>(() => ({
+  'google-drive': t('storage.settings.providerGoogleDrive'),
+  'local': t('storage.settings.providerLocal'),
   'b2': t('storage.settings.providerCloud'),
-}
+}))
 
 function moveProviderLabel(provider: StorageProvider): string {
-  return moveProviderLabels[provider] ?? provider
+  return moveProviderLabels.value[provider] ?? provider
 }
 
 // The folder selection's intrinsic provider — undefined for the workspace
@@ -1714,7 +1715,7 @@ function parseRowData(el: HTMLElement | null | undefined): { kind: 'file' | 'fol
   return null
 }
 
-function onSortableMove(evt: any, originalEvent?: Event): boolean {
+function onSortableMove(evt: Sortable.MoveEvent, originalEvent?: Event): boolean {
   clearDropIntoHighlight()
   pendingDropInto = null
 
@@ -1813,7 +1814,7 @@ function onDragPointerMove(ev: PointerEvent) {
   }
 }
 
-function onSortableStart(evt: any) {
+function onSortableStart(evt: DraggableEvent) {
   const item = evt?.item as HTMLElement | undefined
   const grabbedId = item?.dataset?.id ?? null
   // Match the grabbed row against the existing selection by id first, with a
@@ -1848,7 +1849,7 @@ function onSortableStart(evt: any) {
   document.addEventListener('pointermove', onDragPointerMove, true)
 }
 
-async function onSortableEnd(evt: any) {
+async function onSortableEnd(evt: DraggableEvent) {
   isDragging.value = false
   document.removeEventListener('pointermove', onDragPointerMove, true)
   const dropTarget = pendingDropInto
@@ -1993,12 +1994,6 @@ const sortableCommon = {
   onStart: onSortableStart,
   onMove: onSortableMove,
   onEnd: onSortableEnd,
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // ---------------------------------------------------------------------------
@@ -2969,7 +2964,7 @@ watch(multiDragActive, (active) => {
 
                     <!-- Size column -->
                     <div class="truncate text-right text-xs tabular-nums text-neutral-500">
-                      {{ file.kind === 'file' && 'size' in file ? formatFileSize(file.size as number) : '—' }}
+                      {{ file.kind === 'file' && 'size' in file ? formatSize(file.size as number) : '—' }}
                     </div>
 
                     <!-- Kind column -->
@@ -3075,7 +3070,7 @@ watch(multiDragActive, (active) => {
                     type="button"
                     class="size-6 flex items-center justify-center shrink-0 rounded hover:bg-neutral-200 transition-colors"
                     :class="node.children !== null && node.children.length === 0 ? 'invisible' : ''"
-                    :aria-label="node.expanded ? 'Collapse' : 'Expand'"
+                    :aria-label="node.expanded ? t('storage.toolbar.collapse') : t('storage.toolbar.expand')"
                     @click.stop="toggleMoveNodeExpand(node)"
                   >
                     <svg

@@ -1,17 +1,17 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Privacy Policy',
+  title: () => t('legalDocs.privacy.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'How Polymux collects, stores, and uses personal information. Your rights, data retention, and contact details.',
+      content: () => t('legalDocs.privacy.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 </script>
 
 <template>

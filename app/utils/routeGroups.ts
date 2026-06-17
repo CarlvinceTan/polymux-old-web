@@ -21,6 +21,7 @@ export const PROTECTED_PREFIXES = [
   '/vault',
   '/integrations',
   '/session',
+  '/admin',
 ] as const
 
 export const ALWAYS_ALLOW = [

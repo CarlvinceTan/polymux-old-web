@@ -52,6 +52,7 @@ export function rowToArtifact(row: ArtifactRow): SandboxArtifact {
 }
 
 export function useArtifacts(sessionId: Ref<string>) {
+  const { t } = useI18n()
   const artifacts = useState<SandboxArtifact[]>(`session-artifacts-${sessionId.value}`, () => [])
   const loading = useState<boolean>(`session-artifacts-loading-${sessionId.value}`, () => false)
   const error = useState<string | null>(`session-artifacts-error-${sessionId.value}`, () => null)
@@ -85,7 +86,7 @@ export function useArtifacts(sessionId: Ref<string>) {
         artifacts.value = []
       } else {
         console.error('[useArtifacts] refresh failed', err)
-        error.value = 'Failed to load artifacts.'
+        error.value = t('artifacts.loadFailed')
       }
     }
     finally {

@@ -43,6 +43,7 @@ export function isLLMKeyError(value: WorkspaceLLMKey | LLMKeyError | null): valu
 }
 
 export function useWorkspaceLLMKeys(workspaceId: Ref<string | null | undefined> | ComputedRef<string | null | undefined>) {
+  const { t } = useI18n()
   const keys = ref<WorkspaceLLMKey[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -76,7 +77,7 @@ export function useWorkspaceLLMKeys(workspaceId: Ref<string | null | undefined> 
   ): Promise<WorkspaceLLMKey | LLMKeyError> {
     const id = unref(workspaceId)
     if (!id) {
-      return { ok: false, status: 0, message: 'No workspace selected.' }
+      return { ok: false, status: 0, message: t('llmKeys.noWorkspaceSelected') }
     }
     try {
       const data = await $fetch<WorkspaceLLMKey>(`/api/workspaces/${id}/llm-keys`, {

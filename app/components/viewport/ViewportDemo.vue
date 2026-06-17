@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = withDefaults(
   defineProps<{
     /** Video URLs. Empty = three placeholder slides. One URL = single looping video. */
@@ -260,7 +262,7 @@ onUnmounted(() => {
             >
               <polygon points="5 3 19 12 5 21" />
             </svg>
-            <span class="text-sm font-medium">Demo</span>
+            <span class="text-sm font-medium">{{ t('viewport.demoLabel') }}</span>
           </div>
         </div>
       </div>
@@ -301,7 +303,7 @@ onUnmounted(() => {
             >
               <polygon points="5 3 19 12 5 21" />
             </svg>
-            <span class="text-sm font-medium">Demo {{ i + 1 }}</span>
+            <span class="text-sm font-medium">{{ t('viewport.demoLabelN', { n: i + 1 }) }}</span>
           </div>
         </div>
       </div>

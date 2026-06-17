@@ -16,6 +16,8 @@ import type {
   BrowserAgentReleasedPayload,
   CredentialRequestPayload,
   CredentialProvidedPayload,
+  OtpRequestPayload,
+  OtpProvidedPayload,
   UserMessagePayload,
   TitleRequestPayload,
   TitleResponsePayload,
@@ -479,6 +481,26 @@ export function useAgentChats(session: SessionHandle) {
     ]
   }
 
+  function handleOtpRequest(p: OtpRequestPayload) {
+    clearOrchestratorSendRollback()
+    orchestratorState.waitingForAgent.value = false
+    orchestratorState.sawActivityThisTurn = false
+    orchestratorState.messages.value = [
+      ...orchestratorState.messages.value,
+      {
+        role: 'agent',
+        text: '',
+        id: newId(),
+        otpRequest: {
+          msgId: p.msg_id,
+          site: p.site,
+          purpose: p.purpose,
+          status: 'pending',
+        },
+      },
+    ]
+  }
+
   function handleBrowserSpawned(p: BrowserSpawnedPayload) {
     clearOrchestratorSendRollback()
     // Re-arm waitingForAgent only when the spawn carries an active task —
@@ -542,6 +564,7 @@ export function useAgentChats(session: SessionHandle) {
   bind<AgentMessageBoundaryPayload>('agent_message_boundary', handleAgentMessageBoundary)
   bind<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
   bind<CredentialRequestPayload>('credential_request', handleCredentialRequest)
+  bind<OtpRequestPayload>('otp_request', handleOtpRequest)
   bind<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   bind<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   bind<TitleResponsePayload>('title_response', handleTitleResponse)
@@ -611,7 +634,7 @@ export function useAgentChats(session: SessionHandle) {
    */
   function provideCredential(
     msgId: string,
-    payload: { credentialId: string, username: string, password: string } | { cancelled: true },
+    payload: { credentialId: string, username: string, allowAgentFill?: boolean } | { cancelled: true },
   ) {
     pendingCredentialRequest.value = null
     markOrchestratorActivity()
@@ -622,19 +645,11 @@ export function useAgentChats(session: SessionHandle) {
       const current = msgs[idx]!
       const req = current.credentialRequest!
       const updated = [...msgs]
-      if ('cancelled' in payload) {
-        updated[idx] = {
-          ...current,
-          text: '',
-          credentialRequest: { ...req, status: 'cancelled' },
-        }
-      }
-      else {
-        updated[idx] = {
-          ...current,
-          text: '',
-          credentialRequest: { ...req, status: 'completed' },
-        }
+      const status = 'cancelled' in payload ? 'cancelled' : 'completed'
+      updated[idx] = {
+        ...current,
+        text: '',
+        credentialRequest: { ...req, status },
       }
       orchestratorState.messages.value = updated
     }
@@ -644,16 +659,60 @@ export function useAgentChats(session: SessionHandle) {
         msg_id: msgId,
         credential_id: '',
         username: '',
-        password: '',
         cancelled: true,
       })
       return
     }
+    // Send only the id + username. The server decrypts the secret itself and
+    // injects it into the browser fill — the plaintext never leaves the server.
+    // allow_agent_fill is the user's explicit opt-in to the agent-mediated
+    // fallback (default off → secure_login only).
     session.send<CredentialProvidedPayload>('credential_provided', {
       msg_id: msgId,
       credential_id: payload.credentialId,
       username: payload.username,
-      password: payload.password,
+      allow_agent_fill: payload.allowAgentFill === true,
+    })
+  }
+
+  /**
+   * provideOtp ships a live 2FA code back to the orchestrator. The server
+   * stashes the code and injects it into the browser fill below the model, so
+   * the code never travels through the model or transcript. Pass cancelled=true
+   * to abandon the request.
+   */
+  function provideOtp(
+    msgId: string,
+    payload: { code: string } | { cancelled: true },
+  ) {
+    markOrchestratorActivity()
+
+    const msgs = orchestratorState.messages.value
+    const idx = msgs.findIndex(m => m.otpRequest?.msgId === msgId)
+    if (idx !== -1) {
+      const current = msgs[idx]!
+      const req = current.otpRequest!
+      const updated = [...msgs]
+      const status = 'cancelled' in payload ? 'cancelled' : 'completed'
+      updated[idx] = {
+        ...current,
+        text: '',
+        otpRequest: { ...req, status },
+      }
+      orchestratorState.messages.value = updated
+    }
+
+    if ('cancelled' in payload) {
+      session.send<OtpProvidedPayload>('otp_provided', {
+        msg_id: msgId,
+        code: '',
+        cancelled: true,
+      })
+      return
+    }
+    session.send<OtpProvidedPayload>('otp_provided', {
+      msg_id: msgId,
+      code: payload.code,
     })
   }
 
@@ -710,6 +769,7 @@ export function useAgentChats(session: SessionHandle) {
     pendingCredentialRequest,
     rollbackOrchestratorAfterBudgetError,
     provideCredential,
+    provideOtp,
     appendUpgradePrompt,
     dismissUpgradePrompt,
     orchestrator: buildHandle('orchestrator'),

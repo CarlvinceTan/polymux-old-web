@@ -72,7 +72,7 @@ async function onSave() {
   catch (err) {
     const message = (err as { statusMessage?: string })?.statusMessage
       ?? (err as Error)?.message
-      ?? 'Save failed'
+      ?? t('integrations.saveFailed')
     toast.show(message, 'error')
   }
   finally {
@@ -94,7 +94,7 @@ async function onYank() {
   catch (err) {
     const message = (err as { statusMessage?: string })?.statusMessage
       ?? (err as Error)?.message
-      ?? 'Yank failed'
+      ?? t('integrations.yankFailed')
     toast.show(message, 'error')
   }
 }

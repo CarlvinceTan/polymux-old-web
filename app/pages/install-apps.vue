@@ -1,17 +1,22 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'landing' })
 
+const { t } = useI18n()
+
+// Chrome Web Store listing URL for the Polymux extension. Empty until the
+// extension is published — the install button falls back to "Coming soon"
+// while unset, then goes live the moment EXTENSION_STORE_URL is configured.
+const extensionStoreUrl = (useRuntimeConfig().public.extensionStoreUrl as string | undefined) || ''
+
 useHead({
-  title: 'Install Apps',
+  title: () => t('install.metaTitle'),
   meta: [
     {
       name: 'description',
-      content: 'Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.',
+      content: () => t('install.metaDescription'),
     },
   ],
 })
-
-const { t } = useI18n()
 
 type Platform = 'macos' | 'windows' | 'linux' | 'unknown'
 
@@ -143,13 +148,13 @@ const mobilePlatforms = [
               class="inline-flex w-full h-[3.5rem] items-center justify-center gap-2.5 rounded-xl bg-neutral-950/50 px-6 text-base leading-none font-medium text-white shadow-sm cursor-not-allowed"
             >
               <UIcon name="i-heroicons-clock-20-solid" class="size-5 shrink-0" />
-              <span class="mt-[1px]">Desktop Apps Coming Soon</span>
+              <span class="mt-[1px]">{{ t('install.desktopComingSoon') }}</span>
             </button>
           </template>
 
           <div class="mt-1 flex items-center justify-center gap-1 text-xs text-neutral-500">
-            <span v-if="detected !== 'unknown'">Also available for</span>
-            <span v-else>Available for</span>
+            <span v-if="detected !== 'unknown'">{{ t('install.alsoAvailableFor') }}</span>
+            <span v-else>{{ t('install.availableFor') }}</span>
             <template v-for="(p, index) in desktopPlatforms.filter(p => p.id !== detected)" :key="p.id">
               <button
                 type="button"
@@ -158,7 +163,7 @@ const mobilePlatforms = [
               >
                 {{ p.name }}
               </button>
-              <span v-if="index < desktopPlatforms.filter(p => p.id !== detected).length - 1" class="text-neutral-500">and</span>
+              <span v-if="index < desktopPlatforms.filter(p => p.id !== detected).length - 1" class="text-neutral-500">{{ t('install.platformAnd') }}</span>
             </template>
           </div>
 
@@ -167,7 +172,7 @@ const mobilePlatforms = [
             class="mt-8 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-700"
             @click="scrollToExtensions"
           >
-            Looking for Mobile & Extensions?
+            {{ t('install.lookingForMobileExtensions') }}
             <UIcon name="i-heroicons-arrow-down-20-solid" class="size-4" />
           </button>
         </div>
@@ -179,10 +184,10 @@ const mobilePlatforms = [
       <div class="mx-auto max-w-6xl">
         <div class="mb-14 text-center">
           <h2 class="font-serif text-3xl tracking-tight text-neutral-950 sm:text-4xl">
-            Browser Extension & Mobile Apps
+            {{ t('install.mobileExtensionsHeading') }}
           </h2>
           <p class="mt-4 text-[1.0625rem] text-neutral-600">
-            Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.
+            {{ t('install.mobileExtensionsSubtitle') }}
           </p>
         </div>
 
@@ -202,7 +207,17 @@ const mobilePlatforms = [
               {{ t('install.extension.subtitle') }}
             </p>
             <div class="mt-6 mt-auto pt-4">
-              <button disabled class="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-100 px-5 py-2.5 text-sm font-medium text-neutral-500 cursor-not-allowed">
+              <a
+                v-if="extensionStoreUrl"
+                :href="extensionStoreUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-neutral-800"
+              >
+                <UIcon name="i-simple-icons-googlechrome" class="size-4" />
+                {{ t('install.extension.chromeLabel') }}
+              </a>
+              <button v-else disabled class="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-100 px-5 py-2.5 text-sm font-medium text-neutral-500 cursor-not-allowed">
                 <UIcon name="i-simple-icons-googlechrome" class="size-4" />
                 {{ t('install.mobile.comingSoon') }}
               </button>

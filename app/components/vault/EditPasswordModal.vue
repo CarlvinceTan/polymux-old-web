@@ -85,7 +85,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         >
           <div
             v-if="props.open"
-            class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            class="w-full max-w-md overflow-hidden rounded-2xl bg-white modal-surface"
             role="dialog"
             aria-modal="true"
             @click.stop
@@ -148,7 +148,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div class="flex justify-end gap-2 px-5 py-3.5">
               <button
                 type="button"
                 class="rounded-lg bg-white px-4 py-2 text-sm font-normal text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50"

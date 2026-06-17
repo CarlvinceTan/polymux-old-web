@@ -323,7 +323,7 @@ function openSecretListing() {
 function extractError(err: unknown): string {
   return (err as { statusMessage?: string })?.statusMessage
     ?? (err as Error)?.message
-    ?? 'Publish failed'
+    ?? t('integrations.publishFailed')
 }
 
 const stepTitle = computed(() => {

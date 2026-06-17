@@ -58,17 +58,19 @@ export interface CredentialRequestPayload {
 }
 
 /**
- * CredentialProvidedPayload is the reply the frontend sends back. password
- * is included so the orchestrator can hand it straight to the browser
- * sub-agent for the immediate fill — credential_id keeps a reference for
- * future runs to fetch silently via FetchCredential. Set cancelled=true to
- * signal the user dismissed the modal.
+ * CredentialProvidedPayload is the reply the frontend sends back. It carries
+ * ONLY the credential_id and username — never the password. The server
+ * decrypts the secret itself (service-role) and injects it into the browser
+ * fill below the model, so the plaintext never leaves the server. Set
+ * cancelled=true to signal the user dismissed the modal.
  */
 export interface CredentialProvidedPayload {
   msg_id: string
   credential_id: string
   username: string
-  password: string
+  /** User opt-in (default false) to let the agent enter this credential via the
+   *  plain fill tools as a fallback, on top of the blindfold secure_login path. */
+  allow_agent_fill?: boolean
   cancelled?: boolean
 }
 
@@ -146,6 +148,13 @@ export interface SessionStatePayload {
    *  client can hydrate its picker on reconnect; the server canonicalises
    *  the value, treating any unknown string as 'server'. */
   browser_mode?: 'server' | 'extension'
+  /** Per-session Agent Humaniser choice (Stealth tab). Echoed on every
+   *  session_state so the toggle hydrates on reconnect. Only the midas browser
+   *  driver acts on it. */
+  humanize?: boolean
+  /** Per-session cloaked-browser choice (Stealth tab). Echoed like humanize so
+   *  the toggle hydrates on reconnect. Only the midas browser driver acts on it. */
+  cloaked?: boolean
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -334,6 +343,8 @@ export interface ChatMessage {
   id?: string
   /** Inline vault picker when the orchestrator calls RequestCredential. */
   credentialRequest?: ChatCredentialRequest
+  /** Inline 2FA code input when the orchestrator calls RequestOtp. */
+  otpRequest?: ChatOtpRequest
   /** Inline artifact preview when a new gallery item is recorded. */
   artifactPreview?: SandboxArtifact
   /** Inline upgrade / weekly-budget prompt when a plan limit is hit during the
@@ -395,6 +406,38 @@ export interface ChatCredentialRequest {
   site: string
   purpose: string
   suggestedUsername?: string
+  status: 'pending' | 'completed' | 'cancelled'
+}
+
+/**
+ * OtpRequestPayload arrives when the agent calls RequestOtp — a browser
+ * sub-agent hit a two-factor wall and needs the user to read the current
+ * one-time code. The frontend renders an inline code input and replies with
+ * OtpProvidedPayload.
+ */
+export interface OtpRequestPayload {
+  msg_id: string
+  site: string
+  purpose: string
+}
+
+/**
+ * OtpProvidedPayload is the client->server reply carrying the live 2FA code the
+ * user entered. The server stashes it and injects it into the browser fill
+ * below the model, so the code never travels through the model or transcript.
+ * Set cancelled=true to signal the user dismissed the prompt.
+ */
+export interface OtpProvidedPayload {
+  msg_id: string
+  code: string
+  cancelled?: boolean
+}
+
+/** Inline 2FA code input embedded in an orchestrator chat message. */
+export interface ChatOtpRequest {
+  msgId: string
+  site: string
+  purpose: string
   status: 'pending' | 'completed' | 'cancelled'
 }
 

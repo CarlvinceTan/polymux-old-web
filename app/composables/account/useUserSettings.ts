@@ -15,12 +15,6 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface UserSettings {
   blog_newsletter_subscribed: boolean
-  // Cloaked browser: when true, the polymux session loop routes navigations
-  // through CloakBrowser when their root host is in the URL Registry, and
-  // promotes hosts that fail a CAPTCHA / Cloudflare / DataDome challenge.
-  // false forces every navigation through the normal browser regardless.
-  // Defaults to true so first-time users get the protection without setup.
-  cloaked_browser_enabled: boolean
   // Show cursor overlay: when true, the live browser viewport renders an
   // arrow cursor on top of the screencast at the position the driver
   // (midas) is dispatching. Off by default — opt-in surface so the cursor
@@ -38,7 +32,6 @@ interface UserSettings {
 
 const defaults: UserSettings = {
   blog_newsletter_subscribed: false,
-  cloaked_browser_enabled: true,
   show_cursor_overlay: false,
   all_notifications_enabled: true,
   voice_auto_shutoff_seconds: 5,
@@ -75,7 +68,7 @@ export function useUserSettings() {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('blog_newsletter_subscribed, cloaked_browser_enabled, show_cursor_overlay, all_notifications_enabled, voice_auto_shutoff_seconds')
+        .select('blog_newsletter_subscribed, show_cursor_overlay, all_notifications_enabled, voice_auto_shutoff_seconds')
         .eq('user_id', uid)
         .maybeSingle()
 
@@ -85,7 +78,6 @@ export function useUserSettings() {
       else {
         settings.value = {
           blog_newsletter_subscribed: data?.blog_newsletter_subscribed ?? defaults.blog_newsletter_subscribed,
-          cloaked_browser_enabled: data?.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
           show_cursor_overlay: data?.show_cursor_overlay ?? defaults.show_cursor_overlay,
           all_notifications_enabled: data?.all_notifications_enabled ?? defaults.all_notifications_enabled,
           voice_auto_shutoff_seconds: data?.voice_auto_shutoff_seconds ?? defaults.voice_auto_shutoff_seconds,
@@ -115,7 +107,7 @@ export function useUserSettings() {
     settings.value = { ...settings.value, ...patch }
 
     try {
-      const result = await $fetch<{ blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number }>('/api/user-settings', {
+      const result = await $fetch<{ blog_newsletter_subscribed: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number }>('/api/user-settings', {
         method: 'PATCH',
         body: patch,
       })
@@ -123,7 +115,6 @@ export function useUserSettings() {
       // Reconcile with server truth.
       settings.value = {
         blog_newsletter_subscribed: result.blog_newsletter_subscribed,
-        cloaked_browser_enabled: result.cloaked_browser_enabled,
         show_cursor_overlay: result.show_cursor_overlay,
         all_notifications_enabled: result.all_notifications_enabled,
         voice_auto_shutoff_seconds: result.voice_auto_shutoff_seconds,
@@ -156,11 +147,10 @@ export function useUserSettings() {
           filter: `user_id=eq.${uid}`,
         },
         (payload) => {
-          const newRow = payload.new as { blog_newsletter_subscribed: boolean, cloaked_browser_enabled: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number } | undefined
+          const newRow = payload.new as { blog_newsletter_subscribed: boolean, show_cursor_overlay: boolean, all_notifications_enabled: boolean, voice_auto_shutoff_seconds: number } | undefined
           if (newRow) {
             settings.value = {
               blog_newsletter_subscribed: newRow.blog_newsletter_subscribed ?? defaults.blog_newsletter_subscribed,
-              cloaked_browser_enabled: newRow.cloaked_browser_enabled ?? defaults.cloaked_browser_enabled,
               show_cursor_overlay: newRow.show_cursor_overlay ?? defaults.show_cursor_overlay,
               all_notifications_enabled: newRow.all_notifications_enabled ?? defaults.all_notifications_enabled,
               voice_auto_shutoff_seconds: newRow.voice_auto_shutoff_seconds ?? defaults.voice_auto_shutoff_seconds,

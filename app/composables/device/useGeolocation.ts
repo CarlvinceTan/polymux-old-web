@@ -64,7 +64,8 @@ async function queryPermission() {
 function requestLocation(): Promise<GeolocationCoords | null> {
   return new Promise((resolve) => {
     if (!import.meta.client || !navigator.geolocation) {
-      error.value = 'Geolocation not supported'
+      const { t } = useI18n()
+      error.value = t('geolocation.notSupported')
       resolve(null)
       return
     }

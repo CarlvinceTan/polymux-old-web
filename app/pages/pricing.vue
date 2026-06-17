@@ -216,10 +216,9 @@ function onTierSelect(key: PlanKey) {
   })
 }
 
-const purchaseLoading = ref(false)
 const purchaseError = ref('')
 
-async function onPurchaseNow() {
+function onPurchaseNow() {
   const key = selectedPlanKey.value
   if (key === 'enterprise') {
     return navigateTo({ path: '/contact', query: { from: 'enterprise-plan' } })
@@ -232,29 +231,16 @@ async function onPurchaseNow() {
     return
   }
 
-  purchaseLoading.value = true
   purchaseError.value = ''
-
-  try {
-    const { url } = await $fetch<{ url: string }>('/api/stripe/checkout', {
-      method: 'POST',
-      body: {
-        planKey: key,
-        billingPeriod: billingPeriod.value,
-        workspaceId,
-      },
-    })
-    $posthog?.capture('plan_upgrade_initiated', {
-      plan_key: key,
-      billing_period: billingPeriod.value,
-      workspace_id: workspaceId,
-    })
-    window.location.href = url
-  }
-  catch (err: unknown) {
-    purchaseError.value = err instanceof Error ? err.message : t('pricing.purchaseError')
-    purchaseLoading.value = false
-  }
+  $posthog?.capture('plan_upgrade_initiated', {
+    plan_key: key,
+    billing_period: billingPeriod.value,
+    workspace_id: workspaceId,
+  })
+  navigateTo({
+    path: '/checkout',
+    query: { plan: key, period: billingPeriod.value, workspaceId },
+  })
 }
 
 </script>
@@ -421,11 +407,10 @@ async function onPurchaseNow() {
       >
         <button
           type="button"
-          :disabled="purchaseLoading"
           class="rounded-md bg-neutral-950 px-10 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           @click="onPurchaseNow"
         >
-          {{ purchaseLoading ? t('pricing.redirecting') : t('pricing.purchaseNow') }}
+          {{ t('pricing.purchaseNow') }}
         </button>
         <p v-if="purchaseError" class="text-sm text-red-600">
           {{ purchaseError }}

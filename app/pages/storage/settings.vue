@@ -6,18 +6,13 @@ const { headerTabs, customTabs } = useStorageNavTabs()
 const { t } = useI18n()
 const {
   providerStatus,
+  providerLabel,
   resolvedOrder,
   moveUp,
   moveDown,
 } = useStoragePreferences()
 const router = useRouter()
 const { isInstalled, uninstall } = useMarketplace()
-
-const providerLabel = computed<Record<StorageProvider, string>>(() => ({
-  'google-drive': t('storage.settings.providerGoogleDrive'),
-  'b2': t('storage.settings.providerCloud'),
-  'local': t('storage.settings.providerLocal'),
-}))
 
 const providerDescription = computed<Record<StorageProvider, string>>(() => ({
   'google-drive': t('storage.settings.providerGoogleDriveDesc'),
@@ -156,7 +151,7 @@ async function onConfirmDisconnect() {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <span class="truncate text-body-md font-medium text-neutral-950">
-                        {{ providerLabel[provider] }}
+                        {{ providerLabel(provider) }}
                       </span>
                       <span
                         v-if="index === 0"
@@ -258,7 +253,7 @@ async function onConfirmDisconnect() {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <span class="truncate text-body-md font-medium text-neutral-700">
-                        {{ providerLabel[provider] }}
+                        {{ providerLabel(provider) }}
                       </span>
                       <span class="rounded-full bg-neutral-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-neutral-600">
                         {{ t('storage.settings.statusLocked') }}

@@ -1096,10 +1096,10 @@ function usageBarColor(p: number) {
                   :min="minInput"
                   :max="maxInput"
                   step="0.01"
-                  placeholder="0.00"
+                  :placeholder="t('vault.wallet.topUpModal.amountPlaceholder')"
                   class="w-full bg-transparent px-2 py-3 text-2xl font-bold tabular-nums text-neutral-950 outline-none placeholder:text-neutral-300"
                 >
-                <span class="pr-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">USD</span>
+                <span class="pr-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">{{ t('vault.wallet.topUpModal.currencyUsd') }}</span>
               </div>
               <div class="flex flex-wrap gap-1.5">
                 <button

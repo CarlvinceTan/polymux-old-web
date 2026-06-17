@@ -169,10 +169,7 @@ export function useChatPromptSendGuard(
 
     try {
       const weekStart = weekStartUtc()
-      // RPC is granted in migration 20260514040000; add to generated Database types when convenient.
-      const { data, error } = await (supabase as unknown as {
-        rpc: (n: string, a: Record<string, string>) => Promise<{ data: unknown, error: { message: string } | null }>
-      }).rpc('get_workspace_token_usage', {
+      const { data, error } = await (supabase as unknown as RpcCapable).rpc('get_workspace_token_usage', {
         p_workspace_id: wid,
         p_week_start: weekStart.toISOString(),
       })

@@ -1,52 +1,25 @@
+// The cap maps live in server/utils/billing/planLimits.ts (the enforcement
+// side, and the authoritative mirror of the Go `PlanConfig`). We re-export them
+// here so the caps the UI *displays* can never drift from what the server
+// *enforces*. That module is pure data + helpers with no server-only imports,
+// so it is safe to pull into the client bundle (same pattern as
+// useCustomTabs importing `~~/server/utils/integrations/layoutSections`).
+import {
+  PLAN_BROWSER_AGENT_CAPS,
+  PLAN_TOKEN_BUDGET_WEEKLY,
+  PLAN_WORKFLOW_RUNS_MONTHLY,
+  PLAN_MAX_MEMBERS,
+  PLAN_FILE_BYTES,
+} from '~~/server/utils/billing/planLimits'
+
+export {
+  PLAN_BROWSER_AGENT_CAPS,
+  PLAN_TOKEN_BUDGET_WEEKLY,
+  PLAN_WORKFLOW_RUNS_MONTHLY,
+  PLAN_MAX_MEMBERS,
+}
 /** Max uploaded file size per plan — mirrors `session.Plans[..].FileBytes` in polymux Go. */
-export const PLAN_MAX_FILE_UPLOAD_BYTES: Record<string, number> = {
-  free: 100 * 1024 * 1024,
-  pro: 5 * 1024 * 1024 * 1024,
-  max: 20 * 1024 * 1024 * 1024,
-  enterprise: 100 * 1024 * 1024 * 1024,
-}
-
-export const PLAN_BROWSER_AGENT_CAPS: Record<string, number> = {
-  free: 2,
-  pro: 8,
-  max: 20,
-  enterprise: 50,
-}
-
-export const PLAN_TOKEN_BUDGET_WEEKLY: Record<string, number> = {
-  free: 100_000,
-  pro: 2_000_000,
-  max: 5_000_000,
-  enterprise: 0, // unlimited
-}
-
-export const PLAN_TOKEN_RATE_PER_MINUTE: Record<string, number> = {
-  free: 5_000,
-  pro: 50_000,
-  max: 200_000,
-  enterprise: 1_000_000,
-}
-
-export const PLAN_WORKFLOW_RUNS_MONTHLY: Record<string, number> = {
-  free: 50,
-  pro: 500,
-  max: 5_000,
-  enterprise: 0, // unlimited
-}
-
-export const PLAN_MAX_MEMBERS: Record<string, number> = {
-  free: 3,
-  pro: 10,
-  max: 50,
-  enterprise: 0, // unlimited
-}
-
-export const PLAN_PRIORITY_SUPPORT: Record<string, boolean> = {
-  free: false,
-  pro: false,
-  max: true,
-  enterprise: true,
-}
+export { PLAN_FILE_BYTES as PLAN_MAX_FILE_UPLOAD_BYTES }
 
 export function browserAgentCapFromPlan(plan?: string | null): number {
   if (!plan) return PLAN_BROWSER_AGENT_CAPS.free!
@@ -64,9 +37,9 @@ export function maxMembersFromPlan(plan?: string | null): number {
 }
 
 export function maxFileUploadBytesFromPlan(plan?: string | null): number {
-  if (!plan) return PLAN_MAX_FILE_UPLOAD_BYTES.free!
+  if (!plan) return PLAN_FILE_BYTES.free!
   const key = plan.toLowerCase().trim()
-  return PLAN_MAX_FILE_UPLOAD_BYTES[key] ?? PLAN_MAX_FILE_UPLOAD_BYTES.free!
+  return PLAN_FILE_BYTES[key] ?? PLAN_FILE_BYTES.free!
 }
 
 export function workflowRunsMonthlyCapFromPlan(plan?: string | null): number {

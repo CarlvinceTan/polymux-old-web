@@ -43,7 +43,10 @@
     "info": "情報",
     "download": "ダウンロード",
     "workspace": "ワークスペース",
-    "retry": "再試行"
+    "retry": "再試行",
+    "unknownError": "Unknown error",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "upgradePlan": {
     "title": "プランをアップグレード",
@@ -205,6 +208,9 @@
     "termsAndConditions": "利用規約",
     "privacyPolicy": "プライバシーポリシー",
     "cookiesPolicy": "Cookieポリシー",
+    "privacyLegal": "プライバシー",
+    "appearance": "外観",
+    "dataControls": "データ",
     "paymentPlaceholder": "お支払い方法と請求履歴は、今後のアップデートでここに表示されます。",
     "deleteAccount": "アカウントを削除",
     "deleteAccountTitle": "アカウントを削除",
@@ -344,7 +350,8 @@
     "tabs": {
       "agent": "エージェント",
       "schedule": "スケジュール",
-      "artifacts": "アーティファクト"
+      "artifacts": "アーティファクト",
+      "stealth": "Stealth"
     },
     "liveBadge": "ライブ",
     "resizeNode": "サイズ変更",
@@ -443,7 +450,9 @@
     "runAgent": "実行",
     "stopAgent": "停止",
     "pinBrowser": "ブラウザエージェントをピン留め",
-    "unpinBrowser": "ブラウザエージェントのピン留めを解除"
+    "unpinBrowser": "ブラウザエージェントのピン留めを解除",
+    "demoLabel": "Demo",
+    "demoLabelN": "Demo {n}"
   },
   "browser": {
     "addAgent": "ブラウザエージェントを追加",
@@ -495,6 +504,10 @@
     "editorVisibilityUnlisted": "未掲載",
     "editorVisibilityPublic": "公開（審査が必要）",
     "editorStatusDraft": "下書き",
+    "editorStatusDraftDesc": "未公開 — あなただけが閲覧できます。",
+    "editorStatusPrivateDesc": "ワークスペース内でのみインストールできます。",
+    "editorStatusUnlistedDesc": "リンクを知っている人なら誰でもインストールできます。",
+    "editorStatusPublicDesc": "マーケットプレイスで全員に公開されます。",
     "editorManifestUrl": "マニフェスト URL",
     "editorManifestUrlHelp": "Polymux が JSON を取得・検証し、バージョンを固定して署名シークレットを生成します。",
     "editorPickWorkflow": "ワークフロー",
@@ -593,7 +606,12 @@
     "filterLayouts": "レイアウト",
     "categoryLayout": "レイアウト",
     "official": "公式",
-    "editorListingNotFound": "このリスティングが見つかりませんでした。"
+    "editorListingNotFound": "このリスティングが見つかりませんでした。",
+    "connectedTooltip": "{n} connected",
+    "publishFailed": "Publish failed",
+    "saveFailed": "Save failed",
+    "yankFailed": "Yank failed",
+    "disconnectFailed": "Failed to disconnect integration."
   },
   "workspace": {
     "team": "チーム",
@@ -616,7 +634,11 @@
     "addAnother": "別の人を追加",
     "creating": "作成中…",
     "submit": "ワークスペースを作成",
-    "errorFallback": "ワークスペースを作成できませんでした。もう一度お試しください。"
+    "errorFallback": "ワークスペースを作成できませんでした。もう一度お試しください。",
+    "nameRequired": "Workspace name is required.",
+    "nameTooLong": "Workspace name must be {max} characters or fewer.",
+    "nameInvalidChars": "Only letters, numbers, and spaces are allowed.",
+    "inviteFailed": "Failed to send invitation."
   },
   "workspaceMenu": {
     "memberCountOne": "メンバー 1 人",
@@ -702,7 +724,20 @@
     "avatarErrorRead": "この画像を読み込めません。破損している可能性があります。",
     "identityUpdateError": "ワークスペースを更新できませんでした。もう一度お試しください。",
     "llmKeysTitle": "LLM API キー",
-    "llmKeysDesc": "独自の LLM API キーを設定できます。設定すると、このワークスペースのすべての実行で共有キーの代わりにあなたのキーが使われ、トークンは週間予算ではなくプロバイダーアカウントから消費されます。"
+    "llmKeysDesc": "独自の LLM API キーを設定できます。設定すると、このワークスペースのすべての実行で共有キーの代わりにあなたのキーが使われ、トークンは週間予算ではなくプロバイダーアカウントから消費されます。",
+    "transferOwnershipFailed": "Failed to transfer ownership. Please try again.",
+    "deleteWorkspaceFailed": "Failed to delete workspace. Please try again.",
+    "inviteEmailsPlaceholder": "alice{'@'}example.com, bob{'@'}example.com",
+    "managePlan": "Manage plan",
+    "managePlanDesc": "Cancel or change your plan. Changes take effect at the end of the current billing period.",
+    "cancelPlan": "Cancel plan",
+    "downgradeToPro": "Downgrade to Pro",
+    "scheduledCancelBanner": "Your {plan} plan is scheduled to end on {date}. This workspace will move to the Free plan then.",
+    "scheduledCancelBannerNoDate": "Your {plan} plan is scheduled to be cancelled. This workspace will move to the Free plan at the end of the current billing period.",
+    "scheduledDowngradeBanner": "Your {plan} plan is scheduled to change to {target} on {date}.",
+    "scheduledDowngradeBannerNoDate": "Your {plan} plan is scheduled to change to {target} at the end of the current billing period.",
+    "keepPlan": "Keep my plan",
+    "keeping": "Keeping…"
   },
   "storage": {
     "workspace": "ワークスペース",
@@ -820,7 +855,8 @@
       "migrationAccessLossDesc": "この操作の後、ファイルはこのデバイスのみに保存されます。以下のユーザーは開けなくなります。",
       "migrationAccessLossLoading": "対象メンバーを読み込み中…",
       "migrationAccessLossNone": "現在、他にアクセス権を持つユーザーはいません。",
-      "migrationToastView": "進捗を表示"
+      "migrationToastView": "進捗を表示",
+      "providerThisDevice": "This device"
     },
     "disconnect": {
       "title": "{provider} を切断しますか？",
@@ -877,7 +913,9 @@
       "search": "検索",
       "searchFiles": "ファイルを検索",
       "searchPlaceholder": "検索...",
-      "selectedCount": "{n}件選択中"
+      "selectedCount": "{n}件選択中",
+      "expand": "Expand",
+      "collapse": "Collapse"
     },
     "filters": {
       "all": "すべてのファイル",
@@ -950,7 +988,9 @@
     "errorTitle": "タイトルを入力してください。",
     "errorEmail": "有効なメールアドレスを入力してください。",
     "errorContent": "メッセージを入力してください。",
-    "enterprisePrefill": "エンタープライズプランへの興味"
+    "enterprisePrefill": "エンタープライズプランへの興味",
+    "metaTitle": "Contact",
+    "metaDescription": "Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries."
   },
   "forum": {
     "pageTitle": "フォーラム",
@@ -1081,7 +1121,29 @@
     "promoted": "{path} に保存しました",
     "promoteError": "ストレージに保存できませんでした。もう一度お試しください。",
     "downloadError": "アーティファクトをダウンロードできませんでした。",
-    "deleteError": "アーティファクトを削除できませんでした。"
+    "deleteError": "アーティファクトを削除できませんでした。",
+    "loadFailed": "アーティファクトを読み込めませんでした。",
+    "emptyTitle": "アーティファクトはまだありません",
+    "emptyDescription": "エージェントがダウンロードまたは生成したファイルがここに表示されます。セッション限定です — 恒久的に保存するには「ストレージに保存」を使ってください。",
+    "filterAll": "すべて",
+    "fileCount": "ファイルなし | {count} 件のファイル | {count} 件のファイル",
+    "viewGrid": "グリッド表示",
+    "viewList": "リスト表示",
+    "noPreviewShort": "プレビューなし",
+    "select": "Select",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "selectedCount": "{count} selected",
+    "cancel": "Cancel",
+    "bulkDeleteConfirm": "Delete {count} file? | Delete {count} files?",
+    "bulkSaved": "Saved {count} file to storage | Saved {count} files to storage",
+    "sortBy": "Sort",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortNameAsc": "Name (A–Z)",
+    "sortNameDesc": "Name (Z–A)",
+    "sortSizeDesc": "Largest first",
+    "sortSizeAsc": "Smallest first"
   },
   "landing": {
     "useNow": "今すぐ使う",
@@ -1098,7 +1160,8 @@
         "multiAgent": "マルチエージェント引き継ぎ。",
         "vault": "Vaultで保護されたシークレット。",
         "replayable": "再生可能なワークフロー。"
-      }
+      },
+      "rotatingEmpty": "Add phrases to rotate."
     },
     "features": {
       "title": "自動化に必要なすべて",
@@ -1411,7 +1474,15 @@
         "completeFailed": "{failed} 件を保存できませんでした。",
         "completeSubtitle": "完了。",
         "done": "完了"
-      }
+      },
+      "errors": {
+        "saveFailed": "Failed to save password",
+        "revealFailed": "Failed to reveal password",
+        "revealTotpFailed": "認証アプリのキーを表示できませんでした",
+        "updateFailed": "Failed to update password",
+        "deleteFailed": "Failed to delete password"
+      },
+      "passwordsLockedNote": "Passwords are encrypted and can't be revealed or copied."
     },
     "signIns": {
       "sectionTitle": "保存済みサインイン",
@@ -1531,7 +1602,9 @@
         "checkoutError": "チェックアウトを開始できませんでした。もう一度お試しください。",
         "cancel": "キャンセル",
         "redirecting": "リダイレクト中…",
-        "continueToStripe": "Stripe に進む"
+        "continueToStripe": "Stripe に進む",
+        "amountPlaceholder": "0.00",
+        "currencyUsd": "USD"
       },
       "autoTopUpModal": {
         "title": "自動チャージ",
@@ -1608,7 +1681,8 @@
     "showDetails": "詳細",
     "hideDetails": "詳細を非表示",
     "completedSummary": "{site} の認証情報を提供しました。",
-    "cancelledSummary": "{site} へのサインインをキャンセルしました。"
+    "cancelledSummary": "{site} へのサインインをキャンセルしました。",
+    "allowAgentFill": "Allow the agent to type this in directly if secure auto-login isn't possible (less isolated)."
   },
   "schedule": {
     "title": "スケジュール",
@@ -1817,7 +1891,16 @@
       "heading": "ブラウザを接続",
       "subtitle": "Polymux 拡張機能を接続して、自分のブラウザでローカルにエージェントを実行します。",
       "chromeLabel": "Chrome 用にインストール"
-    }
+    },
+    "metaTitle": "Install Apps",
+    "metaDescription": "Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.",
+    "desktopComingSoon": "Desktop Apps Coming Soon",
+    "alsoAvailableFor": "Also available for",
+    "availableFor": "Available for",
+    "platformAnd": "and",
+    "mobileExtensionsHeading": "Browser Extension & Mobile Apps",
+    "mobileExtensionsSubtitle": "Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.",
+    "lookingForMobileExtensions": "Looking for Mobile & Extensions?"
   },
   "docs": {
     "searchPlaceholder": "ドキュメントを検索…",
@@ -1831,29 +1914,68 @@
     "previous": "前へ",
     "next": "次へ",
     "contact": "お問い合わせ",
-    "onThisPage": "このページの内容"
+    "onThisPage": "このページの内容",
+    "navLabel": "Docs",
+    "openNavigation": "Open navigation",
+    "fallbackTitle": "Documentation",
+    "nav": {
+      "sections": {
+        "gettingStarted": "Getting started",
+        "usingPolymux": "Using Polymux",
+        "buildingPlugins": "Building plugins",
+        "connections": "Connections",
+        "api": "API"
+      },
+      "entries": {
+        "introduction": "Introduction",
+        "quickstart": "Quickstart",
+        "installation": "Installation",
+        "workspaces": "Workspaces and members",
+        "vault": "Vault basics",
+        "faq": "FAQ",
+        "pluginOverview": "Plugin overview",
+        "pluginBuild": "Build your first plugin",
+        "pluginManifest": "Manifest reference",
+        "publishing": "Publishing checklist",
+        "connectionsOverview": "Connections overview",
+        "connectionsBuild": "Building a connection",
+        "connectionsPort": "Port a Hermes/OpenClaw plugin",
+        "apiOverview": "API overview",
+        "authentication": "Authentication"
+      }
+    }
   },
   "legalDocs": {
     "loadError": "このドキュメントを読み込めませんでした。後でもう一度お試しください。",
     "privacy": {
       "title": "プライバシーポリシー",
-      "subtitle": "Polymux 利用時の情報の収集、使用、保護について。"
+      "subtitle": "Polymux 利用時の情報の収集、使用、保護について。",
+      "metaTitle": "プライバシーポリシー",
+      "metaDescription": "Polymux が製品およびサービスのご利用時に、お客様の情報をどのように収集、使用、保護するかについて。"
     },
     "terms": {
       "title": "利用規約",
-      "subtitle": "Polymux の製品・サービスを利用するためのルールと条件。"
+      "subtitle": "Polymux の製品・サービスを利用するためのルールと条件。",
+      "metaTitle": "Terms of Service",
+      "metaDescription": "Terms of service governing your use of Polymux. Acceptable use, billing, account termination, and limitations of liability."
     },
     "about": {
       "title": "私たちについて",
-      "subtitle": "Polymux が構築しているものと、私たちが提供する相手。"
+      "subtitle": "Polymux が構築しているものと、私たちが提供する相手。",
+      "metaTitle": "About Us",
+      "metaDescription": "Polymux builds the orchestration layer for AI agents on the live web. Learn about our mission, team, and roadmap."
     },
     "apiReference": {
       "title": "API リファレンス",
-      "subtitle": "開発者向けの HTTP エンドポイント、認証、統合の詳細。"
+      "subtitle": "開発者向けの HTTP エンドポイント、認証、統合の詳細。",
+      "metaTitle": "API Reference",
+      "metaDescription": "HTTP endpoints, auth, and integration details for developers building on Polymux."
     },
     "cookies": {
       "title": "Cookie ポリシー",
-      "subtitle": "当社のウェブサイトとサービスでの Cookie および類似技術の使用について。"
+      "subtitle": "当社のウェブサイトとサービスでの Cookie および類似技術の使用について。",
+      "metaTitle": "Cookie Policy",
+      "metaDescription": "How Polymux uses cookies and similar technologies on our websites and services."
     }
   },
   "bugReport": {
@@ -1975,7 +2097,18 @@
       "anthropic": "Anthropic (Claude)",
       "openai": "OpenAI (GPT)",
       "gemini": "Google Gemini"
-    }
+    },
+    "keyFormatHints": {
+      "anthropic": "sk-ant-…",
+      "openai": "sk-…",
+      "gemini": "AIza…"
+    },
+    "baseUrlDefaults": {
+      "anthropic": "https://api.anthropic.com (default)",
+      "openai": "https://api.openai.com/v1 (default)",
+      "gemini": "https://generativelanguage.googleapis.com (default)"
+    },
+    "noWorkspaceSelected": "No workspace selected."
   },
   "community": {
     "metaTitle": "コミュニティ",
@@ -2017,7 +2150,16 @@
     "readMore": "続きを読む",
     "emailLabel": "メール",
     "subtitle": "Polymux で構築するチーム向けの製品アップデート、エンジニアリングノート、ガイド — エージェントのオーケストレーション、ライブブラウザセッションの監視、信頼できる自動化の提供。",
-    "subscribeHint": "月に数回新しい記事を配信"
+    "subscribeHint": "月に数回新しい記事を配信",
+    "newsletterHeading": "Never miss a post",
+    "newsletterBody": "Occasional email with releases and deep dives. No spam — unsubscribe anytime.",
+    "verifyEmailPrompt": "Check your email to verify your subscription",
+    "subscribing": "Subscribing…",
+    "subscribed": "Subscribed",
+    "subscribeFailed": "Failed to subscribe",
+    "subscribeFailedRetry": "Failed to subscribe. Please try again.",
+    "emailRequired": "Email required",
+    "invalidEmail": "Please enter a valid email"
   },
   "verifyEmail": {
     "title": "メール確認",
@@ -2058,7 +2200,8 @@
   "layout": {
     "loadFailed": "レイアウトの読み込みに失敗しました。",
     "retry": "再試行",
-    "loading": "レイアウトを読み込み中…"
+    "loading": "レイアウトを読み込み中…",
+    "customLayoutFallback": "Custom layout"
   },
   "marketplace": {
     "adminOnly": "統合の管理はワークスペースのオーナーと管理者のみ可能です。",
@@ -2069,5 +2212,94 @@
   "attachments": {
     "tooLarge": "「{name}」はアップロードするには大きすぎます",
     "exceedsLimit": "「{name}」は {limit} のアップロード上限を超えています"
+  },
+  "geolocation": {
+    "notSupported": "Geolocation not supported"
+  },
+  "billing": {
+    "cancelTitle": "Cancel your {plan} plan?",
+    "downgradeTitle": "Downgrade to {plan}?",
+    "cancelLead": "Your plan stays active until {date}. After that, this workspace moves to the Free plan.",
+    "cancelLeadNoDate": "Your plan stays active until the end of the current billing period. After that, this workspace moves to the Free plan.",
+    "downgradeLead": "Your {current} plan stays active until {date}. After that, this workspace switches to {target}.",
+    "downgradeLeadNoDate": "Your {current} plan stays active until the end of the current billing period. After that, this workspace switches to {target}.",
+    "keepUntilPeriodEnd": "You keep every {plan} feature until then — nothing changes today.",
+    "whatChanges": "What changes at period end",
+    "whatChangesOn": "What changes on {date}",
+    "unlimited": "Unlimited",
+    "rowAgents": "Browser agents",
+    "rowTokens": "Weekly tokens",
+    "rowRuns": "Monthly workflow runs",
+    "rowMembers": "Workspace members",
+    "rowFileSize": "Max file size",
+    "confirmCancel": "Cancel at period end",
+    "confirmDowngrade": "Schedule downgrade",
+    "scheduling": "Scheduling…",
+    "keepCurrent": "Never mind"
+  },
+  "checkout": {
+    "title": "Subscribe to {plan}",
+    "loading": "Loading secure checkout…",
+    "notConfigured": "Payments aren't configured yet. Please try again later.",
+    "loadFailed": "Couldn't load the payment form. Check your connection and try again.",
+    "failed": "Something went wrong starting checkout. Please try again.",
+    "retry": "Try again",
+    "successTitle": "You're on {plan}!",
+    "successBody": "Payment received. Your plan is being activated — this can take a moment.",
+    "done": "Done",
+    "billedAnnually": "billed annually",
+    "billedMonthly": "billed monthly",
+    "toastActivated": "{plan} activated for this workspace.",
+    "pageTitle": "Complete your upgrade",
+    "successHeading": "Upgrade complete",
+    "orderSummary": "Order summary",
+    "forWorkspace": "for {name}",
+    "perMonth": "/mo",
+    "included": "What's included",
+    "featAgents": "{n} browser agents",
+    "featTokens": "{n} weekly tokens",
+    "featRuns": "{n} workflow runs / month",
+    "featMembers": "Up to {n} members",
+    "backToPlans": "Back to plans",
+    "goToDashboard": "Go to dashboard",
+    "securedByStripe": "Secured by Stripe",
+    "paymentFailed": "Payment couldn't be completed. Please check your details or try another card.",
+    "subscribe": "Subscribe",
+    "subscribeFor": "Subscribe · {price}",
+    "processing": "Processing…",
+    "planHeading": "{plan} plan",
+    "billedAnnuallyTotal": "billed annually ({total} / yr)",
+    "currency": "Currency"
+  },
+  "stealth": {
+    "title": "Stealth",
+    "mode": {
+      "label": "Browser mode",
+      "description": "Where this workflow's agents run. Change it from the chat input."
+    },
+    "cloaked": {
+      "label": "Cloaked browser",
+      "description": "Route blocked sites through CloakBrowser to get past bot walls."
+    },
+    "humanizer": {
+      "label": "Agent Humaniser",
+      "description": "Human-like mouse movement and typing so actions don't look automated."
+    },
+    "risk": {
+      "humanizer": "Detection risk: Agent Humaniser is off — instant clicks & typing may be flagged by bot-detection sites.",
+      "cloaked": "Detection risk: cloaked browser is off — sites with bot protection (e.g. Cloudflare) may detect or block the agent.",
+      "both": "Detection risk: Agent Humaniser and cloaked browser are off — sites with bot protection may detect or block the agent.",
+      "extension": "Detection risk: the agent runs in your own browser, so cloaking and humanising don't apply — sites may detect automation."
+    }
+  },
+  "otpRequest": {
+    "heading": "{site} の2FAコードを入力してください",
+    "codeLabel": "確認コード",
+    "codePlaceholder": "コードを入力",
+    "hint": "認証アプリ、SMS、またはメールから取得してください。",
+    "submit": "コードを送信",
+    "working": "送信中…",
+    "completedSummary": "{site} の2FAコードを入力しました。",
+    "cancelledSummary": "{site} の2FAリクエストをキャンセルしました。"
   }
 }
