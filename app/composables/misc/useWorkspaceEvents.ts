@@ -1,4 +1,5 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { Ref } from 'vue'
 
 // Push-invalidation for the workspace name and workflow list.
 //
@@ -24,11 +25,15 @@ let _watchInstalled = false
 // (useQueryClient uses Vue inject and can't be called outside setup).
 let _queryClient: ReturnType<typeof useQueryClient> | null = null
 let _fetchWorkspaces: (() => Promise<void>) | null = null
+// Shared signal a mounted FileBrowser watches to revalidate the directory it's
+// currently showing on a realtime `files` change (see useStorageFiles).
+let _storageDirRev: Ref<number> | null = null
 
 // Trailing-debounce timers so a burst of postgres_changes events collapses into
 // a single refetch instead of one per row write. Cleared on teardown.
 let _workflowsTimer: ReturnType<typeof setTimeout> | null = null
 let _workspacesTimer: ReturnType<typeof setTimeout> | null = null
+let _filesTimer: ReturnType<typeof setTimeout> | null = null
 const INVALIDATE_DEBOUNCE_MS = 800
 
 // Fields the SidePanel actually renders for a workflow row, as
@@ -70,6 +75,7 @@ function _teardown() {
   if (!import.meta.client) return
   if (_workflowsTimer) { clearTimeout(_workflowsTimer); _workflowsTimer = null }
   if (_workspacesTimer) { clearTimeout(_workspacesTimer); _workspacesTimer = null }
+  if (_filesTimer) { clearTimeout(_filesTimer); _filesTimer = null }
   if (!_channel) return
   const supabase = useSupabaseClient()
   supabase.removeChannel(_channel)
@@ -106,6 +112,19 @@ function _subscribe(uid: string, wsId: string) {
     }, INVALIDATE_DEBOUNCE_MS)
   }
 
+  const scheduleStorageInvalidate = () => {
+    if (_filesTimer) return
+    _filesTimer = setTimeout(() => {
+      _filesTimer = null
+      // Mark every cached directory of this workspace stale so the next
+      // navigation refetches…
+      void qc?.invalidateQueries({ queryKey: ['storage-directory', wsId] })
+      // …and nudge any mounted FileBrowser to revalidate the folder it's
+      // currently showing (imperative fetchQuery has no observer to auto-refetch).
+      if (_storageDirRev) _storageDirRev.value++
+    }, INVALIDATE_DEBOUNCE_MS)
+  }
+
   _channel = supabase
     .channel(`workspace-data-${uid}-${wsId}`)
     .on(
@@ -122,6 +141,11 @@ function _subscribe(uid: string, wsId: string) {
         }
       },
     )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'files', filter: `workspace_id=eq.${wsId}` },
+      () => { scheduleStorageInvalidate() },
+    )
     .subscribe()
 }
 
@@ -134,6 +158,9 @@ export function useWorkspaceEvents() {
     _queryClient = useQueryClient()
     const { fetchWorkspaces, currentWorkspaceId } = useWorkspaces()
     _fetchWorkspaces = fetchWorkspaces
+    // Same shared useState ref FileBrowser/useStorageFiles read; captured here
+    // so the realtime callback (outside setup) can bump it.
+    _storageDirRev = useState<number>('storage-dir-rev', () => 0)
 
     const user = useSupabaseUser()
 

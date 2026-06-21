@@ -22,7 +22,7 @@ const props = withDefaults(defineProps<{
   highlightFileName: undefined,
 })
 
-const { listFiles, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, transferLocalFile, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
+const { listFiles, getCachedDirectory, storageDirRev, uploadFile, deleteFiles, renameFile, renameFolder, moveFile, migrateItems, transferLocalFile, reorderFiles, createFolder, copyStorageFile, copyStorageFolder, downloadFile, stripUserPrefix, validateSubdirectoryShare, clearStorageListCache, provider: storageProvider, isLoading, listingLoading, error: storageError, folderOpMessage } = useStorageFiles()
 const { resolvedOrder: storageResolvedOrder } = useStoragePreferences()
 const { getIconForFile } = useFileIcons()
 const { t, locale } = useI18n()
@@ -480,13 +480,31 @@ watch(
 // directory when the workspace isn't loaded yet, and workspaces arrive
 // asynchronously from the sidebar's fetch. Without this dependency, a cold
 // load can race and leave the browser permanently empty until remount.
+// `directoryCache` is keyed by path only, so it must be dropped the moment the
+// workspace changes — otherwise this watch (which runs before the cache-clear
+// watch below) could paint the previous workspace's listing for one tick.
+let lastDirCacheWsId: string | null = null
 watch(
   [currentPath, () => currentWorkspace.value?.id],
   ([path, wsId]) => {
     if (!wsId) return
+    if (wsId !== lastDirCacheWsId) {
+      directoryCache.clear()
+      lastDirCacheWsId = wsId
+    }
     // Paint the cached listing instantly so the grid swaps without a fetch
     // round-trip visible to the user; refreshFiles() then revalidates.
-    const cached = directoryCache.get(pathKey(path))
+    let cached = directoryCache.get(pathKey(path))
+    if (!cached) {
+      // Cold mount: fall back to the Vue Query cache (warmed by the
+      // workspace-entry prefetch or a prior fetch) so the grid paints
+      // last-known data instead of flashing the skeleton.
+      const warmed = getCachedDirectory(path)
+      if (warmed) {
+        cached = { folders: warmed.folders, files: warmed.files, order: warmed.order ?? [] }
+        directoryCache.set(pathKey(path), cached)
+      }
+    }
     if (cached) {
       folders.value = cached.folders
       files.value = cached.files
@@ -514,6 +532,14 @@ watch(() => localMigrationState.status, (status, prev) => {
 })
 
 useOnReconnect(() => {
+  void refreshFiles(true)
+})
+
+// Realtime: useWorkspaceEvents bumps storageDirRev when the server reports a
+// `files` change in this workspace (e.g. an agent uploads while we're viewing
+// the folder). Revalidate the directory we're showing so it stays fresh while
+// visible — the 800ms debounce upstream collapses bursts (e.g. a bulk upload).
+watch(storageDirRev, () => {
   void refreshFiles(true)
 })
 
@@ -2586,14 +2612,69 @@ watch(multiDragActive, (active) => {
             >
               {{ folderOpMessage }}
             </p>
-            <!-- Initial directory fetch: reserve space only — listing uses `listingLoading`, not upload/move `isLoading`. -->
+            <!-- Initial directory fetch: skeleton that mirrors the active view so the
+                 panel fills in place instead of flashing blank then popping. Only shows
+                 on a cold load (no cached rows to paint); listing uses `listingLoading`,
+                 not upload/move `isLoading`. -->
             <div
               v-if="listingLoading && filteredFiles.length === 0 && !pendingNewFolder"
-             class="flex min-h-[40vh] flex-1 flex-col items-center justify-center p-4 sm:p-5"
+              class="flex min-h-0 min-w-0 flex-1 flex-col"
               role="status"
               aria-live="polite"
+              aria-busy="true"
             >
               <span class="sr-only">{{ t('common.loading') }}</span>
+
+              <!-- Icon view skeleton: same auto-fill grid + 88px cards as the real grid -->
+              <div
+                v-if="viewMode === 'icon'"
+                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6"
+              >
+                <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))">
+                  <div v-for="n in 18" :key="n" class="flex items-start justify-center py-2">
+                    <div class="flex w-[88px] flex-col items-center gap-2 p-2">
+                      <div class="size-14 rounded-xl bg-neutral-200 animate-pulse" />
+                      <div
+                        class="h-2.5 rounded bg-neutral-200 animate-pulse"
+                        :style="{ width: `${55 + (n * 17) % 35}%` }"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- List view skeleton: same bordered table + column grid as the real list -->
+              <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
+                <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                  <!-- Real column headers (static labels, not data — fine to show while loading) -->
+                  <div
+                    class="grid shrink-0 items-center border-b border-neutral-200 bg-neutral-50/70 px-3 py-1.5 text-[11px] font-medium text-neutral-500"
+                    style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
+                  >
+                    <div class="truncate">{{ t('storage.listColumns.name') }}</div>
+                    <div class="truncate text-right">{{ t('storage.listColumns.size') }}</div>
+                    <div class="truncate">{{ t('storage.listColumns.kind') }}</div>
+                    <div class="truncate">{{ t('storage.listColumns.dateModified') }}</div>
+                  </div>
+                  <div
+                    v-for="n in 12"
+                    :key="n"
+                    class="grid items-center border-b border-neutral-100 px-3 py-1.5"
+                    style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
+                  >
+                    <div class="flex min-w-0 items-center gap-2">
+                      <div class="size-4 shrink-0 rounded bg-neutral-200 animate-pulse" />
+                      <div
+                        class="h-3 rounded bg-neutral-200 animate-pulse"
+                        :style="{ width: `${45 + (n * 23) % 45}%` }"
+                      />
+                    </div>
+                    <div class="h-3 w-10 justify-self-end rounded bg-neutral-200 animate-pulse" />
+                    <div class="h-3 w-16 rounded bg-neutral-200 animate-pulse" />
+                    <div class="h-3 w-24 rounded bg-neutral-200 animate-pulse" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Error state -->

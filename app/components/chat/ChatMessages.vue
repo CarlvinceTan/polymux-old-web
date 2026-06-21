@@ -176,7 +176,7 @@ defineExpose({ scrollToBottom })
 <template>
   <div
     ref="scrollContainer"
-    class="scrollbar-hide min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain py-3 sm:py-4"
+    class="scrollbar-hide min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 sm:py-4"
     role="log"
     aria-live="polite"
     aria-relevant="additions"
@@ -186,14 +186,14 @@ defineExpose({ scrollToBottom })
          the scroll container alone wouldn't fire on scrollHeight growth. -->
     <div ref="contentWrapper">
       <template v-for="(msg, i) in messages" :key="msg.id ?? i">
-        <div v-if="msg.role === 'agent' && msg.credentialRequest" class="px-1">
+        <div v-if="msg.role === 'agent' && msg.credentialRequest">
           <CredentialRequestCard
             :request="msg.credentialRequest"
             @submit="(v) => props.chats?.provideCredential(msg.credentialRequest!.msgId, v)"
             @cancel="props.chats?.provideCredential(msg.credentialRequest!.msgId, { cancelled: true })"
           />
         </div>
-        <div v-else-if="msg.role === 'agent' && msg.otpRequest" class="px-1">
+        <div v-else-if="msg.role === 'agent' && msg.otpRequest">
           <OtpRequestCard
             :request="msg.otpRequest"
             @submit="(v) => props.chats?.provideOtp(msg.otpRequest!.msgId, v)"
@@ -211,6 +211,9 @@ defineExpose({ scrollToBottom })
             :prompt="msg.upgradePrompt"
             @dismiss="props.chats?.dismissUpgradePrompt(msg.upgradePrompt!.msgId)"
           />
+        </div>
+        <div v-else-if="msg.role === 'agent' && msg.flowPeek" class="px-1">
+          <FlowPeekCard :peek="msg.flowPeek" />
         </div>
         <AgentMessage
           v-else-if="msg.role === 'agent'"

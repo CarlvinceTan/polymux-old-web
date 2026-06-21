@@ -11,6 +11,7 @@ const props = defineProps<{
   viewportList: ViewportState[]
   frameUrls?: Map<string, string>
   cursorPositions?: Map<string, CursorState>
+  cursorClicks?: Map<string, number>
   showCursor?: boolean
   browserAgentCap?: number
   browserAgentCapResolved?: boolean
@@ -333,7 +334,7 @@ function viewportHandlers(agentId: string) {
           @keydown.space.prevent="onExpand(vp.agentId)"
         >
           <Viewport
-            v-bind="{ ...vp, ...viewportHandlers(vp.agentId), frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), showCursor }"
+            v-bind="{ ...vp, ...viewportHandlers(vp.agentId), frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), clickNonce: cursorClicks?.get(vp.agentId), showCursor }"
             :thumbnail="compactInGallery"
             :show-bar="showBarInGallery"
             :show-action-text="!compactInGallery"
@@ -454,6 +455,7 @@ function viewportHandlers(agentId: string) {
     :viewport="expandedViewport"
     :frame-url="expandedFrameUrl"
     :cursor="cursorPositions?.get(expandedViewport.agentId)"
+    :click-nonce="cursorClicks?.get(expandedViewport.agentId)"
     :show-cursor="showCursor"
     @close="expandedAgentId = null"
   />

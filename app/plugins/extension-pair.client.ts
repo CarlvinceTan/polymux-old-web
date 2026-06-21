@@ -102,11 +102,13 @@ export default defineNuxtPlugin(async () => {
   // posthog:flags-changed listener below retries once flags actually land.
   void attemptPair()
 
-  // Re-pair on any subsequent sign-in. Sign-out is a no-op here; the
-  // extension keeps its bearer token until the user hits Reset in the
-  // popup or the server expires it.
+  // Re-pair on a real sign-in only. We deliberately do NOT react to
+  // TOKEN_REFRESHED: the extension keeps its bearer token across token rotations
+  // (so re-pairing is unnecessary), and because attemptPair() calls getSession(),
+  // reacting to TOKEN_REFRESHED can re-enter the refresh path and, on a stale
+  // token, help drive an unbounded refresh loop. Sign-out is a no-op here.
   supabase.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    if (event === 'SIGNED_IN') {
       void attemptPair()
     }
   })

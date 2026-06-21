@@ -2,6 +2,7 @@
 
 import type { SandboxArtifact } from '~/composables/artifacts/useArtifacts'
 import type { UpgradePlanPayload } from '~/types/upgradePlan'
+import type { WorkflowGraph } from '~/composables/workflows/useWorkflows'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
 
@@ -279,6 +280,20 @@ export interface CursorState {
   vh: number
 }
 
+/**
+ * CursorClickPayload streams a discrete click the browser driver dispatched for
+ * an agent. The frontend doesn't need the coordinates (the ripple fires from
+ * the cursor's current hotspot) — it only counts clicks per agent to retrigger
+ * the ripple animation — but (x, y, vw, vh) are carried for parity/debugging.
+ */
+export interface CursorClickPayload {
+  agent_id: string
+  x: number
+  y: number
+  vw: number
+  vh: number
+}
+
 // ── Client → Server payloads ──────────────────────────────────────────────────
 
 export interface UserMessagePayload {
@@ -350,6 +365,9 @@ export interface ChatMessage {
   /** Inline upgrade / weekly-budget prompt when a plan limit is hit during the
    *  chat (replaces the modal overlay while the chat view is visible). */
   upgradePrompt?: ChatUpgradePrompt
+  /** Inline workflow-graph preview the orchestrator surfaces (via ShowWorkflow)
+   *  after building/editing the graph — a clickable peek that opens the Flow view. */
+  flowPeek?: ChatFlowPeek
 }
 
 /** Viewport state for a browser agent — extends the UI config with `agentId` for backend association. */
@@ -439,6 +457,23 @@ export interface ChatOtpRequest {
   site: string
   purpose: string
   status: 'pending' | 'completed' | 'cancelled'
+}
+
+/**
+ * WorkflowPeekPayload arrives when the orchestrator calls ShowWorkflow — a
+ * snapshot of the current workflow graph the UI renders as a clickable preview
+ * card (the replacement for ASCII graph sketches). The server snapshots its
+ * authoritative draft graph so the card is reload-proof.
+ */
+export interface WorkflowPeekPayload {
+  msg_id: string
+  graph: WorkflowGraph
+}
+
+/** Inline workflow-graph preview embedded in an orchestrator chat message. */
+export interface ChatFlowPeek {
+  msgId: string
+  graph: WorkflowGraph
 }
 
 /**

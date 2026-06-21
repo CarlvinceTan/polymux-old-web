@@ -198,6 +198,7 @@ onMounted(() => {
     :agents-active="chatActive"
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
     :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
+    :cursor-clicks="(screencast.cursorClicks.value as Map<string, number>)"
     :show-cursor="showCursor"
     :session-id="sessionId"
     :workspace-id="workflowWorkspaceId"

@@ -280,11 +280,19 @@ export default defineNuxtConfig({
     // In dev, allow the auth cookie over plain HTTP so LAN-IP access works (browsers drop Secure cookies on non-secure origins, which breaks the auth flow when hitting the dev server from another device).
     cookieOptions: {
       secure: process.env.NODE_ENV === "production",
-      // Share the auth session across subdomains (the product + admin.polymux.com)
-      // in production. Set COOKIE_DOMAIN=.polymux.com on the PROD env only — leave
-      // it unset on localhost and *.vercel.app previews (host-scoped cookies),
-      // since a mismatched domain silently breaks login.
-      domain: process.env.COOKIE_DOMAIN || undefined,
+      // Share the auth session across subdomains (product polymux.com + admin.polymux.com)
+      // on PRODUCTION ONLY. Gated on VERCEL_ENV so the domain is applied solely on the
+      // production deployment — never on *.vercel.app previews or localhost, where a
+      // `.polymux.com` cookie can't be set and would silently break login. This makes it
+      // SAFE to set COOKIE_DOMAIN on every Vercel environment (preview/dev ignore it via
+      // this gate), and it defaults to `.polymux.com` on prod even if the var is unset.
+      //
+      // NB: changing this scope leaves a host-scoped (no-Domain) cookie behind in existing
+      // browsers; `plugins/supabase-cookie-scope-migrate.client.ts` clears that leftover
+      // once a fresh session has been written in the new scope (so no session is lost).
+      domain: process.env.VERCEL_ENV === "production"
+        ? (process.env.COOKIE_DOMAIN || ".polymux.com")
+        : undefined,
     },
   },
   i18n: {

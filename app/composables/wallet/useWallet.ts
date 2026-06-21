@@ -231,6 +231,11 @@ export function useWallet() {
     return formatCents(wallet.value.balance_cents)
   })
 
+  // True only on the first-ever load (no cached wallet yet). Lets the UI show a
+  // skeleton instead of a misleading "$0.00" before the balance arrives; once
+  // cached it stays false, so revisits paint the real value immediately.
+  const balanceLoading = computed(() => walletQuery.isLoading.value)
+
   function formatCents(cents: number): string {
     return `$${(cents / 100).toFixed(2)}`
   }
@@ -241,6 +246,7 @@ export function useWallet() {
     budgets,
     loading,
     balanceDisplay,
+    balanceLoading,
     fetchWallet,
     fetchTransactions,
     fetchBudgets,

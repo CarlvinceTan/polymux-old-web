@@ -19,12 +19,18 @@ const {
   workspaces,
   currentWorkspace,
   currentWorkspaceId,
+  currentMemberCount,
   members,
   fetchMembers,
   updateWorkspace,
   transferOwnership,
   deleteWorkspace,
 } = useWorkspaces()
+
+// Seat count: prefer the freshly-loaded members list, else fall back to the
+// cache-aware count (localStorage-seeded) so the seats stat doesn't flash 0
+// before fetchMembers resolves on modal open.
+const seatCount = computed(() => members.value.length || currentMemberCount.value)
 
 const { probe: probeLocal } = useLocalFileStorage()
 const { cards: storageUsageCards, refreshDrive, driveConnectionBroken } = useStorageUsage()
@@ -194,7 +200,7 @@ const workflowRunsPercent = computed<number | null>(() => {
 function seatsFilledPercent(): number | null {
   const cap = seatsCap.value
   if (cap <= 0) return null
-  return Math.min(100, Math.round((members.value.length / cap) * 100))
+  return Math.min(100, Math.round((seatCount.value / cap) * 100))
 }
 
 // ---- Storage probes ----
@@ -720,7 +726,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         {{ t('workspaceMenu.statSeats') }}
                       </p>
                       <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ members.length }}</span>
+                        <span class="font-semibold">{{ seatCount }}</span>
                         <span class="text-neutral-400">/ {{ seatsCap <= 0 ? '∞' : seatsCap }}</span>
                       </p>
                       <div

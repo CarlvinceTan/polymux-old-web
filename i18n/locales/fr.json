@@ -196,6 +196,7 @@
     "cloakedBrowser": "Navigateur masqué",
     "cloakedBrowserHint": "Achemine les sessions du navigateur via CloakBrowser lorsque le site est connu pour bloquer avec CAPTCHA, Cloudflare ou DataDome. Désactivé force chaque navigation via le navigateur normal.",
     "showCursor": "Afficher le curseur",
+    "showCursorMenuHint": "Le pointeur de l'agent dans les vues",
     "showCursorHint": "Affiche un curseur en flèche sur le viewport du navigateur en direct, à la position où l'agent pointe ou clique. Utile pour observer la souris simulée en temps réel. Désactivé par défaut.",
     "notifications": "Notifications",
     "allNotifications": "Toutes les notifications",
@@ -396,7 +397,12 @@
     "embedNoMatches": "Aucun workflow correspondant",
     "embedPendingTitle": "Choisir un workflow",
     "embedUnboundToast": "Aucun workflow n'est sélectionné pour cet embed — choisissez-en un dans le panneau d'infos.",
-    "embedOpen": "Ouvrir le workflow référencé →"
+    "embedOpen": "Ouvrir le workflow référencé →",
+    "peekTitle": "Workflow",
+    "peekOpenFlow": "Open flow",
+    "peekNodeCount": "{n} nodes",
+    "peekParallel": "{n} parallel branches",
+    "peekAlt": "Preview of the workflow graph — open the Flow view"
   },
   "dashboard": {
     "console": "Console",

@@ -27,10 +27,19 @@ export function useSignOut() {
     const escaped = cookiePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const pattern = new RegExp(`^${escaped}(\\.\\d+)?$`)
     const expiry = 'expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+    // Delete across EVERY scope the cookie might live in. A no-Domain delete only
+    // removes the host-scoped cookie; a session shared across subdomains lives
+    // under `Domain=.polymux.com` and survives a no-Domain delete — which is what
+    // left users signed in after sign-out. Unmatched scopes are harmless no-ops.
+    const host = location.hostname
+    const parent = host.split('.').slice(-2).join('.')
+    const scopes = Array.from(new Set<string | null>([null, host, parent, `.${parent}`]))
     for (const part of document.cookie.split(';')) {
       const name = part.split('=')[0]?.trim()
       if (name && pattern.test(name)) {
-        document.cookie = `${name}=; ${expiry}`
+        for (const d of scopes) {
+          document.cookie = d ? `${name}=; ${expiry}; domain=${d}` : `${name}=; ${expiry}`
+        }
       }
     }
   }

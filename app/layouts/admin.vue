@@ -2,8 +2,10 @@
 // Admin/maintainer shell — used by everything under /admin (i.e. the admin
 // subdomain). Deliberately has NO product SidePanel; a slim top bar instead.
 const user = useSupabaseUser()
-const supabase = useSupabaseClient()
 const route = useRoute()
+// Centralised sign-out: clears all auth-cookie scopes (incl. `.polymux.com`) and
+// hard-reloads — on the admin host that lands back on /admin-sign-in.
+const { signOut } = useSignOut()
 
 const nav = [
   { label: 'Plugins', to: '/admin/plugins' },
@@ -16,11 +18,6 @@ const nav = [
   { label: 'Blogs', to: '/admin/blogs' },
   { label: 'Maintainers', to: '/admin/maintainers' },
 ]
-
-async function signOut() {
-  await supabase.auth.signOut()
-  await navigateTo('/sign-in')
-}
 </script>
 
 <template>

@@ -106,6 +106,7 @@ const mergedFrameUrls = computed(() => {
 const screencast = {
   frameUrls: readonly(mergedFrameUrls),
   cursorPositions: wsScreencast.cursorPositions,
+  cursorClicks: wsScreencast.cursorClicks,
   cleanup: () => {
     wsScreencast.cleanup()
     extScreencast.cleanup()

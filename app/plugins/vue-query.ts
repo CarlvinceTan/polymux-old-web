@@ -8,7 +8,15 @@ export default defineNuxtPlugin((nuxtApp) => {
     defaultOptions: {
       queries: {
         staleTime: 2 * 60 * 1000,
+        // Keep cache entries resident for 30min after they go unused so
+        // in-session navigation (and the warm-cache prefetch) keeps painting
+        // last-known data instead of refetching from empty. Background SWR
+        // still revalidates anything past staleTime.
+        gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,
+        // Recover freshness after the network/server comes back without a
+        // manual reload.
+        refetchOnReconnect: true,
         retry: 1,
       },
     },

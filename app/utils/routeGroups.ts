@@ -8,6 +8,7 @@
 
 export const AUTH_PREFIXES = [
   '/sign-in',
+  '/admin-sign-in',
   '/sign-up',
   '/confirm',
   '/forgot-password',
@@ -27,6 +28,7 @@ export const PROTECTED_PREFIXES = [
 export const ALWAYS_ALLOW = [
   '/account-suspended',
   '/sign-in',
+  '/admin-sign-in',
   '/sign-up',
   '/forgot-password',
   '/reset-password',

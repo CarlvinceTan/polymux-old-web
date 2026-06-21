@@ -3,6 +3,7 @@ import { useState, useRuntimeConfig, useSupabaseClient, useSupabaseUser } from '
 import { useAuthFetch } from '../auth/useAuthFetch'
 import { useWorkspaces } from '../account/useWorkspaces'
 import type { BrowserSpawnedPayload, ChatMessage, ChatMessageAttachment } from '../types'
+import type { WorkflowGraph } from './useWorkflows'
 
 // `/workflow/new` is the URL slug for the page that hosts the in-flight draft.
 // Drafts themselves carry real workflow uuids — server-allocated by
@@ -460,9 +461,34 @@ export function useWorkflowList() {
     }
     if (!data || data.length === 0) return []
 
+    type CardStatus = 'pending' | 'completed' | 'cancelled'
     type Meta = {
       attachments?: ChatMessageAttachment[]
       thinking?: { action?: string; detail?: string }[]
+      // Inline human-in-the-loop cards persisted server-side on resolve so the
+      // completed/cancelled credential & OTP cards survive a page reload (the
+      // live cards are otherwise transient WS events). See the polymux server's
+      // OnResolveCredential / OnResolveOtp wiring.
+      credential_request?: {
+        msg_id: string
+        site: string
+        purpose: string
+        suggested_username?: string
+        status: CardStatus
+      }
+      otp_request?: {
+        msg_id: string
+        site: string
+        purpose: string
+        status: CardStatus
+      }
+      // Inline workflow-graph preview persisted server-side when the
+      // orchestrator calls ShowWorkflow, so the clickable peek card survives a
+      // reload. See the polymux server's OnShowWorkflow wiring.
+      workflow_peek?: {
+        msg_id: string
+        graph: WorkflowGraph
+      }
     }
 
     const out: ChatMessage[] = []
@@ -476,6 +502,53 @@ export function useWorkflowList() {
           text: m.content,
           id: m.id,
           attachments: meta?.attachments,
+        })
+        continue
+      }
+
+      if (meta?.credential_request) {
+        const cr = meta.credential_request
+        out.push({
+          role: 'agent',
+          text: '',
+          id: m.id,
+          credentialRequest: {
+            msgId: cr.msg_id,
+            site: cr.site,
+            purpose: cr.purpose,
+            suggestedUsername: cr.suggested_username,
+            status: cr.status,
+          },
+        })
+        continue
+      }
+
+      if (meta?.otp_request) {
+        const or = meta.otp_request
+        out.push({
+          role: 'agent',
+          text: '',
+          id: m.id,
+          otpRequest: {
+            msgId: or.msg_id,
+            site: or.site,
+            purpose: or.purpose,
+            status: or.status,
+          },
+        })
+        continue
+      }
+
+      if (meta?.workflow_peek) {
+        const wp = meta.workflow_peek
+        out.push({
+          role: 'agent',
+          text: '',
+          id: m.id,
+          flowPeek: {
+            msgId: wp.msg_id,
+            graph: wp.graph,
+          },
         })
         continue
       }

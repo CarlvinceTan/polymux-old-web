@@ -15,13 +15,18 @@ const {
   currentWorkspace,
   currentWorkspaceDisplayName,
   currentWorkspaceId,
+  currentMemberCount,
   switchWorkspace,
   fetchWorkspaces,
-  members: workspaceMembers,
   fetchMembers: fetchWorkspaceMembers,
 } = useWorkspaces()
 
 useWorkspaceEvents()
+
+// Warms Vue Query caches for likely-next surfaces (vault, wallet, storage,
+// integrations, members) during the bootstrap loading window so they paint
+// last-known data instead of flashing empty. Captured at setup; fired below.
+const { prefetchWorkspaceCache } = usePrefetchWorkspaceCache()
 
 const { navigateToPricing } = usePlanUpgradeNavigation()
 
@@ -234,6 +239,9 @@ async function bootstrapData() {
       await fetchWorkspaces()
       await fetchSessions()
     }
+    // Fire-and-forget: warm downstream caches while the user lands on the
+    // sidebar. Not awaited so it never holds the bootstrap spinner open.
+    void prefetchWorkspaceCache(currentWorkspaceId.value)
   }
   finally {
     bootstrapping.value = false
@@ -383,7 +391,10 @@ const otherWorkspaces = computed(() =>
 )
 
 const memberCountText = computed(() => {
-  const count = workspaceMembers.value.length
+  // Cache-aware count (live → localStorage-seeded → 0) so the sidebar shows the
+  // last-known value immediately instead of flashing "0 members" before the
+  // dropdown's members fetch resolves.
+  const count = currentMemberCount.value
   return count === 1 ? t('workspaceMenu.memberCountOne') : t('workspaceMenu.memberCountMany', { n: count })
 })
 
@@ -534,6 +545,8 @@ function positionSubmenu(
 
 function handleWorkspaceSwitch(id: string) {
   switchWorkspace(id)
+  // Warm the new workspace's caches so its surfaces don't flash empty.
+  void prefetchWorkspaceCache(id)
   isWorkspaceDropdownOpen.value = false
 }
 

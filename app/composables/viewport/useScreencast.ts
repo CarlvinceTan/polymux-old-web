@@ -1,6 +1,6 @@
 import { ref, readonly, watch, onUnmounted } from 'vue'
 import type { SessionHandle } from '../workflows/useWorkflowSession'
-import type { CursorPositionPayload, CursorState, PageNavigatedPayload } from '../types'
+import type { CursorClickPayload, CursorPositionPayload, CursorState, PageNavigatedPayload } from '../types'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 
 const decoder = new TextDecoder()
@@ -17,6 +17,11 @@ export function useScreencast(session: SessionHandle) {
   // reports them — we let Vue's reactivity coalesce paints. Cleared when an
   // agent's screencast frame URL goes away (close / navigation reset).
   const cursorPositions = ref<Map<string, CursorState>>(new Map())
+  // Per-agent click counters. Each driver-dispatched click bumps the agent's
+  // count; the cursor overlay watches it to replay a one-shot ripple from the
+  // current hotspot. A monotonic counter (not a boolean) so back-to-back clicks
+  // each retrigger the animation.
+  const cursorClicks = ref<Map<string, number>>(new Map())
 
   function revokeAll() {
     for (const url of frameUrls.value.values()) {
@@ -87,9 +92,17 @@ export function useScreencast(session: SessionHandle) {
     cursorPositions.value = next
   }
 
+  function handleCursorClick(p: CursorClickPayload) {
+    if (!p.agent_id) return
+    const next = new Map(cursorClicks.value)
+    next.set(p.agent_id, (next.get(p.agent_id) ?? 0) + 1)
+    cursorClicks.value = next
+  }
+
   session.onBinary(handleBinaryFrame)
   session.on<PageNavigatedPayload>('page_navigated', handlePageNavigated)
   session.on<CursorPositionPayload>('cursor_position', handleCursorPosition)
+  session.on<CursorClickPayload>('cursor_click', handleCursorClick)
 
   // Clear stale frames when the session resets (navigation to a different
   // session sets sessionState to null before the new session connects).
@@ -100,6 +113,7 @@ export function useScreencast(session: SessionHandle) {
         revokeAll()
         freezeUntil.clear()
         cursorPositions.value = new Map()
+        cursorClicks.value = new Map()
       }
     },
   )
@@ -108,9 +122,11 @@ export function useScreencast(session: SessionHandle) {
     session.offBinary(handleBinaryFrame)
     session.off('page_navigated', handlePageNavigated)
     session.off('cursor_position', handleCursorPosition)
+    session.off('cursor_click', handleCursorClick)
     freezeUntil.clear()
     revokeAll()
     cursorPositions.value = new Map()
+    cursorClicks.value = new Map()
   }
 
   onUnmounted(cleanup)
@@ -118,6 +134,7 @@ export function useScreencast(session: SessionHandle) {
   return {
     frameUrls: readonly(frameUrls),
     cursorPositions: readonly(cursorPositions),
+    cursorClicks: readonly(cursorClicks),
     cleanup,
   }
 }

@@ -1,3 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
+
 export interface PasswordEntry {
   id: string
   name: string
@@ -45,6 +48,34 @@ function toEntry(row: WorkspacePasswordRow): PasswordEntry {
   }
 }
 
+// Single source of truth for the passwords listing fetch + row→entry mapping.
+// Shared by the live useQuery below and the warm-cache prefetch hook so both
+// populate the ['workspace-passwords', wsId] slot with the SAME mapped shape
+// (prefetching raw rows would make the live query render the wrong shape).
+export async function fetchPasswordEntries(
+  supabase: SupabaseClient<Database>,
+  workspaceId: string,
+): Promise<PasswordEntry[]> {
+  const { data, error } = await supabase
+    .from('workspace_passwords')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data as WorkspacePasswordRow[]).map(toEntry)
+}
+
+export function prefetchPasswords(
+  queryClient: ReturnType<typeof useQueryClient>,
+  supabase: SupabaseClient<Database>,
+  workspaceId: string,
+): Promise<void> {
+  return queryClient.prefetchQuery({
+    queryKey: ['workspace-passwords', workspaceId],
+    queryFn: () => fetchPasswordEntries(supabase, workspaceId),
+  })
+}
+
 export function isWeakPassword(password: string): boolean {
   if (password.length < 8) return true
   if (!/[A-Z]/.test(password)) return true
@@ -68,13 +99,7 @@ export function usePasswords() {
       const id = wsId.value
       if (!id) return []
       error.value = null
-      const { data, error: err } = await supabase
-        .from('workspace_passwords')
-        .select('*')
-        .eq('workspace_id', id)
-        .order('created_at', { ascending: false })
-      if (err) throw err
-      return (data as WorkspacePasswordRow[]).map(toEntry)
+      return fetchPasswordEntries(supabase, id)
     },
     enabled: computed(() => !!wsId.value),
   })

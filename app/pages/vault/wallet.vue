@@ -29,6 +29,7 @@ const {
   transactions,
   budgets,
   balanceDisplay,
+  balanceLoading,
   loading,
   fetchWallet,
   fetchTransactions,
@@ -457,7 +458,13 @@ function usageBarColor(p: number) {
                 <div>
                   <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{{ t('vault.wallet.overview.availableBalance') }}</span>
                   <div class="mt-1 flex items-baseline gap-3">
-                    <span class="font-mono text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
+                    <span
+                      v-if="balanceLoading"
+                      class="h-9 w-32 rounded-lg bg-neutral-200 animate-pulse sm:h-12 sm:w-44"
+                      role="status"
+                      :aria-label="t('common.loading')"
+                    />
+                    <span v-else class="font-mono text-4xl font-bold tracking-tight text-neutral-950 sm:text-5xl">
                       {{ balanceDisplay }}
                     </span>
                   </div>

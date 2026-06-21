@@ -196,6 +196,7 @@
     "cloakedBrowser": "클로크 브라우저",
     "cloakedBrowserHint": "사이트가 CAPTCHA, Cloudflare 또는 DataDome 챌린지로 차단하는 것으로 알려진 경우 CloakBrowser를 통해 브라우저 세션을 라우팅합니다. 끄면 모든 탐색이 일반 브라우저를 통해 강제 실행됩니다.",
     "showCursor": "커서 표시",
+    "showCursorMenuHint": "뷰포트에 에이전트 포인터 표시",
     "showCursorHint": "에이전트가 가리키거나 클릭하는 위치에 라이브 브라우저 뷰포트 위에 화살표 커서를 표시합니다. 시뮬레이션된 마우스를 실시간으로 관찰하는 데 유용합니다. 기본적으로 꺼짐.",
     "notifications": "알림",
     "allNotifications": "모든 알림",
@@ -396,7 +397,12 @@
     "embedNoMatches": "일치하는 워크플로우 없음",
     "embedPendingTitle": "워크플로우 선택",
     "embedUnboundToast": "이 임베드에 선택된 워크플로우가 없습니다 — 정보 패널에서 선택하세요.",
-    "embedOpen": "참조된 워크플로우 열기 →"
+    "embedOpen": "참조된 워크플로우 열기 →",
+    "peekTitle": "Workflow",
+    "peekOpenFlow": "Open flow",
+    "peekNodeCount": "{n} nodes",
+    "peekParallel": "{n} parallel branches",
+    "peekAlt": "Preview of the workflow graph — open the Flow view"
   },
   "dashboard": {
     "console": "콘솔",

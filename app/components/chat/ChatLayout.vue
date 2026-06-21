@@ -19,6 +19,7 @@ const props = defineProps<{
   messages: ChatMessage[]
   frameUrls?: Map<string, string>
   cursorPositions?: Map<string, CursorState>
+  cursorClicks?: Map<string, number>
   showCursor?: boolean
   renameable?: boolean
   sessionId: string
@@ -146,10 +147,13 @@ function onJumpClick() {
 <template>
   <TabPanel v-bind="$attrs" class="min-h-0 min-w-0 flex-1" transparent>
     <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <!-- Chat: padded column so messages clear the floating top/bottom overlays. -->
+      <!-- Chat: horizontal padding lives on the inner scroll viewport (ChatMessages)
+           so its overflow-x clip boundary sits out in the gutter — inline cards can
+           be flush with the input yet keep their border/ring/shadow. ChatWelcome
+           carries its own px. -->
       <div
         v-if="inChat"
-        class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 pb-32 sm:px-5"
+        class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col pb-32"
         :class="{ 'pt-[75px]': showFloatingTop }"
       >
         <ChatWelcome
@@ -189,6 +193,7 @@ function onJumpClick() {
           :viewport-list="viewportList"
           :frame-urls="frameUrls"
           :cursor-positions="cursorPositions"
+          :cursor-clicks="cursorClicks"
           :show-cursor="showCursor"
           :browser-agent-cap="props.browserAgentCap"
           :browser-agent-cap-resolved="props.browserAgentCapResolved"

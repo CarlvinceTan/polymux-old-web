@@ -119,8 +119,11 @@ export function useExtensionStatus() {
     authListenerInstalled = true
     try {
       const supabase = useSupabaseClient()
+      // SIGNED_IN only. Re-pinging on TOKEN_REFRESHED is unnecessary (status
+      // doesn't depend on the rotated token) and refresh(true) → authFetch can
+      // re-enter getSession(), which on a stale token feeds the refresh loop.
       supabase.auth.onAuthStateChange((event) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
           setTimeout(() => {
             void refresh(true)
           }, AUTH_REFRESH_DELAY_MS)

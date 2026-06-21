@@ -196,6 +196,7 @@
     "cloakedBrowser": "隐身浏览器",
     "cloakedBrowserHint": "当已知某个站点会用 CAPTCHA、Cloudflare 或 DataDome 进行挑战时，将浏览器会话通过 CloakBrowser 路由。关闭后，所有导航都将强制使用普通浏览器。",
     "showCursor": "显示光标",
+    "showCursorMenuHint": "在视口中显示代理指针",
     "showCursorHint": "在实时浏览器视口上显示一个箭头光标，位于代理悬停或点击的位置。适合实时查看模拟鼠标。默认关闭。",
     "notifications": "通知",
     "allNotifications": "所有通知",
@@ -396,7 +397,12 @@
     "embedNoMatches": "没有匹配的工作流",
     "embedPendingTitle": "选择一个工作流",
     "embedUnboundToast": "此嵌入未选择工作流 — 请在信息面板中选择。",
-    "embedOpen": "打开引用的工作流 →"
+    "embedOpen": "打开引用的工作流 →",
+    "peekTitle": "Workflow",
+    "peekOpenFlow": "Open flow",
+    "peekNodeCount": "{n} nodes",
+    "peekParallel": "{n} parallel branches",
+    "peekAlt": "Preview of the workflow graph — open the Flow view"
   },
   "dashboard": {
     "console": "控制台",

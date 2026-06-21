@@ -44,7 +44,7 @@ function handleCancel() {
 <template>
   <div
     data-testid="otp-request-card"
-    class="my-2 w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-4 shadow-sm ring-1 ring-neutral-950/5"
+    class="my-2 w-full rounded-xl border border-neutral-200 bg-white p-4 shadow-sm ring-1 ring-neutral-950/5"
     :class="isPending ? '' : 'opacity-90'"
   >
     <template v-if="!isPending">

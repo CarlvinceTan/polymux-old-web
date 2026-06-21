@@ -151,6 +151,11 @@ export function useStorageFiles() {
   const listingLoading = ref(false)
   const error = ref<string | null>(null)
   const folderOpMessage = ref<string | null>(null)
+  // Bumped by useWorkspaceEvents on realtime `files` changes for the current
+  // workspace. A mounted FileBrowser watches it to revalidate the directory it
+  // is currently showing — the listing uses imperative fetchQuery (no observer),
+  // so queryClient.invalidateQueries alone can't trigger a live refetch.
+  const storageDirRev = useState<number>('storage-dir-rev', () => 0)
 
   function clearStorageListCache() {
     queryClient.removeQueries({ queryKey: ['storage-directory'] })
@@ -235,6 +240,29 @@ export function useStorageFiles() {
     finally {
       listingLoading.value = false
     }
+  }
+
+  /** Synchronously read the cached listing for a directory (from a prior fetch
+   *  or the warm-cache prefetch) so the grid can paint instantly on cold mount.
+   *  Returns null on a true cache miss. Same query key as listFiles. */
+  function getCachedDirectory(pathSegments: string[]): StorageDirectory | null {
+    const wsId = getWorkspaceId()
+    if (!wsId) return null
+    const path = joinSegments(pathSegments)
+    return queryClient.getQueryData<StorageDirectory>(['storage-directory', wsId, path]) ?? null
+  }
+
+  /** Warm the cache for a directory without rendering (used by the
+   *  workspace-entry prefetch hook). Reuses listFiles' exact key + fetcher. */
+  async function prefetchDirectory(pathSegments: string[]): Promise<void> {
+    const wsId = getWorkspaceId()
+    const base = baseUrl()
+    if (!authUserId() || !wsId || !base) return
+    const path = joinSegments(pathSegments)
+    await queryClient.prefetchQuery({
+      queryKey: ['storage-directory', wsId, path],
+      queryFn: () => $fetch<StorageDirectory>(base, { query: { path } }),
+    })
   }
 
   async function uploadFile(pathSegments: string[], file: File): Promise<boolean> {
@@ -790,7 +818,10 @@ export function useStorageFiles() {
     error,
     folderOpMessage,
     clearStorageListCache,
+    storageDirRev,
     listFiles,
+    getCachedDirectory,
+    prefetchDirectory,
     uploadFile,
     deleteFiles,
     moveFile,

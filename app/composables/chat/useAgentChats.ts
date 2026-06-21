@@ -18,6 +18,7 @@ import type {
   CredentialProvidedPayload,
   OtpRequestPayload,
   OtpProvidedPayload,
+  WorkflowPeekPayload,
   UserMessagePayload,
   TitleRequestPayload,
   TitleResponsePayload,
@@ -332,7 +333,24 @@ export function useAgentChats(session: SessionHandle) {
       // events continue from the rehydrated tail. We also drop the
       // pre-fetch stream/thinking residue so the next chunk starts a clean
       // bubble instead of trying to extend a now-deleted partial.
-      state.messages.value = history
+      //
+      // Exception: a still-pending credential/OTP card. The server re-emits it
+      // on WS (re)connect, which races this async DB read — if the re-emit wins,
+      // handleCredentialRequest/handleOtpRequest already appended the pending
+      // card to state.messages, and the unconditional replace below would drop
+      // it (pending cards are transient, never persisted). Carry over any
+      // in-memory pending card whose msgId the freshly-loaded history doesn't
+      // already cover, so a reload mid-request keeps the card to answer.
+      const carriedPending = state.messages.value.filter(
+        m => m.credentialRequest?.status === 'pending' || m.otpRequest?.status === 'pending',
+      )
+      const cardId = (m: ChatMessage): string | undefined =>
+        m.credentialRequest?.msgId ?? m.otpRequest?.msgId
+      const historyCardIds = new Set(
+        history.map(cardId).filter((v): v is string => Boolean(v)),
+      )
+      const stillPending = carriedPending.filter(m => !historyCardIds.has(cardId(m)!))
+      state.messages.value = stillPending.length > 0 ? [...history, ...stillPending] : history
       state.streamingBuffer = null
       state.isStreaming.value = false
       state.thinking.value = null
@@ -458,6 +476,13 @@ export function useAgentChats(session: SessionHandle) {
     clearOrchestratorSendRollback()
     orchestratorState.waitingForAgent.value = false
     orchestratorState.sawActivityThisTurn = false
+    // The server re-emits this event on every WS (re)connect so a page reload
+    // mid-request re-renders the pending card. On a transient reconnect the
+    // in-memory card is still here — dedupe by msgId so we don't append a
+    // duplicate (and skip re-touching the picker ref for an unchanged card).
+    if (orchestratorState.messages.value.some(m => m.credentialRequest?.msgId === p.msg_id)) {
+      return
+    }
     pendingCredentialRequest.value = {
       msgId: p.msg_id,
       site: p.site,
@@ -485,6 +510,11 @@ export function useAgentChats(session: SessionHandle) {
     clearOrchestratorSendRollback()
     orchestratorState.waitingForAgent.value = false
     orchestratorState.sawActivityThisTurn = false
+    // Re-emitted on every WS (re)connect (see handleCredentialRequest) — dedupe
+    // by msgId so a transient reconnect doesn't append a duplicate OTP card.
+    if (orchestratorState.messages.value.some(m => m.otpRequest?.msgId === p.msg_id)) {
+      return
+    }
     orchestratorState.messages.value = [
       ...orchestratorState.messages.value,
       {
@@ -496,6 +526,27 @@ export function useAgentChats(session: SessionHandle) {
           site: p.site,
           purpose: p.purpose,
           status: 'pending',
+        },
+      },
+    ]
+  }
+
+  function handleWorkflowPeek(p: WorkflowPeekPayload) {
+    clearOrchestratorSendRollback()
+    // Re-emitted on reconnect like the credential/OTP cards — dedupe by msgId so
+    // a transient reconnect doesn't append a duplicate preview card.
+    if (orchestratorState.messages.value.some(m => m.flowPeek?.msgId === p.msg_id)) {
+      return
+    }
+    orchestratorState.messages.value = [
+      ...orchestratorState.messages.value,
+      {
+        role: 'agent',
+        text: '',
+        id: newId(),
+        flowPeek: {
+          msgId: p.msg_id,
+          graph: p.graph,
         },
       },
     ]
@@ -565,6 +616,7 @@ export function useAgentChats(session: SessionHandle) {
   bind<AgentThinkingPayload>('agent_thinking', handleAgentThinking)
   bind<CredentialRequestPayload>('credential_request', handleCredentialRequest)
   bind<OtpRequestPayload>('otp_request', handleOtpRequest)
+  bind<WorkflowPeekPayload>('workflow_peek', handleWorkflowPeek)
   bind<BrowserSpawnedPayload>('browser_spawned', handleBrowserSpawned)
   bind<BrowserAgentReleasedPayload>('browser_agent_released', handleBrowserAgentReleased)
   bind<TitleResponsePayload>('title_response', handleTitleResponse)

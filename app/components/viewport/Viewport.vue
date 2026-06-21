@@ -48,6 +48,9 @@ const props = withDefaults(defineProps<{
    *  upstream — Viewport itself just paints when the flag is on and a
    *  position is available. */
   showCursor?: boolean
+  /** Monotonic per-agent click counter from the driver. Each increment fires a
+   *  one-shot ripple from the cursor's hotspot. */
+  clickNonce?: number
 }>(), {
   isLoading: true,
   url: 'localhost:3001/instance_alpha/preview/session/very-long-url-to-demonstrate-truncation',
@@ -66,24 +69,12 @@ const props = withDefaults(defineProps<{
   runningKind: null,
 })
 
-// Cursor overlay coordinates as percentages of the image's intrinsic
-// dimensions. The viewport panel is locked at 16:9 and the <img> uses
-// object-cover, so percentage-of-vw / percentage-of-vh maps essentially
-// 1:1 onto the rendered image — the server clamps frames to within 1%
-// of 16:9, so any sub-pixel crop is invisible and the cursor lands on
-// the right spot. We clamp to [0, 100] so a brief out-of-range coord
-// (rare, during a viewport-resize negotiation) doesn't escape the box.
-const cursorStyle = computed(() => {
-  if (!props.showCursor || !props.cursor || !props.frameUrl) return null
-  const { x, y, vw, vh } = props.cursor
-  if (!vw || !vh) return null
-  const left = Math.max(0, Math.min(100, (x / vw) * 100))
-  const top = Math.max(0, Math.min(100, (y / vh) * 100))
-  return {
-    left: `${left}%`,
-    top: `${top}%`,
-  }
-})
+// Paint the agent cursor only when the user opted in, a frame is showing, and
+// the driver has reported a position for this agent. The AgentCursor component
+// handles the coordinate math + hotspot anchoring.
+const showAgentCursor = computed(
+  () => !!props.showCursor && !!props.cursor && !!props.frameUrl,
+)
 
 function closeClick(e: Event) {
   e.stopPropagation()
@@ -162,7 +153,7 @@ function runStopClick(e: Event) {
         <div
           class="relative w-full overflow-hidden bg-white transition-[box-shadow]"
           :class="isDone
-            ? 'ring-2 ring-inset ring-emerald-400'
+            ? ''
             : 'ring-1 ring-inset ring-transparent group-hover/gallery:ring-neutral-300'"
           style="aspect-ratio: 16 / 9"
         >
@@ -196,37 +187,30 @@ function runStopClick(e: Event) {
             alt=""
             class="absolute inset-0 h-full w-full object-cover"
           >
-          <!-- Driver cursor overlay. Anchored at the tip of the arrow (the
-               default macOS-style cursor's hotspot is the top-left corner)
-               via translate(-1px, -1px) — keeps the arrow tip on the
-               reported (x, y) instead of the SVG's bounding box origin. The
-               drop-shadow keeps the arrow visible against bright page
-               backgrounds. pointer-events-none so it never eats clicks
-               targeted at modal traffic-light buttons that overlap the
+          <!-- Driver cursor overlay — the Polymux chevron, anchored at its
+               vertex (the hotspot) on the reported (x, y). pointer-events-none
+               so it never eats clicks targeted at controls overlapping the
                preview area. -->
+          <AgentCursor
+            v-if="showAgentCursor && cursor"
+            :cursor="cursor"
+            :click-nonce="clickNonce"
+            :size="thumbnail ? 12 : 20"
+          />
+          <!-- "Done" glow: a soft emerald gradient that breathes over the
+               screenshare once the agent has completed. Rendered as a
+               pointer-events-none overlay layered above the screencast frame
+               (an inset box-shadow on the panel itself would be painted under
+               the frame and stay hidden). Bottom corners are rounded to the
+               panel's rounded-lg clip so the glow follows the curve; the top
+               stays square where the preview meets the URL bar (when shown).
+               Persists for the whole done state — see useViewports stickiness. -->
           <div
-            v-if="cursorStyle"
-            class="pointer-events-none absolute z-10 -translate-x-px -translate-y-px transition-[left,top] duration-75 ease-out"
-            :style="cursorStyle"
+            v-if="isDone"
+            class="viewport-done-glow pointer-events-none absolute inset-0"
+            :class="showBar ? 'viewport-done-glow--bottom' : 'viewport-done-glow--all'"
             aria-hidden="true"
-          >
-            <svg
-              :width="thumbnail ? 10 : 18"
-              :height="thumbnail ? 10 : 18"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style="filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));"
-            >
-              <path
-                d="M5 3 L5 19 L9.5 14.5 L12.5 21 L15 19.7 L12 13.5 L18 13.5 Z"
-                fill="white"
-                stroke="black"
-                stroke-width="1.4"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </div>
+          />
           <slot />
         </div>
     </div>

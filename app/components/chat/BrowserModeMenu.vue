@@ -26,6 +26,21 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { state, refresh } = useExtensionStatus()
 
+// "Show cursor" lives in this same SETTINGS menu so it's one click from the
+// chat. It's backed by the persisted `show_cursor_overlay` user setting, which
+// is reactive + Supabase-realtime, so flipping it shows/hides every agent
+// cursor instantly and the choice sticks across sessions.
+const { settings: userSettings, saveSettings } = useUserSettings()
+const showCursorOverlay = computed(() => userSettings.value.show_cursor_overlay)
+async function onShowCursorToggle(value: boolean) {
+  try {
+    await saveSettings({ show_cursor_overlay: value })
+  }
+  catch (e) {
+    console.error('[browser-menu] Error saving show_cursor_overlay:', e)
+  }
+}
+
 const open = ref(false)
 const wrapperRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLElement | null>(null)
@@ -144,6 +159,23 @@ watch(
         @click.stop
       >
         {{ t('browser.extensionFeatureDisabled') }}
+      </div>
+      <div
+        class="flex items-center justify-between gap-3 border-t border-neutral-100 px-3 py-2.5"
+        @click.stop
+      >
+        <div class="min-w-0 flex-1">
+          <span class="block text-[13px] font-medium leading-snug text-neutral-900">
+            {{ t('settings.showCursor') }}
+          </span>
+          <span class="mt-0.5 block text-[12px] leading-snug text-neutral-500">
+            {{ t('settings.showCursorMenuHint') }}
+          </span>
+        </div>
+        <SettingsToggle
+          :model-value="showCursorOverlay"
+          @update:model-value="onShowCursorToggle"
+        />
       </div>
     </Menu>
   </div>

@@ -1,3 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
+
 // Workspace-shared browser sign-ins (cookies + localStorage captured by the
 // agent during a session and preloaded into every subsequent managed browser
 // in the workspace). The vault/passwords page lists these alongside the
@@ -43,6 +46,33 @@ function toEntry(row: WorkspaceBrowserStateRow): SignInEntry {
   }
 }
 
+// Single source of truth for the sign-ins listing fetch + row→entry mapping.
+// Shared by the live useQuery below and the warm-cache prefetch hook so both
+// populate the ['workspace-signins', wsId] slot with the SAME mapped shape.
+export async function fetchSignInEntries(
+  supabase: SupabaseClient<Database>,
+  workspaceId: string,
+): Promise<SignInEntry[]> {
+  const { data, error } = await supabase
+    .from('workspace_browser_states')
+    .select('id, workspace_id, origin, captured_by, last_seen_at, last_used_at, last_used_by, use_count, enabled')
+    .eq('workspace_id', workspaceId)
+    .order('last_seen_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(toEntry)
+}
+
+export function prefetchSignIns(
+  queryClient: ReturnType<typeof useQueryClient>,
+  supabase: SupabaseClient<Database>,
+  workspaceId: string,
+): Promise<void> {
+  return queryClient.prefetchQuery({
+    queryKey: ['workspace-signins', workspaceId],
+    queryFn: () => fetchSignInEntries(supabase, workspaceId),
+  })
+}
+
 export function useSignIns() {
   const supabase = useSupabaseClient()
   const { currentWorkspace } = useWorkspaces()
@@ -55,13 +85,7 @@ export function useSignIns() {
     queryFn: async () => {
       const id = wsId.value
       if (!id) return []
-      const { data, error: err } = await supabase
-        .from('workspace_browser_states')
-        .select('id, workspace_id, origin, captured_by, last_seen_at, last_used_at, last_used_by, use_count, enabled')
-        .eq('workspace_id', id)
-        .order('last_seen_at', { ascending: false })
-      if (err) throw err
-      return (data ?? []).map(toEntry)
+      return fetchSignInEntries(supabase, id)
     },
     enabled: computed(() => !!wsId.value),
   })

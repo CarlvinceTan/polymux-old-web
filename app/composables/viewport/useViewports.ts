@@ -266,7 +266,22 @@ export function useViewports(session: SessionHandle, workflowId: Ref<string>) {
         return
       }
       receivedAnyState = true
-      setViewports((state.browser_agents ?? []).map(payloadToViewport))
+      // Preserve a viewport's "done" state across passive session_state
+      // resyncs. handleBrowserClosed flips a finished agent to isDone, but a
+      // later session_state that still lists that agent with a non-completed
+      // status (e.g. idle/ready) would rebuild the tile via payloadToViewport
+      // and wipe the green done glow after a few seconds. Keep it DONE until
+      // the agent genuinely starts working again (running) or fails — both of
+      // which the incoming payload reflects — so we only backfill done when the
+      // incoming tile is neither working, failed, nor already done.
+      const prevDone = new Map(viewports.value.map(v => [v.agentId, v.isDone]))
+      const incoming = (state.browser_agents ?? []).map(payloadToViewport).map((v) => {
+        if (prevDone.get(v.agentId) && !v.isWorking && !v.isFailed && !v.isDone) {
+          return { ...v, isDone: true, isWorking: false, isLoading: false, currentAction: 'DONE' }
+        }
+        return v
+      })
+      setViewports(incoming)
       browserAgentCap.value = state.browser_agent_cap ?? 0
       browserAgentCapResolved.value = true
       persistCapPolicy(browserAgentCap.value)
