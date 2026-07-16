@@ -145,8 +145,8 @@ export function useChatPromptSendGuard(
 
   /**
    * Combined sync + async gate. Use when the caller doesn't need an
-   * instant optimistic-UI path (e.g. the welcome-screen send on
-   * /workflow/new, which navigates away before the chat layout mounts).
+   * instant optimistic-UI path (e.g. the general-chat welcome suggestion
+   * send).
    * For the in-chat path, call `canSendPromptSync` before applying the
    * optimistic update and `canSendPromptAsync` after, rolling back on
    * rejection.

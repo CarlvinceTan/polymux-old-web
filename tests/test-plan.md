@@ -2,7 +2,7 @@
 
 ## Application Overview
 
-Polymux is a Nuxt 4 SaaS platform for AI workflow automation. Users can create and run AI-powered workflows (chat-based agent sessions), schedule them to run automatically, view artifacts produced by runs, and monitor active/scheduled runs from a central dashboard console. The app uses Supabase for auth, has a persistent SidePanel sidebar, PageHeader tabs, and routes protected behind sign-in.
+Polymux is a Nuxt 4 SaaS platform for AI workflow automation. Users can create and run AI-powered workflows (chat-based agent sessions), schedule them to run automatically, and view artifacts produced by runs. The app uses Supabase for auth, has a persistent Sidebar, PageHeader tabs, and routes protected behind sign-in.
 
 ## Test Scenarios
 
@@ -32,8 +32,8 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. Users can create a
     - expect: The sign-in page loads with fields for email (#signin-email) and password (#signin-password) and a submit button
   2. Enter valid credentials (TEST_USERNAME / TEST_PASSWORD) and click the submit button
     - expect: The page redirects away from /sign-in
-    - expect: The persistent SidePanel is visible
-    - expect: The user is on an authenticated page (e.g. /dashboard/console)
+    - expect: The persistent Sidebar is visible
+    - expect: The user is on an authenticated page (e.g. /workflow/new)
 
 #### 1.3. Sign in with invalid credentials shows error
 
@@ -55,87 +55,27 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. Users can create a
     - expect: The form does not submit
     - expect: Validation feedback (HTML5 required or inline error) is shown on the empty fields
 
-### 2. Dashboard — Console (/dashboard/console)
+### 2. Dashboard Default Route
 
 **Seed:** `e2e/auth.setup.ts`
 
-#### 2.1. /dashboard redirects to /dashboard/console
+#### 2.1. /dashboard redirects to /workflow/new
 
 **File:** `tests/dashboard/redirect.spec.ts`
 
 **Steps:**
   1. Sign in and navigate to /dashboard
-    - expect: The browser redirects to /dashboard/console without a 404 or error page
+    - expect: The browser redirects to /workflow/new without a 404 or error page
 
-#### 2.2. Console page loads all three stat cards
-
-**File:** `tests/dashboard/stat-cards.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console as an authenticated user
-    - expect: The page heading 'Console' (or i18n equivalent) is visible
-  2. Observe the stat strip at the top of the page
-    - expect: Three stat cards are rendered: 'Active Runs', 'Schedules', and 'Runs/mo'
-    - expect: Each card displays a numeric value (0 or greater) in a monospace font
-
-#### 2.3. Active runs section shows empty state when no runs are live
-
-**File:** `tests/dashboard/active-runs-empty.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console with no actively-running workflows
-    - expect: The 'Active Runs' section is visible
-    - expect: A dashed-border empty state with a bolt icon and 'No active runs' message is shown
-    - expect: The live badge reads '0 live'
-
-#### 2.4. Active run row links to /workflow/[id]/agent
-
-**File:** `tests/dashboard/active-run-link.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console when at least one workflow is actively running
-    - expect: The active run appears as a list row with a green spinner/progress icon, a title, and a kind label (Chat or Workflow)
-  2. Click the active run row
-    - expect: The browser navigates to /workflow/[id]/agent for that run
-
-#### 2.5. Schedules section shows empty state when no schedules exist
-
-**File:** `tests/dashboard/schedules-empty.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console with no active schedules configured
-    - expect: The 'Schedules' section is visible
-    - expect: A dashed-border empty state with a calendar icon and 'No schedules' message is shown
-    - expect: The badge reads '0 active'
-
-#### 2.6. Schedule row links to /workflow/[id]/schedule
-
-**File:** `tests/dashboard/schedule-row-link.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console when at least one workflow has an active schedule
-    - expect: A schedule row is shown with the workflow name, frequency label (e.g. Daily), runs/mo count, timezone, and next-run time
-  2. Click the workflow name link in the schedule row
-    - expect: The browser navigates to /workflow/[id]/schedule for that workflow
-
-#### 2.7. Recent runs section shows up to 10 non-draft sessions
-
-**File:** `tests/dashboard/recent-runs.spec.ts`
-
-**Steps:**
-  1. Navigate to /dashboard/console as a user with prior workflow runs
-    - expect: The 'Recent Runs' section is visible
-    - expect: Up to 10 rows appear, each showing a title, a coloured status dot (green = running, grey = stopped), and a relative timestamp
-  2. Click a recent run row
-    - expect: The browser navigates to /workflow/[id]/agent for that session
-
-#### 2.8. View All button navigates to /workflow
+#### 2.2. The Console row is not present in the sidebar
 
 **File:** `tests/dashboard/view-all.spec.ts`
 
 **Steps:**
-  1. Navigate to /dashboard/console and click the 'View All' button in the Recent Runs section header
-    - expect: The browser navigates to /workflow (or is redirected to the last-viewed workflow or draft)
+  1. Navigate to /workflow/new as an authenticated user
+    - expect: The persistent Sidebar is visible
+    - expect: New Workflow remains available
+    - expect: There is no Console navigation row or /dashboard/console link
 
 ### 3. Workflow List / Index (/workflow)
 

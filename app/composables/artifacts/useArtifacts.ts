@@ -2,6 +2,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ArtifactRow } from '~~/server/api/workflows/[id]/artifacts/index.get'
 
 export type ArtifactType = 'image' | 'document' | 'code' | 'video' | 'audio' | 'archive' | 'other'
+export type EvidenceArtifactType = 'screenshot' | 'video' | 'diff' | 'trace' | 'log' | 'download' | 'other'
 
 // SandboxArtifact is the gallery-facing shape. Backed by the `artifacts` row
 // (PLAN §5.6) plus a derived display type and an optional pre-signed preview
@@ -10,6 +11,8 @@ export interface SandboxArtifact {
   id: string
   name: string
   type: ArtifactType
+  evidenceType: EvidenceArtifactType
+  runId?: string
   size: number
   createdAt: string
   url?: string
@@ -43,6 +46,8 @@ export function rowToArtifact(row: ArtifactRow): SandboxArtifact {
     id: row.id,
     name: row.name,
     type: artifactTypeFromName(row.name, row.mime_type),
+    evidenceType: row.artifact_type ?? 'other',
+    runId: row.workflow_run_id ?? undefined,
     size: Number(row.size_bytes ?? 0),
     createdAt: row.created_at,
     url: row.preview_url ?? undefined,
@@ -78,7 +83,7 @@ export function useArtifacts(sessionId: Ref<string>) {
     catch (err) {
       // 404 means the session is gone — either deleted, in a workspace the
       // caller no longer has access to, or a stale URL from before sign-in.
-      // The /workflow/[id] layout reroutes to /workflow/new in that case;
+      // The /workflow/[id] layout reroutes to the flow draft in that case;
       // logging here would just add noise on every such redirect.
       const status = (err as { status?: number, statusCode?: number })?.status
         ?? (err as { statusCode?: number })?.statusCode

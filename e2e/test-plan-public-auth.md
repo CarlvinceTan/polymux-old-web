@@ -116,10 +116,10 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
 **File:** `e2e/auth.public.spec.ts`
 
 **Steps:**
-  1. Navigate to http://localhost:3000/sign-in?redirect=%2Fdashboard%2Fconsole
+  1. Navigate to http://localhost:3000/sign-in?redirect=%2Fworkflow%2Fnew
     - expect: Sign-in page is displayed
   2. Sign in with valid credentials
-    - expect: After successful sign-in, the user is redirected to /dashboard/console rather than the default / route
+    - expect: After successful sign-in, the user is redirected to /workflow/new rather than the default / route
 
 #### 2.6. Back button on sign-in navigates to previous non-auth page
 
@@ -381,10 +381,10 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
 **File:** `e2e/auth.public.spec.ts`
 
 **Steps:**
-  1. Set sessionStorage key 'auth_redirect' to '/dashboard/console', then navigate to http://localhost:3000/confirm
+  1. Set sessionStorage key 'auth_redirect' to '/workflow/new', then navigate to http://localhost:3000/confirm
     - expect: The loading spinner is shown briefly
   2. Wait for the page to complete processing
-    - expect: The user is redirected to /dashboard/console
+    - expect: The user is redirected to /workflow/new
     - expect: The 'auth_redirect' key is removed from sessionStorage
 
 ### 7. Verify Email Page (/verify-email)
@@ -552,7 +552,7 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
     - expect: An 'Accepted' heading is shown with the workspace name in the body
     - expect: A 'Continue to Dashboard' button is present
 
-#### 10.5. Clicking Decline navigates to /dashboard/console
+#### 10.5. Clicking Decline navigates to /workflow/new
 
 **File:** `e2e/auth.public.spec.ts`
 
@@ -560,7 +560,7 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
   1. Navigate to /invitations/accept?token=VALID_INVITE_TOKEN as an authenticated user and wait for preview state
     - expect: 'Decline' and 'Accept' buttons are visible
   2. Click the 'Decline' button
-    - expect: The user is navigated to /dashboard/console
+    - expect: The user is navigated to /workflow/new
     - expect: No acceptance API call is made
 
 #### 10.6. Expired invitation token shows expired error
@@ -586,7 +586,7 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
     - expect: An error card is shown indicating the invitation has already been accepted
     - expect: A 'Go to Dashboard' button is present
 
-#### 10.8. Continue to Dashboard button after accepting navigates to /dashboard/console
+#### 10.8. Continue to Dashboard button after accepting navigates to /workflow/new
 
 **File:** `e2e/auth.public.spec.ts`
 
@@ -594,7 +594,7 @@ Polymux is a Nuxt 4 SaaS platform for AI workflow automation. This test plan cov
   1. Complete the invitation acceptance flow to reach the 'accepted' state
     - expect: 'Continue to Dashboard' button is visible
   2. Click the 'Continue to Dashboard' button
-    - expect: The user is navigated to /dashboard/console
+    - expect: The user is navigated to /workflow/new
 
 ### 11. Install Apps Page (/install-apps)
 

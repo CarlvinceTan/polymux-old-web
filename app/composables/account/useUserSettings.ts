@@ -15,10 +15,10 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface UserSettings {
   blog_newsletter_subscribed: boolean
-  // Show cursor overlay: when true, the live browser viewport renders an
-  // arrow cursor on top of the screencast at the position the driver
-  // (midas) is dispatching. Off by default — opt-in surface so the cursor
-  // doesn't distract by default.
+  // Show cursor overlay: when true, the live browser viewport renders the
+  // agent's cursor on top of the screencast at the position the driver
+  // (midas) is dispatching. On by default — users can turn it off from the
+  // prompt-input OPTIONS menu.
   show_cursor_overlay: boolean
   // Master kill-switch for non-essential emails sent by the web app
   // (workspace invitations, blog newsletter, etc). When false, the shared
@@ -32,7 +32,7 @@ interface UserSettings {
 
 const defaults: UserSettings = {
   blog_newsletter_subscribed: false,
-  show_cursor_overlay: false,
+  show_cursor_overlay: true,
   all_notifications_enabled: true,
   voice_auto_shutoff_seconds: 5,
 }

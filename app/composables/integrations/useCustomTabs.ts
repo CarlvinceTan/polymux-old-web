@@ -24,12 +24,12 @@ export interface CustomTab {
 const SECTION_ROUTE_PREFIX: Record<LayoutTargetSection, string> = {
   integrations: '/integrations/custom',
   storage: '/storage/custom',
-  vault: '/vault/custom',
+  vault: '/files/custom',
   dashboard: '/dashboard/custom',
 }
 
 /** Map a path like `/integrations/custom/abc` back to the section it belongs to.
- * Used by components (PageHeader) that need to call useCustomTabs without an
+ * Used by components (SubNav) that need to call useCustomTabs without an
  * explicit section prop. Returns null if no known prefix matches. */
 export function sectionFromPath(path: string): LayoutTargetSection | null {
   for (const s of KNOWN_TARGET_SECTIONS) {

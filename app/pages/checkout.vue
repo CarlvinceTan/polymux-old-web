@@ -138,7 +138,7 @@ function goBack() {
   })
 }
 function goToDashboard() {
-  navigateTo('/dashboard/console')
+  navigateTo('/workflow/new')
 }
 </script>
 

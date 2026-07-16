@@ -13,7 +13,7 @@ The vault does not store files, certificates, or SSH keys. Use [workspace storag
 
 ## Adding an entry
 
-From the side panel, open **Vault → Passwords** or **Vault → Wallet** and press **+ New**. Give the entry a name, the host (for passwords) or a key shape (for wallet entries), and the value. The value is encrypted at rest with the workspace key; nobody — including Polymux engineers — can read it back without your auth.
+From the sidebar, open **Vault → Passwords** or **Vault → Wallet** and press **+ New**. Give the entry a name, the host (for passwords) or a key shape (for wallet entries), and the value. The value is encrypted at rest with the workspace key; nobody — including Polymux engineers — can read it back without your auth.
 
 ## How agents access the vault
 

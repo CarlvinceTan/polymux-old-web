@@ -1,36 +1,42 @@
 <script setup lang="ts">
+import { ref, computed, watch, onUnmounted } from 'vue'
 import type { CursorState } from '~/composables/types'
 
 /**
  * The agent's mouse, painted over a browser screencast. Shape is the Polymux
- * mark distilled to a symmetric chevron "V" (logo-weight arms, flat-cut ends),
- * pointing up-left like a normal cursor. The vertex is the hotspot — it sits
- * exactly on the driver-reported (x, y). A gold aura breathes around the
- * silhouette, and each click flares that edge-glow outward from the V's edges.
+ * mark distilled to a symmetric bold dart — its two back points are the chevron
+ * "V"'s arm-ends, so the tip + arm angles match the brand mark; the back closes
+ * into a filled arrowhead with a notch. The tip is the hotspot, anchored on the
+ * driver-reported (x, y).
+ *
+ * A gold aura breathes around the silhouette. On a click the dart fills gold
+ * from the back wings inward to the tip, then releases. While dragging it holds
+ * fully gold and pulses, then drains back out on drop.
  *
  * Gating (showCursor user setting, presence of a frame) lives in the parent;
  * this component just paints when given a cursor.
  */
 const props = withDefaults(defineProps<{
   cursor: CursorState
-  /** Monotonic per-agent click counter. Each increment remounts the flare so
-   *  the edge-glow ripple replays. 0 / undefined → no ripple yet. */
+  /** Monotonic per-agent click counter. Each increment plays a one-shot fill. */
   clickNonce?: number
+  /** True while the agent is mid-drag (mouse held + moving). Holds the fill. */
+  dragging?: boolean
   /** Rendered glyph size in px (square). Thumbnails pass a smaller value. */
   size?: number
 }>(), {
   clickNonce: 0,
+  dragging: false,
   size: 20,
 })
 
-// The chevron-V path, shared by the glyph and the click flare.
-const V_PATH = 'M18.6 10.2 L5 5 L10.2 18.6'
+// The dart path, shared by the black base and the gold fill layer.
+const DART = 'M5 5 L18.6 10.2 L13 13 L10.2 18.6 Z'
+// Unique gradient id per instance (multiple cursors share the page).
+const gradId = useId()
 
-// Position the wrapper's origin on the reported point (as a percentage of the
-// frame so it tracks regardless of how the <img> is scaled), clamped to the
-// box. The viewport is locked to 16:9 and the image uses object-cover, so
-// percentage-of-vw / percentage-of-vh lands within a sub-pixel of the true
-// spot (the server clamps frames to within 1% of 16:9).
+// Position the wrapper origin on the reported point (percentage of the frame so
+// it tracks regardless of <img> scaling), clamped to the box.
 const wrapperStyle = computed(() => {
   const { x, y, vw, vh } = props.cursor
   if (!vw || !vh) return null
@@ -39,19 +45,67 @@ const wrapperStyle = computed(() => {
   return { left: `${left}%`, top: `${top}%` }
 })
 
-// Offset both layers so the glyph's vertex (5,5 in the 0–24 viewBox) lands on
-// the wrapper origin (the hotspot). The flare also scales about that vertex so
-// its edge-glow blooms outward from the cursor point.
-const vertexOff = computed(() => (5 / 24) * props.size)
-const glyphStyle = computed(() => ({
-  left: `${-vertexOff.value}px`,
-  top: `${-vertexOff.value}px`,
-}))
-const flareStyle = computed(() => ({
-  left: `${-vertexOff.value}px`,
-  top: `${-vertexOff.value}px`,
-  transformOrigin: `${vertexOff.value}px ${vertexOff.value}px`,
-}))
+// Offset the glyph so the dart's tip (5,5 in the 0–24 viewBox) lands on the
+// wrapper origin (the hotspot).
+const glyphStyle = computed(() => {
+  const off = (5 / 24) * props.size
+  return { left: `${-off}px`, top: `${-off}px` }
+})
+
+// Gold fill amount [0,1] along the back→tip axis. The gradient is gold on
+// [0, fillB] (back side) and black beyond, so fillB 0→1 sweeps gold to the tip.
+const fillB = ref(0)
+const pulsing = ref(false)
+
+let rafId: number | null = null
+let holdTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearTimers() {
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+  if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null }
+}
+
+// rAF tween of fillB toward `to` over `ms`, then run `onDone`.
+function tween(to: number, ms: number, onDone?: () => void) {
+  if (rafId !== null) cancelAnimationFrame(rafId)
+  const from = fillB.value
+  let start: number | null = null
+  function step(ts: number) {
+    if (start === null) start = ts
+    const p = ms <= 0 ? 1 : Math.min(1, (ts - start) / ms)
+    fillB.value = from + (to - from) * p
+    if (p < 1) { rafId = requestAnimationFrame(step) }
+    else { rafId = null; onDone?.() }
+  }
+  rafId = requestAnimationFrame(step)
+}
+
+// Click: fill in → brief hold → drain. Ignored while dragging (drag owns the fill).
+watch(() => props.clickNonce, (n, prev) => {
+  if (!import.meta.client || !n || n === prev || props.dragging) return
+  if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null }
+  pulsing.value = false
+  tween(1, 320, () => {
+    holdTimer = setTimeout(() => {
+      if (!props.dragging) tween(0, 320)
+    }, 150)
+  })
+})
+
+// Drag: fill in then hold gold + pulse; on release, drain back out.
+watch(() => props.dragging, (d) => {
+  if (!import.meta.client) return
+  if (holdTimer !== null) { clearTimeout(holdTimer); holdTimer = null }
+  if (d) {
+    tween(1, 320, () => { pulsing.value = true })
+  }
+  else {
+    pulsing.value = false
+    tween(0, 320)
+  }
+})
+
+onUnmounted(clearTimers)
 </script>
 
 <template>
@@ -61,33 +115,9 @@ const flareStyle = computed(() => ({
     :style="wrapperStyle"
     aria-hidden="true"
   >
-    <!-- Click flare: a gold echo of the V, rendered behind the glyph, whose
-         edge-glow blooms outward from the vertex and fades. Keyed by clickNonce
-         so each click remounts it and replays the animation. -->
-    <svg
-      v-if="clickNonce"
-      :key="clickNonce"
-      class="agent-cursor__flare"
-      :width="size"
-      :height="size"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      :style="flareStyle"
-    >
-      <path
-        :d="V_PATH"
-        stroke="var(--color-gold)"
-        stroke-width="5"
-        stroke-linecap="butt"
-        stroke-linejoin="round"
-      />
-    </svg>
-    <!-- The cursor: symmetric chevron V (mirror-equal arms about the 45°
-         diagonal), flat (butt) ends, logo-weight stroke, with a breathing gold
-         edge-glow. -->
     <svg
       class="agent-cursor__glyph"
+      :class="{ 'agent-cursor__glyph--drag': dragging }"
       :width="size"
       :height="size"
       viewBox="0 0 24 24"
@@ -95,12 +125,33 @@ const flareStyle = computed(() => ({
       xmlns="http://www.w3.org/2000/svg"
       :style="glyphStyle"
     >
+      <defs>
+        <!-- Fill axis runs PAST both ends (back 15,15 → past-tip 2.5,2.5) so the
+             tip + its stroke sit inside [0,1] and fully fill gold. Hard edge at
+             offset fillB: [0, fillB] gold (back side), beyond is black. -->
+        <linearGradient
+          :id="gradId"
+          gradientUnits="userSpaceOnUse"
+          x1="15"
+          y1="15"
+          x2="2.5"
+          y2="2.5"
+        >
+          <stop offset="0" stop-color="#c9941f" />
+          <stop :offset="fillB" stop-color="#c9941f" />
+          <stop :offset="fillB" stop-color="#0a0a0a" />
+          <stop offset="1" stop-color="#0a0a0a" />
+        </linearGradient>
+      </defs>
+      <!-- Black base — the resting cursor; the gold layer sits on top. -->
+      <path class="agent-cursor__base" :d="DART" />
+      <!-- Gold fill layer; the gradient reveals it back→tip, opacity pulses on drag. -->
       <path
-        :d="V_PATH"
-        stroke="#0a0a0a"
-        stroke-width="5"
-        stroke-linecap="butt"
-        stroke-linejoin="round"
+        class="agent-cursor__fill"
+        :class="{ 'agent-cursor__fill--pulsing': pulsing }"
+        :d="DART"
+        :fill="`url(#${gradId})`"
+        :stroke="`url(#${gradId})`"
       />
     </svg>
   </div>
@@ -109,13 +160,34 @@ const flareStyle = computed(() => ({
 <style scoped>
 @reference "../../assets/css/main.css";
 
-/* Gold aura that hugs the glyph's silhouette and breathes. The first dark
-   shadow keeps the black V readable on bright pages; the thin white one is a
-   rim for dark pages; the gold layers trace the edge and pulse. */
+/* Gold aura that hugs the dart silhouette and breathes. The first dark shadow
+   keeps the black dart readable on bright pages; the thin white one is a rim
+   for dark pages; the gold layers trace the edge and pulse. */
 .agent-cursor__glyph {
   position: absolute;
   overflow: visible;
   animation: agent-cursor-glow 2.4s ease-in-out infinite;
+}
+
+.agent-cursor__base,
+.agent-cursor__fill {
+  stroke-width: 3.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke;
+}
+
+.agent-cursor__base {
+  fill: #0a0a0a;
+  stroke: #0a0a0a;
+}
+
+.agent-cursor__fill {
+  opacity: 1;
+}
+
+.agent-cursor__fill--pulsing {
+  animation: agent-cursor-pulse 0.9s ease-in-out infinite;
 }
 
 @keyframes agent-cursor-glow {
@@ -136,44 +208,43 @@ const flareStyle = computed(() => ({
   }
 }
 
-/* Click ripple: the gold edge-glow of a V-shaped echo blooms outward from the
-   vertex and fades — the ripple follows the cursor's edges, not a circle. */
-.agent-cursor__flare {
-  position: absolute;
-  overflow: visible;
-  animation: agent-cursor-flare 0.55s ease-out forwards;
+/* Stronger, faster glow while dragging. */
+.agent-cursor__glyph--drag {
+  animation: agent-cursor-glow-strong 1.6s ease-in-out infinite;
 }
 
-@keyframes agent-cursor-flare {
-  0% {
-    opacity: 0.9;
-    transform: scale(1);
+@keyframes agent-cursor-glow-strong {
+  0%, 100% {
     filter:
-      drop-shadow(0 0 1px rgba(201, 148, 31, 1))
-      drop-shadow(0 0 3px rgba(201, 148, 31, 0.9));
+      drop-shadow(0 0 1.3px #fff)
+      drop-shadow(0 0 2px rgba(201, 148, 31, 1))
+      drop-shadow(0 0 6px rgba(201, 148, 31, 0.7));
   }
-  100% {
-    opacity: 0;
-    transform: scale(1.5);
+  50% {
     filter:
-      drop-shadow(0 0 7px rgba(201, 148, 31, 0.9))
-      drop-shadow(0 0 16px rgba(201, 148, 31, 0.55));
+      drop-shadow(0 0 1.3px #fff)
+      drop-shadow(0 0 4px rgba(201, 148, 31, 1))
+      drop-shadow(0 0 12px rgba(201, 148, 31, 0.85));
   }
 }
 
-/* Respect reduced-motion: keep the cursor + a steady gold rim, drop the pulse
-   and the click flare. */
+@keyframes agent-cursor-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Reduced-motion: steady cursor + gold rim, no breathing / fill churn. */
 @media (prefers-reduced-motion: reduce) {
-  .agent-cursor__glyph {
+  .agent-cursor__glyph,
+  .agent-cursor__glyph--drag {
     animation: none;
     filter:
       drop-shadow(0 0 1.3px #fff)
       drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4))
       drop-shadow(0 0 3px rgba(201, 148, 31, 0.8));
   }
-  .agent-cursor__flare {
+  .agent-cursor__fill--pulsing {
     animation: none;
-    display: none;
   }
 }
 </style>

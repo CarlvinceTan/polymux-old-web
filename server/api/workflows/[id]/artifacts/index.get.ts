@@ -18,7 +18,9 @@ const PREVIEW_TTL_SECONDS = 60 * 60
 export interface ArtifactRow {
   id: string
   workflow_id: string
+  workflow_run_id: string | null
   workspace_id: string
+  artifact_type: 'screenshot' | 'video' | 'diff' | 'trace' | 'log' | 'download' | 'other'
   name: string
   mime_type: string | null
   size_bytes: number
@@ -53,7 +55,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('artifacts')
-    .select('id, workflow_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
+    .select('id, workflow_id, workflow_run_id, workspace_id, artifact_type, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
     .eq('workflow_id', workflowId)
     .order('created_at', { ascending: false })
 

@@ -21,6 +21,7 @@
     "attach": "첨부",
     "voice": "음성",
     "settings": "설정",
+    "options": "옵션",
     "upgrade": "업그레이드",
     "upgradePlan": "플랜 업그레이드",
     "installApp": "앱 설치",
@@ -44,9 +45,11 @@
     "download": "다운로드",
     "workspace": "워크스페이스",
     "retry": "다시 시도",
-    "unknownError": "Unknown error",
-    "expand": "Expand",
-    "collapse": "Collapse"
+    "unknownError": "알 수 없는 오류",
+    "expand": "펼치기",
+    "collapse": "접기",
+    "doubleClickToEdit": "더블클릭하여 편집",
+    "preferences": "환경설정"
   },
   "upgradePlan": {
     "title": "플랜 업그레이드",
@@ -57,7 +60,7 @@
     "custom": "맞춤",
     "currentPlanNote": "현재 {current} 플랜입니다. 요금 페이지에서 상위 플랜을 선택하세요.",
     "planNames": {
-      "free": "Free",
+      "free": "무료",
       "pro": "Pro",
       "max": "Max",
       "enterprise": "Enterprise"
@@ -99,13 +102,19 @@
     "integrations": "통합",
     "storage": "저장소",
     "vault": "금고",
-    "workflows": "워크플로우",
+    "workflows": "워크플로",
     "newWorkflow": "새 워크플로우",
     "addWorkspace": "작업공간 추가",
     "mainSidebar": "메인 사이드바",
     "toggleSidebar": "사이드바 전환",
     "main": "메인",
-    "userProfile": "사용자 프로필"
+    "userProfile": "사용자 프로필",
+    "plugins": "플러그인",
+    "tools": "도구",
+    "connections": "Connections",
+    "console": "Console",
+    "moveToFolder": "Move to folder",
+    "noFolder": "No folder"
   },
   "notifications": {
     "title": "알림",
@@ -176,7 +185,7 @@
     "returnToSignIn": "로그인으로 돌아가기"
   },
   "settings": {
-    "title": "설정",
+    "title": "환경설정",
     "editProfile": "프로필 편집",
     "freePlan": "무료 요금제",
     "proPlan": "Pro 플랜",
@@ -234,7 +243,18 @@
     "checkoutSuccess": "플랜이 성공적으로 업그레이드되었습니다!",
     "importPasswords": "비밀번호 가져오기",
     "importPasswordsHint": "Chrome, Firefox 또는 Safari에 저장된 로그인 정보를 워크스페이스 Vault로 가져옵니다.",
-    "allNotificationsHint": "앱에서 보내는 필수가 아닌 이메일(워크스페이스 초대, 뉴스레터 등)의 마스터 스위치. 중요한 계정 메시지는 계속 전달됩니다."
+    "allNotificationsHint": "앱에서 보내는 필수가 아닌 이메일(워크스페이스 초대, 뉴스레터 등)의 마스터 스위치. 중요한 계정 메시지는 계속 전달됩니다.",
+    "clearWorkflows": "모든 워크플로우 삭제",
+    "clearWorkflowsDesc": "이 워크스페이스의 모든 워크플로우를 채팅 및 기록과 함께 영구적으로 삭제합니다.",
+    "clearWorkflowsButton": "모두 삭제",
+    "clearWorkflowsTitle": "모든 워크플로우 삭제",
+    "clearWorkflowsCannotUndo": "이 작업은 되돌릴 수 없습니다",
+    "clearWorkflowsWarning": "이 워크스페이스의 워크플로우 {count}개를 채팅 및 기록과 함께 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+    "clearWorkflowsConfirm": "모든 워크플로우 삭제",
+    "clearWorkflowsClearing": "삭제 중…",
+    "clearWorkflowsDone": "워크플로우 {count}개를 삭제했습니다",
+    "clearWorkflowsError": "워크플로우를 삭제하지 못했습니다. 다시 시도해 주세요.",
+    "clearWorkflowsPartialError": "워크플로우 {count}개를 삭제하지 못했습니다. 다시 시도해 주세요."
   },
   "chat": {
     "welcomeGreeting": "{name}님, 무엇을 도와드릴까요?",
@@ -246,6 +266,7 @@
     "expandedBrowserPreview": "확대된 브라우저 미리보기",
     "removeAttachment": "첨부 파일 제거",
     "fileUploadError": "{name} 업로드에 실패했습니다",
+    "loadHistoryError": "이 채팅 기록을 불러올 수 없습니다.",
     "chatView": "채팅",
     "viewportView": "보기",
     "flowView": "플로우",
@@ -262,7 +283,32 @@
     "copyToClipboard": "클립보드에 복사",
     "openFileRef": "파일 열기",
     "openFolderRef": "폴더 열기",
-    "openArtifactRef": "아티팩트 열기"
+    "openArtifactRef": "아티팩트 열기",
+    "welcomeSuggestion": "멋진 걸 보여줘",
+    "discussInConsole": "콘솔에서 논의",
+    "welcomeSubtitle": "Ask anything, or describe what you want to automate.",
+    "welcomeSuggestions": {
+      "automate": {
+        "title": "Set up an automation",
+        "description": "Plan, build, and test the whole flow",
+        "prompt": "Help me set up an end-to-end automation: clarify the goal, map the steps, build the workflow, and test that it works."
+      },
+      "browse": {
+        "title": "Research to decision",
+        "description": "Browse, compare, and recommend next steps",
+        "prompt": "Research this end to end: browse the relevant sources, compare the options, summarize the tradeoffs, and recommend what to do next."
+      },
+      "summarize": {
+        "title": "Extract to report",
+        "description": "Gather sources and produce a clean output",
+        "prompt": "Turn source material into a finished output: gather the relevant pages or files, extract the key details, and produce a concise report."
+      },
+      "draft": {
+        "title": "Draft to follow-up",
+        "description": "Write, review, and prep the next action",
+        "prompt": "Help me handle this communication end to end: understand the context, draft the message, refine it, and suggest the follow-up."
+      }
+    }
   },
   "workflow": {
     "untitledNode": "제목 없는 단계",
@@ -352,7 +398,8 @@
       "agent": "에이전트",
       "schedule": "일정",
       "artifacts": "아티팩트",
-      "stealth": "설정"
+      "stealth": "설정",
+      "runs": "Runs"
     },
     "liveBadge": "라이브",
     "resizeNode": "크기 조정",
@@ -390,7 +437,7 @@
     "addNodeBlankDesc": "직접 동작을 작성하는 새 단계",
     "addNodeEmbed": "임베디드 워크플로우",
     "addNodeEmbedDesc": "저장된 워크플로우를 단계로 실행",
-    "embedWorkflowLabel": "워크플로우",
+    "embedWorkflowLabel": "워크플로",
     "embedSelectWorkflow": "워크플로우 선택",
     "embedSearchPlaceholder": "워크플로우 검색…",
     "embedNoWorkflows": "사용 가능한 워크플로우가 없습니다",
@@ -398,11 +445,22 @@
     "embedPendingTitle": "워크플로우 선택",
     "embedUnboundToast": "이 임베드에 선택된 워크플로우가 없습니다 — 정보 패널에서 선택하세요.",
     "embedOpen": "참조된 워크플로우 열기 →",
-    "peekTitle": "Workflow",
-    "peekOpenFlow": "Open flow",
-    "peekNodeCount": "{n} nodes",
-    "peekParallel": "{n} parallel branches",
-    "peekAlt": "Preview of the workflow graph — open the Flow view"
+    "peekTitle": "워크플로",
+    "peekOpenFlow": "플로 열기",
+    "peekNodeCount": "노드 {n}개",
+    "peekParallel": "병렬 분기 {n}개",
+    "peekAlt": "워크플로 그래프 미리보기 — 플로 보기 열기",
+    "checks": "Checks",
+    "addCheck": "Add check",
+    "removeCheck": "Remove check",
+    "checksEmpty": "No checks yet — add one to verify expected behaviour from run evidence.",
+    "checkLabelPlaceholder": "Expected behaviour",
+    "checkExpectationPlaceholder": "What evidence should prove this is correct?",
+    "checkMode": {
+      "auto": "Auto",
+      "comparison": "Compare",
+      "review": "Review"
+    }
   },
   "dashboard": {
     "console": "콘솔",
@@ -441,7 +499,33 @@
     "nextRunDue": "지금 실행",
     "inMinutes": "{n}분 후",
     "inHours": "{n}시간 후",
-    "inDays": "{n}일 후"
+    "inDays": "{n}일 후",
+    "composerPlaceholder": "코어에 메시지…",
+    "assistant": {
+      "title": "Core",
+      "subtitle": "워크스페이스 어시스턴트",
+      "connected": "MCP · CLI 연결됨",
+      "connecting": "연결 중…",
+      "welcomeTitle": "코어와 대화",
+      "welcomeBody": "워크스페이스 어시스턴트입니다. 작업 실행, 컨텍스트 불러오기, 보류 중인 포커스 재개를 요청하세요."
+    },
+    "focuses": {
+      "title": "포커스",
+      "new": "새 포커스",
+      "placeholderNote": "보류 중인 메모리 컨텍스트. 라이브 포커스 레일 곧 제공.",
+      "stubCurrent": "현재 세션",
+      "stubResearch": "시장 조사",
+      "stubInvoices": "청구서 분류"
+    },
+    "hindsight": {
+      "title": "Hindsight",
+      "subtitle": "공유 메모리 · {n}개 메모",
+      "view": "메모리 보기",
+      "placeholderNote": "하나의 공유 워크스페이스 메모리. 라이브 소스 곧 제공.",
+      "stubNote1": "긴 글보다 간결한 요약을 선호합니다.",
+      "stubNote2": "기본 시간대는 UTC이며 일정은 이에 따라 실행됩니다.",
+      "stubNote3": "워크플로를 저장하거나 편집하기 전에 항상 확인하세요."
+    }
   },
   "search": {
     "placeholder": "워크플로우 검색…",
@@ -458,7 +542,7 @@
     "pinBrowser": "브라우저 에이전트 고정",
     "unpinBrowser": "브라우저 에이전트 고정 해제",
     "demoLabel": "Demo",
-    "demoLabelN": "Demo {n}"
+    "demoLabelN": "데모 {n}"
   },
   "browser": {
     "addAgent": "브라우저 에이전트 추가",
@@ -524,7 +608,7 @@
     "editorSlug": "Slug",
     "editorSlugHelp": "소문자, 선택적으로 author/name 형식.",
     "editorSlugAutoHelp": "사용자 핸들과 위 이름으로 자동 생성됩니다.",
-    "editorSlugPreviewEmpty": "author/name",
+    "editorSlugPreviewEmpty": "author/이름",
     "editorName": "이름",
     "editorDescription": "설명",
     "editorTags": "태그",
@@ -613,11 +697,23 @@
     "categoryLayout": "레이아웃",
     "official": "공식",
     "editorListingNotFound": "이 목록을 찾을 수 없습니다.",
-    "connectedTooltip": "{n} connected",
-    "publishFailed": "Publish failed",
-    "saveFailed": "Save failed",
-    "yankFailed": "Yank failed",
-    "disconnectFailed": "Failed to disconnect integration."
+    "connectedTooltip": "{n}개 연결됨",
+    "publishFailed": "게시 실패",
+    "saveFailed": "저장 실패",
+    "yankFailed": "제거 실패",
+    "disconnectFailed": "통합 연결 해제에 실패했습니다.",
+    "browse": "둘러보기",
+    "filterAvailable": "사용 가능",
+    "filterStatus": "상태",
+    "filterCategory": "카테고리",
+    "filterClear": "필터 지우기",
+    "searchAllPlaceholder": "플러그인 검색…",
+    "colName": "이름",
+    "colDescription": "설명",
+    "colStatus": "상태",
+    "colInstalls": "설치",
+    "colActions": "열기",
+    "installsCount": "{count}회 설치"
   },
   "workspace": {
     "team": "팀",
@@ -631,7 +727,7 @@
     "title": "작업공간 만들기",
     "subtitle": "팀을 위한 새 작업공간을 설정하세요.",
     "billingNote": "새 작업공간은 {plan} 플랜으로 시작합니다. 플랜과 한도는 작업공간마다 별도로 적용됩니다 — 가격 페이지에서 각각 개별적으로 업그레이드할 수 있습니다.",
-    "freePlanName": "Free",
+    "freePlanName": "무료",
     "nameLabel": "작업공간 이름",
     "namePlaceholder": "예: 우리 팀",
     "invitesLabel": "사람 초대",
@@ -641,10 +737,10 @@
     "creating": "생성 중…",
     "submit": "작업공간 만들기",
     "errorFallback": "작업공간을 만들지 못했습니다. 다시 시도해 주세요.",
-    "nameRequired": "Workspace name is required.",
-    "nameTooLong": "Workspace name must be {max} characters or fewer.",
-    "nameInvalidChars": "Only letters, numbers, and spaces are allowed.",
-    "inviteFailed": "Failed to send invitation."
+    "nameRequired": "워크스페이스 이름은 필수입니다.",
+    "nameTooLong": "워크스페이스 이름은 {max}자 이하여야 합니다.",
+    "nameInvalidChars": "문자, 숫자, 공백만 사용할 수 있습니다.",
+    "inviteFailed": "초대를 보내지 못했습니다."
   },
   "workspaceMenu": {
     "memberCountOne": "멤버 1명",
@@ -731,19 +827,19 @@
     "identityUpdateError": "워크스페이스를 업데이트할 수 없습니다. 다시 시도하세요.",
     "llmKeysTitle": "LLM API 키",
     "llmKeysDesc": "자체 LLM API 키를 사용하세요. 설정하면 이 워크스페이스의 모든 실행에서 공유 키 대신 사용자 키가 사용되며, 토큰은 주간 예산이 아닌 프로바이더 계정에서 차감됩니다.",
-    "transferOwnershipFailed": "Failed to transfer ownership. Please try again.",
-    "deleteWorkspaceFailed": "Failed to delete workspace. Please try again.",
+    "transferOwnershipFailed": "소유권 이전에 실패했습니다. 다시 시도하세요.",
+    "deleteWorkspaceFailed": "워크스페이스 삭제에 실패했습니다. 다시 시도하세요.",
     "inviteEmailsPlaceholder": "alice{'@'}example.com, bob{'@'}example.com",
-    "managePlan": "Manage plan",
-    "managePlanDesc": "Cancel or change your plan. Changes take effect at the end of the current billing period.",
-    "cancelPlan": "Cancel plan",
-    "downgradeToPro": "Downgrade to Pro",
-    "scheduledCancelBanner": "Your {plan} plan is scheduled to end on {date}. This workspace will move to the Free plan then.",
-    "scheduledCancelBannerNoDate": "Your {plan} plan is scheduled to be cancelled. This workspace will move to the Free plan at the end of the current billing period.",
-    "scheduledDowngradeBanner": "Your {plan} plan is scheduled to change to {target} on {date}.",
-    "scheduledDowngradeBannerNoDate": "Your {plan} plan is scheduled to change to {target} at the end of the current billing period.",
-    "keepPlan": "Keep my plan",
-    "keeping": "Keeping…"
+    "managePlan": "플랜 관리",
+    "managePlanDesc": "플랜을 취소하거나 변경하세요. 변경 사항은 현재 결제 기간 종료 시 적용됩니다.",
+    "cancelPlan": "플랜 취소",
+    "downgradeToPro": "Pro로 다운그레이드",
+    "scheduledCancelBanner": "{plan} 플랜이 {date}에 종료 예정입니다. 그 후 이 워크스페이스는 무료 플랜으로 전환됩니다.",
+    "scheduledCancelBannerNoDate": "{plan} 플랜이 취소 예정입니다. 현재 결제 기간 종료 시 이 워크스페이스는 무료 플랜으로 전환됩니다.",
+    "scheduledDowngradeBanner": "{plan} 플랜이 {date}에 {target}(으)로 변경 예정입니다.",
+    "scheduledDowngradeBannerNoDate": "{plan} 플랜이 현재 결제 기간 종료 시 {target}(으)로 변경 예정입니다.",
+    "keepPlan": "플랜 유지",
+    "keeping": "유지 중…"
   },
   "storage": {
     "workspace": "작업공간",
@@ -818,7 +914,7 @@
       "providerLocalDesc": "이 브라우저에만 저장되는 기기 저장소입니다.",
       "providerCloudDesc": "모든 워크스페이스 멤버와 공유되는 Polymux 관리 저장소입니다.",
       "connectionsTitle": "연결",
-      "connectionsDesc": "이 워크스페이스의 저장 제공자를 연결하거나 연결을 해제합니다.",
+      "connectionsDesc": "즐겨 사용하는 도구 전반에서 Polymux를 사용하세요.",
       "connectionDeviceCapability": "기기",
       "migrationNeedsTwoProviders": "파일을 마이그레이션하려면 연결에서 두 개 이상의 제공자를 연결하세요.",
       "statusAvailable": "사용 가능",
@@ -862,7 +958,7 @@
       "migrationAccessLossLoading": "영향받는 멤버를 불러오는 중…",
       "migrationAccessLossNone": "현재 다른 사용자는 접근 권한이 없습니다.",
       "migrationToastView": "진행 상황 보기",
-      "providerThisDevice": "This device"
+      "providerThisDevice": "이 기기"
     },
     "disconnect": {
       "title": "{provider} 연결을 해제하시겠습니까?",
@@ -920,8 +1016,8 @@
       "searchFiles": "파일 검색",
       "searchPlaceholder": "검색...",
       "selectedCount": "{n}개 선택됨",
-      "expand": "Expand",
-      "collapse": "Collapse"
+      "expand": "펼치기",
+      "collapse": "접기"
     },
     "filters": {
       "all": "모든 파일",
@@ -977,6 +1073,15 @@
       "localCopyMissing": "이 기기에서 로컬 복사본을 찾을 수 없습니다.",
       "downloadFailedStatus": "다운로드 실패 ({status})",
       "downloadFailed": "파일 다운로드에 실패했습니다"
+    },
+    "fileInfo": {
+      "type": "유형",
+      "location": "위치",
+      "storage": "스토리지",
+      "size": "크기",
+      "created": "생성일",
+      "kindFolder": "폴더",
+      "kindFile": "파일"
     }
   },
   "contact": {
@@ -995,8 +1100,8 @@
     "errorEmail": "유효한 이메일 주소를 입력해 주세요.",
     "errorContent": "메시지를 입력해 주세요.",
     "enterprisePrefill": "엔터프라이즈 플랜에 관심",
-    "metaTitle": "Contact",
-    "metaDescription": "Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries."
+    "metaTitle": "문의",
+    "metaDescription": "Polymux 팀에 문의하세요. 영업, 파트너십, 지원 및 보도 문의."
   },
   "forum": {
     "pageTitle": "포럼",
@@ -1087,7 +1192,7 @@
         "description": "다음에 만들 것을 함께 정해요"
       },
       "workflows": {
-        "label": "워크플로우",
+        "label": "워크플로",
         "description": "블루프린트, 템플릿, 레시피"
       },
       "agents": {
@@ -1106,7 +1211,7 @@
     "noPreviewDesc": "파일을 다운로드하여 내용을 확인하세요.",
     "viewMode": "아티팩트 보기 모드",
     "preview": "미리보기",
-    "raw": "Raw",
+    "raw": "원본",
     "rawLoading": "Raw 파일을 불러오는 중...",
     "rawUnavailable": "이 파일에는 Raw 보기를 사용할 수 없습니다.",
     "rawLoadError": "Raw 보기를 불러오지 못했습니다.",
@@ -1136,20 +1241,20 @@
     "viewGrid": "그리드 보기",
     "viewList": "목록 보기",
     "noPreviewShort": "미리보기 없음",
-    "select": "Select",
-    "selectAll": "Select all",
-    "clearSelection": "Clear selection",
-    "selectedCount": "{count} selected",
-    "cancel": "Cancel",
-    "bulkDeleteConfirm": "Delete {count} file? | Delete {count} files?",
-    "bulkSaved": "Saved {count} file to storage | Saved {count} files to storage",
-    "sortBy": "Sort",
-    "sortNewest": "Newest first",
-    "sortOldest": "Oldest first",
-    "sortNameAsc": "Name (A–Z)",
-    "sortNameDesc": "Name (Z–A)",
-    "sortSizeDesc": "Largest first",
-    "sortSizeAsc": "Smallest first"
+    "select": "선택",
+    "selectAll": "모두 선택",
+    "clearSelection": "선택 해제",
+    "selectedCount": "{count}개 선택됨",
+    "cancel": "취소",
+    "bulkDeleteConfirm": "파일 {count}개를 삭제할까요? | 파일 {count}개를 삭제할까요?",
+    "bulkSaved": "파일 {count}개를 스토리지에 저장했습니다 | 파일 {count}개를 스토리지에 저장했습니다",
+    "sortBy": "정렬",
+    "sortNewest": "최신순",
+    "sortOldest": "오래된순",
+    "sortNameAsc": "이름 (A–Z)",
+    "sortNameDesc": "이름 (Z–A)",
+    "sortSizeDesc": "큰 순",
+    "sortSizeAsc": "작은 순"
   },
   "landing": {
     "useNow": "지금 사용하기",
@@ -1167,7 +1272,7 @@
         "vault": "Vault로 보호된 비밀.",
         "replayable": "재현 가능한 워크플로."
       },
-      "rotatingEmpty": "Add phrases to rotate."
+      "rotatingEmpty": "순환할 문구를 추가하세요."
     },
     "features": {
       "title": "자동화에 필요한 모든 것",
@@ -1200,7 +1305,7 @@
       "purchaseNow": "지금 구매",
       "plans": {
         "free": {
-          "name": "Free",
+          "name": "무료",
           "cta": "시작하기"
         },
         "pro": {
@@ -1482,13 +1587,13 @@
         "done": "완료"
       },
       "errors": {
-        "saveFailed": "Failed to save password",
-        "revealFailed": "Failed to reveal password",
+        "saveFailed": "비밀번호 저장 실패",
+        "revealFailed": "비밀번호 표시 실패",
         "revealTotpFailed": "인증 앱 키를 표시하지 못했습니다",
-        "updateFailed": "Failed to update password",
-        "deleteFailed": "Failed to delete password"
+        "updateFailed": "비밀번호 업데이트 실패",
+        "deleteFailed": "비밀번호 삭제 실패"
       },
-      "passwordsLockedNote": "Passwords are encrypted and can't be revealed or copied."
+      "passwordsLockedNote": "비밀번호는 암호화되어 있으며 표시하거나 복사할 수 없습니다."
     },
     "signIns": {
       "sectionTitle": "저장된 로그인",
@@ -1498,8 +1603,10 @@
       "forget": "삭제"
     },
     "tabs": {
-      "accounts": "계정",
-      "wallet": "지갑"
+      "files": "파일",
+      "credentials": "자격 증명",
+      "wallet": "지갑",
+      "settings": "설정"
     },
     "wallet": {
       "comingSoon": {
@@ -1510,7 +1617,9 @@
         "overview": "개요",
         "activity": "활동",
         "workflows": "워크플로",
-        "policies": "정책"
+        "policies": "정책",
+        "transactions": "거래 내역",
+        "budgets": "예산"
       },
       "banner": {
         "topUpCompleted": "충전이 완료되었습니다. 잔액이 업데이트되었습니다.",
@@ -1520,7 +1629,8 @@
         "availableBalance": "사용 가능 잔액",
         "autoTopUp": "자동 충전",
         "autoTopUpOn": "켜짐",
-        "topUp": "충전"
+        "topUp": "충전",
+        "autoTopUpSummary": "잔액이 {threshold} 미만이 되면 {amount}까지 충전합니다"
       },
       "activity": {
         "title": "지출 활동",
@@ -1609,7 +1719,7 @@
         "cancel": "취소",
         "redirecting": "이동 중…",
         "continueToStripe": "Stripe로 계속",
-        "amountPlaceholder": "0.00",
+        "amountPlaceholder": "0,00",
         "currencyUsd": "USD"
       },
       "autoTopUpModal": {
@@ -1664,7 +1774,65 @@
         "howApply2": "차단 목록: 나열된 도메인을 제외한 모두 접근 가능.",
         "howApply3": "하위 도메인은 자동으로 포함됩니다.",
         "howApply4": "변경 사항은 다음 실행부터 적용됩니다."
-      }
+      },
+      "dateYesterday": "어제",
+      "dateDaysAgo": "{n}일 전"
+    },
+    "credentials": {
+      "searchPlaceholder": "자격 증명 검색…",
+      "empty": "저장된 자격 증명이 없습니다",
+      "addCta": "자격 증명 추가",
+      "noResults": "필터와 일치하는 자격 증명이 없습니다.",
+      "secretLabel": "시크릿",
+      "use": "사용",
+      "edit": "편집",
+      "more": "더 많은 작업",
+      "secured": "보호됨",
+      "securedTooltip": "저장 시 암호화됩니다. 에이전트는 표시나 복사 없이 사용합니다.",
+      "neverUsed": "사용한 적 없음",
+      "lastUsedAgo": "{when}에 사용",
+      "lastUsedByAgo": "{name}이(가) {when}에 사용",
+      "col": {
+        "name": "이름",
+        "username": "사용자명 / 범위",
+        "agentAccess": "에이전트 액세스",
+        "lastUsed": "마지막 사용",
+        "actions": "작업"
+      },
+      "filters": {
+        "type": "유형",
+        "agentAccess": "에이전트 액세스",
+        "allTypes": "전체",
+        "logins": "로그인",
+        "secrets": "시크릿",
+        "savedSignIns": "저장된 로그인",
+        "allAccess": "전체",
+        "clear": "필터 지우기"
+      },
+      "access": {
+        "title": "에이전트 액세스",
+        "allowed": "허용",
+        "consentRequired": "확인",
+        "blocked": "차단",
+        "allowedHint": "에이전트가 묻지 않고 이 자격 증명을 사용할 수 있습니다.",
+        "consentRequiredHint": "에이전트는 사용할 때마다 물어봐야 합니다.",
+        "blockedHint": "에이전트는 이 자격 증명을 사용할 수 없습니다.",
+        "updateFailed": "에이전트 액세스를 업데이트하지 못했습니다."
+      },
+      "add": {
+        "title": "자격 증명 추가",
+        "typeLogin": "로그인",
+        "typeSecret": "시크릿 / API 키",
+        "secretNameLabel": "이름",
+        "secretNamePlaceholder": "예: OpenAI API 키",
+        "secretValueLabel": "시크릿 값",
+        "secretValuePlaceholder": "키 또는 토큰 붙여넣기",
+        "secretScopeLabel": "범위 (선택)",
+        "secretScopePlaceholder": "예: production, read-only",
+        "consentNote": "새 자격 증명은 기본적으로 에이전트 동의가 필요합니다. 언제든 변경할 수 있습니다."
+      },
+      "addShort": "추가",
+      "usedBy": "{name}이(가) 사용"
     }
   },
   "credentialRequest": {
@@ -1688,7 +1856,7 @@
     "hideDetails": "세부 정보 숨기기",
     "completedSummary": "{site}에 대한 자격 증명을 제공했습니다.",
     "cancelledSummary": "{site} 로그인이 취소되었습니다.",
-    "allowAgentFill": "Allow the agent to type this in directly if secure auto-login isn't possible (less isolated)."
+    "allowAgentFill": "보안 자동 로그인이 불가능한 경우 에이전트가 직접 입력하도록 허용합니다(격리 수준이 낮아집니다)."
   },
   "schedule": {
     "title": "스케줄",
@@ -1700,6 +1868,8 @@
     "saved": "스케줄이 저장되었습니다",
     "activeOn": "활성",
     "activeOff": "일시중지",
+    "launchStatus": "시작 상태",
+    "launchStatusHint": "이 자동화의 시작 방식을 선택하세요",
     "atMinute": "분",
     "atTime": "시간",
     "onDays": "요일",
@@ -1776,7 +1946,51 @@
       "minutesAgo": "{n}분 전",
       "hoursAgo": "{n}시간 전",
       "daysAgo": "{n}일 전"
-    }
+    },
+    "overviewSubtitle": "Workflows set to run automatically in this workspace",
+    "overviewEmpty": "No scheduled workflows yet. Open a workflow's Schedule tab to set one up.",
+    "runsPerMonth": "~{n}/month",
+    "calendarSubtitle": "Arrange your workflows on the calendar",
+    "scheduleWorkflow": "Schedule workflow",
+    "todayBtn": "Today",
+    "upcomingLabel": "Upcoming",
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "list": "List"
+    },
+    "addTitle": "Schedule a workflow",
+    "editTitle": "Edit schedule",
+    "workflow": "Workflow",
+    "workflows": "Workflows",
+    "change": "Change",
+    "searchWorkflows": "Search workflows…",
+    "noWorkflows": "No workflows found",
+    "addToCalendar": "Add to calendar",
+    "removeSchedule": "Remove schedule",
+    "removed": "Schedule removed",
+    "nextRunAt": "next {when}",
+    "nextBadge": "Next",
+    "oneOff": "One-off",
+    "moreRuns": "+{n} more",
+    "showRuns": "Show on calendar",
+    "hideRuns": "Hide from calendar",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDaysShort": "in {n}d",
+    "weekdaysShort": "Wkdy",
+    "daysShort": "d",
+    "automationName": "Automation name",
+    "trigger": {
+      "schedule": "Schedule",
+      "integration": "Integration",
+      "webhook": "Webhook"
+    },
+    "integrationProvider": "Provider",
+    "integrationEvent": "Event",
+    "integrationRepo": "Repository",
+    "integrationBranch": "Branch",
+    "webhookEndpoint": "Webhook endpoint"
   },
   "permissions": {
     "title": "에 대한 액세스 관리",
@@ -1898,15 +2112,15 @@
       "subtitle": "Polymux 확장 프로그램을 연결하여 자신의 브라우저에서 로컬로 에이전트를 실행하세요.",
       "chromeLabel": "Chrome용 설치"
     },
-    "metaTitle": "Install Apps",
-    "metaDescription": "Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.",
-    "desktopComingSoon": "Desktop Apps Coming Soon",
-    "alsoAvailableFor": "Also available for",
-    "availableFor": "Available for",
-    "platformAnd": "and",
-    "mobileExtensionsHeading": "Browser Extension & Mobile Apps",
-    "mobileExtensionsSubtitle": "Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.",
-    "lookingForMobileExtensions": "Looking for Mobile & Extensions?"
+    "metaTitle": "앱 설치",
+    "metaDescription": "macOS, Windows, Linux용 Polymux 네이티브 앱을 다운로드하세요. 완전한 시스템 통합으로 AI 에이전트를 로컬에서 실행합니다.",
+    "desktopComingSoon": "데스크톱 앱 출시 예정",
+    "alsoAvailableFor": "다음에서도 이용 가능",
+    "availableFor": "지원 플랫폼",
+    "platformAnd": "및",
+    "mobileExtensionsHeading": "브라우저 확장 프로그램 및 모바일 앱",
+    "mobileExtensionsSubtitle": "워크플로를 더 확장하세요. 확장 프로그램을 추가해 브라우저를 연결하고 모바일 앱 출시 알림을 받으세요.",
+    "lookingForMobileExtensions": "모바일 및 확장 프로그램을 찾고 계신가요?"
   },
   "docs": {
     "searchPlaceholder": "문서 검색…",
@@ -1921,33 +2135,33 @@
     "next": "다음",
     "contact": "문의",
     "onThisPage": "이 페이지의 내용",
-    "navLabel": "Docs",
-    "openNavigation": "Open navigation",
-    "fallbackTitle": "Documentation",
+    "navLabel": "문서",
+    "openNavigation": "탐색 열기",
+    "fallbackTitle": "문서",
     "nav": {
       "sections": {
-        "gettingStarted": "Getting started",
-        "usingPolymux": "Using Polymux",
-        "buildingPlugins": "Building plugins",
-        "connections": "Connections",
+        "gettingStarted": "시작하기",
+        "usingPolymux": "Polymux 사용",
+        "buildingPlugins": "플러그인 만들기",
+        "connections": "연결",
         "api": "API"
       },
       "entries": {
-        "introduction": "Introduction",
-        "quickstart": "Quickstart",
-        "installation": "Installation",
-        "workspaces": "Workspaces and members",
-        "vault": "Vault basics",
+        "introduction": "소개",
+        "quickstart": "빠른 시작",
+        "installation": "설치",
+        "workspaces": "워크스페이스 및 멤버",
+        "vault": "Vault 기본",
         "faq": "FAQ",
-        "pluginOverview": "Plugin overview",
-        "pluginBuild": "Build your first plugin",
-        "pluginManifest": "Manifest reference",
-        "publishing": "Publishing checklist",
-        "connectionsOverview": "Connections overview",
-        "connectionsBuild": "Building a connection",
-        "connectionsPort": "Port a Hermes/OpenClaw plugin",
-        "apiOverview": "API overview",
-        "authentication": "Authentication"
+        "pluginOverview": "플러그인 개요",
+        "pluginBuild": "첫 플러그인 만들기",
+        "pluginManifest": "매니페스트 참조",
+        "publishing": "게시 체크리스트",
+        "connectionsOverview": "연결 개요",
+        "connectionsBuild": "연결 만들기",
+        "connectionsPort": "Hermes/OpenClaw 플러그인 포팅",
+        "apiOverview": "API 개요",
+        "authentication": "인증"
       }
     }
   },
@@ -1962,26 +2176,26 @@
     "terms": {
       "title": "서비스 약관",
       "subtitle": "Polymux 제품 및 서비스 이용에 대한 규칙과 조건.",
-      "metaTitle": "Terms of Service",
-      "metaDescription": "Terms of service governing your use of Polymux. Acceptable use, billing, account termination, and limitations of liability."
+      "metaTitle": "서비스 약관",
+      "metaDescription": "Polymux 사용을 규정하는 서비스 약관. 허용되는 사용, 결제, 계정 해지 및 책임 제한."
     },
     "about": {
       "title": "회사 소개",
       "subtitle": "Polymux가 구축하고 있는 것과 우리가 서비스하는 대상.",
-      "metaTitle": "About Us",
-      "metaDescription": "Polymux builds the orchestration layer for AI agents on the live web. Learn about our mission, team, and roadmap."
+      "metaTitle": "회사 소개",
+      "metaDescription": "Polymux는 라이브 웹에서 AI 에이전트를 위한 오케스트레이션 계층을 구축합니다. 미션, 팀, 로드맵을 알아보세요."
     },
     "apiReference": {
       "title": "API 참조",
       "subtitle": "개발자를 위한 HTTP 엔드포인트, 인증 및 통합 세부 정보.",
-      "metaTitle": "API Reference",
-      "metaDescription": "HTTP endpoints, auth, and integration details for developers building on Polymux."
+      "metaTitle": "API 참조",
+      "metaDescription": "Polymux 위에서 구축하는 개발자를 위한 HTTP 엔드포인트, 인증 및 통합 세부 정보."
     },
     "cookies": {
       "title": "쿠키 정책",
       "subtitle": "웹사이트와 서비스에서 쿠키 및 유사 기술을 사용하는 방법.",
-      "metaTitle": "Cookie Policy",
-      "metaDescription": "How Polymux uses cookies and similar technologies on our websites and services."
+      "metaTitle": "쿠키 정책",
+      "metaDescription": "Polymux가 웹사이트 및 서비스에서 쿠키 및 유사 기술을 사용하는 방법."
     }
   },
   "bugReport": {
@@ -2110,11 +2324,11 @@
       "gemini": "AIza…"
     },
     "baseUrlDefaults": {
-      "anthropic": "https://api.anthropic.com (default)",
-      "openai": "https://api.openai.com/v1 (default)",
-      "gemini": "https://generativelanguage.googleapis.com (default)"
+      "anthropic": "https://api.anthropic.com (기본값)",
+      "openai": "https://api.openai.com/v1 (기본값)",
+      "gemini": "https://generativelanguage.googleapis.com (기본값)"
     },
-    "noWorkspaceSelected": "No workspace selected."
+    "noWorkspaceSelected": "선택된 워크스페이스가 없습니다."
   },
   "community": {
     "metaTitle": "커뮤니티",
@@ -2157,15 +2371,15 @@
     "emailLabel": "이메일",
     "subtitle": "Polymux로 구축하는 팀을 위한 제품 업데이트, 엔지니어링 노트, 가이드 — 에이전트 오케스트레이션, 라이브 브라우저 세션 모니터링, 신뢰할 수 있는 자동화 제공.",
     "subscribeHint": "월 몇 차례 새 글 게시",
-    "newsletterHeading": "Never miss a post",
-    "newsletterBody": "Occasional email with releases and deep dives. No spam — unsubscribe anytime.",
-    "verifyEmailPrompt": "Check your email to verify your subscription",
-    "subscribing": "Subscribing…",
-    "subscribed": "Subscribed",
-    "subscribeFailed": "Failed to subscribe",
-    "subscribeFailedRetry": "Failed to subscribe. Please try again.",
-    "emailRequired": "Email required",
-    "invalidEmail": "Please enter a valid email"
+    "newsletterHeading": "게시물을 놓치지 마세요",
+    "newsletterBody": "릴리스와 심층 분석을 가끔 이메일로 보내드립니다. 스팸 없음 — 언제든 구독 취소 가능.",
+    "verifyEmailPrompt": "이메일을 확인하여 구독을 인증하세요",
+    "subscribing": "구독 중…",
+    "subscribed": "구독됨",
+    "subscribeFailed": "구독 실패",
+    "subscribeFailedRetry": "구독에 실패했습니다. 다시 시도하세요.",
+    "emailRequired": "이메일 필요",
+    "invalidEmail": "유효한 이메일을 입력하세요"
   },
   "verifyEmail": {
     "title": "이메일 확인",
@@ -2207,7 +2421,7 @@
     "loadFailed": "레이아웃을 불러오지 못했습니다.",
     "retry": "다시 시도",
     "loading": "레이아웃 로드 중…",
-    "customLayoutFallback": "Custom layout"
+    "customLayoutFallback": "사용자 지정 레이아웃"
   },
   "marketplace": {
     "adminOnly": "통합 관리는 워크스페이스 소유자와 관리자만 가능합니다.",
@@ -2220,82 +2434,82 @@
     "exceedsLimit": "\"{name}\"이(가) {limit} 업로드 한도를 초과합니다"
   },
   "geolocation": {
-    "notSupported": "Geolocation not supported"
+    "notSupported": "위치 정보가 지원되지 않습니다"
   },
   "billing": {
-    "cancelTitle": "Cancel your {plan} plan?",
-    "downgradeTitle": "Downgrade to {plan}?",
-    "cancelLead": "Your plan stays active until {date}. After that, this workspace moves to the Free plan.",
-    "cancelLeadNoDate": "Your plan stays active until the end of the current billing period. After that, this workspace moves to the Free plan.",
-    "downgradeLead": "Your {current} plan stays active until {date}. After that, this workspace switches to {target}.",
-    "downgradeLeadNoDate": "Your {current} plan stays active until the end of the current billing period. After that, this workspace switches to {target}.",
-    "keepUntilPeriodEnd": "You keep every {plan} feature until then — nothing changes today.",
-    "whatChanges": "What changes at period end",
-    "whatChangesOn": "What changes on {date}",
-    "unlimited": "Unlimited",
-    "rowAgents": "Browser agents",
-    "rowTokens": "Weekly tokens",
-    "rowRuns": "Monthly workflow runs",
-    "rowMembers": "Workspace members",
-    "rowFileSize": "Max file size",
-    "confirmCancel": "Cancel at period end",
-    "confirmDowngrade": "Schedule downgrade",
-    "scheduling": "Scheduling…",
-    "keepCurrent": "Never mind"
+    "cancelTitle": "{plan} 플랜을 취소할까요?",
+    "downgradeTitle": "{plan}(으)로 다운그레이드할까요?",
+    "cancelLead": "플랜은 {date}까지 유효합니다. 그 후 이 워크스페이스는 무료 플랜으로 전환됩니다.",
+    "cancelLeadNoDate": "플랜은 현재 결제 기간 종료까지 유효합니다. 그 후 이 워크스페이스는 무료 플랜으로 전환됩니다.",
+    "downgradeLead": "{current} 플랜은 {date}까지 유효합니다. 그 후 이 워크스페이스는 {target}(으)로 전환됩니다.",
+    "downgradeLeadNoDate": "{current} 플랜은 현재 결제 기간 종료까지 유효합니다. 그 후 이 워크스페이스는 {target}(으)로 전환됩니다.",
+    "keepUntilPeriodEnd": "그때까지 {plan}의 모든 기능을 유지합니다 — 오늘은 변경 없습니다.",
+    "whatChanges": "기간 종료 시 변경 사항",
+    "whatChangesOn": "{date}에 변경 사항",
+    "unlimited": "무제한",
+    "rowAgents": "브라우저 에이전트",
+    "rowTokens": "주간 토큰",
+    "rowRuns": "월간 워크플로 실행",
+    "rowMembers": "워크스페이스 멤버",
+    "rowFileSize": "최대 파일 크기",
+    "confirmCancel": "기간 종료 시 취소",
+    "confirmDowngrade": "다운그레이드 예약",
+    "scheduling": "예약 중…",
+    "keepCurrent": "취소"
   },
   "checkout": {
-    "title": "Subscribe to {plan}",
-    "loading": "Loading secure checkout…",
-    "notConfigured": "Payments aren't configured yet. Please try again later.",
-    "loadFailed": "Couldn't load the payment form. Check your connection and try again.",
-    "failed": "Something went wrong starting checkout. Please try again.",
-    "retry": "Try again",
-    "successTitle": "You're on {plan}!",
-    "successBody": "Payment received. Your plan is being activated — this can take a moment.",
-    "done": "Done",
-    "billedAnnually": "billed annually",
-    "billedMonthly": "billed monthly",
-    "toastActivated": "{plan} activated for this workspace.",
-    "pageTitle": "Complete your upgrade",
-    "successHeading": "Upgrade complete",
-    "orderSummary": "Order summary",
-    "forWorkspace": "for {name}",
-    "perMonth": "/mo",
-    "included": "What's included",
-    "featAgents": "{n} browser agents",
-    "featTokens": "{n} weekly tokens",
-    "featRuns": "{n} workflow runs / month",
-    "featMembers": "Up to {n} members",
-    "backToPlans": "Back to plans",
-    "goToDashboard": "Go to dashboard",
-    "securedByStripe": "Secured by Stripe",
-    "paymentFailed": "Payment couldn't be completed. Please check your details or try another card.",
-    "subscribe": "Subscribe",
-    "subscribeFor": "Subscribe · {price}",
-    "processing": "Processing…",
-    "planHeading": "{plan} plan",
-    "billedAnnuallyTotal": "billed annually ({total} / yr)",
-    "currency": "Currency"
+    "title": "{plan} 구독",
+    "loading": "보안 결제 로딩 중…",
+    "notConfigured": "결제가 아직 구성되지 않았습니다. 나중에 다시 시도하세요.",
+    "loadFailed": "결제 양식을 불러오지 못했습니다. 연결을 확인하고 다시 시도하세요.",
+    "failed": "결제 시작 중 문제가 발생했습니다. 다시 시도하세요.",
+    "retry": "다시 시도",
+    "successTitle": "{plan} 플랜입니다!",
+    "successBody": "결제가 완료되었습니다. 플랜을 활성화하는 중입니다 — 잠시 기다려 주세요.",
+    "done": "완료",
+    "billedAnnually": "연간 결제",
+    "billedMonthly": "월간 결제",
+    "toastActivated": "이 워크스페이스에서 {plan}이(가) 활성화되었습니다.",
+    "pageTitle": "업그레이드 완료하기",
+    "successHeading": "업그레이드 완료",
+    "orderSummary": "주문 요약",
+    "forWorkspace": "{name}용",
+    "perMonth": "/월",
+    "included": "포함 내용",
+    "featAgents": "브라우저 에이전트 {n}개",
+    "featTokens": "주간 토큰 {n}개",
+    "featRuns": "워크플로 실행 {n}회 / 월",
+    "featMembers": "최대 {n}명",
+    "backToPlans": "플랜으로 돌아가기",
+    "goToDashboard": "대시보드로 이동",
+    "securedByStripe": "Stripe로 보호됨",
+    "paymentFailed": "결제를 완료하지 못했습니다. 정보를 확인하거나 다른 카드를 시도하세요.",
+    "subscribe": "구독",
+    "subscribeFor": "구독 · {price}",
+    "processing": "처리 중…",
+    "planHeading": "{plan} 플랜",
+    "billedAnnuallyTotal": "연간 결제 ({total} / 년)",
+    "currency": "통화"
   },
   "stealth": {
     "title": "설정",
     "mode": {
-      "label": "Browser mode",
-      "description": "Where this workflow's agents run. Change it from the chat input."
+      "label": "브라우저 모드",
+      "description": "이 워크플로의 에이전트가 실행되는 위치입니다. 채팅 입력에서 변경하세요."
     },
     "cloaked": {
-      "label": "Cloaked browser",
-      "description": "Route blocked sites through CloakBrowser to get past bot walls."
+      "label": "클로킹 브라우저",
+      "description": "차단된 사이트를 CloakBrowser를 통해 라우팅하여 봇 차단을 우회합니다."
     },
     "humanizer": {
       "label": "Agent Humaniser",
-      "description": "Human-like mouse movement and typing so actions don't look automated."
+      "description": "사람처럼 마우스를 움직이고 입력하여 작업이 자동화로 보이지 않게 합니다."
     },
     "risk": {
-      "humanizer": "Detection risk: Agent Humaniser is off — instant clicks & typing may be flagged by bot-detection sites.",
-      "cloaked": "Detection risk: cloaked browser is off — sites with bot protection (e.g. Cloudflare) may detect or block the agent.",
-      "both": "Detection risk: Agent Humaniser and cloaked browser are off — sites with bot protection may detect or block the agent.",
-      "extension": "Detection risk: the agent runs in your own browser, so cloaking and humanising don't apply — sites may detect automation."
+      "humanizer": "탐지 위험: Agent Humaniser가 꺼져 있습니다 — 즉각적인 클릭과 입력은 봇 탐지 사이트에 플래그될 수 있습니다.",
+      "cloaked": "탐지 위험: 클로킹 브라우저가 꺼져 있습니다 — 봇 보호 사이트(예: Cloudflare)가 에이전트를 탐지하거나 차단할 수 있습니다.",
+      "both": "탐지 위험: Agent Humaniser와 클로킹 브라우저가 꺼져 있습니다 — 봇 보호 사이트가 에이전트를 탐지하거나 차단할 수 있습니다.",
+      "extension": "탐지 위험: 에이전트가 사용자의 브라우저에서 실행되므로 클로킹과 휴머나이징이 적용되지 않습니다 — 사이트가 자동화를 탐지할 수 있습니다."
     }
   },
   "otpRequest": {
@@ -2307,5 +2521,28 @@
     "working": "제출 중…",
     "completedSummary": "{site}의 2FA 코드를 입력했습니다.",
     "cancelledSummary": "{site}의 2FA 요청이 취소되었습니다."
+  },
+  "sidebar": {
+    "console": "콘솔",
+    "chat": "채팅",
+    "build": "Build",
+    "browse": "둘러보기"
+  },
+  "chats": {
+    "searchPlaceholder": "채팅 검색",
+    "newChat": "새 채팅",
+    "untitled": "새 채팅",
+    "empty": "아직 채팅이 없습니다",
+    "noResults": "일치하는 채팅이 없습니다",
+    "archive": "보관",
+    "unarchive": "보관 해제",
+    "archivedTitle": "보관된 채팅",
+    "archivedSubtitle": "보관된 채팅은 채팅 목록에서 숨겨집니다.",
+    "archiveEmpty": "보관된 채팅 없음",
+    "clearArchive": "보관함 비우기",
+    "clearArchiveConfirm": "보관된 채팅을 모두 영구 삭제하시겠습니까?",
+    "clearArchiveConfirmButton": "모두 삭제",
+    "resizeArchive": "드래그하여 크기 조절",
+    "openingChat": "채팅을 여는 중…"
   }
 }

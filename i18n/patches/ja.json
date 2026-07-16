@@ -1,14 +1,38 @@
 {
   "common": {
+    "preferences": "環境設定",
     "duplicate": "複製",
     "info": "情報",
     "download": "ダウンロード",
     "workspace": "ワークスペース",
-    "retry": "再試行"
+    "retry": "再試行",
+    "unknownError": "不明なエラー",
+    "expand": "展開",
+    "collapse": "折りたたむ",
+    "doubleClickToEdit": "ダブルクリックで編集"
+  },
+  "chat": {
+    "welcomeSuggestion": "何か面白いものを見せて",
+    "discussInConsole": "コンソールで相談",
+    "chatView": "チャット",
+    "flowView": "フロー"
   },
   "workspaceMenu": {
     "llmKeysTitle": "LLM API キー",
-    "llmKeysDesc": "独自の LLM API キーを設定できます。設定すると、このワークスペースのすべての実行で共有キーの代わりにあなたのキーが使われ、トークンは週間予算ではなくプロバイダーアカウントから消費されます。"
+    "llmKeysDesc": "独自の LLM API キーを設定できます。設定すると、このワークスペースのすべての実行で共有キーの代わりにあなたのキーが使われ、トークンは週間予算ではなくプロバイダーアカウントから消費されます。",
+    "managePlan": "プランを管理",
+    "managePlanDesc": "プランをキャンセルまたは変更します。変更は現在の請求期間の終了時に有効になります。",
+    "cancelPlan": "プランをキャンセル",
+    "downgradeToPro": "Pro にダウングレード",
+    "scheduledCancelBanner": "{plan} プランは {date} に終了予定です。その後、このワークスペースは無料プランに移行します。",
+    "scheduledCancelBannerNoDate": "{plan} プランはキャンセル予定です。現在の請求期間の終了時に、このワークスペースは無料プランに移行します。",
+    "scheduledDowngradeBanner": "{plan} プランは {date} に {target} へ変更予定です。",
+    "scheduledDowngradeBannerNoDate": "{plan} プランは現在の請求期間の終了時に {target} へ変更予定です。",
+    "keepPlan": "プランを維持",
+    "keeping": "維持中…",
+    "transferOwnershipFailed": "所有権の移転に失敗しました。もう一度お試しください。",
+    "deleteWorkspaceFailed": "ワークスペースの削除に失敗しました。もう一度お試しください。",
+    "inviteEmailsPlaceholder": "alice{'@'}example.com, bob{'@'}example.com"
   },
   "llmKeys": {
     "addKey": "キーを追加",
@@ -36,7 +60,18 @@
       "anthropic": "Anthropic (Claude)",
       "openai": "OpenAI (GPT)",
       "gemini": "Google Gemini"
-    }
+    },
+    "keyFormatHints": {
+      "anthropic": "sk-ant-…",
+      "openai": "sk-…",
+      "gemini": "AIza…"
+    },
+    "baseUrlDefaults": {
+      "anthropic": "https://api.anthropic.com (デフォルト)",
+      "openai": "https://api.openai.com/v1 (デフォルト)",
+      "gemini": "https://generativelanguage.googleapis.com (デフォルト)"
+    },
+    "noWorkspaceSelected": "ワークスペースが選択されていません。"
   },
   "storage": {
     "moveModalTitle": "移動先…",
@@ -87,6 +122,24 @@
       "localCopyMissing": "このデバイスにローカルコピーが見つかりません。",
       "downloadFailedStatus": "ダウンロードに失敗しました ({status})",
       "downloadFailed": "ファイルのダウンロードに失敗しました"
+    },
+    "settings": {
+      "providerThisDevice": "このデバイス",
+      "providerCloud": "クラウド"
+    },
+    "toolbar": {
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "filter": "フィルター"
+    },
+    "fileInfo": {
+      "type": "種類",
+      "location": "場所",
+      "storage": "ストレージ",
+      "size": "サイズ",
+      "created": "作成日",
+      "kindFolder": "フォルダ",
+      "kindFile": "ファイル"
     }
   },
   "pricing": {
@@ -161,7 +214,16 @@
     "readMore": "続きを読む",
     "emailLabel": "メール",
     "subtitle": "Polymux で構築するチーム向けの製品アップデート、エンジニアリングノート、ガイド — エージェントのオーケストレーション、ライブブラウザセッションの監視、信頼できる自動化の提供。",
-    "subscribeHint": "月に数回新しい記事を配信"
+    "subscribeHint": "月に数回新しい記事を配信",
+    "newsletterHeading": "投稿を見逃さない",
+    "newsletterBody": "リリースや深掘り記事を不定期でお届けします。スパムなし — いつでも配信停止できます。",
+    "verifyEmailPrompt": "メールを確認して購読を認証してください",
+    "subscribing": "購読中…",
+    "subscribed": "購読済み",
+    "subscribeFailed": "購読に失敗しました",
+    "subscribeFailedRetry": "購読に失敗しました。もう一度お試しください。",
+    "emailRequired": "メールアドレスが必要です",
+    "invalidEmail": "有効なメールアドレスを入力してください"
   },
   "verifyEmail": {
     "title": "メール確認",
@@ -202,12 +264,16 @@
   "nav": {
     "mainSidebar": "メインサイドバー",
     "main": "メイン",
-    "userProfile": "ユーザープロフィール"
+    "userProfile": "ユーザープロフィール",
+    "plugins": "プラグイン",
+    "tools": "ツール",
+    "workflows": "ワークフロー"
   },
   "layout": {
     "loadFailed": "レイアウトの読み込みに失敗しました。",
     "retry": "再試行",
-    "loading": "レイアウトを読み込み中…"
+    "loading": "レイアウトを読み込み中…",
+    "customLayoutFallback": "カスタムレイアウト"
   },
   "marketplace": {
     "adminOnly": "統合の管理はワークスペースのオーナーと管理者のみ可能です。",
@@ -220,16 +286,58 @@
     "exceedsLimit": "「{name}」は {limit} のアップロード上限を超えています"
   },
   "settings": {
+    "title": "環境設定",
     "importPasswords": "パスワードをインポート",
     "importPasswordsHint": "Chrome、Firefox、Safari に保存されたログイン情報をワークスペースの Vault に取り込みます。",
-    "allNotificationsHint": "アプリから送信される非必須メール（ワークスペース招待、ニュースレターなど）のマスタースイッチ。重要なアカウントメッセージは引き続き届きます。"
+    "allNotificationsHint": "アプリから送信される非必須メール（ワークスペース招待、ニュースレターなど）のマスタースイッチ。重要なアカウントメッセージは引き続き届きます。",
+    "clearWorkflows": "すべてのワークフローを削除",
+    "clearWorkflowsDesc": "このワークスペース内のすべてのワークフローを、チャットと履歴ごと完全に削除します。",
+    "clearWorkflowsButton": "すべて削除",
+    "clearWorkflowsTitle": "すべてのワークフローを削除",
+    "clearWorkflowsCannotUndo": "この操作は元に戻せません",
+    "clearWorkflowsWarning": "このワークスペース内の {count} 件のワークフローを、チャットと履歴ごと完全に削除します。この操作は元に戻せません。",
+    "clearWorkflowsConfirm": "すべてのワークフローを削除",
+    "clearWorkflowsClearing": "削除中…",
+    "clearWorkflowsDone": "{count} 件のワークフローを削除しました",
+    "clearWorkflowsError": "ワークフローを削除できませんでした。もう一度お試しください。",
+    "clearWorkflowsPartialError": "{count} 件のワークフローを削除できませんでした。もう一度お試しください。",
+    "pushNotif": "プッシュ"
   },
   "viewport": {
     "pinBrowser": "ブラウザエージェントをピン留め",
-    "unpinBrowser": "ブラウザエージェントのピン留めを解除"
+    "unpinBrowser": "ブラウザエージェントのピン留めを解除",
+    "demoLabel": "Demo",
+    "demoLabelN": "デモ {n}"
   },
   "integrations": {
-    "editorListingNotFound": "このリスティングが見つかりませんでした。"
+    "editorListingNotFound": "このリスティングが見つかりませんでした。",
+    "editorSlug": "Slug",
+    "editorSlugPreviewEmpty": "author/名前",
+    "editorVersion": "v{version}",
+    "github": "GitHub",
+    "connectedTooltip": "{n} 件接続済み",
+    "publishFailed": "公開に失敗しました",
+    "saveFailed": "保存に失敗しました",
+    "yankFailed": "削除に失敗しました",
+    "disconnectFailed": "統合の切断に失敗しました。",
+    "marketplace": "マーケットプレイス",
+    "editorNewLayout": "レイアウト",
+    "filterLayouts": "レイアウト",
+    "categoryLayout": "レイアウト",
+    "categoryIntegration": "統合",
+    "statusHeading": "ステータス",
+    "browse": "見つける",
+    "searchAllPlaceholder": "プラグインを検索…",
+    "filterStatus": "ステータス",
+    "filterCategory": "カテゴリ",
+    "filterAvailable": "利用可能",
+    "filterClear": "フィルターをクリア",
+    "colName": "名前",
+    "colDescription": "説明",
+    "colStatus": "ステータス",
+    "colInstalls": "インストール数",
+    "colActions": "開く",
+    "installsCount": "{count} 件のインストール"
   },
   "credentialRequest": {
     "errorNoWorkspace": "認証情報を保存する前にワークスペースを選択してください。",
@@ -237,7 +345,8 @@
     "showDetails": "詳細",
     "hideDetails": "詳細を非表示",
     "completedSummary": "{site} の認証情報を提供しました。",
-    "cancelledSummary": "{site} へのサインインをキャンセルしました。"
+    "cancelledSummary": "{site} へのサインインをキャンセルしました。",
+    "allowAgentFill": "セキュアな自動ログインが不可能な場合、エージェントが直接入力することを許可します（分離性は低くなります）。"
   },
   "install": {
     "extension": {
@@ -245,6 +354,20 @@
       "heading": "ブラウザを接続",
       "subtitle": "Polymux 拡張機能を接続して、自分のブラウザでローカルにエージェントを実行します。",
       "chromeLabel": "Chrome 用にインストール"
+    },
+    "metaTitle": "アプリをインストール",
+    "metaDescription": "macOS、Windows、Linux 向け Polymux ネイティブアプリをダウンロード。完全なシステム統合で AI エージェントをローカル実行。",
+    "desktopComingSoon": "デスクトップアプリ近日公開",
+    "alsoAvailableFor": "他のプラットフォームでも利用可能",
+    "availableFor": "対応プラットフォーム",
+    "platformAnd": "および",
+    "mobileExtensionsHeading": "ブラウザ拡張機能とモバイルアプリ",
+    "mobileExtensionsSubtitle": "ワークフローをさらに拡張。拡張機能を追加してブラウザを接続し、モバイルアプリのリリース通知を受け取りましょう。",
+    "lookingForMobileExtensions": "モバイルと拡張機能をお探しですか？",
+    "platforms": {
+      "linux": {
+        "requirement": "glibc 2.31+ · x86_64 / aarch64"
+      }
     }
   },
   "onboarding": {
@@ -311,7 +434,387 @@
         "completeFailed": "{failed} 件を保存できませんでした。",
         "completeSubtitle": "完了。",
         "done": "完了"
+      },
+      "passwordsLockedNote": "パスワードは暗号化されており、表示やコピーはできません。",
+      "totpBadge": "2FA",
+      "errors": {
+        "saveFailed": "パスワードの保存に失敗しました",
+        "revealFailed": "パスワードの表示に失敗しました",
+        "updateFailed": "パスワードの更新に失敗しました",
+        "deleteFailed": "パスワードの削除に失敗しました"
+      }
+    },
+    "credentials": {
+      "searchPlaceholder": "認証情報を検索…",
+      "empty": "保存された認証情報はまだありません",
+      "addCta": "認証情報を追加",
+      "noResults": "フィルターに一致する認証情報がありません。",
+      "secretLabel": "シークレット",
+      "use": "使用",
+      "edit": "編集",
+      "more": "その他の操作",
+      "secured": "保護済み",
+      "securedTooltip": "保存時に暗号化。エージェントは表示やコピーなしで使用します。",
+      "neverUsed": "未使用",
+      "lastUsedAgo": "{when} に使用",
+      "lastUsedByAgo": "{name} が {when} に使用",
+      "col": {
+        "name": "名前",
+        "username": "ユーザー名 / スコープ",
+        "agentAccess": "エージェントアクセス",
+        "lastUsed": "最終使用",
+        "actions": "操作"
+      },
+      "filters": {
+        "type": "種類",
+        "agentAccess": "エージェントアクセス",
+        "allTypes": "すべて",
+        "logins": "ログイン",
+        "secrets": "シークレット",
+        "savedSignIns": "保存済みサインイン",
+        "allAccess": "すべて",
+        "clear": "フィルターをクリア"
+      },
+      "access": {
+        "title": "エージェントアクセス",
+        "allowed": "許可",
+        "consentRequired": "確認",
+        "blocked": "ブロック",
+        "allowedHint": "エージェントは確認なしでこの認証情報を使用できます。",
+        "consentRequiredHint": "エージェントは使用のたびに確認が必要です。",
+        "blockedHint": "エージェントはこの認証情報を使用できません。",
+        "updateFailed": "エージェントアクセスを更新できませんでした。"
+      },
+      "add": {
+        "title": "認証情報を追加",
+        "typeLogin": "ログイン",
+        "typeSecret": "シークレット / API キー",
+        "secretNameLabel": "名前",
+        "secretNamePlaceholder": "例: OpenAI API キー",
+        "secretValueLabel": "シークレット値",
+        "secretValuePlaceholder": "キーまたはトークンを貼り付け",
+        "secretScopeLabel": "スコープ（任意）",
+        "secretScopePlaceholder": "例: production, read-only",
+        "consentNote": "新しい認証情報はデフォルトでエージェントの同意が必要です。いつでも変更できます。"
+      },
+      "addShort": "追加",
+      "usedBy": "{name} が使用"
+    },
+    "wallet": {
+      "dateYesterday": "昨日",
+      "dateDaysAgo": "{n}日前",
+      "topUpModal": {
+        "amountPlaceholder": "0,00",
+        "currencyUsd": "USD"
+      },
+      "sections": {
+        "workflows": "ワークフロー",
+        "transactions": "取引",
+        "budgets": "予算"
+      },
+      "txTable": {
+        "workflowOption": "ワークフロー {id}",
+        "workflow": "ワークフロー",
+        "workspaceTag": "ワークスペース"
+      },
+      "workflowsView": {
+        "workflowsLabel": "ワークフロー",
+        "workflow": "ワークフロー"
+      },
+      "overview": {
+        "autoTopUpSummary": "残高が{threshold}を下回ると{amount}まで補充します"
       }
     }
+  },
+  "upgradePlan": {
+    "planNames": {
+      "free": "無料",
+      "pro": "Pro",
+      "max": "Max",
+      "enterprise": "Enterprise"
+    }
+  },
+  "workflow": {
+    "versionShort": "v{version}",
+    "iterationsPlaceholder": "1",
+    "peekTitle": "ワークフロー",
+    "peekOpenFlow": "フローを開く",
+    "peekNodeCount": "{n} ノード",
+    "peekParallel": "{n} 並列ブランチ",
+    "peekAlt": "ワークフローグラフのプレビュー — フロービューを開く",
+    "savedByAgent": "エージェント",
+    "details": "詳細",
+    "resetLayout": "自動",
+    "tabs": {
+      "agent": "エージェント"
+    },
+    "liveBadge": "ライブ",
+    "embedWorkflowLabel": "ワークフロー"
+  },
+  "console": {
+    "nextRunUnknown": "—",
+    "composerPlaceholder": "コアにメッセージ…",
+    "assistant": {
+      "title": "Core",
+      "subtitle": "ワークスペースアシスタント",
+      "connected": "MCP · CLI 接続済み",
+      "connecting": "接続中…",
+      "welcomeTitle": "コアと話す",
+      "welcomeBody": "ワークスペースアシスタントです。作業の実行、コンテキストの呼び出し、保留中のフォーカスの再開を依頼できます。"
+    },
+    "focuses": {
+      "title": "フォーカス",
+      "new": "新しいフォーカス",
+      "placeholderNote": "保留中のメモリコンテキスト。ライブフォーカスレールは近日公開。",
+      "stubCurrent": "現在のセッション",
+      "stubResearch": "市場調査",
+      "stubInvoices": "請求書の仕分け"
+    },
+    "hindsight": {
+      "title": "Hindsight",
+      "subtitle": "共有メモリ · {n} 件のメモ",
+      "view": "メモリを表示",
+      "placeholderNote": "ワークスペース共有メモリ。ライブソースは近日公開。",
+      "stubNote1": "長文より簡潔な要約を好みます。",
+      "stubNote2": "主タイムゾーンは UTC。スケジュールはそれに従います。",
+      "stubNote3": "ワークフローを保存または編集する前に必ず確認してください。"
+    }
+  },
+  "stealth": {
+    "mode": {
+      "label": "ブラウザモード",
+      "description": "このワークフローのエージェントが実行される場所。チャット入力から変更できます。"
+    },
+    "cloaked": {
+      "label": "クロークブラウザ",
+      "description": "ブロックされたサイトを CloakBrowser 経由でルーティングし、ボット壁を突破します。"
+    },
+    "humanizer": {
+      "label": "Agent Humaniser",
+      "description": "人間らしいマウス操作と入力で、操作が自動化に見えないようにします。"
+    },
+    "risk": {
+      "humanizer": "検出リスク: Agent Humaniser がオフです — 即座のクリックと入力はボット検出サイトにフラグされる可能性があります。",
+      "cloaked": "検出リスク: クロークブラウザがオフです — ボット保護のあるサイト（例: Cloudflare）がエージェントを検出またはブロックする可能性があります。",
+      "both": "検出リスク: Agent Humaniser とクロークブラウザがオフです — ボット保護のあるサイトがエージェントを検出またはブロックする可能性があります。",
+      "extension": "検出リスク: エージェントはご自身のブラウザで実行されるため、クロークとヒューマナイズは適用されません — サイトが自動化を検出する可能性があります。"
+    }
+  },
+  "workspaceCreate": {
+    "freePlanName": "無料",
+    "emailPlaceholder": "email{'@'}example.com",
+    "nameRequired": "ワークスペース名は必須です。",
+    "nameTooLong": "ワークスペース名は {max} 文字以内にしてください。",
+    "nameInvalidChars": "英字、数字、スペースのみ使用できます。",
+    "inviteFailed": "招待の送信に失敗しました。"
+  },
+  "contact": {
+    "metaTitle": "お問い合わせ",
+    "metaDescription": "Polymux チームへのお問い合わせ。営業、パートナーシップ、サポート、プレス関連のご質問。"
+  },
+  "artifacts": {
+    "sortBy": "並べ替え",
+    "sortNewest": "新しい順",
+    "sortOldest": "古い順",
+    "sortNameAsc": "名前 (A–Z)",
+    "sortNameDesc": "名前 (Z–A)",
+    "sortSizeDesc": "大きい順",
+    "sortSizeAsc": "小さい順",
+    "select": "選択",
+    "selectAll": "すべて選択",
+    "clearSelection": "選択を解除",
+    "selectedCount": "{count} 件選択中",
+    "cancel": "キャンセル",
+    "bulkDeleteConfirm": "{count} 件のファイルを削除しますか？ | {count} 件のファイルを削除しますか？",
+    "bulkSaved": "{count} 件のファイルをストレージに保存しました | {count} 件のファイルをストレージに保存しました",
+    "raw": "生"
+  },
+  "landing": {
+    "hero": {
+      "rotatingEmpty": "ローテーションするフレーズを追加してください。"
+    },
+    "pricing": {
+      "plans": {
+        "free": {
+          "name": "無料"
+        },
+        "pro": {
+          "name": "Pro"
+        },
+        "max": {
+          "name": "Max"
+        },
+        "enterprise": {
+          "name": "Enterprise"
+        }
+      }
+    },
+    "footer": {
+      "linkedIn": "LinkedIn",
+      "x": "X",
+      "instagram": "Instagram",
+      "youTube": "YouTube",
+      "facebook": "Facebook",
+      "reddit": "Reddit",
+      "blog": "ブログ",
+      "forum": "フォーラム",
+      "documentation": "ドキュメント"
+    }
+  },
+  "development": {
+    "sdk": {
+      "eyebrow": "SDK",
+      "tabs": {
+        "ts": "TypeScript",
+        "py": "Python",
+        "sh": "cURL"
+      }
+    }
+  },
+  "geolocation": {
+    "notSupported": "位置情報はサポートされていません"
+  },
+  "docs": {
+    "navLabel": "ドキュメント",
+    "openNavigation": "ナビゲーションを開く",
+    "fallbackTitle": "ドキュメント",
+    "nav": {
+      "sections": {
+        "gettingStarted": "はじめに",
+        "usingPolymux": "Polymux の使い方",
+        "buildingPlugins": "プラグインの作成",
+        "connections": "接続",
+        "api": "API"
+      },
+      "entries": {
+        "introduction": "概要",
+        "quickstart": "クイックスタート",
+        "installation": "インストール",
+        "workspaces": "ワークスペースとメンバー",
+        "vault": "Vault の基本",
+        "faq": "FAQ",
+        "pluginOverview": "プラグイン概要",
+        "pluginBuild": "最初のプラグインを作成",
+        "pluginManifest": "マニフェストリファレンス",
+        "publishing": "公開チェックリスト",
+        "connectionsOverview": "接続の概要",
+        "connectionsBuild": "接続の構築",
+        "connectionsPort": "Hermes/OpenClaw プラグインの移植",
+        "apiOverview": "API 概要",
+        "authentication": "認証"
+      }
+    }
+  },
+  "legalDocs": {
+    "terms": {
+      "metaTitle": "利用規約",
+      "metaDescription": "Polymux の利用を規定する利用規約。許容される利用、請求、アカウント終了、責任の制限。"
+    },
+    "about": {
+      "metaTitle": "会社概要",
+      "metaDescription": "Polymux はライブ Web 上の AI エージェント向けオーケストレーション層を構築しています。ミッション、チーム、ロードマップをご覧ください。"
+    },
+    "apiReference": {
+      "metaTitle": "API リファレンス",
+      "metaDescription": "Polymux 上で構築する開発者向け HTTP エンドポイント、認証、統合の詳細。"
+    },
+    "cookies": {
+      "metaTitle": "Cookie ポリシー",
+      "metaDescription": "Polymux が Web サイトおよびサービスで Cookie と類似技術をどのように使用するか。"
+    }
+  },
+  "billing": {
+    "cancelTitle": "{plan} プランをキャンセルしますか？",
+    "downgradeTitle": "{plan} にダウングレードしますか？",
+    "cancelLead": "プランは {date} まで有効です。その後、このワークスペースは無料プランに移行します。",
+    "cancelLeadNoDate": "プランは現在の請求期間の終了まで有効です。その後、このワークスペースは無料プランに移行します。",
+    "downgradeLead": "{current} プランは {date} まで有効です。その後、このワークスペースは {target} に切り替わります。",
+    "downgradeLeadNoDate": "{current} プランは現在の請求期間の終了まで有効です。その後、このワークスペースは {target} に切り替わります。",
+    "keepUntilPeriodEnd": "それまでは {plan} のすべての機能を利用できます — 今日は変更ありません。",
+    "whatChanges": "期間終了時に変わること",
+    "whatChangesOn": "{date} に変わること",
+    "unlimited": "無制限",
+    "rowAgents": "ブラウザエージェント",
+    "rowTokens": "週間トークン",
+    "rowRuns": "月間ワークフロー実行",
+    "rowMembers": "ワークスペースメンバー",
+    "rowFileSize": "最大ファイルサイズ",
+    "confirmCancel": "期間終了時にキャンセル",
+    "confirmDowngrade": "ダウングレードを予約",
+    "scheduling": "予約中…",
+    "keepCurrent": "やめる"
+  },
+  "checkout": {
+    "title": "{plan} に登録",
+    "loading": "安全なチェックアウトを読み込み中…",
+    "notConfigured": "決済はまだ設定されていません。後でもう一度お試しください。",
+    "loadFailed": "支払いフォームを読み込めませんでした。接続を確認してもう一度お試しください。",
+    "failed": "チェックアウトの開始中に問題が発生しました。もう一度お試しください。",
+    "paymentFailed": "支払いを完了できませんでした。情報を確認するか、別のカードをお試しください。",
+    "subscribe": "登録",
+    "subscribeFor": "登録 · {price}",
+    "processing": "処理中…",
+    "retry": "再試行",
+    "successTitle": "{plan} プランです！",
+    "successBody": "お支払いを受け付けました。プランを有効化しています — 少々お待ちください。",
+    "done": "完了",
+    "billedAnnually": "年払い",
+    "billedAnnuallyTotal": "年払い ({total} / 年)",
+    "billedMonthly": "月払い",
+    "toastActivated": "このワークスペースで {plan} が有効になりました。",
+    "pageTitle": "アップグレードを完了",
+    "successHeading": "アップグレード完了",
+    "orderSummary": "注文概要",
+    "planHeading": "{plan} プラン",
+    "forWorkspace": "{name} 向け",
+    "perMonth": "/月",
+    "included": "含まれる内容",
+    "featAgents": "ブラウザエージェント {n} 件",
+    "featTokens": "週間トークン {n}",
+    "featRuns": "ワークフロー実行 {n} 回 / 月",
+    "featMembers": "最大 {n} メンバー",
+    "backToPlans": "プランに戻る",
+    "goToDashboard": "ダッシュボードへ",
+    "securedByStripe": "Stripe により保護",
+    "currency": "通貨"
+  },
+  "sidebar": {
+    "console": "コンソール",
+    "chat": "チャット",
+    "browse": "見つける"
+  },
+  "dashboard": {
+    "console": "コンソール"
+  },
+  "forum": {
+    "pageTitle": "フォーラム",
+    "heading": "Polymux フォーラム",
+    "sort": {
+      "top": "トップ"
+    },
+    "categories": {
+      "workflows": {
+        "label": "ワークフロー"
+      }
+    }
+  },
+  "browser": {
+    "modeTitle": "ブラウザ"
+  },
+  "chats": {
+    "searchPlaceholder": "チャットを検索",
+    "newChat": "新しいチャット",
+    "untitled": "新しいチャット",
+    "empty": "チャットはまだありません",
+    "noResults": "一致するチャットがありません",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "archivedTitle": "アーカイブ済みチャット",
+    "archivedSubtitle": "アーカイブ済みチャットはチャット一覧に表示されません。",
+    "archiveEmpty": "アーカイブ済みチャットはありません",
+    "clearArchive": "アーカイブを空にする",
+    "clearArchiveConfirm": "アーカイブ済みチャットをすべて完全に削除しますか？",
+    "clearArchiveConfirmButton": "すべて削除",
+    "resizeArchive": "ドラッグしてサイズ変更"
   }
 }

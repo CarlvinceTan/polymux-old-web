@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { ChatMessage, ChatMessageAttachment, ViewportState } from '~/composables/types'
 
-const { t } = useI18n()
-const route = useRoute()
 const { draft, createDraft, markDraftCommitted, setPendingPrompt } = useWorkflowList()
 
 const TAB_LAST_WORKFLOW_KEY = 'polymux_tab_last_workflow'
@@ -36,10 +34,6 @@ watch(browserMode, (mode) => {
     sessionStorage.setItem(BROWSER_MODE_KEY_PREFIX + id, mode)
   } catch {}
 })
-
-// Single agent tab, self-referential so the header matches the style on
-// real workflow pages without advertising tabs that can't work yet.
-const headerTabs = computed(() => ({ [t('workflow.tabs.agent')]: route.path }))
 
 const command = ref('')
 const viewportList = ref<ViewportState[]>([])
@@ -110,9 +104,6 @@ async function onSend(value: string, attachments: ChatMessageAttachment[]) {
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
-    <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
-    </header>
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <ChatLayout
         v-model:command="command"

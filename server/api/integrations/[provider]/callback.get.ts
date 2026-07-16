@@ -9,7 +9,7 @@ import { getConnector } from '~~/server/connectors/registry'
 // (`server/connectors/registry.ts`). Drive's per-workspace root folder
 // creation lives inside the Drive connector's `buildIntegrationRow`.
 //
-// On success, 302s back to /integrations/installed?connected=<provider> so
+// On success, 302s back to /connections?connected=<provider> so
 // the user lands in the app.
 
 export default defineEventHandler(async (event) => {
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (oauthError) {
     return await sendRedirect(
       event,
-      `/integrations/installed?error=${encodeURIComponent(oauthError)}`,
+      `/connections?error=${encodeURIComponent(oauthError)}`,
       302,
     )
   }
@@ -78,6 +78,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: `Failed to persist ${provider} connection.` })
   }
 
-  const target = `/integrations/installed?connected=${provider}${payload.migrate ? '&migrate=1' : ''}`
+  const target = `/connections?connected=${provider}${payload.migrate ? '&migrate=1' : ''}`
   return await sendRedirect(event, target, 302)
 })

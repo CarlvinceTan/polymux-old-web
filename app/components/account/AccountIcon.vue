@@ -4,12 +4,15 @@ const props = withDefaults(
     initials: string
     color?: string
     size?: 'sm' | 'md' | 'lg' | 'xl'
+    /** Optional box+text size override (e.g. 'h-5 w-5 text-[10px]') for sizes outside the preset scale. */
+    sizeClass?: string
     role?: string
     ariaLabel?: string
   }>(),
   {
     color: 'bg-neutral-950',
     size: 'md',
+    sizeClass: undefined,
     role: undefined,
     ariaLabel: undefined,
   },
@@ -40,7 +43,7 @@ const sizeClasses = computed(() => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center rounded-md text-white font-bold shrink-0" :class="[sizeClasses, color]"
+  <div class="flex items-center justify-center rounded-md text-white font-bold shrink-0" :class="[sizeClass || sizeClasses, color]"
     :role="role" :aria-label="ariaLabel" :aria-hidden="ariaLabel ? undefined : 'true'">
     {{ displayInitials }}
   </div>

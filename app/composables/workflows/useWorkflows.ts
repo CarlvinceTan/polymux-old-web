@@ -5,6 +5,14 @@ export interface NodePosition { x: number, y: number }
 export interface NodeSize { w: number, h: number }
 
 export type WireSide = 'left' | 'right' | 'top' | 'bottom'
+export type FlowCheckMode = 'auto' | 'comparison' | 'review'
+
+export interface FlowCheck {
+  id: string
+  label: string
+  mode: FlowCheckMode
+  expectation?: string
+}
 
 export interface WorkflowNode {
   id: string
@@ -22,6 +30,7 @@ export interface WorkflowNode {
   // PRIVATE user-authored notes. Not consumed by the executor; the
   // orchestrator must not write to this field.
   notes?: string
+  checks?: FlowCheck[]
   // When set, this node delegates to the referenced workflow (by UUID).
   // Title / actions / details are derived from the referenced workflow at
   // display time and not editable on this node. Mutually exclusive with
@@ -87,6 +96,25 @@ export function normalizeNode(raw: unknown): WorkflowNode {
   const notes = str(r.notes)
   if (notes) out.notes = notes
 
+  if (Array.isArray(r.checks)) {
+    out.checks = r.checks
+      .map((rawCheck, idx): FlowCheck | null => {
+        if (!rawCheck || typeof rawCheck !== 'object') return null
+        const c = rawCheck as Record<string, unknown>
+        const label = str(c.label) || str(c.expectation)
+        if (!label) return null
+        const modeRaw = str(c.mode)
+        const mode: FlowCheckMode = modeRaw === 'comparison' || modeRaw === 'review' ? modeRaw : 'auto'
+        return {
+          id: str(c.id) || `check-${idx + 1}`,
+          label,
+          mode,
+          expectation: str(c.expectation),
+        }
+      })
+      .filter((c): c is FlowCheck => !!c)
+  }
+
   const workflowRef = str(r.workflow_ref)
   if (workflowRef) out.workflow_ref = workflowRef
 
@@ -141,6 +169,10 @@ export function normalizeNodePatch(raw: unknown): Partial<WorkflowNode> {
 
   if ('notes' in r && str(r.notes)) {
     out.notes = str(r.notes)
+  }
+
+  if ('checks' in r && Array.isArray(r.checks)) {
+    out.checks = normalizeNode({ id: 'patch', checks: r.checks }).checks
   }
 
   if ('workflow_ref' in r && str(r.workflow_ref)) {
@@ -238,6 +270,11 @@ export interface WorkflowRun {
   id: string
   workflow_id: string
   workflow_version_id: string
+  automation_id?: string
+  trigger?: 'manual' | 'schedule' | 'integration' | 'webhook' | string
+  trigger_event_id?: string
+  external_event?: Record<string, unknown>
+  scheduled_for?: string
   session_id?: string
   status: WorkflowRunStatus
   current_node_path: string[]
@@ -311,7 +348,7 @@ export function useWorkflows() {
 
   async function fetchWorkflows(workspaceID: string) {
     try {
-      const data = await authFetch<WorkflowWithLatest[]>(`/workspaces/${workspaceID}/workflows`)
+      const data = await authFetch<WorkflowWithLatest[]>(`/workspaces/${workspaceID}/flows`)
       workflows.value = (data ?? []).map(normalizeWithLatest)
     }
     catch (err) {
@@ -321,7 +358,7 @@ export function useWorkflows() {
 
   async function getWorkflow(workspaceID: string, workflowID: string): Promise<WorkflowWithLatest | null> {
     try {
-      const wf = normalizeWithLatest(await authFetch<WorkflowWithLatest>(`/workspaces/${workspaceID}/workflows/${workflowID}`))
+      const wf = normalizeWithLatest(await authFetch<WorkflowWithLatest>(`/workspaces/${workspaceID}/flows/${workflowID}`))
       const idx = workflows.value.findIndex(w => w.id === workflowID)
       if (idx !== -1) workflows.value[idx] = wf
       else workflows.value = [wf, ...workflows.value]
@@ -335,7 +372,7 @@ export function useWorkflows() {
 
   async function fetchVersions(workspaceID: string, workflowID: string): Promise<WorkflowVersion[]> {
     try {
-      const data = await authFetch<WorkflowVersion[]>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`)
+      const data = await authFetch<WorkflowVersion[]>(`/workspaces/${workspaceID}/flows/${workflowID}/versions`)
       versions.value = (data ?? []).map(normalizeVersion)
       return versions.value
     }
@@ -350,7 +387,7 @@ export function useWorkflows() {
   // resolve null.
   async function createVersion(workspaceID: string, workflowID: string, input: CreateVersionInput): Promise<WorkflowVersion | null> {
     try {
-      const v = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions`, {
+      const v = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/flows/${workflowID}/versions`, {
         method: 'POST',
         body: JSON.stringify(input),
       }))
@@ -372,7 +409,7 @@ export function useWorkflows() {
 
   async function startRun(workspaceID: string, workflowID: string, input: StartRunInput): Promise<{ run: WorkflowRun } | { error: string }> {
     try {
-      const run = await authFetch<WorkflowRun>(`/workspaces/${workspaceID}/workflows/${workflowID}/runs`, {
+      const run = await authFetch<WorkflowRun>(`/workspaces/${workspaceID}/flows/${workflowID}/runs`, {
         method: 'POST',
         body: JSON.stringify(input),
       })
@@ -384,11 +421,21 @@ export function useWorkflows() {
     }
   }
 
+  async function listRuns(workspaceID: string, workflowID: string): Promise<WorkflowRun[]> {
+    try {
+      return await authFetch<WorkflowRun[]>(`/workspaces/${workspaceID}/flows/${workflowID}/runs`)
+    }
+    catch (err) {
+      console.error('[useWorkflows] listRuns failed', err)
+      return []
+    }
+  }
+
   // Reset the workflow to a previously-saved version by deleting every
   // version strictly newer than the target on the server.
   async function resetToVersion(workspaceID: string, workflowID: string, versionID: string): Promise<{ version: WorkflowVersion } | { error: string }> {
     try {
-      const version = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/workflows/${workflowID}/versions/${versionID}/reset`, {
+      const version = normalizeVersion(await authFetch<WorkflowVersion>(`/workspaces/${workspaceID}/flows/${workflowID}/versions/${versionID}/reset`, {
         method: 'POST',
       }))
       versions.value = versions.value.filter(v => v.version <= version.version)
@@ -408,6 +455,7 @@ export function useWorkflows() {
     fetchVersions,
     createVersion,
     startRun,
+    listRuns,
     resetToVersion,
   }
 }

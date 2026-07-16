@@ -153,7 +153,7 @@ body {
   --color-google-drive-tint: #e8f4ee;
 
   /* Gold accent — used for the "running workflow" dot-matrix loader in the
-     SidePanel. Muted enough to live alongside the otherwise monochrome list
+     Sidebar. Muted enough to live alongside the otherwise monochrome list
      without screaming. */
   --color-gold: #c9941f;
 
@@ -170,27 +170,30 @@ body {
   --color-embed-border: #6366f1;
 }
 
-/* SidePanel collapse: drive column width and panel translate from the same
+/* Sidebar collapse: drive column width and panel translate from the same
    registered CSS variable so they animate in lockstep. Without a shared source
    the width (paint thread) and transform (compositor thread) can drift by a
-   frame, exposing a hairline of body bg between the panel and the right column. */
-@property --side-panel-collapse {
+   frame, exposing a hairline of body bg between the sidebar and the right column. */
+@property --sidebar-collapse {
   syntax: "<number>";
   inherits: true;
   initial-value: 0;
 }
 
 @media (min-width: 1024px) {
-  .side-panel-slot {
-    --side-panel-collapse: 0;
-    width: calc(272px * (1 - var(--side-panel-collapse)));
-    transition: --side-panel-collapse 300ms ease-out;
+  .sidebar-slot {
+    /* Fixed sidebar width — single source of truth, also read by the rail and
+       the collapse transform below. */
+    --sidebar-w: 272px;
+    --sidebar-collapse: 0;
+    width: calc(var(--sidebar-w) * (1 - var(--sidebar-collapse)));
+    transition: --sidebar-collapse 300ms ease-out;
   }
-  .side-panel-slot.is-collapsed {
-    --side-panel-collapse: 1;
+  .sidebar-slot.is-collapsed {
+    --sidebar-collapse: 1;
   }
-  .side-panel-slot > .side-panel-rail {
-    transform: translateX(calc(-272px * var(--side-panel-collapse)));
+  .sidebar-slot > .sidebar-rail {
+    transform: translateX(calc(-1 * var(--sidebar-w, 272px) * var(--sidebar-collapse)));
   }
 }
 
@@ -325,7 +328,7 @@ body {
   }
 }
 
-/* SidePanel workflow-list "running" progress arc (workflow-run kind):
+/* Sidebar workflow-list "running" progress arc (workflow-run kind):
    indeterminate clockwise fill from the top of a 16×16 ring. The circle
    is authored with `pathLength="100"` so the dasharray/offset can be
    reasoned about as percentages regardless of the actual circumference,
@@ -392,4 +395,3 @@ body {
       inset 0 0 23px rgba(16, 185, 129, 0.09);
   }
 }
-

@@ -8,8 +8,10 @@ const props = defineProps<{
   frameUrl?: string
   cursor?: CursorState
   showCursor?: boolean
-  /** Monotonic per-agent click counter; each increment fires a click ripple. */
+  /** Monotonic per-agent click counter; each increment plays a one-shot fill. */
   clickNonce?: number
+  /** True while this agent is mid-drag — holds the cursor's gold fill. */
+  dragging?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -73,6 +75,7 @@ onBeforeUnmount(() => {
               v-if="showAgentCursor && cursor"
               :cursor="cursor"
               :click-nonce="clickNonce"
+              :dragging="dragging"
               :size="26"
             />
           </div>

@@ -20,9 +20,9 @@ export interface WorkflowSummary {
   workspace_id: string
   created_at: string
   updated_at: string
-  /** Server-controlled ordering for the SidePanel. Higher = closer to the top.
+  /** Server-controlled ordering for the Sidebar. Higher = closer to the top.
    *  Auto-assigned to max+1 on insert; the only client-driven mutation is the
-   *  reorder helper below, called from the SidePanel's drag handler. */
+   *  reorder helper below, called from the Sidebar's drag handler. */
   position?: number
   is_draft?: boolean
   /** True while a browser agent is in status=running OR a scheduled run is in
@@ -33,14 +33,14 @@ export interface WorkflowSummary {
    *   - 'chat': orchestrator / browser sub-agent driven by the user's chat
    *     turn. Includes orchestrator-spawned agents that keep working in
    *     the background after the user navigates away — those are still
-   *     classified as 'chat' so the SidePanel doesn't misrepresent them
+   *     classified as 'chat' so the Sidebar doesn't misrepresent them
    *     as scheduled/run-from-node executions.
    *   - 'workflow': a workflow_run is in flight — manual run-from-dock or
    *     scheduled trigger. Read-only against the workflow definition.
    *  The Go server populates this on every persistBrowserSnapshot via
    *  Session.RunningKind (activeRuns > 0 → workflow, agents running → chat),
    *  so a row hydrated from /sessions REST already carries the correct
-   *  classification for background workflows. The SidePanel defaults to
+   *  classification for background workflows. The Sidebar defaults to
    *  the chat spinner for any is_running row that lacks an explicit
    *  'workflow' classification — flipping that default is what fixed the
    *  long-standing "background chat-driven workflows show progress arc" bug. */
@@ -130,7 +130,7 @@ export function useWorkflowList() {
   const query = useQuery({
     queryKey: computed(() => ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']),
     // Avoid an unfiltered /sessions fetch before the workspace id is known —
-    // that pollutes the cache key and races with SidePanel bootstrap when
+    // that pollutes the cache key and races with Sidebar bootstrap when
     // fetchWorkspaces() is still correcting a stale localStorage id.
     enabled: computed(() => !!currentWorkspaceId.value),
     // Supabase Realtime (useWorkspaceEvents) push-invalidates this cache on
@@ -258,6 +258,31 @@ export function useWorkflowList() {
     return draftCreationInFlight
   }
 
+  // Creates a durable empty workflow immediately. Unlike createDraft(), this
+  // is used by contextual actions that need a real row straight away (for
+  // example, creating a flow inside a folder before the first prompt).
+  async function createWorkflow(title = 'New Workflow'): Promise<WorkflowSummary | null> {
+    try {
+      const wsId = currentWorkspaceId.value ?? await waitForWorkspace()
+      if (!wsId) return null
+      const created = await authFetch<WorkflowSummary>('/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ title, workspace_id: wsId }),
+      })
+      if (!created?.id) return null
+      const key = ['workflow-sessions', wsId]
+      queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) => [
+        created,
+        ...(old ?? []).filter(item => item.id !== created.id),
+      ])
+      return created
+    }
+    catch (error) {
+      console.error('[useWorkflowList] createWorkflow failed', error)
+      return null
+    }
+  }
+
   function dropDraft() {
     const wsId = draft.value?.workspace_id
     draft.value = null
@@ -283,10 +308,10 @@ export function useWorkflowList() {
     return promoted
   }
 
-  // reorderWorkflows persists the SidePanel's drag-drop result. `orderedIds`
+  // reorderWorkflows persists the Sidebar's drag-drop result. `orderedIds`
   // is the visible list top-down (excluding the draft, which is always pinned
   // and not persisted server-side). Optimistically rewrites the query cache so
-  // the SidePanel doesn't snap back while the PATCH is in flight; rolls back
+  // the Sidebar doesn't snap back while the PATCH is in flight; rolls back
   // on failure. Server re-assigns `position` for every id in one call via the
   // reorder_workflows RPC.
   async function reorderWorkflows(orderedIds: string[]) {
@@ -324,6 +349,42 @@ export function useWorkflowList() {
     }
   }
 
+  // Reorder only the flows that share one folder scope. Foldered and unfiled
+  // rows each keep an independent order, so dragging in one group cannot
+  // rewrite the positions of rows in another group.
+  async function reorderWorkflowScope(folderId: string | null, orderedIds: string[]) {
+    const wsId = currentWorkspaceId.value
+    if (!wsId || orderedIds.length === 0) return
+    const key = ['workflow-sessions', wsId]
+    const previous = queryClient.getQueryData<WorkflowSummary[]>(key)
+
+    queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) => {
+      const arr = old ?? []
+      const byId = new Map(arr.map(s => [s.id, s]))
+      const reordered: WorkflowSummary[] = []
+      const total = orderedIds.length
+      for (let i = 0; i < total; i++) {
+        const session = byId.get(orderedIds[i]!)
+        if (!session) continue
+        reordered.push({ ...session, position: total - i })
+        byId.delete(orderedIds[i]!)
+      }
+      for (const session of byId.values()) reordered.push(session)
+      return reordered
+    })
+
+    try {
+      await $fetch(`/api/workspaces/${wsId}/flows/order`, {
+        method: 'PATCH',
+        body: { folder_id: folderId, order: orderedIds },
+      })
+    }
+    catch (error) {
+      if (previous) queryClient.setQueryData(key, previous)
+      console.error('[useWorkflowList] reorderWorkflowScope failed', error)
+    }
+  }
+
   async function renameSession(id: string, title: string) {
     const target = sessions.value.find(s => s.id === id)
     if (target?.is_draft) return
@@ -356,7 +417,7 @@ export function useWorkflowList() {
 
   // Records the workflow page's authoritative view of what's driving the
   // current session — chat-building vs. workflow_run-executing — into the
-  // override map the SidePanel merges over server data. Stays decoupled from
+  // override map the Sidebar merges over server data. Stays decoupled from
   // the query cache on purpose: `fetchSessions` and `markDraftCommitted` both
   // rebuild rows without `running_kind`, so writing here would be wiped on
   // the next refresh.
@@ -397,6 +458,33 @@ export function useWorkflowList() {
     } catch (err) {
       console.error('[useWorkflowList] deleteSession failed', err)
     }
+  }
+
+  // Deletes every persisted workflow in the current workspace (Settings → Data →
+  // "Clear all workflows"). Best-effort per-session DELETE; returns counts so the
+  // caller can surface a summary. Drops succeeded rows from the cache and
+  // refetches to reconcile any failures.
+  async function clearAllSessions(): Promise<{ deleted: number; failed: number }> {
+    const ids = realSessions.value.map(s => s.id)
+    let deleted = 0
+    let failed = 0
+    const deletedIds: string[] = []
+    for (const id of ids) {
+      try {
+        await authFetch(`/sessions/${id}`, { method: 'DELETE' })
+        deleted++
+        deletedIds.push(id)
+      } catch (err) {
+        failed++
+        console.error('[useWorkflowList] clearAllSessions: delete failed', id, err)
+      }
+    }
+    const key = ['workflow-sessions', currentWorkspaceId.value ?? '_no_workspace_']
+    queryClient.setQueryData(key, (old: WorkflowSummary[] | undefined) =>
+      (old ?? []).filter(s => !deletedIds.includes(s.id)),
+    )
+    await queryClient.invalidateQueries({ queryKey: key })
+    return { deleted, failed }
   }
 
   // Fire-and-forget backend delete for a real session that was never committed
@@ -591,13 +679,16 @@ export function useWorkflowList() {
     runningOverrides,
     fetchSessions,
     createDraft,
+    createWorkflow,
     dropDraft,
     markDraftCommitted,
     renameSession,
     reorderWorkflows,
+    reorderWorkflowScope,
     setSessionRunning,
     deleteSession,
     deleteSessionIfEmpty,
+    clearAllSessions,
     fetchMessages,
     setPendingPrompt,
     consumePendingPrompt,

@@ -1,4 +1,4 @@
--- User-defined ordering for the SidePanel's workflow list.
+-- User-defined ordering for the Sidebar's workflow list.
 --
 -- Until now the list was sorted by workflows.updated_at desc, which means any
 -- write to the row (workflow_versions insert via bump_workflow_on_version_insert,
@@ -8,7 +8,7 @@
 -- `position` replaces that with explicit ordering. Higher value = closer to the
 -- top. New rows auto-assign max(position) + 1 in their workspace via the
 -- BEFORE INSERT trigger below, so a freshly-created workflow always lands at
--- the top. Manual drag-and-drop in the SidePanel calls reorder_workflows() to
+-- the top. Manual drag-and-drop in the Sidebar calls reorder_workflows() to
 -- re-write positions atomically. Nothing else writes to this column.
 --
 -- numeric (not integer) so a future "insert between two siblings" path can
@@ -37,7 +37,7 @@ create index if not exists idx_workflows_workspace_position
 
 -- BEFORE INSERT: when no explicit position is supplied (the column default 0
 -- signals "auto"), assign max+1 for the workspace so the new row lands at
--- the top of the SidePanel. Explicit non-zero positions are kept verbatim so
+-- the top of the Sidebar. Explicit non-zero positions are kept verbatim so
 -- the reorder RPC and any future restore tooling can set positions directly.
 create or replace function public.assign_workflow_position()
 returns trigger
@@ -59,7 +59,7 @@ create trigger workflows_assign_position
   before insert on public.workflows
   for each row execute function public.assign_workflow_position();
 
--- Atomic reorder for the SidePanel's drag-and-drop. The client sends the full
+-- Atomic reorder for the Sidebar's drag-and-drop. The client sends the full
 -- ordered list of ids it sees after a drop; positions are re-assigned so the
 -- first id ends up with the highest position. Ids that don't belong to the
 -- workspace (or have been deleted) are silently skipped, which keeps the call

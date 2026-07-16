@@ -1,15 +1,21 @@
 <script setup lang="ts">
-import { normalizePlanKey, type PlanUpgradePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
+import { normalizePlanKey } from '~/composables/account/usePlanUpgradeNavigation'
 import {
-  browserAgentCapFromPlan,
-  maxFileUploadBytesFromPlan,
   maxMembersFromPlan,
   tokenBudgetWeeklyFromPlan,
   workflowRunsMonthlyCapFromPlan,
 } from '~/utils/planLimits'
 import { weekStartUtc } from '~/utils/weekStartUtc'
 
+const props = withDefaults(defineProps<{
+  inline?: boolean
+}>(), {
+  inline: false,
+})
+
 const isOpen = defineModel<boolean>('open', { default: false })
+const isInline = computed(() => props.inline)
+const isPanelVisible = computed(() => isInline.value || isOpen.value)
 
 const { t, locale } = useI18n()
 const user = useSupabaseUser()
@@ -32,11 +38,6 @@ const {
 // before fetchMembers resolves on modal open.
 const seatCount = computed(() => members.value.length || currentMemberCount.value)
 
-const { probe: probeLocal } = useLocalFileStorage()
-const { cards: storageUsageCards, refreshDrive, driveConnectionBroken } = useStorageUsage()
-const { isInstalled } = useMarketplace()
-const { resolvedOrder } = useStoragePreferences()
-
 const planKey = computed(() => normalizePlanKey(currentWorkspace.value?.plan as string | undefined))
 const planSlug = computed(() => currentWorkspace.value?.plan ?? null)
 const planLabel = computed(() => planKey.value.charAt(0).toUpperCase() + planKey.value.slice(1))
@@ -46,16 +47,6 @@ const showUpgrade = computed(() => planKey.value !== 'enterprise')
 const seatsCap = computed(() => maxMembersFromPlan(planSlug.value))
 const weeklyTokenCap = computed(() => tokenBudgetWeeklyFromPlan(planSlug.value))
 const workflowRunsCap = computed(() => workflowRunsMonthlyCapFromPlan(planSlug.value))
-const browserAgentsCap = computed(() => browserAgentCapFromPlan(planSlug.value))
-const maxFileBytes = computed(() => maxFileUploadBytesFromPlan(planSlug.value))
-
-const PLAN_ACCENT: Record<PlanUpgradePlanKey, string> = {
-  free: 'bg-neutral-300',
-  pro: 'bg-blue-400',
-  max: 'bg-amber-400',
-  enterprise: 'bg-purple-400',
-}
-const planAccentClass = computed(() => PLAN_ACCENT[planKey.value] ?? PLAN_ACCENT.free)
 
 const myRole = computed(() => {
   if (currentWorkspace.value?.role) return currentWorkspace.value.role
@@ -65,7 +56,13 @@ const myRole = computed(() => {
 const canManageWorkspace = computed(() => myRole.value === 'owner' || myRole.value === 'admin')
 const canTransferOwnership = computed(() => myRole.value === 'owner')
 const canDeleteWorkspace = computed(() => myRole.value === 'owner')
+const canClearWorkflows = computed(() => canManageWorkspace.value)
 const isOnlyWorkspace = computed(() => workspaces.value.length <= 1)
+const isManageMembersOpen = ref(false)
+
+function openManageMembers() {
+  isManageMembersOpen.value = true
+}
 
 // ---- Subscription management (cancel / downgrade at period end) ----
 const {
@@ -190,98 +187,71 @@ const weeklyTokensPercent = computed<number | null>(() => {
   return Math.min(100, Math.round((used / cap) * 100))
 })
 
-const workflowRunsPercent = computed<number | null>(() => {
-  const cap = workflowRunsCap.value
-  const used = workflowRunsMonth.value
-  if (cap <= 0 || used == null) return null
-  return Math.min(100, Math.round((used / cap) * 100))
-})
-
-function seatsFilledPercent(): number | null {
-  const cap = seatsCap.value
-  if (cap <= 0) return null
-  return Math.min(100, Math.round((seatCount.value / cap) * 100))
-}
-
-// ---- Storage probes ----
-const localProbe = ref<{ supported: boolean, usage: number, quota: number, full: boolean }>({
-  supported: false, usage: 0, quota: 0, full: false,
-})
-
-async function refreshLocalProbe() {
-  try {
-    const p = await probeLocal()
-    localProbe.value = { supported: p.supported, usage: p.usage, quota: p.quota, full: p.full }
-  }
-  catch {}
-}
-
-const driveConnected = computed(() => isInstalled('google-drive'))
-const driveUsageCard = computed(() =>
-  storageUsageCards.value.find(c => c.provider === 'google-drive') ?? null,
-)
-
-const storageSummary = computed(() => {
-  const local = localProbe.value
-  const drive = driveUsageCard.value
-  let used = 0
-  let total = 0
-  let unlimited = false
-  let trackedAny = false
-
-  if (local.supported && local.quota > 0) {
-    used += local.usage
-    total += local.quota
-    trackedAny = true
-  }
-  if (driveConnected.value && drive?.state === 'tracked' && drive.used != null && drive.total != null) {
-    used += drive.used
-    total += drive.total
-    trackedAny = true
-  }
-  if (driveConnected.value && drive?.state === 'unlimited') {
-    unlimited = true
-    trackedAny = true
-  }
-  return { used, total, unlimited, trackedAny }
-})
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
-  const value = bytes / Math.pow(1024, i)
-  return `${value >= 100 || i === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`
-}
-
-// True when the workspace has more than one member AND the user's currently-
-// resolved primary save target is `local` (browser OPFS). OPFS bytes don't
-// leave the writer's device, so teammates would get "not available here" when
-// they try to open files saved by another member. The banner self-clears
-// once the user connects Drive / enables Cloud, or reorders to deprioritise
-// `local`.
-const localPrimaryRiskyForTeam = computed(() =>
-  resolvedOrder.value[0] === 'local' && members.value.length > 1,
-)
-
 // ---- Lifecycle ----
 function loadData() {
   const wsId = currentWorkspaceId.value
   if (!wsId) return
   fetchMembers(wsId, { force: true })
   refreshUsageFromSupabase(wsId)
-  refreshDrive(driveConnectionBroken.value).catch(() => {})
-  refreshLocalProbe()
   fetchSubStatus().catch(() => {})
 }
 
-watch(isOpen, (open) => {
+watch(isPanelVisible, (open) => {
   if (open) loadData()
-})
+}, { immediate: true })
 
 function close() {
-  if (isTransferring.value || isDeleting.value) return
+  if (isTransferring.value || isDeleting.value || isClearingWorkflows.value) return
+  if (isInline.value) return
   isOpen.value = false
+}
+
+// ---- Clear all workflows ----
+const route = useRoute()
+const toast = useAppToast()
+const { sessions: workflowSessions, clearAllSessions } = useWorkflowList()
+const workflowCount = computed(() => workflowSessions.value.length)
+
+const isClearWorkflowsOpen = ref(false)
+const isClearingWorkflows = ref(false)
+const clearWorkflowsError = ref('')
+
+function openClearWorkflows() {
+  if (workflowCount.value === 0) return
+  clearWorkflowsError.value = ''
+  isClearWorkflowsOpen.value = true
+}
+
+function closeClearWorkflows() {
+  if (isClearingWorkflows.value) return
+  isClearWorkflowsOpen.value = false
+  clearWorkflowsError.value = ''
+}
+
+async function confirmClearWorkflows() {
+  isClearingWorkflows.value = true
+  clearWorkflowsError.value = ''
+  try {
+    const { deleted, failed } = await clearAllSessions()
+    if (failed > 0) {
+      clearWorkflowsError.value = t('settings.clearWorkflowsPartialError', { count: failed })
+      return
+    }
+    isClearWorkflowsOpen.value = false
+    toast.show(t('settings.clearWorkflowsDone', { count: deleted }), 'info', 4000)
+    // The current workflow page (if any) now points at a deleted row; send the
+    // user back to the draft flow entry point.
+    if (route.path.startsWith('/workflow')) {
+      isOpen.value = false
+      await navigateTo('/workflow/new')
+    }
+  }
+  catch (err: unknown) {
+    clearWorkflowsError.value = err instanceof Error ? err.message : t('settings.clearWorkflowsError')
+  }
+  finally {
+    isClearingWorkflows.value = false
+  }
 }
 
 // ---- Transfer ownership ----
@@ -360,7 +330,7 @@ async function handleDeleteWorkspace() {
     }
     isDeleteOpen.value = false
     isOpen.value = false
-    navigateTo('/dashboard/console')
+    navigateTo('/workflow/new')
   }
   finally {
     isDeleting.value = false
@@ -370,17 +340,40 @@ async function handleDeleteWorkspace() {
 // ---- Workspace identity (name + avatar) ----
 const editName = ref('')
 const isNameSaving = ref(false)
-const isNameFocused = ref(false)
+const isNameEditing = ref(false)
+const nameInput = ref<HTMLInputElement | null>(null)
 const identityError = ref('')
 
-watch(currentWorkspace, (ws) => { if (ws) editName.value = ws.name }, { immediate: true })
-watch(isOpen, (open) => { if (open && currentWorkspace.value) editName.value = currentWorkspace.value.name })
+watch(currentWorkspace, (ws) => {
+  if (ws && !isNameEditing.value) editName.value = ws.name
+}, { immediate: true })
+watch(isPanelVisible, (open) => {
+  if (open && currentWorkspace.value && !isNameEditing.value) editName.value = currentWorkspace.value.name
+})
 
 const nameValidation = computed(() => validateWorkspaceName(editName.value))
 const nameError = computed(() => {
   if (!editName.value || editName.value === currentWorkspace.value?.name) return ''
   return nameValidation.value.ok ? '' : nameValidation.value.error
 })
+
+function startNameEdit() {
+  if (!currentWorkspace.value || !canManageWorkspace.value || isNameSaving.value) return
+  editName.value = currentWorkspace.value.name
+  identityError.value = ''
+  isNameEditing.value = true
+  nextTick(() => {
+    nameInput.value?.focus()
+    nameInput.value?.select()
+  })
+}
+
+function cancelNameEdit() {
+  if (isNameSaving.value) return
+  if (currentWorkspace.value) editName.value = currentWorkspace.value.name
+  identityError.value = ''
+  isNameEditing.value = false
+}
 
 async function saveName() {
   if (!currentWorkspace.value || !canManageWorkspace.value) return
@@ -391,6 +384,7 @@ async function saveName() {
   try {
     const result = await updateWorkspace(currentWorkspace.value.id, { name: editName.value.trim() })
     if (!result) identityError.value = t('workspaceMenu.identityUpdateError')
+    else isNameEditing.value = false
   }
   finally {
     isNameSaving.value = false
@@ -400,7 +394,7 @@ async function saveName() {
 const avatarInput = ref<HTMLInputElement | null>(null)
 const isAvatarSaving = ref(false)
 const workspaceInitials = computed(() =>
-  (currentWorkspace.value?.name?.trim().substring(0, 2) || 'W').toUpperCase(),
+  (currentWorkspace.value?.name?.trim().charAt(0) || 'W').toUpperCase(),
 )
 
 function triggerAvatarPicker() {
@@ -461,12 +455,14 @@ async function removeAvatar() {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
+  if (isNameEditing.value) { cancelNameEdit(); return }
+  if (isClearWorkflowsOpen.value) { closeClearWorkflows(); return }
   if (isTransferOpen.value) { closeTransferModal(); return }
   if (isDeleteOpen.value) { closeDeleteModal(); return }
   close()
 }
 
-watch(isOpen, (open) => {
+watch(isPanelVisible, (open) => {
   if (open) document.addEventListener('keydown', handleKeydown)
   else document.removeEventListener('keydown', handleKeydown)
 })
@@ -475,34 +471,45 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
-  <Teleport to="body">
+  <Teleport to="body" :disabled="isInline">
     <Transition
+      :css="!isInline"
       enter-active-class="transition-all duration-200 ease-out"
       leave-active-class="transition-all duration-150 ease-in"
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
       <div
-        v-if="isOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-[2px]"
-        role="presentation"
-        @click.self="close"
+        v-if="isPanelVisible"
+        :class="isInline
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col'
+          : 'fixed inset-0 z-50 flex items-stretch justify-end bg-neutral-950/25 p-2 backdrop-blur-[2px] sm:p-4'"
+        :role="isInline ? undefined : 'presentation'"
+        @click.self="!isInline && close()"
       >
         <Transition
+          :css="!isInline"
           enter-active-class="transition-all duration-200 ease-out"
           leave-active-class="transition-all duration-150 ease-in"
-          enter-from-class="scale-95 opacity-0"
-          leave-to-class="scale-95 opacity-0"
+          enter-from-class="translate-x-5 opacity-0"
+          leave-to-class="translate-x-5 opacity-0"
         >
           <div
-            v-if="isOpen"
-            class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
-            role="dialog"
-            aria-modal="true"
+            v-if="isPanelVisible"
+            class="flex w-full flex-col overflow-hidden"
+            :class="isInline
+              ? 'min-h-0 flex-1 bg-transparent'
+              : 'h-full max-w-xl rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200'"
+            :style="isInline ? undefined : 'max-height: calc(100svh - 1rem)'"
+            :role="isInline ? undefined : 'dialog'"
+            :aria-modal="isInline ? undefined : 'true'"
             :aria-label="t('workspaceMenu.modalTitle')"
             @click.stop
           >
-            <div class="relative shrink-0 px-5 pt-5 pb-4">
+            <div
+              v-if="!isInline"
+              class="relative shrink-0 border-b border-neutral-200 bg-white px-5 pt-5 pb-4"
+            >
               <button
                 type="button"
                 class="absolute right-4 top-4 rounded-md p-0.5 text-neutral-400 transition-colors hover:text-neutral-700"
@@ -511,402 +518,492 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
               >
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
-              <div class="pr-6">
-                <h2 class="text-sm font-semibold text-neutral-900">{{ t('workspaceMenu.modalTitle') }}</h2>
+              <div class="flex items-center justify-between gap-4 pr-6">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="relative size-9 shrink-0 overflow-hidden rounded-lg bg-neutral-950 text-sm font-bold text-white ring-1 ring-neutral-200/70">
+                    <img
+                      v-if="currentWorkspace?.avatar_url"
+                      :src="currentWorkspace.avatar_url"
+                      alt=""
+                      class="h-full w-full object-cover"
+                    />
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950"
+                      aria-hidden="true"
+                    >
+                      {{ workspaceInitials }}
+                    </div>
+                  </div>
+                  <div class="min-w-0">
+                    <h2 class="truncate text-lg font-semibold leading-tight text-neutral-950">{{ t('workspaceMenu.modalTitle') }}</h2>
+                    <p class="mt-0.5 truncate text-xs text-neutral-500">
+                      {{ currentWorkspace?.name ?? t('common.workspace') }} · {{ planLabel }} workspace
+                    </p>
+                  </div>
+                </div>
+                <div class="hidden shrink-0 items-center gap-2 sm:flex">
+                  <button
+                    type="button"
+                    class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                    @click="openManageMembers"
+                  >
+                    {{ t('workspaceMenu.manageMembers') }}
+                  </button>
+                  <PlanUpgradeButton
+                    v-if="showUpgrade"
+                    :before-navigate="close"
+                  />
+                </div>
               </div>
             </div>
 
             <!-- Body -->
             <div class="flex-1 overflow-y-auto">
-              <div class="divide-y divide-neutral-100 px-5">
-                <!-- Identity (avatar + name) -->
-                <section class="py-5">
-                  <div class="flex items-start gap-4">
-                    <!-- Avatar + change link -->
-                    <div class="flex shrink-0 flex-col items-center gap-2">
-                      <div class="relative size-14 overflow-hidden rounded-lg ring-1 ring-neutral-200/70">
-                        <img
-                          v-if="currentWorkspace?.avatar_url"
-                          :src="currentWorkspace.avatar_url"
-                          alt=""
-                          class="h-full w-full object-cover"
-                        />
-                        <div
-                          v-else
-                          class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950 text-base font-bold text-white"
-                          aria-hidden="true"
-                        >
-                          {{ workspaceInitials }}
-                        </div>
-                        <div
-                          v-if="isAvatarSaving"
-                          class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 text-white"
-                          aria-hidden="true"
-                        >
-                          <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="9" stroke-opacity="0.3" />
-                            <path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round" />
-                          </svg>
-                        </div>
-                      </div>
-                      <button
-                        v-if="canManageWorkspace"
-                        type="button"
-                        class="whitespace-nowrap text-[10px] font-medium text-neutral-600 transition-colors hover:text-neutral-950 disabled:opacity-50"
-                        :disabled="isAvatarSaving"
-                        @click="triggerAvatarPicker"
-                      >
-                        {{ t('workspaceMenu.changeImage') }}
-                      </button>
-                    </div>
+              <div class="min-h-full bg-white">
+                <nav
+                  class="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 px-3 py-2 backdrop-blur"
+                  aria-label="Workspace settings sections"
+                >
+                  <div class="grid grid-flow-col auto-cols-[minmax(7rem,1fr)] gap-1 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:auto-cols-fr">
+                    <a
+                      href="#workspace-settings-overview"
+                      class="flex min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                    >
+                      Overview
+                    </a>
+                    <a href="#workspace-settings-usage" class="flex min-w-0 items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-white hover:text-neutral-950 hover:shadow-sm">
+                      Usage
+                    </a>
+                    <a href="#workspace-settings-llm-keys" class="flex min-w-0 items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-white hover:text-neutral-950 hover:shadow-sm">
+                      {{ t('workspaceMenu.llmKeysTitle') }}
+                    </a>
+                    <a
+                      v-if="canClearWorkflows || canTransferOwnership || canDeleteWorkspace"
+                      href="#workspace-settings-administration"
+                      class="flex min-w-0 items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-white hover:text-neutral-950 hover:shadow-sm"
+                    >
+                      {{ t('workspaceMenu.administration') }}
+                    </a>
+                  </div>
+                </nav>
 
-                    <!-- Name field -->
-                    <div class="min-w-0 flex-1">
-                      <label
-                        for="ws-settings-name"
-                        class="block text-[10px] font-medium uppercase tracking-wider text-neutral-500"
-                      >
-                        {{ t('workspaceMenu.workspaceName') }}
-                      </label>
-                      <div class="mt-1.5 flex gap-2">
-                        <div class="relative min-w-0 flex-1">
-                          <input
-                            id="ws-settings-name"
-                            v-model="editName"
-                            type="text"
-                            :maxlength="WORKSPACE_NAME_MAX_LENGTH"
-                            :placeholder="t('workspaceMenu.workspaceName')"
-                            class="w-full rounded-md border-0 bg-neutral-50 px-2.5 py-1.5 pr-12 text-xs text-neutral-950 outline-none transition focus:bg-white focus:ring-2 focus:ring-neutral-950/10 disabled:cursor-not-allowed disabled:text-neutral-500"
-                            :disabled="!canManageWorkspace || isNameSaving"
-                            @focus="isNameFocused = true"
-                            @blur="isNameFocused = false"
-                            @keyup.enter="saveName"
-                          />
-                          <span
-                            v-if="isNameFocused && canManageWorkspace"
-                            class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] leading-none tabular-nums text-neutral-400"
-                          >
-                            {{ editName.length }}/{{ WORKSPACE_NAME_MAX_LENGTH }}
+                <div class="mx-auto w-full max-w-4xl space-y-7 px-5 py-6 sm:px-7 lg:px-8">
+                  <section id="workspace-settings-overview" class="scroll-mt-20">
+                    <div class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+                      <div class="grid gap-5 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_18rem] sm:items-center">
+                        <div class="min-w-0 space-y-3">
+                          <div class="flex min-w-0 items-center gap-3">
+                            <button
+                              v-if="canManageWorkspace"
+                              type="button"
+                              class="group/avatar relative size-12 shrink-0 overflow-hidden rounded-lg bg-neutral-950 text-base font-bold text-white ring-1 ring-neutral-200/70 transition focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                              :disabled="isAvatarSaving"
+                              :aria-label="t('workspaceMenu.changeImage')"
+                              @click="triggerAvatarPicker"
+                            >
+                              <img
+                                v-if="currentWorkspace?.avatar_url"
+                                :src="currentWorkspace.avatar_url"
+                                alt=""
+                                class="h-full w-full object-cover"
+                              />
+                              <span
+                                v-else
+                                class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950"
+                                aria-hidden="true"
+                              >
+                                {{ workspaceInitials }}
+                              </span>
+                              <span
+                                class="absolute inset-0 flex items-center justify-center bg-neutral-950/45 opacity-0 backdrop-blur-[2px] transition-opacity group-hover/avatar:opacity-100 group-focus-visible/avatar:opacity-100"
+                                aria-hidden="true"
+                              >
+                                <UIcon name="i-heroicons-pencil-20-solid" class="size-4 text-white" />
+                              </span>
+                              <span
+                                v-if="isAvatarSaving"
+                                class="absolute inset-0 flex items-center justify-center bg-neutral-950/55 text-white"
+                                aria-hidden="true"
+                              >
+                                <UIcon name="i-heroicons-arrow-path" class="size-4 animate-spin" />
+                              </span>
+                            </button>
+                            <div
+                              v-else
+                              class="relative size-12 shrink-0 overflow-hidden rounded-lg bg-neutral-950 text-base font-bold text-white ring-1 ring-neutral-200/70"
+                            >
+                              <img
+                                v-if="currentWorkspace?.avatar_url"
+                                :src="currentWorkspace.avatar_url"
+                                alt=""
+                                class="h-full w-full object-cover"
+                              />
+                              <div
+                                v-else
+                                class="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-950"
+                                aria-hidden="true"
+                              >
+                                {{ workspaceInitials }}
+                              </div>
+                            </div>
+
+                            <div class="min-w-0">
+                              <div class="flex min-h-5 min-w-0 items-center gap-2">
+                                <template v-if="isNameEditing">
+                                  <input
+                                    ref="nameInput"
+                                    v-model="editName"
+                                    type="text"
+                                    :maxlength="WORKSPACE_NAME_MAX_LENGTH"
+                                    :aria-label="t('workspaceMenu.workspaceName')"
+                                    class="h-6 min-w-0 max-w-72 rounded-md border border-transparent bg-transparent px-0 text-base font-semibold leading-6 text-neutral-950 outline-none transition focus:border-transparent focus:ring-0 disabled:cursor-not-allowed disabled:text-neutral-500"
+                                    :style="{ width: `${Math.min(Math.max(editName.length + 1, 8), 28)}ch` }"
+                                    :disabled="isNameSaving"
+                                    @keyup.enter="saveName"
+                                    @keyup.esc="cancelNameEdit"
+                                  />
+                                  <div class="flex h-8 shrink-0 items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      class="rounded-md bg-neutral-950 px-2.5 py-1.5 text-[11px] font-medium leading-none text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                                      :disabled="isNameSaving || !nameValidation.ok || editName.trim() === currentWorkspace?.name"
+                                      @click="saveName"
+                                    >
+                                      {{ isNameSaving ? t('workspaceMenu.saving') : t('common.save') }}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-medium leading-none text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+                                      :disabled="isNameSaving"
+                                      @click="cancelNameEdit"
+                                    >
+                                      {{ t('common.cancel') }}
+                                    </button>
+                                  </div>
+                                </template>
+                                <button
+                                  v-else
+                                  type="button"
+                                  class="group/name flex min-h-5 min-w-0 items-center gap-1.5 rounded-md text-left transition-colors disabled:cursor-default"
+                                  :disabled="!canManageWorkspace"
+                                  @click="startNameEdit"
+                                >
+                                  <span class="truncate text-base font-semibold leading-5 text-neutral-950">{{ currentWorkspace?.name }}</span>
+                                  <UIcon
+                                    v-if="canManageWorkspace"
+                                    name="i-heroicons-pencil-20-solid"
+                                    class="size-3.5 shrink-0 text-neutral-400 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus-visible/name:opacity-100"
+                                  />
+                                </button>
+                              </div>
+                              <p class="text-xs leading-4 text-neutral-500">{{ planLabel }} workspace</p>
+                              <p v-if="nameError" class="mt-1 text-[11px] text-red-600">{{ nameError }}</p>
+                              <p v-else-if="identityError" class="mt-1 text-[11px] text-red-600">{{ identityError }}</p>
+                            </div>
+                          </div>
+
+                          <div class="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                              @click="openManageMembers"
+                            >
+                              {{ t('workspaceMenu.manageMembers') }}
+                            </button>
+                            <PlanUpgradeButton
+                              v-if="showUpgrade"
+                              :before-navigate="close"
+                            />
+                          </div>
+                        </div>
+
+                      <div class="min-w-0 self-center">
+                        <div class="flex items-center justify-between gap-3 text-[11px] text-neutral-500">
+                          <span>{{ t('workspaceMenu.statWeeklyTokens') }}</span>
+                          <span class="font-mono font-semibold text-neutral-950">
+                            {{ tokenUsedWeekly == null ? '-' : tokenUsedWeekly.toLocaleString() }}
+                            <span class="font-normal text-neutral-400">/ {{ weeklyTokenCap <= 0 ? '∞' : weeklyTokenCap.toLocaleString() }}</span>
                           </span>
                         </div>
-                        <button
-                          v-if="canManageWorkspace"
-                          type="button"
-                          class="shrink-0 rounded-md bg-neutral-950 px-2.5 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-30"
-                          :disabled="isNameSaving || !nameValidation.ok || editName.trim() === currentWorkspace?.name"
-                          @click="saveName"
-                        >
-                          {{ isNameSaving ? t('workspaceMenu.saving') : t('common.save') }}
-                        </button>
-                      </div>
-                      <div class="mt-1.5 flex min-h-[14px] items-center justify-between gap-3 text-[10px] leading-tight">
-                        <p v-if="nameError" class="text-red-600">{{ nameError }}</p>
-                        <p v-else-if="identityError" class="text-red-600">{{ identityError }}</p>
-                        <p v-else-if="canManageWorkspace" class="text-neutral-400">
-                          {{ t('workspaceMenu.avatarHint') }}
-                        </p>
-                        <span v-else />
-                        <button
-                          v-if="canManageWorkspace && currentWorkspace?.avatar_url"
-                          type="button"
-                          class="shrink-0 text-neutral-500 transition-colors hover:text-neutral-900 disabled:opacity-50"
-                          :disabled="isAvatarSaving"
-                          @click="removeAvatar"
-                        >
-                          {{ t('workspaceMenu.removeImage') }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <input
-                    ref="avatarInput"
-                    name="workspace-avatar"
-                    type="file"
-                    accept="image/*"
-                    class="hidden"
-                    @change="handleAvatarSelected"
-                  />
-                </section>
-
-                <!-- Plan + Usage -->
-                <section class="py-5">
-                  <div class="mb-5 flex items-center justify-between gap-4">
-                    <div class="flex min-w-0 items-center gap-3">
-                      <span
-                        :class="planAccentClass"
-                        class="h-9 w-1 shrink-0 rounded-full"
-                        aria-hidden="true"
-                      />
-                      <div class="min-w-0">
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                          {{ t('workspaceMenu.currentPlan') }}
-                        </p>
-                        <h3 class="mt-0.5 text-sm font-semibold text-neutral-950">{{ planLabel }}</h3>
-                      </div>
-                    </div>
-                    <PlanUpgradeButton
-                      v-if="showUpgrade"
-                      :before-navigate="close"
-                    />
-                  </div>
-
-                  <div
-                    v-if="localPrimaryRiskyForTeam"
-                    class="mb-4 flex items-start gap-2.5 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200/60"
-                  >
-                    <svg
-                      class="mt-0.5 size-4 shrink-0 text-amber-600"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 9v4" />
-                      <path d="M12 17h.01" />
-                      <path
-                        d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
-                      />
-                    </svg>
-                    <p class="text-xs leading-relaxed text-amber-900">
-                      {{ t('workspaceMenu.localPrimaryTeamWarning') }}
-                    </p>
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
-                    <!-- Weekly token budget (Monday UTC — same cadence as chat enforcement) -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statWeeklyTokens') }}
-                      </p>
-                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ tokenUsedWeekly == null ? '—' : tokenUsedWeekly.toLocaleString() }}</span>
-                        <span class="text-neutral-400">/ {{ weeklyTokenCap <= 0 ? '∞' : weeklyTokenCap.toLocaleString() }}</span>
-                      </p>
-                      <div
-                        v-if="weeklyTokenCap > 0"
-                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
-                      >
-                        <div
-                          class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: (weeklyTokensPercent ?? 0) + '%' }"
-                        />
-                      </div>
-                      <p class="mt-1.5 text-[10px] text-neutral-400">
-                        {{ t('workspaceMenu.statWeeklyTokensCaption') }}
-                      </p>
-                    </div>
-
-                    <!-- Workflow runs this calendar month (UTC) -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statWorkflowRuns') }}
-                      </p>
-                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ workflowRunsMonth == null ? '—' : workflowRunsMonth.toLocaleString() }}</span>
-                        <span class="text-neutral-400">/ {{ workflowRunsCap <= 0 ? '∞' : workflowRunsCap.toLocaleString() }}</span>
-                      </p>
-                      <div
-                        v-if="workflowRunsCap > 0"
-                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
-                      >
-                        <div
-                          class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: (workflowRunsPercent ?? 0) + '%' }"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Seats -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statSeats') }}
-                      </p>
-                      <p class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ seatCount }}</span>
-                        <span class="text-neutral-400">/ {{ seatsCap <= 0 ? '∞' : seatsCap }}</span>
-                      </p>
-                      <div
-                        v-if="seatsCap > 0"
-                        class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60"
-                      >
-                        <div
-                          class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: (seatsFilledPercent() ?? 0) + '%' }"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Storage -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statStorage') }}
-                      </p>
-                      <p v-if="storageSummary.unlimited" class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">∞</p>
-                      <p v-else-if="storageSummary.trackedAny && storageSummary.total > 0" class="mt-1 font-mono text-xs leading-none text-neutral-950">
-                        <span class="font-semibold">{{ formatBytes(storageSummary.used) }}</span>
-                        <span class="text-neutral-400">/ {{ formatBytes(storageSummary.total) }}</span>
-                      </p>
-                      <p v-else class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-400">—</p>
-                      <div v-if="!storageSummary.unlimited && storageSummary.total > 0" class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-neutral-200/60">
-                        <div
-                          class="h-full rounded-full bg-neutral-900 transition-[width] duration-500 ease-out"
-                          :style="{ width: Math.min(100, Math.round((storageSummary.used / storageSummary.total) * 100)) + '%' }"
-                        />
-                      </div>
-                      <p v-else class="mt-1.5 text-[10px] text-neutral-400">
-                        {{ t('workspaceMenu.statStorageCaption') }}
-                      </p>
-                    </div>
-
-                    <!-- Browser agents -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statAgents') }}
-                      </p>
-                      <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
-                        {{ browserAgentsCap.toLocaleString() }}
-                      </p>
-                      <p class="mt-1.5 text-[10px] text-neutral-400">
-                        {{ t('workspaceMenu.statAgentsCaption') }}
-                      </p>
-                    </div>
-
-                    <!-- Max file size -->
-                    <div>
-                      <p class="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                        {{ t('workspaceMenu.statFileSize') }}
-                      </p>
-                      <p class="mt-1 font-mono text-xs font-semibold leading-none text-neutral-950">
-                        {{ formatBytes(maxFileBytes) }}
-                      </p>
-                      <p class="mt-1.5 text-[10px] text-neutral-400">
-                        {{ t('workspaceMenu.statFileSizeCaption') }}
-                      </p>
-                    </div>
-                  </div>
-
-                  <!-- Plan management: cancel / downgrade at period end -->
-                  <div v-if="showPlanManagement" class="mt-5 border-t border-neutral-100 pt-4">
-                    <!-- Pending scheduled change → banner + resume -->
-                    <div
-                      v-if="hasPendingChange"
-                      class="flex items-start gap-2.5 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200/60"
-                    >
-                      <svg
-                        class="mt-0.5 size-4 shrink-0 text-amber-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M12 9v4" />
-                        <path d="M12 17h.01" />
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                      </svg>
-                      <div class="min-w-0 flex-1">
-                        <p class="text-xs leading-relaxed text-amber-900">
-                          <template v-if="pendingCancel">
-                            {{ periodEndLabel
-                              ? t('workspaceMenu.scheduledCancelBanner', { plan: planLabel, date: periodEndLabel })
-                              : t('workspaceMenu.scheduledCancelBannerNoDate', { plan: planLabel }) }}
-                          </template>
-                          <template v-else>
-                            {{ periodEndLabel
-                              ? t('workspaceMenu.scheduledDowngradeBanner', { plan: planLabel, target: planLabelOf(pendingDowngradePlan), date: periodEndLabel })
-                              : t('workspaceMenu.scheduledDowngradeBannerNoDate', { plan: planLabel, target: planLabelOf(pendingDowngradePlan) }) }}
-                          </template>
-                        </p>
-                        <div class="mt-2 flex items-center gap-3">
-                          <button
-                            type="button"
-                            class="rounded-md bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                            :disabled="subActionLoading"
-                            @click="handleResume"
-                          >
-                            {{ subActionLoading ? t('workspaceMenu.keeping') : t('workspaceMenu.keepPlan') }}
-                          </button>
-                          <p v-if="subError" class="text-[11px] text-red-600">{{ subError }}</p>
+                        <div v-if="weeklyTokenCap > 0" class="mt-2 h-14 overflow-hidden rounded-md bg-neutral-50 ring-1 ring-neutral-100">
+                          <svg viewBox="0 0 320 54" preserveAspectRatio="none" class="h-full w-full">
+                            <path d="M0 42H320M0 26H320M0 10H320" stroke="#ededed" stroke-width="1" />
+                            <path d="M0 40 C38 36 50 31 76 32 C110 33 118 23 146 24 C178 25 196 15 224 16 C252 17 272 10 296 11 C308 12 314 9 320 7 L320 54 L0 54Z" fill="rgba(49,88,212,.075)" />
+                            <path d="M0 40 C38 36 50 31 76 32 C110 33 118 23 146 24 C178 25 196 15 224 16 C252 17 272 10 296 11 C308 12 314 9 320 7" fill="none" stroke="#3158d4" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                        </div>
+                        <div class="mt-1.5 flex justify-between text-[10px] text-neutral-400">
+                          <span>{{ weeklyTokensPercent == null ? '-' : `${weeklyTokensPercent}%` }}</span>
+                          <span>{{ t('workspaceMenu.statWeeklyTokensCaption') }}</span>
                         </div>
                       </div>
                     </div>
 
-                    <!-- No pending change → manage actions -->
-                    <div v-else class="flex items-start justify-between gap-4">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-xs font-medium text-neutral-950">{{ t('workspaceMenu.managePlan') }}</p>
-                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.managePlanDesc') }}</p>
+                    <div class="grid border-t border-neutral-200 sm:grid-cols-4">
+                      <div class="border-b border-neutral-100 px-5 py-3 sm:border-b-0 sm:border-r">
+                        <p class="text-sm font-semibold text-neutral-950">{{ planLabel }}</p>
+                        <p class="mt-0.5 text-[11px] text-neutral-500">{{ t('workspaceMenu.currentPlan') }}</p>
                       </div>
-                      <div class="flex shrink-0 items-center gap-2 self-center">
-                        <button
-                          v-if="canDowngradeToPro"
-                          type="button"
-                          class="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
-                          @click="openDowngradeModal"
+                      <div class="border-b border-neutral-100 px-5 py-3 sm:border-b-0 sm:border-r">
+                        <p class="text-sm font-semibold text-neutral-950">{{ seatCount }} <span class="font-normal text-neutral-400">/ {{ seatsCap <= 0 ? '∞' : seatsCap }}</span></p>
+                        <p class="mt-0.5 text-[11px] text-neutral-500">{{ t('workspaceMenu.statSeats') }}</p>
+                      </div>
+                      <div class="border-b border-neutral-100 px-5 py-3 sm:border-b-0 sm:border-r">
+                        <p class="text-sm font-semibold text-neutral-950">{{ workflowRunsMonth == null ? '-' : workflowRunsMonth.toLocaleString() }} <span class="font-normal text-neutral-400">/ {{ workflowRunsCap <= 0 ? '∞' : workflowRunsCap.toLocaleString() }}</span></p>
+                        <p class="mt-0.5 text-[11px] text-neutral-500">{{ t('workspaceMenu.statWorkflowRuns') }}</p>
+                      </div>
+                      <div class="px-5 py-3">
+                        <p class="text-sm font-semibold text-neutral-950">{{ weeklyTokensPercent == null || weeklyTokensPercent < 90 ? 'Healthy' : 'Review' }}</p>
+                        <p class="mt-0.5 text-[11px] text-neutral-500">{{ weeklyTokensPercent == null || weeklyTokensPercent < 90 ? 'All systems within limits' : 'Approaching usage limits' }}</p>
+                      </div>
+                    </div>
+                    </div>
+                    <input
+                      ref="avatarInput"
+                      name="workspace-avatar"
+                      type="file"
+                      accept="image/*"
+                      class="hidden"
+                      @change="handleAvatarSelected"
+                    />
+                  </section>
+
+                  <SettingsSection
+                    id="workspace-settings-usage"
+                    title="Usage"
+                    variant="panel"
+                  >
+                    <SettingsSectionRow variant="panel">
+                      <template #label>{{ t('workspaceMenu.statWeeklyTokens') }}</template>
+                      <template #description>{{ t('workspaceMenu.statWeeklyTokensCaption') }}</template>
+                      <template #trailing>
+                        <span class="inline-flex items-center rounded-xl bg-neutral-50 px-3 py-2 font-mono text-xs text-neutral-950 ring-1 ring-neutral-200/70">
+                          {{ tokenUsedWeekly == null ? '-' : tokenUsedWeekly.toLocaleString() }}
+                          <span class="ml-1 text-neutral-400">/ {{ weeklyTokenCap <= 0 ? '∞' : weeklyTokenCap.toLocaleString() }}</span>
+                        </span>
+                      </template>
+                    </SettingsSectionRow>
+                    <SettingsSectionRow variant="panel">
+                      <template #label>{{ t('workspaceMenu.statWorkflowRuns') }}</template>
+                      <template #description>Current monthly workspace allowance.</template>
+                      <template #trailing>
+                        <span class="inline-flex items-center rounded-xl bg-neutral-50 px-3 py-2 font-mono text-xs text-neutral-950 ring-1 ring-neutral-200/70">
+                          {{ workflowRunsMonth == null ? '-' : workflowRunsMonth.toLocaleString() }}
+                          <span class="ml-1 text-neutral-400">/ {{ workflowRunsCap <= 0 ? '∞' : workflowRunsCap.toLocaleString() }}</span>
+                        </span>
+                      </template>
+                    </SettingsSectionRow>
+                    <SettingsSectionRow variant="panel">
+                      <template #label>{{ t('workspaceMenu.statSeats') }}</template>
+                      <template #description>Team seats are managed from Manage members.</template>
+                      <template #trailing>
+                        <span class="inline-flex items-center rounded-xl bg-neutral-50 px-3 py-2 font-mono text-xs text-neutral-950 ring-1 ring-neutral-200/70">
+                          {{ seatCount }}
+                          <span class="ml-1 text-neutral-400">/ {{ seatsCap <= 0 ? '∞' : seatsCap }}</span>
+                        </span>
+                      </template>
+                    </SettingsSectionRow>
+                    <SettingsSectionRow v-if="showPlanManagement" variant="panel" align="start">
+                      <template #label>{{ hasPendingChange ? t('workspaceMenu.managePlan') : t('workspaceMenu.managePlan') }}</template>
+                      <template #description>
+                        <div
+                          v-if="hasPendingChange"
+                          class="flex items-start gap-2.5 rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200/60"
                         >
-                          {{ t('workspaceMenu.downgradeToPro') }}
-                        </button>
+                          <UIcon name="i-heroicons-exclamation-triangle" class="mt-0.5 size-4 shrink-0 text-amber-600" />
+                          <div class="min-w-0 flex-1">
+                            <p class="text-xs leading-relaxed text-amber-900">
+                              <template v-if="pendingCancel">
+                                {{ periodEndLabel
+                                  ? t('workspaceMenu.scheduledCancelBanner', { plan: planLabel, date: periodEndLabel })
+                                  : t('workspaceMenu.scheduledCancelBannerNoDate', { plan: planLabel }) }}
+                              </template>
+                              <template v-else>
+                                {{ periodEndLabel
+                                  ? t('workspaceMenu.scheduledDowngradeBanner', { plan: planLabel, target: planLabelOf(pendingDowngradePlan), date: periodEndLabel })
+                                  : t('workspaceMenu.scheduledDowngradeBannerNoDate', { plan: planLabel, target: planLabelOf(pendingDowngradePlan) }) }}
+                              </template>
+                            </p>
+                            <div class="mt-2 flex items-center gap-3">
+                              <button
+                                type="button"
+                                class="rounded-md bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                                :disabled="subActionLoading"
+                                @click="handleResume"
+                              >
+                                {{ subActionLoading ? t('workspaceMenu.keeping') : t('workspaceMenu.keepPlan') }}
+                              </button>
+                              <p v-if="subError" class="text-[11px] text-red-600">{{ subError }}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <span v-else>{{ t('workspaceMenu.managePlanDesc') }}</span>
+                      </template>
+                      <template #trailing>
+                        <div v-if="!hasPendingChange" class="flex flex-wrap items-center gap-2">
+                          <button
+                            v-if="canDowngradeToPro"
+                            type="button"
+                            class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                            @click="openDowngradeModal"
+                          >
+                            {{ t('workspaceMenu.downgradeToPro') }}
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                            @click="openCancelModal"
+                          >
+                            {{ t('workspaceMenu.cancelPlan') }}
+                          </button>
+                        </div>
+                      </template>
+                    </SettingsSectionRow>
+                  </SettingsSection>
+
+                  <SettingsSection
+                    id="workspace-settings-llm-keys"
+                    :title="t('workspaceMenu.llmKeysTitle')"
+                    variant="panel"
+                  >
+                    <div class="px-5 py-4 sm:px-6">
+                      <WorkspaceLLMKeysPanel
+                        :workspace-id="currentWorkspaceId"
+                        :can-manage="canManageWorkspace"
+                        embedded
+                      />
+                    </div>
+                  </SettingsSection>
+
+                  <SettingsSection
+                    v-if="canClearWorkflows || canTransferOwnership || canDeleteWorkspace"
+                    id="workspace-settings-administration"
+                    :title="t('workspaceMenu.administration')"
+                    variant="panel"
+                  >
+                    <SettingsSectionRow v-if="canClearWorkflows" variant="panel" align="start" tone="danger">
+                      <template #label>{{ t('settings.clearWorkflows') }}</template>
+                      <template #description>{{ t('settings.clearWorkflowsDesc') }}</template>
+                      <template #trailing>
                         <button
                           type="button"
-                          class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
-                          @click="openCancelModal"
+                          :disabled="workflowCount === 0"
+                          class="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400 disabled:hover:bg-white"
+                          @click="openClearWorkflows"
                         >
-                          {{ t('workspaceMenu.cancelPlan') }}
+                          {{ t('settings.clearWorkflowsButton') }}
                         </button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                      </template>
+                    </SettingsSectionRow>
 
-                <!-- BYOK / LLM Keys -->
-                <WorkspaceLLMKeysPanel
-                  :workspace-id="currentWorkspaceId"
-                  :can-manage="canManageWorkspace"
-                />
+                    <SettingsSectionRow v-if="canTransferOwnership" variant="panel" align="start">
+                      <template #label>{{ t('workspaceMenu.transferOwnership') }}</template>
+                      <template #description>{{ t('workspaceMenu.transferOwnershipDesc') }}</template>
+                      <template #trailing>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
+                          @click="openTransferModal"
+                        >
+                          {{ t('workspaceMenu.transferAction') }}
+                        </button>
+                      </template>
+                    </SettingsSectionRow>
 
-                <!-- Administration -->
-                <section v-if="canTransferOwnership || canDeleteWorkspace" class="py-5">
-                  <h3 class="mb-4 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                    {{ t('workspaceMenu.administration') }}
-                  </h3>
-
-                  <div class="space-y-4">
-                    <div v-if="canTransferOwnership" class="flex items-start justify-between gap-4">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-xs font-medium text-neutral-950">{{ t('workspaceMenu.transferOwnership') }}</p>
-                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.transferOwnershipDesc') }}</p>
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 self-center rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 transition-colors hover:bg-neutral-50"
-                        @click="openTransferModal"
-                      >
-                        {{ t('workspaceMenu.transferAction') }}
-                      </button>
-                    </div>
-
-                    <div v-if="canDeleteWorkspace" class="flex items-start justify-between gap-4">
-                      <div class="min-w-0 flex-1">
-                        <p class="text-xs font-medium text-red-700">{{ t('workspaceMenu.deleteWorkspace') }}</p>
-                        <p class="mt-1 text-[11px] leading-snug text-neutral-500">{{ t('workspaceMenu.deleteWorkspaceDesc') }}</p>
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 self-center rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
-                        @click="openDeleteModal"
-                      >
-                        {{ t('common.delete') }}
-                      </button>
-                    </div>
-                  </div>
-                </section>
+                    <SettingsSectionRow v-if="canDeleteWorkspace" variant="panel" align="start" tone="danger">
+                      <template #label>{{ t('workspaceMenu.deleteWorkspace') }}</template>
+                      <template #description>{{ t('workspaceMenu.deleteWorkspaceDesc') }}</template>
+                      <template #trailing>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                          @click="openDeleteModal"
+                        >
+                          {{ t('common.delete') }}
+                        </button>
+                      </template>
+                    </SettingsSectionRow>
+                  </SettingsSection>
+                </div>
               </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+
+    <!-- Clear all workflows modal -->
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      leave-active-class="transition-all duration-150 ease-in"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="isClearWorkflowsOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-[2px]"
+        role="presentation"
+        @click.self="closeClearWorkflows"
+      >
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          leave-active-class="transition-all duration-150 ease-in"
+          enter-from-class="scale-95 opacity-0"
+          leave-to-class="scale-95 opacity-0"
+        >
+          <div
+            v-if="isClearWorkflowsOpen"
+            class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="t('settings.clearWorkflowsTitle')"
+            @click.stop
+          >
+            <div class="flex items-start justify-between px-5 py-3.5">
+              <div>
+                <h3 class="text-sm font-semibold text-neutral-950">{{ t('settings.clearWorkflowsTitle') }}</h3>
+                <p class="mt-0.5 text-[11px] text-neutral-500">{{ t('settings.clearWorkflowsCannotUndo') }}</p>
+              </div>
+              <button
+                type="button"
+                class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50"
+                :disabled="isClearingWorkflows"
+                :aria-label="t('common.close')"
+                @click="closeClearWorkflows"
+              >
+                <UIcon name="i-heroicons-x-mark-20-solid" class="size-4" />
+              </button>
+            </div>
+
+            <div class="px-5 py-4">
+              <div class="flex items-start gap-2.5 rounded-lg border border-error-200 bg-error-50 px-4 py-3">
+                <UIcon name="i-heroicons-exclamation-triangle" class="mt-0.5 size-4 shrink-0 text-error-600" />
+                <p class="text-label-md leading-relaxed text-error-700">
+                  {{ t('settings.clearWorkflowsWarning', { count: workflowCount }) }}
+                </p>
+              </div>
+              <p v-if="clearWorkflowsError" class="mt-3 text-[11px] text-error-600">{{ clearWorkflowsError }}</p>
+            </div>
+
+            <div class="flex justify-end gap-2 px-5 py-3.5">
+              <button
+                type="button"
+                class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 disabled:opacity-50"
+                :disabled="isClearingWorkflows"
+                @click="closeClearWorkflows"
+              >
+                {{ t('common.cancel') }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-error-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-error-700 disabled:opacity-50"
+                :disabled="isClearingWorkflows"
+                @click="confirmClearWorkflows"
+              >
+                {{ isClearingWorkflows ? t('settings.clearWorkflowsClearing') : t('settings.clearWorkflowsConfirm') }}
+              </button>
             </div>
           </div>
         </Transition>
@@ -1158,4 +1255,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
     :error-message="subError"
     @confirm="confirmPlanChange"
   />
+
+  <ClientOnly>
+    <ManageMembersModal v-model:open="isManageMembersOpen" />
+  </ClientOnly>
 </template>

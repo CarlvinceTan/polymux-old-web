@@ -146,15 +146,15 @@ test.describe('Forgot Password, Reset Password, Confirm, Verify Email Pages', ()
   })
 
   test('confirm with auth_redirect in sessionStorage redirects to that URL', async ({ page }) => {
-    // Set sessionStorage key 'auth_redirect' to '/dashboard/console'
+    // Set sessionStorage key 'auth_redirect' to '/workflow/new'
     await page.goto('/')
-    await page.evaluate(() => sessionStorage.setItem('auth_redirect', '/dashboard/console'))
+    await page.evaluate(() => sessionStorage.setItem('auth_redirect', '/workflow/new'))
 
     // Navigate to /confirm
     await page.goto('/confirm')
 
-    // expect: redirected to /dashboard/console
-    await expect(page).toHaveURL(/\/dashboard\/console/)
+    // expect: redirected to /workflow/new
+    await expect(page).toHaveURL(/\/workflow\/new/)
   })
 
   // ─── VERIFY EMAIL ──────────────────────────────────────────────────────────

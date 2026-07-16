@@ -1,6 +1,6 @@
 -- Distinguish chat-driven activity from workflow_run engine activity for the
 -- workflow-list spinner. `is_running` is a coarse "something is happening"
--- bool; the SidePanel needs to pick between two visually distinct indicators
+-- bool; the Sidebar needs to pick between two visually distinct indicators
 -- and was previously inferring the kind only for the currently-open workflow.
 -- Background workflows fell back to the workflow_run progress arc, even when
 -- the running activity was actually orchestrator-spawned browser agents from

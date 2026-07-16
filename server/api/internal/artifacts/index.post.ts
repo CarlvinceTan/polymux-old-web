@@ -14,6 +14,8 @@ import { planLimitsEnforce } from '~~/server/utils/billing/planLimitsEnforce'
 //   size_bytes?: number,          // bytes-on-disk; 0 for inline content
 //   storage_path?: string,        // object key in `artifacts` bucket
 //   content?: string,             // inline body for small text artifacts
+//   workflow_run_id?: string,     // optional run evidence link
+//   artifact_type?: string,       // screenshot | video | diff | trace | log | download | other
 //   created_by_agent_id?: string  // browser agent id, if a sub-agent produced it
 // }
 //
@@ -29,8 +31,12 @@ interface Body {
   size_bytes?: unknown
   storage_path?: unknown
   content?: unknown
+  workflow_run_id?: unknown
+  artifact_type?: unknown
   created_by_agent_id?: unknown
 }
+
+const ARTIFACT_TYPES = new Set(['screenshot', 'video', 'diff', 'trace', 'log', 'download', 'other'])
 
 export default defineEventHandler(async (event) => {
   await requirePolymuxSecret(event)
@@ -78,6 +84,11 @@ export default defineEventHandler(async (event) => {
   const agentId = typeof body.created_by_agent_id === 'string' && body.created_by_agent_id
     ? body.created_by_agent_id
     : null
+  const workflowRunId = typeof body.workflow_run_id === 'string' && body.workflow_run_id
+    ? body.workflow_run_id
+    : null
+  const artifactTypeRaw = typeof body.artifact_type === 'string' ? body.artifact_type : ''
+  const artifactType = ARTIFACT_TYPES.has(artifactTypeRaw) ? artifactTypeRaw : 'other'
 
   const admin = serverSupabaseServiceRole(event)
 
@@ -129,11 +140,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { data, error } = await admin
+  const artifactApi = admin as unknown as {
+    from: (table: string) => {
+      insert: (row: unknown) => {
+        select: (cols: string) => { single: () => Promise<{ data: { id?: string } | null, error: { message: string } | null }> }
+      }
+    }
+  }
+  const { data, error } = await artifactApi
     .from('artifacts')
     .insert({
       workflow_id: sessionId,
+      workflow_run_id: workflowRunId,
       workspace_id: workspaceId,
+      artifact_type: artifactType,
       name,
       mime_type: mimeType,
       size_bytes: sizeBytes,
@@ -141,7 +161,7 @@ export default defineEventHandler(async (event) => {
       content,
       created_by_agent_id: agentId,
     })
-    .select('id, workflow_id, workspace_id, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
+    .select('id, workflow_id, workflow_run_id, workspace_id, artifact_type, name, mime_type, size_bytes, storage_path, content, created_by_agent_id, created_at')
     .single()
 
   if (error || !data) {

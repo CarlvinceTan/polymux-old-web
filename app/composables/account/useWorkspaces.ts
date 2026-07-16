@@ -249,9 +249,9 @@ export function useWorkspaces() {
   }
 
   // Resolves with the current workspace id once it becomes available. Used by
-  // pages that mount before SidePanel finishes bootstrapping workspaces (e.g.
-  // /workflow/new directly after an OAuth confirm, when localStorage has no
-  // cached workspace id yet). Resolves null if the wait times out.
+  // pages that mount before Sidebar finishes bootstrapping workspaces (e.g. a
+  // deep-linked page loaded directly after an OAuth confirm, when localStorage
+  // has no cached workspace id yet). Resolves null if the wait times out.
   function waitForWorkspace(timeoutMs = 10000): Promise<string | null> {
     if (currentWorkspaceId.value) return Promise.resolve(currentWorkspaceId.value)
     if (!import.meta.client) return Promise.resolve(null)

@@ -90,8 +90,8 @@ export default defineEventHandler(async (event) => {
       amountCents: String(amountCents),
       type: 'wallet_top_up',
     },
-    success_url: `${origin}/vault/wallet?top_up=success`,
-    cancel_url: `${origin}/vault/wallet?top_up=cancelled`,
+    success_url: `${origin}/wallet?top_up=success`,
+    cancel_url: `${origin}/wallet?top_up=cancelled`,
   })
 
   if (!session.url) {

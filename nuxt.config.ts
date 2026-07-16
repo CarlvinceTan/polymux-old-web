@@ -33,11 +33,28 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    "/workspace": { redirect: "/integrations/installed" },
-    "/integrations": { redirect: "/integrations/installed" },
-    "/dashboard/integrations": { redirect: "/integrations/installed" },
-    "/dashboard/marketplace": { redirect: "/integrations/marketplace" },
-    "/vault": { redirect: "/vault/accounts" },
+    // Connections — the integrations browse surface is now the top-level
+    // /connections page. Keep the old nested + sibling entry points redirecting.
+    "/workspace": { redirect: "/connections" },
+    "/integrations": { redirect: "/connections" },
+    "/integrations/browse": { redirect: "/connections" },
+    "/dashboard/integrations": { redirect: "/connections" },
+    "/dashboard/marketplace": { redirect: "/connections" },
+    // Files / Credentials / Wallet — the former Vault section, flattened to
+    // top-level paths. Files keeps its settings + custom sub-pages.
+    "/vault": { redirect: "/files" },
+    "/vault/files": { redirect: "/files" },
+    "/vault/settings": { redirect: "/files/settings" },
+    "/vault/custom/**": { redirect: "/files/custom/**" },
+    "/vault/credentials": { redirect: "/credentials" },
+    "/vault/accounts": { redirect: "/credentials" },
+    "/vault/wallet": { redirect: "/wallet" },
+    // Storage merged into Files — keep old links working.
+    "/storage": { redirect: "/files" },
+    "/storage/files": { redirect: "/files" },
+    "/storage/settings": { redirect: "/files/settings" },
+    // Schedule — promoted out of the dashboard to a top-level path.
+    "/dashboard/schedule": { redirect: "/schedule" },
     "/documentation": { redirect: "/documentation/introduction" },
   },
   app: {
@@ -45,29 +62,29 @@ export default defineNuxtConfig({
       // Canonical, og:url, and the titleTemplate function live in app.vue
       // (nuxt.config head must be JSON-serializable — no functions allowed).
       // This default title is the SSR fallback when a page doesn't set one.
-      title: "Polymux — AI Agents for Browser Automation",
+      title: "Polymux — Automated End-to-End Flow Testing",
       htmlAttrs: { lang: "en" },
       meta: [
         {
           name: "description",
           content:
-            "Polymux orchestrates AI agents for browser automation. Run multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+            "Polymux captures user journeys as reusable Flows, runs them through platform runners, and verifies expected behaviour with Checks, Artifacts, and replayable evidence.",
         },
         {
           name: "keywords",
           content:
-            "AI agents, browser automation, multi-agent orchestration, AI workflow, live browser sessions, web automation, Polymux",
+            "end-to-end testing, automated testing, user flows, AI testing, flow checks, test artifacts, Polymux",
         },
         { name: "robots", content: "index,follow" },
         { name: "theme-color", content: "#000000" },
         {
           property: "og:title",
-          content: "Polymux — AI Agents for Browser Automation",
+          content: "Polymux — Automated End-to-End Flow Testing",
         },
         {
           property: "og:description",
           content:
-            "Orchestrate AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+            "Capture user journeys as reusable Flows, run them through platform runners, and verify behaviour with Checks, Artifacts, and replayable evidence.",
         },
         { property: "og:image", content: "https://polymux.com/og-image.png" },
         { property: "og:image:width", content: "1200" },
@@ -78,12 +95,12 @@ export default defineNuxtConfig({
         { name: "twitter:card", content: "summary_large_image" },
         {
           name: "twitter:title",
-          content: "Polymux — AI Agents for Browser Automation",
+          content: "Polymux — Automated End-to-End Flow Testing",
         },
         {
           name: "twitter:description",
           content:
-            "Orchestrate AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+            "Capture user journeys as reusable Flows, run them through platform runners, and verify behaviour with Checks, Artifacts, and replayable evidence.",
         },
         { name: "twitter:image", content: "https://polymux.com/og-image.png" },
       ],
@@ -102,7 +119,7 @@ export default defineNuxtConfig({
             url: "https://polymux.com",
             logo: "https://polymux.com/og-image.png",
             description:
-              "Polymux orchestrates AI agents for browser automation, with multi-agent workflows, live browser sessions, secure vaults, and replayable runs.",
+              "Polymux captures user journeys as reusable Flows, runs them through platform runners, and verifies expected behaviour with Checks, Artifacts, and replayable evidence.",
             // TODO: add social URLs once handles are claimed (X, LinkedIn, GitHub, YouTube, etc.)
             sameAs: [],
           }),

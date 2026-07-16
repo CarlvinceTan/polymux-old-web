@@ -10,8 +10,13 @@ const props = withDefaults(
     width?: string
     /** Lighter chrome (smaller radius, softer shadow) for small floating panels. */
     compact?: boolean
+    /** Inset rounded-pill rows: adds symmetric vertical padding so the first/last
+     *  row sit the same distance from the panel edge as the rows' own `mx-*`
+     *  horizontal inset (used by MenuItem-based menus). Leave off for the
+     *  edge-to-edge-hover dropdowns whose rows must reach the rounded corners. */
+    inset?: boolean
   }>(),
-  { placement: 'below', align: 'left', compact: false },
+  { placement: 'below', align: 'left', compact: false, inset: false },
 )
 
 const dropdownRef = ref<HTMLElement | null>(null)
@@ -126,6 +131,7 @@ defineExpose({
           compact
             ? 'rounded-xl shadow-md shadow-black/[0.06] ring-1 ring-neutral-200/70'
             : 'rounded-2xl shadow-lg ring-1 ring-neutral-200',
+          inset ? 'py-1' : '',
           width ?? '',
         ]"
         :style="measured ? posStyle : { ...posStyle, visibility: 'hidden' }"

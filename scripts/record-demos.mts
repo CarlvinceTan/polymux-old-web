@@ -149,7 +149,7 @@ function loadDemoCredentials(): { email: string, password: string } | null {
 }
 
 async function isAuthenticated(page: Page, baseUrl: string): Promise<boolean> {
-  await page.goto(new URL('/dashboard/console', baseUrl).href, { waitUntil: 'domcontentloaded' })
+  await page.goto(new URL('/workflow/new', baseUrl).href, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(800)
   return !page.url().includes('/sign-in')
 }
@@ -258,7 +258,7 @@ async function loginAndSaveSession(
 
   console.log('Signing in for demo recording…')
   await signIn(page, baseUrl, creds.email, creds.password)
-  await page.goto(new URL('/dashboard/console', baseUrl).href, { waitUntil: 'domcontentloaded' })
+  await page.goto(new URL('/workflow/new', baseUrl).href, { waitUntil: 'domcontentloaded' })
   await waitForAppReady(page)
 
   if (!(await isAuthenticated(page, baseUrl))) {
@@ -288,7 +288,7 @@ async function ensureAuthenticatedSession(
     const page = await context.newPage()
     const ok = await isAuthenticated(page, baseUrl)
     if (ok) {
-      await page.goto(new URL('/dashboard/console', baseUrl).href, { waitUntil: 'domcontentloaded' })
+      await page.goto(new URL('/workflow/new', baseUrl).href, { waitUntil: 'domcontentloaded' })
       await waitForAppReady(page)
       await context.storageState({ path: sessionPath })
       await browser.close()

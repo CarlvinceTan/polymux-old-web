@@ -19,6 +19,10 @@ const props = withDefaults(
     browserMode?: 'server' | 'extension'
     /** Orchestrator and/or browser agents are actively working. */
     agentsActive?: boolean
+    /** Which options the OPTIONS menu surfaces. 'workflow' = browser-agent
+     *  options (e.g. Show cursor); 'console' = the general Chat assistant, which
+     *  has no viewport/cursor options. */
+    optionsContext?: 'workflow' | 'console'
   }>(),
   {
     hint: undefined,
@@ -27,6 +31,7 @@ const props = withDefaults(
     disabled: false,
     browserMode: 'server',
     agentsActive: false,
+    optionsContext: 'workflow',
   },
 )
 
@@ -245,6 +250,7 @@ function onFileInputChange(e: Event) {
       <BrowserModeMenu
         v-model="browserModeProxy"
         :feature-enabled="isExtensionModeGloballyAllowed()"
+        :context="optionsContext"
       />
     </div>
   </div>

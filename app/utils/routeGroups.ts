@@ -18,6 +18,13 @@ export const AUTH_PREFIXES = [
 export const PROTECTED_PREFIXES = [
   '/workflow',
   '/dashboard',
+  '/schedule',
+  '/connections',
+  '/files',
+  '/settings',
+  '/credentials',
+  '/wallet',
+  // Legacy bases kept so their redirects still resolve as protected routes.
   '/storage',
   '/vault',
   '/integrations',

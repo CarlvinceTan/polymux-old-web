@@ -34,7 +34,7 @@ const props = withDefaults(defineProps<{
    *  Stops the browser agent. */
   onStop?: () => void
   /** Which engine drives the running indicator. 'workflow' renders the
-   *  gold progress arc (matches SidePanel); anything else renders the
+   *  gold progress arc (matches Sidebar); anything else renders the
    *  spinner. Null when nothing is running globally. */
   runningKind?: 'chat' | 'workflow' | null
   /** Object URL for the latest JPEG screencast frame */
@@ -48,9 +48,11 @@ const props = withDefaults(defineProps<{
    *  upstream — Viewport itself just paints when the flag is on and a
    *  position is available. */
   showCursor?: boolean
-  /** Monotonic per-agent click counter from the driver. Each increment fires a
-   *  one-shot ripple from the cursor's hotspot. */
+  /** Monotonic per-agent click counter from the driver. Each increment plays a
+   *  one-shot gold fill on the cursor. */
   clickNonce?: number
+  /** True while this agent is mid-drag — holds the cursor's gold fill. */
+  dragging?: boolean
 }>(), {
   isLoading: true,
   url: 'localhost:3001/instance_alpha/preview/session/very-long-url-to-demonstrate-truncation',
@@ -195,6 +197,7 @@ function runStopClick(e: Event) {
             v-if="showAgentCursor && cursor"
             :cursor="cursor"
             :click-nonce="clickNonce"
+            :dragging="dragging"
             :size="thumbnail ? 12 : 20"
           />
           <!-- "Done" glow: a soft emerald gradient that breathes over the
@@ -249,7 +252,7 @@ function runStopClick(e: Event) {
       <!-- Run / stop indicator. Replaces the dot-matrix StatusLine so each
            card carries an actionable control: while the agent is working
            we show either a workflow_run progress arc (gold, matches the
-           SidePanel running indicator) or a generic chat-driven spinner.
+           Sidebar running indicator) or a generic chat-driven spinner.
            Hovering swaps the indicator for a stop icon; clicking calls
            onStop. When idle the button shows a play glyph and clicking
            calls onRun. -->

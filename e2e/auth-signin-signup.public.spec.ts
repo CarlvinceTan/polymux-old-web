@@ -80,16 +80,16 @@ test.describe('Sign-In and Sign-Up Pages', () => {
   })
 
   test('redirect parameter is honoured after sign-in', async ({ page }) => {
-    // Navigate to /sign-in?redirect=%2Fdashboard%2Fconsole
-    await page.goto('/sign-in?redirect=%2Fdashboard%2Fconsole')
+    // Navigate to /sign-in?redirect=%2Fworkflow%2Fnew
+    await page.goto('/sign-in?redirect=%2Fworkflow%2Fnew')
 
     // Sign in with valid credentials
     await page.locator('#signin-email').fill('carlvince@live.com')
     await page.locator('#signin-password').fill('testing')
     await page.getByRole('button', { name: 'Sign in' }).click()
 
-    // expect: redirected to /dashboard/console
-    await expect(page).toHaveURL(/\/dashboard\/console/)
+    // expect: redirected to /workflow/new
+    await expect(page).toHaveURL(/\/workflow\/new/)
   })
 
   test('back button navigates to previous page', async ({ page }) => {

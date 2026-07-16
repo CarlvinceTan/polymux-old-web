@@ -20,6 +20,7 @@ const props = defineProps<{
   frameUrls?: Map<string, string>
   cursorPositions?: Map<string, CursorState>
   cursorClicks?: Map<string, number>
+  cursorDragging?: Map<string, boolean>
   showCursor?: boolean
   renameable?: boolean
   sessionId: string
@@ -194,6 +195,7 @@ function onJumpClick() {
           :frame-urls="frameUrls"
           :cursor-positions="cursorPositions"
           :cursor-clicks="cursorClicks"
+          :cursor-dragging="cursorDragging"
           :show-cursor="showCursor"
           :browser-agent-cap="props.browserAgentCap"
           :browser-agent-cap-resolved="props.browserAgentCapResolved"

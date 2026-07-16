@@ -78,7 +78,7 @@
     {
       "key": "welcome",
       "recording": {
-        "route": "/dashboard/console",
+        "route": "/workflow/new",
         "steps": [
           { "waitFor": "[data-testid=workspace-dropdown-trigger]" },
           { "wait": 2500 },
@@ -100,7 +100,7 @@
     {
       "key": "workflows",
       "recording": {
-        "route": "/dashboard/console",
+        "route": "/workflow/new",
         "steps": [
           { "waitFor": "[data-testid=workflow-flow-view-tab]" },
           { "wait": 3500 },

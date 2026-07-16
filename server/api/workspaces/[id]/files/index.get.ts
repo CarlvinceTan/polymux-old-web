@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   const childPattern = path === '' ? '%' : `${path}/%`
   const grandchildPattern = path === '' ? '%/%' : `${path}/%/%`
 
-  const [permsResult, orderResult, metadataResult, integrationsResult] = await Promise.all([
+  const [permsResult, orderResult, metadataResult, descendantsResult, integrationsResult] = await Promise.all([
     supabase
       .from('workspace_file_permissions')
       .select('path, user_id, grant_level')
@@ -48,10 +48,18 @@ export default defineEventHandler(async (event) => {
       .maybeSingle(),
     admin
       .from('files')
-      .select('id, path, kind, backend, size_bytes, backend_mtime')
+      .select('id, path, kind, backend, size_bytes, backend_mtime, created_at')
       .eq('workspace_id', workspaceId)
       .like('path', childPattern)
       .not('path', 'like', grandchildPattern),
+    // Everything strictly *inside* the direct-child folders (depth ≥ current+2).
+    // Used to compute each child folder's recursive size and whether it's empty
+    // — folders have no size_bytes of their own, so we sum their descendants.
+    admin
+      .from('files')
+      .select('path, kind, size_bytes, backend_mtime')
+      .eq('workspace_id', workspaceId)
+      .like('path', grandchildPattern),
     admin
       .from('workspace_integrations')
       .select('provider')
@@ -85,6 +93,7 @@ export default defineEventHandler(async (event) => {
     kind: 'file' | 'folder'
     size: number
     mtime: string | null
+    createdAt: string | null
   }
   const metadataByName = new Map<string, MetaEntry>()
   const orphanFolderIds: string[] = []
@@ -102,6 +111,7 @@ export default defineEventHandler(async (event) => {
       kind,
       size: Number(m.size_bytes ?? 0),
       mtime: (m.backend_mtime as string | null) ?? null,
+      createdAt: (m.created_at as string | null) ?? null,
     })
   }
   if (orphanFolderIds.length > 0) {
@@ -137,6 +147,32 @@ export default defineEventHandler(async (event) => {
     return roleDefault
   }
 
+  // For each direct-child folder (keyed by its top-level name under `path`),
+  // total the size of its readable descendant files and note whether it has any
+  // readable descendant at all (empty vs non-empty). Respects per-path
+  // permissions so unreadable contents don't leak into size or the empty flag.
+  const folderSizeByName = new Map<string, number>()
+  const folderMtimeByName = new Map<string, string>()
+  const nonEmptyFolderNames = new Set<string>()
+  for (const row of descendantsResult.data ?? []) {
+    const p = row.path as string
+    if (evaluatePermission(p) === 'none') continue
+    const rel = path === '' ? p : p.slice(path.length + 1)
+    const firstSeg = rel.split('/')[0]
+    if (!firstSeg) continue
+    nonEmptyFolderNames.add(firstSeg)
+    if ((row.kind as string) !== 'folder') {
+      folderSizeByName.set(firstSeg, (folderSizeByName.get(firstSeg) ?? 0) + Number(row.size_bytes ?? 0))
+    }
+    // Track the most recent descendant mtime so the folder's "Date modified"
+    // reflects when its contents last changed (Finder-style).
+    const mtime = row.backend_mtime as string | null
+    if (mtime) {
+      const cur = folderMtimeByName.get(firstSeg)
+      if (!cur || mtime > cur) folderMtimeByName.set(firstSeg, mtime)
+    }
+  }
+
   const files: Array<{
     id: string
     name: string
@@ -145,13 +181,23 @@ export default defineEventHandler(async (event) => {
     createdAt: string
     provider: Backend
   }> = []
-  const folders: Array<{ name: string, path: string, provider: Backend }> = []
+  const folders: Array<{ name: string, path: string, provider: Backend, size: number, empty: boolean, createdAt: string }> = []
 
   for (const [name, meta] of metadataByName) {
     const logicalPath = path ? `${path}/${name}` : name
     if (evaluatePermission(logicalPath) === 'none') continue
     if (meta.kind === 'folder') {
-      folders.push({ name, path: logicalPath, provider: meta.backend })
+      // Prefer the newest descendant mtime, then the folder's own backend mtime,
+      // then its row creation time — so every folder shows a date.
+      const createdAt = folderMtimeByName.get(name) ?? meta.mtime ?? meta.createdAt ?? ''
+      folders.push({
+        name,
+        path: logicalPath,
+        provider: meta.backend,
+        size: folderSizeByName.get(name) ?? 0,
+        empty: !nonEmptyFolderNames.has(name),
+        createdAt,
+      })
     } else {
       files.push({
         id: meta.id,

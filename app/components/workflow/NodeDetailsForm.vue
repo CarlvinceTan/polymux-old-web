@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkflowNode } from '~/composables/workflows/useWorkflows'
+import type { FlowCheck, FlowCheckMode, WorkflowNode } from '~/composables/workflows/useWorkflows'
 
 const props = defineProps<{
   nodeId: string
@@ -19,6 +19,7 @@ const title = ref(props.node.title ?? '')
 const actions = ref<string[]>([...(props.node.actions ?? [])])
 const details = ref(props.node.details ?? '')
 const notes = ref(props.node.notes ?? '')
+const checks = ref<FlowCheck[]>([...(props.node.checks ?? [])])
 const iterationsText = ref(
   typeof props.node.iterations === 'number' && props.node.iterations > 1
     ? String(props.node.iterations)
@@ -66,6 +67,9 @@ function commitIterations() {
 function commitActions() {
   commit({ actions: [...actions.value] })
 }
+function commitChecks() {
+  commit({ checks: checks.value.map(c => ({ ...c })) })
+}
 
 function startDraftAction() {
   if (props.locked) return
@@ -110,6 +114,34 @@ function removeAction(idx: number) {
   next.splice(idx, 1)
   actions.value = next
   commitActions()
+}
+
+function addCheck() {
+  if (props.locked) return
+  checks.value = [
+    ...checks.value,
+    {
+      id: `check-${Date.now().toString(36)}`,
+      label: '',
+      mode: 'auto',
+      expectation: '',
+    },
+  ]
+  commitChecks()
+}
+
+function removeCheck(idx: number) {
+  if (props.locked) return
+  const next = checks.value.slice()
+  next.splice(idx, 1)
+  checks.value = next
+  commitChecks()
+}
+
+function setCheckMode(idx: number, mode: FlowCheckMode) {
+  if (props.locked) return
+  checks.value[idx] = { ...checks.value[idx]!, mode }
+  commitChecks()
 }
 
 const focusInput = () => emit('focus', props.nodeId)
@@ -233,6 +265,77 @@ const actionRowCls = 'w-full bg-transparent border-0 outline-none text-[13px] te
         @blur="commitDetails(); blurInput()"
         @focus="focusInput"
       />
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between">
+        <div :class="labelCls">
+          {{ t('workflow.checks') }}
+        </div>
+        <button
+          type="button"
+          class="text-[11px] font-medium text-neutral-600 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="locked"
+          @click="addCheck"
+        >
+          + {{ t('workflow.addCheck') }}
+        </button>
+      </div>
+      <div v-if="checks.length" class="mt-1.5 space-y-2">
+        <div
+          v-for="(check, idx) in checks"
+          :key="check.id"
+          class="rounded-md border border-neutral-200 bg-neutral-50 p-2"
+        >
+          <div class="flex items-center gap-1.5">
+            <input
+              v-model="check.label"
+              :disabled="locked"
+              :class="inputCls + ' bg-white'"
+              :placeholder="t('workflow.checkLabelPlaceholder')"
+              type="text"
+              @input="scheduleIdleCommit(`check-label:${idx}`, commitChecks)"
+              @blur="commitChecks(); blurInput()"
+              @focus="focusInput"
+            >
+            <button
+              type="button"
+              class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-rose-500 disabled:cursor-not-allowed"
+              :disabled="locked"
+              :aria-label="t('workflow.removeCheck')"
+              @click="removeCheck(idx)"
+            >
+              <UIcon name="i-heroicons-x-mark-20-solid" class="size-3.5" />
+            </button>
+          </div>
+          <div class="mt-1.5 grid grid-cols-3 gap-1 rounded-md bg-white p-0.5">
+            <button
+              v-for="mode in (['auto', 'comparison', 'review'] as FlowCheckMode[])"
+              :key="mode"
+              type="button"
+              class="h-6 rounded text-[11px] font-medium transition-colors"
+              :class="check.mode === mode ? 'bg-neutral-950 text-white' : 'text-neutral-500 hover:text-neutral-900'"
+              :disabled="locked"
+              @click="setCheckMode(idx, mode)"
+            >
+              {{ t(`workflow.checkMode.${mode}`) }}
+            </button>
+          </div>
+          <textarea
+            v-model="check.expectation"
+            :disabled="locked"
+            :class="textareaCls + ' mt-1.5 min-h-[2rem] bg-white'"
+            :placeholder="t('workflow.checkExpectationPlaceholder')"
+            rows="2"
+            @input="scheduleIdleCommit(`check-expectation:${idx}`, commitChecks)"
+            @blur="commitChecks(); blurInput()"
+            @focus="focusInput"
+          />
+        </div>
+      </div>
+      <p v-else class="mt-1.5 text-[11px] italic text-neutral-500">
+        {{ t('workflow.checksEmpty') }}
+      </p>
     </section>
 
     <section>

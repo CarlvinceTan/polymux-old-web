@@ -1,11 +1,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 
+// Credential classification + agent-access policy mirror the Postgres enums
+// (public.credential_type, public.agent_access_policy). A stored password is
+// either a site login ('login') or a free-standing secret / API key ('secret').
+export type CredentialType = Database['public']['Enums']['credential_type']
+export type AgentAccessPolicy = Database['public']['Enums']['agent_access_policy']
+
 export interface PasswordEntry {
   id: string
   name: string
   url: string
   username: string
+  // 'login' = site credential (url + username); 'secret' = API key / token
+  // (name + value, no url/username). Defaults to 'login' for legacy rows.
+  type: CredentialType
+  // Whether agents may use this credential: 'allowed' (silent inject),
+  // 'consent_required' (ask the user first — the default), or 'blocked'.
+  agentAccess: AgentAccessPolicy
   lastUsed: string
   usageCount: number
   weak: boolean
@@ -26,6 +38,8 @@ interface WorkspacePasswordRow {
   username: string
   vault_secret_id: string
   is_weak: boolean
+  type: CredentialType
+  agent_access: AgentAccessPolicy
   usage_count: number
   last_used_at: string | null
   last_used_by: string | null
@@ -39,6 +53,8 @@ function toEntry(row: WorkspacePasswordRow): PasswordEntry {
     name: row.name,
     url: row.url,
     username: row.username,
+    type: row.type ?? 'login',
+    agentAccess: row.agent_access ?? 'consent_required',
     lastUsed: row.last_used_at ?? row.created_at,
     usageCount: row.usage_count,
     weak: row.is_weak,
@@ -120,6 +136,7 @@ export function usePasswords() {
     username: string,
     password: string,
     name: string,
+    opts?: { type?: CredentialType; agentAccess?: AgentAccessPolicy },
   ): Promise<PasswordEntry | null> {
     const id = wsId.value
     if (!id) return null
@@ -132,10 +149,17 @@ export function usePasswords() {
         p_username: username,
         p_password: password,
         p_is_weak: isWeakPassword(password),
+        p_type: opts?.type ?? 'login',
+        p_agent_access: opts?.agentAccess ?? 'consent_required',
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
       queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) =>
+        [entry, ...(old ?? [])],
+      )
+      // The unified Vault-B credentials list is a separate query slot; new rows
+      // must land there too so the credentials table updates without a refetch.
+      queryClient.setQueryData(['workspace-credentials', id], (old: PasswordEntry[] | undefined) =>
         [entry, ...(old ?? [])],
       )
       return entry
@@ -158,6 +182,7 @@ export function usePasswords() {
     url: string,
     username: string,
     password?: string,
+    opts?: { type?: CredentialType; agentAccess?: AgentAccessPolicy },
   ): Promise<PasswordEntry | null> {
     error.value = null
     try {
@@ -168,17 +193,21 @@ export function usePasswords() {
         p_username: username,
         p_password: password ?? undefined,
         p_is_weak: password !== undefined ? isWeakPassword(password) : undefined,
+        p_type: opts?.type ?? undefined,
+        p_agent_access: opts?.agentAccess ?? undefined,
       })
       if (err) throw err
       const entry = toEntry(data as WorkspacePasswordRow)
       const id = wsId.value
       if (id) {
-        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) => {
+        const patch = (old: PasswordEntry[] | undefined) => {
           const arr = [...(old ?? [])]
           const idx = arr.findIndex(p => p.id === pwdId)
           if (idx !== -1) arr[idx] = entry
           return arr
-        })
+        }
+        queryClient.setQueryData(['workspace-passwords', id], patch)
+        queryClient.setQueryData(['workspace-credentials', id], patch)
       }
       return entry
     }
@@ -218,9 +247,9 @@ export function usePasswords() {
       if (err) throw err
       const id = wsId.value
       if (id) {
-        queryClient.setQueryData(['workspace-passwords', id], (old: PasswordEntry[] | undefined) =>
-          (old ?? []).filter(p => p.id !== pwdId),
-        )
+        const drop = (old: PasswordEntry[] | undefined) => (old ?? []).filter(p => p.id !== pwdId)
+        queryClient.setQueryData(['workspace-passwords', id], drop)
+        queryClient.setQueryData(['workspace-credentials', id], drop)
       }
       return true
     }

@@ -15,7 +15,7 @@ Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these
 
 ## Project Structure
 
-* The `SidePanel` is persistently fixed on the left across all pages.
+* The `Sidebar` is persistently fixed on the left across all pages.
 * Maintain a clean, consistent directory structure aligned with routing.
 
 ## Routing
@@ -58,7 +58,6 @@ Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these
   * `workflow/agent` → `app/pages/workflow/[id]/agent.vue` (chat + viewport + flow in one ChatLayout)
   * `workflow/schedule` → `app/pages/workflow/[id]/schedule.vue`
   * `workflow/artifacts` → `app/pages/workflow/[id]/artifacts.vue`
-  * `dashboard/console` → `app/pages/dashboard/console.vue`
   * `integrations/installed` → `app/pages/integrations/installed.vue`
   * `integrations/marketplace` → `app/pages/integrations/marketplace.vue`
   * `vault/wallet` → `app/pages/vault/wallet.vue`
@@ -69,8 +68,8 @@ Test account credentials are stored in `CLAUDE.local.md` (gitignored). Use these
   * `FileBrowser` — self-contained file browser (search, view toggle, filter, icon/list grid); drop it anywhere users need to access files
   * `SettingsSection` / `SettingsSectionRow` / `SettingsDropdown` / `SettingsToggle` — composable settings UI primitives
   * `TabPanel` — scrollable tab content container
-  * `PageHeader` — top navigation with tabs
-  * `SidePanel` — persistent left sidebar
+  * `SubNav` — slim in-card sub-navigation (quiet ghost-pill tabs + drag-reorderable custom tabs); sits at the top of the layout's content card. Replaced the old top `PageHeader` tab bar.
+  * `Sidebar` — persistent left sidebar
   * `ChatLayout` / `ChatMessages` / `PromptInput` — chat page composition (ChatLayout embeds ViewportGallery and WorkflowNodeCanvas via its view-mode switcher)
   * `ArtifactCard` / `ArtifactDetail` / `ArtifactsGallery` — artifact display
   * `Menu` / `MenuItem` — anchored menu surface (opens up or down) with row items

@@ -8,7 +8,6 @@ import type { StorageProvider } from '~/types/storage'
 import type { MigrateConfirmGroup } from '~/components/storage/MigrateConfirmModal.vue'
 
 const props = withDefaults(defineProps<{
-  storageName?: string
   /** Open the browser at this directory on mount / when the prop changes.
    *  Used by the storage page to honour `?path=...` deeplinks from polymux://
    *  chips in agent replies. Empty array (default) means the workspace root. */
@@ -17,7 +16,6 @@ const props = withDefaults(defineProps<{
    *  loading. Cleared after a match lands or when the user navigates away. */
   highlightFileName?: string
 }>(), {
-  storageName: 'Workspace',
   initialPath: () => [],
   highlightFileName: undefined,
 })
@@ -350,13 +348,18 @@ const selectedFileExtra = ref<{ size?: number; createdAt?: string } | null>(null
 const canGoBack = computed(() => historyIndex.value > 0)
 const canGoForward = computed(() => historyIndex.value < pathHistory.value.length - 1)
 
-const currentDirName = computed(() => {
-  if (currentPath.value.length === 0) return props.storageName
-  return currentPath.value[currentPath.value.length - 1]!
-})
+// Breadcrumb root shows the workspace name (the files live at the workspace
+// root), with the house icon. Subfolders render after it as " / subfolder".
+const rootLabel = computed(() => currentWorkspace.value?.name || t('common.workspace'))
 
 const breadcrumbSegments = computed(() => {
-  return [props.storageName, ...currentPath.value]
+  return [rootLabel.value, ...currentPath.value]
+})
+
+const selectedBreadcrumbLabel = computed(() => {
+  const selected = selectedItemsArray.value
+  if (selected.length !== 1) return ''
+  return selected[0]?.name ?? ''
 })
 
 function navigateToPath(path: string[]) {
@@ -669,8 +672,8 @@ const filteredFiles = computed(() => {
   }
 
   const allItems = [
-    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: 'folder' as FileIconName, id: `folder-${f.name}` })),
-    ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt })),
+    ...resultFolders.map(f => ({ kind: 'folder' as const, name: f.name, path: f.path, provider: f.provider, icon: 'folder' as FileIconName, id: `folder-${f.name}`, size: f.size, empty: f.empty, createdAt: f.createdAt })),
+    ...resultFiles.map(f => ({ kind: 'file' as const, name: f.name, path: f.path, provider: f.provider, icon: getIconForFile(f.name) as FileIconName, id: f.id, size: f.size, createdAt: f.createdAt, empty: false })),
   ]
 
   // Manual positioning only: ranked items (those the user has dragged) keep
@@ -705,6 +708,7 @@ const listItemsForView = computed(() => {
         path: '',
         provider: storageProvider.value,
         icon: pendingDuplicate.value.sourceIcon,
+        empty: false,
       },
       ...base,
     ]
@@ -719,6 +723,7 @@ const listItemsForView = computed(() => {
         path: '',
         provider: storageProvider.value,
         icon: 'folder' as FileIconName,
+        empty: true,
       },
       ...base,
     ]
@@ -979,6 +984,9 @@ async function commitPendingNewFolder() {
     name: finalName,
     path: optimisticPath,
     provider: storageProvider.value,
+    size: 0,
+    empty: true,
+    createdAt: new Date().toISOString(),
   }
   const alreadyExists = folders.value.some(f => f.name === finalName)
   // Prepend + rank first so the new folder takes over the pending row's
@@ -2238,8 +2246,8 @@ watch(multiDragActive, (active) => {
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col relative">
-    <div class="ghost-panel flex min-h-0 min-w-0 flex-1 flex-col rounded-[1.25rem] bg-white">
-      <div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem]">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col bg-white">
+      <div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
           <div
             v-if="showEmptyFolderOverlay"
@@ -2279,51 +2287,77 @@ watch(multiDragActive, (active) => {
             </div>
           </div>
 
-        <div class="relative z-20 shrink-0 bg-white">
-          <div class="px-5 pt-5 pb-2.5 sm:px-6 sm:pt-6 sm:pb-3">
-            <div class="flex items-center gap-2">
-              <div v-if="currentPath.length > 0" class="shrink-0">
-                <button
-                  class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-black transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                  :disabled="!canGoBack"
-                  :aria-label="t('storage.toolbar.back')"
-                  @click="goBack"
-                >
-                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                </button>
-              </div>
-
-              <div class="min-w-0 flex-1 flex flex-col">
-                <h2 class="truncate text-headline-md font-semibold text-neutral-950 pl-2">
-                  {{ currentDirName }}
-                </h2>
-              </div>
+        <div class="relative z-20 shrink-0 bg-white border-b border-neutral-100">
+          <div class="px-3.5 pt-2 pb-1.5 sm:px-4">
+            <div class="flex items-center gap-1.5">
+              <nav
+                class="min-w-0 flex-1 flex items-center gap-1 overflow-hidden text-body-md font-semibold text-neutral-950"
+                :aria-label="t('vault.tabs.files')"
+              >
+                <template v-for="(segment, index) in breadcrumbSegments" :key="index">
+                  <span v-if="index > 0" class="shrink-0 text-neutral-400" aria-hidden="true">/</span>
+                  <button
+                    type="button"
+                    class="flex min-w-0 items-center gap-2 truncate rounded-md py-0.5 transition-colors hover:bg-neutral-100"
+                    :class="[
+                      index === 0 ? 'pr-1' : 'px-1',
+                      index === breadcrumbSegments.length - 1 ? 'text-neutral-950' : 'text-neutral-600 hover:text-neutral-950',
+                    ]"
+                    @click="navigateToBreadcrumb(index)"
+                  >
+                    <svg
+                      v-if="index === 0"
+                      class="size-4.5 shrink-0 -translate-y-px"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span class="truncate">{{ segment }}</span>
+                  </button>
+                </template>
+                <template v-if="selectedBreadcrumbLabel">
+                  <span class="shrink-0 text-neutral-400" aria-hidden="true">/</span>
+                  <span
+                    class="min-w-0 truncate px-1 py-0.5 text-neutral-500"
+                    :title="selectedBreadcrumbLabel"
+                    aria-current="false"
+                  >
+                    {{ selectedBreadcrumbLabel }}
+                  </span>
+                </template>
+              </nav>
 
               <template v-if="!selectedItem">
-                <div class="flex items-center gap-2 shrink-0">
-                  <div class="flex items-center rounded-lg bg-neutral-100 p-1">
+                <div class="flex items-center gap-1 shrink-0">
+                  <div class="flex items-center rounded-md bg-neutral-100 p-0.5">
                     <button
-                      class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
+                      class="group/action relative flex items-center justify-center rounded px-1.5 py-1 transition-all"
                       :class="viewMode === 'icon' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
                       :aria-label="t('storage.toolbar.iconView')"
                       @click="viewMode = 'icon'"
                     >
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="7" height="7" />
                         <rect x="14" y="3" width="7" height="7" />
                         <rect x="14" y="14" width="7" height="7" />
                         <rect x="3" y="14" width="7" height="7" />
                       </svg>
+                      <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.iconView') }}</span>
                     </button>
                     <button
-                      class="relative flex items-center justify-center rounded-md px-2 py-1.5 transition-all"
+                      class="group/action relative flex items-center justify-center rounded px-1.5 py-1 transition-all"
                       :class="viewMode === 'list' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'"
                       :aria-label="t('storage.toolbar.listView')"
                       @click="viewMode = 'list'"
                     >
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="8" y1="6" x2="21" y2="6" />
                         <line x1="8" y1="12" x2="21" y2="12" />
                         <line x1="8" y1="18" x2="21" y2="18" />
@@ -2331,18 +2365,19 @@ watch(multiDragActive, (active) => {
                         <line x1="3" y1="12" x2="3.01" y2="12" />
                         <line x1="3" y1="18" x2="3.01" y2="18" />
                       </svg>
+                      <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.listView') }}</span>
                     </button>
                   </div>
 
                   <div class="group/action relative">
                     <button
                       data-testid="storage-new-folder-button"
-                      class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                      class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="pendingNewFolder ? 'bg-neutral-100 text-neutral-950' : ''"
                       :aria-label="t('storage.toolbar.newFolder')"
                       @click="startNewFolder"
                     >
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                         <line x1="12" y1="11" x2="12" y2="17" />
                         <line x1="9" y1="14" x2="15" y2="14" />
@@ -2354,12 +2389,12 @@ watch(multiDragActive, (active) => {
                   <div class="group/action relative">
                     <button
                       data-testid="storage-upload-button"
-                      class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                      class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="isUploading ? 'opacity-50 pointer-events-none' : ''"
                       :aria-label="t('storage.toolbar.upload')"
                       @click="triggerUpload"
                     >
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                         <polyline points="17 8 12 3 7 8" />
                         <line x1="12" y1="3" x2="12" y2="15" />
@@ -2379,12 +2414,12 @@ watch(multiDragActive, (active) => {
 
                   <div ref="filterRef" class="group/action relative">
                     <button
-                      class="flex items-center justify-center size-8 rounded-lg text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                      class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                       :class="activeFilter !== 'all' ? 'text-neutral-950 bg-neutral-100' : ''"
                       :aria-label="t('storage.toolbar.filterFiles')"
                       @click="toggleFilter"
                     >
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="21" y1="4" x2="14" y2="4" />
                         <line x1="10" y1="4" x2="3" y2="4" />
                         <line x1="21" y1="12" x2="12" y2="12" />
@@ -2429,26 +2464,26 @@ watch(multiDragActive, (active) => {
 
                 <div
                   class="group/action relative shrink-0 transition-all duration-200"
-                  :class="searchExpanded ? 'w-1/4' : 'w-8'"
+                  :class="searchExpanded ? 'w-1/4' : 'w-[30px]'"
                 >
                   <div
                     ref="searchRef"
-                    class="w-full flex items-center h-8 rounded-lg border transition"
+                    class="w-full flex items-center h-[30px] rounded-md border transition"
                     :class="[
                       searchExpanded
                         ? (searchFocused
-                            ? 'border-neutral-400 bg-white ring-2 ring-neutral-950/10'
+                            ? 'border-neutral-400 bg-white'
                             : 'border-neutral-200 bg-neutral-50/50')
                         : 'border-transparent',
                     ]"
                   >
-<button
-  class="shrink-0 flex items-center justify-center size-8 rounded-lg transition-colors"
-  :class="searchExpanded ? 'text-neutral-500' : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100'"
-  :aria-label="t('storage.toolbar.searchFiles')"
-  @click="toggleSearch"
->
-                      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button
+                      class="shrink-0 flex items-center justify-center px-1.5 py-1.5 rounded-md transition-colors"
+                      :class="searchExpanded ? 'text-neutral-500' : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100'"
+                      :aria-label="t('storage.toolbar.searchFiles')"
+                      @click="toggleSearch"
+                    >
+                      <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8" />
                         <path d="m21 21-4.3-4.3" />
                       </svg>
@@ -2463,7 +2498,7 @@ watch(multiDragActive, (active) => {
                         name="storage-search"
                         type="text"
                         :placeholder="t('storage.toolbar.searchPlaceholder')"
-                        class="w-full min-w-0 bg-transparent text-body-md text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
+                        class="w-full min-w-0 bg-transparent text-body-sm text-neutral-950 placeholder:text-neutral-400 outline-none pr-2"
                         @focus="searchFocused = true"
                         @blur="searchFocused = false"
                         @keydown.escape="toggleSearch"
@@ -2472,6 +2507,7 @@ watch(multiDragActive, (active) => {
                   </div>
                   <span v-if="!searchExpanded" class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('storage.toolbar.search') }}</span>
                 </div>
+
               </template>
               <div v-else ref="selectionActionsRef" class="flex items-center gap-1 shrink-0">
                 <span
@@ -2483,10 +2519,10 @@ watch(multiDragActive, (active) => {
                 <!-- Share -->
                 <div class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isShareModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                     </svg>
                   </button>
@@ -2495,10 +2531,10 @@ watch(multiDragActive, (active) => {
                 <!-- Manage access (permissions) -->
                 <div v-if="canManageAccess" class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isPermissionsModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
                   </button>
@@ -2507,11 +2543,11 @@ watch(multiDragActive, (active) => {
                 <!-- Rename (single-select only) -->
                 <div v-if="!isMultiSelection" class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     :disabled="isRenaming"
                     @click="startRename"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9" />
                       <path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z" />
                     </svg>
@@ -2521,10 +2557,10 @@ watch(multiDragActive, (active) => {
                 <!-- Move -->
                 <div class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="openMoveModal"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                       <path d="M8 13h8" />
                       <path d="m13 10 3 3-3 3" />
@@ -2535,10 +2571,10 @@ watch(multiDragActive, (active) => {
                 <!-- Duplicate -->
                 <div class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="startDuplicate"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
@@ -2548,10 +2584,10 @@ watch(multiDragActive, (active) => {
                 <!-- Download (single file only) -->
                 <div v-if="!isMultiSelection && selectedItem?.kind === 'file'" class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="handleDownload"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                       <polyline points="7 10 12 15 17 10" />
                       <line x1="12" y1="15" x2="12" y2="3" />
@@ -2562,10 +2598,10 @@ watch(multiDragActive, (active) => {
                 <!-- Info (single-select only) -->
                 <div v-if="!isMultiSelection" class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-colors"
                     @click="isInfoModalOpen = true"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M12 16v-4" />
                       <path d="M12 8h.01" />
@@ -2576,10 +2612,10 @@ watch(multiDragActive, (active) => {
                 <!-- Delete -->
                 <div class="group/action relative">
                   <button
-                    class="flex items-center justify-center size-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                     @click="handleDelete"
                   >
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M3 6h18" />
                       <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                       <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
@@ -2589,12 +2625,12 @@ watch(multiDragActive, (active) => {
                   </button>
                   <span class="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200/80 bg-white px-2 py-1 text-[11px] leading-none text-neutral-600 opacity-0 shadow-sm transition-opacity duration-100 group-hover/action:opacity-100 z-10">{{ t('common.delete') }}</span>
                 </div>
-                <div class="w-px h-5 bg-neutral-200 shrink-0 mx-1" />
+                <div class="w-px h-5 bg-neutral-200 shrink-0 mx-0.5" />
                 <button
-                  class="flex items-center justify-center size-8 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                  class="flex items-center justify-center px-1.5 py-1.5 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
                   @click="deselectItem"
                 >
-                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18" />
                     <path d="m6 6 12 12" />
                   </svg>
@@ -2628,12 +2664,12 @@ watch(multiDragActive, (active) => {
               <!-- Icon view skeleton: same auto-fill grid + 88px cards as the real grid -->
               <div
                 v-if="viewMode === 'icon'"
-                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-5 pb-5 sm:px-6 sm:pb-6"
+                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3.5 pt-3 pb-4 sm:px-4 sm:pb-4"
               >
-                <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))">
-                  <div v-for="n in 18" :key="n" class="flex items-start justify-center py-2">
-                    <div class="flex w-[88px] flex-col items-center gap-2 p-2">
-                      <div class="size-14 rounded-xl bg-neutral-200 animate-pulse" />
+                <div class="grid gap-0.5" style="grid-template-columns: repeat(auto-fill, minmax(96px, 1fr))">
+                  <div v-for="n in 18" :key="n" class="flex items-start justify-center">
+                    <div class="flex w-full flex-col items-center gap-1.5 px-1.5 pt-2 pb-1.5">
+                      <div class="size-10 rounded-lg bg-neutral-200 animate-pulse" />
                       <div
                         class="h-2.5 rounded bg-neutral-200 animate-pulse"
                         :style="{ width: `${55 + (n * 17) % 35}%` }"
@@ -2643,12 +2679,12 @@ watch(multiDragActive, (active) => {
                 </div>
               </div>
 
-              <!-- List view skeleton: same bordered table + column grid as the real list -->
-              <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
-                <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
+              <!-- List view skeleton: same flush table + zebra rows as the real list -->
+              <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col pb-4 sm:pb-4">
+                <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                   <!-- Real column headers (static labels, not data — fine to show while loading) -->
                   <div
-                    class="grid shrink-0 items-center border-b border-neutral-200 bg-neutral-50/70 px-3 py-1.5 text-[11px] font-medium text-neutral-500"
+                    class="grid shrink-0 items-center border-b border-neutral-200 px-3.5 py-1 text-[11px] font-medium text-neutral-500 sm:px-4"
                     style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
                   >
                     <div class="truncate">{{ t('storage.listColumns.name') }}</div>
@@ -2659,11 +2695,12 @@ watch(multiDragActive, (active) => {
                   <div
                     v-for="n in 12"
                     :key="n"
-                    class="grid items-center border-b border-neutral-100 px-3 py-1.5"
+                    class="grid items-center px-3.5 py-1.5 sm:px-4"
+                    :class="n % 2 === 0 ? 'bg-neutral-50' : ''"
                     style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
                   >
                     <div class="flex min-w-0 items-center gap-2">
-                      <div class="size-4 shrink-0 rounded bg-neutral-200 animate-pulse" />
+                      <div class="size-4.5 shrink-0 rounded bg-neutral-200 animate-pulse" />
                       <div
                         class="h-3 rounded bg-neutral-200 animate-pulse"
                         :style="{ width: `${45 + (n * 23) % 45}%` }"
@@ -2695,14 +2732,14 @@ watch(multiDragActive, (active) => {
             <div
               v-else-if="viewMode === 'icon'"
               ref="marqueeContainer"
-              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6 sm:pb-6"
+              class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3.5 pt-3 pb-4 sm:px-4 sm:pb-4"
               @pointerdown="onMarqueePointerDown"
               @click.capture="onMarqueeClick"
             >
             <div
               v-draggable="[displayItems, sortableCommon]"
-              class="grid"
-              style="grid-template-columns: repeat(auto-fill, minmax(104px, 1fr))"
+              class="grid gap-0.5"
+              style="grid-template-columns: repeat(auto-fill, minmax(96px, 1fr))"
             >
               <div
                 v-for="file in displayItems"
@@ -2711,22 +2748,22 @@ watch(multiDragActive, (active) => {
                 :data-id="file.id"
                 :data-kind="file.kind"
                 :data-item="JSON.stringify({ kind: file.kind, name: file.name, path: file.path, provider: file.provider })"
-                class="flex justify-center items-start py-2"
+                class="flex justify-center items-start"
                 :class="isPendingRow(file) ? 'fb-pending-row' : ''"
               >
                 <div
                   data-fb-handle
-                  class="w-[88px] flex flex-col items-center gap-1.5 p-2 rounded-lg transition-colors text-left group cursor-pointer"
+                  class="w-fit max-w-[80px] flex flex-col items-center gap-1.5 px-1.5 pt-2 pb-1.5 rounded-md transition-colors text-left group cursor-pointer"
                   :class="[
                     isSelected(file.id) ? 'bg-neutral-50 shadow-sm' : '',
-                    isDragging ? '' : 'hover:bg-neutral-100',
                     multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
                   ]"
                   @click="handleRowClick(file)"
                   @dblclick="handleRowDblClick(file)"
                 >
-                <svg class="size-14 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                <svg class="size-10 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Non-empty folders render filled; empty folders stay a plain outline -->
+                    <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" :fill="file.empty ? undefined : 'currentColor'" />
 
                     <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                     <rect v-if="file.icon === 'image'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -2815,7 +2852,7 @@ watch(multiDragActive, (active) => {
                   v-model="pendingDuplicate.draftName"
                   name="duplicate-name"
                   type="text"
-                  class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
+                  class="w-[68px] max-w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onDuplicateInputFocus"
                   @keydown.enter.prevent="commitPendingDuplicate"
                   @keydown.escape.prevent="cancelPendingDuplicate"
@@ -2828,7 +2865,7 @@ watch(multiDragActive, (active) => {
                   v-model="pendingNewFolder.draftName"
                   name="new-folder-name"
                   type="text"
-                  class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
+                  class="w-[68px] max-w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onNewFolderInputFocus"
                   @keydown.enter.prevent="commitPendingNewFolder"
                   @keydown.escape.prevent="cancelPendingNewFolder"
@@ -2841,19 +2878,26 @@ watch(multiDragActive, (active) => {
                   v-model="renameInput"
                   name="file-rename"
                   type="text"
-                  class="w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
+                  class="w-[68px] max-w-full text-meta text-neutral-950 text-center bg-neutral-100 border border-neutral-400 rounded px-1 py-0.5 outline-none focus:border-neutral-950"
                   @focus="onRenameInputFocus"
                   @keydown.enter="confirmRename"
                   @keydown.escape="cancelRename"
                   @blur="confirmRename"
                 >
-                <div v-else class="flex items-center justify-center gap-1 w-full min-w-0">
-                  <span :title="file.name" class="text-meta text-neutral-950 leading-tight font-medium min-w-0 truncate">{{ file.name }}</span>
-                  <StorageProviderIcon
+                <!-- Name wraps up to 2 lines, centered, ellipsised past that.
+                     The provider icon flows inline as the last token of the name,
+                     so it sits right after the filename text (a hair of spacing) —
+                     on line 1 for short names, at the end of line 2 when wrapped. -->
+                <div v-else class="max-w-full min-w-0 px-0.5">
+                  <span
+                    :title="file.name"
+                    class="line-clamp-2 mx-auto w-fit max-w-[68px] text-center break-words text-meta text-neutral-950 leading-tight font-medium"
+                  >{{ file.name }}<StorageProviderIcon
                     v-if="file.provider !== 'local'"
                     :provider="file.provider as StorageProvider"
                     inline
-                  />
+                    class="ml-0.5 inline align-text-bottom"
+                  /></span>
                 </div>
                 </div>
               </div>
@@ -2865,12 +2909,12 @@ watch(multiDragActive, (active) => {
             />
             </div>
 
-            <!-- List view: Finder-style table with column headers -->
-            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 sm:px-6 sm:pb-6">
-              <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
-                <!-- Column headers -->
+            <!-- List view: flush Finder-style table (no panel chrome); zebra rows -->
+            <div v-else class="flex min-h-0 min-w-0 flex-1 flex-col pb-4 sm:pb-4">
+              <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <!-- Column headers (subtle, stays fixed above the scrolling rows) -->
                 <div
-                  class="grid shrink-0 items-center border-b border-neutral-200 bg-neutral-50/70 px-3 py-1.5 text-[11px] font-medium text-neutral-500"
+                  class="grid shrink-0 items-center border-b border-neutral-200 px-3.5 py-1 text-[11px] font-medium text-neutral-500 sm:px-4"
                   style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
                 >
                   <div class="truncate">{{ t('storage.listColumns.name') }}</div>
@@ -2888,7 +2932,7 @@ watch(multiDragActive, (active) => {
                 >
                   <div v-draggable="[displayItems, sortableCommon]" class="flex flex-col">
                   <div
-                    v-for="file in displayItems"
+                    v-for="(file, index) in displayItems"
                     :key="file.id"
                     data-file-item
                     :data-id="file.id"
@@ -2898,10 +2942,9 @@ watch(multiDragActive, (active) => {
                   >
                   <div
                     data-fb-handle
-                    class="grid items-center border-b border-neutral-100 px-3 py-1.5 transition-colors cursor-pointer"
+                    class="grid items-center px-3.5 py-1.5 transition-colors cursor-pointer sm:px-4"
                     :class="[
-                      isSelected(file.id) ? 'bg-neutral-50' : '',
-                      isDragging ? '' : 'hover:bg-neutral-100',
+                      isSelected(file.id) ? 'bg-neutral-100' : (index % 2 === 1 ? 'bg-neutral-50' : ''),
                       multiDragActive && isSelected(file.id) ? 'opacity-0' : '',
                     ]"
                     style="grid-template-columns: minmax(200px, 1fr) 96px 128px 172px; column-gap: 16px;"
@@ -2910,8 +2953,9 @@ watch(multiDragActive, (active) => {
                   >
                     <!-- Name column: icon + name bunched left -->
                     <div class="flex min-w-0 items-center gap-2">
-                      <svg class="size-4 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      <svg class="size-4.5 text-neutral-700 shrink-0" viewBox="0 0 24 24" fill="white" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <!-- Non-empty folders render filled; empty folders stay a plain outline -->
+                        <path v-if="file.icon === 'folder'" d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" :fill="file.empty ? undefined : 'currentColor'" />
 
                         <path v-if="file.icon === 'image'" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                         <rect v-if="file.icon === 'image'" x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -3043,9 +3087,9 @@ watch(multiDragActive, (active) => {
                       </template>
                     </div>
 
-                    <!-- Size column -->
+                    <!-- Size column (folders show their recursive total) -->
                     <div class="truncate text-right text-xs tabular-nums text-neutral-500">
-                      {{ file.kind === 'file' && 'size' in file ? formatSize(file.size as number) : '—' }}
+                      {{ 'size' in file ? formatSize(file.size as number) : '—' }}
                     </div>
 
                     <!-- Kind column -->
@@ -3190,7 +3234,7 @@ watch(multiDragActive, (active) => {
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                   </svg>
                   <span class="text-body-md text-neutral-950 font-medium truncate">
-                    {{ depth === 0 ? storageName : node.name }}
+                    {{ depth === 0 ? rootLabel : node.name }}
                   </span>
                 </button>
               </div>
@@ -3313,7 +3357,7 @@ watch(multiDragActive, (active) => {
 </template>
 
 <style scoped>
-/* Drag-and-drop visual states, mirrored from SidePanel's workflow reorder. */
+/* Drag-and-drop visual states, mirrored from Sidebar's workflow reorder. */
 [data-file-item] {
   will-change: transform;
   user-select: none;
@@ -3329,7 +3373,7 @@ watch(multiDragActive, (active) => {
    cell (104–250px wide) — wider than the 88px icon it contains — so any
    box-shadow on it drew a halo around the cell's bounds and read as a
    framed "box" around the icon. Keep the clone unadorned, mirroring
-   SidePanel's wf-drag. */
+   Sidebar's wf-drag. */
 .fb-drag {
   opacity: 0.95;
   box-shadow: none;

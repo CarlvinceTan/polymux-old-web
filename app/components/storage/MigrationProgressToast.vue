@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '#imports'
 
-const STORAGE_SETTINGS_PATH = '/storage/settings'
+const STORAGE_SETTINGS_PATH = '/files/settings'
 // Kick the success/failure card off quickly once the work is done.
 const AUTO_DISMISS_MS = 3000
 

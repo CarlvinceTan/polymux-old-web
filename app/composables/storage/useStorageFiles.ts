@@ -15,6 +15,12 @@ export interface StorageFolder {
   name: string
   path: string
   provider: StorageProvider
+  /** Recursive total size (bytes) of the folder's readable descendant files. */
+  size: number
+  /** True when the folder has no readable descendants. */
+  empty: boolean
+  /** Newest descendant mtime (falls back to the folder's own row); '' if unknown. */
+  createdAt: string
 }
 
 export interface StorageDirectory {

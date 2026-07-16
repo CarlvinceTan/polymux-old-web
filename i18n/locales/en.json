@@ -14,6 +14,7 @@
     "edit": "Edit",
     "copy": "Copy",
     "close": "Close",
+    "doubleClickToEdit": "Double-click to edit",
     "search": "Search",
     "back": "Back",
     "email": "Email",
@@ -21,9 +22,11 @@
     "attach": "Attach",
     "voice": "Voice",
     "settings": "Settings",
+    "preferences": "Preferences",
+    "options": "Options",
     "upgrade": "Upgrade",
     "upgradePlan": "Upgrade plan",
-    "installApp": "Install Apps",
+    "installApp": "Install apps",
     "language": "Language",
     "manage": "Manage",
     "help": "Help",
@@ -97,10 +100,16 @@
   "nav": {
     "dashboard": "Dashboard",
     "integrations": "Integrations",
+    "plugins": "Plugins",
+    "console": "Console",
+    "connections": "Connections",
+    "tools": "Tools",
     "storage": "Storage",
     "vault": "Vault",
-    "workflows": "Workflows",
-    "newWorkflow": "New Workflow",
+    "workflows": "Flows",
+    "newWorkflow": "New Flow",
+    "moveToFolder": "Move to folder",
+    "noFolder": "No folder",
     "addWorkspace": "Add Workspace",
     "mainSidebar": "Main sidebar",
     "main": "Main",
@@ -176,7 +185,7 @@
     "returnToSignIn": "Return to sign in"
   },
   "settings": {
-    "title": "Settings",
+    "title": "Preferences",
     "editProfile": "Edit profile",
     "freePlan": "Free plan",
     "proPlan": "Pro plan",
@@ -193,6 +202,17 @@
     "locationDenied": "Blocked by browser — update in browser settings",
     "locationPrompt": "You'll be asked to allow location access",
     "locationUnsupported": "Geolocation is not supported by your browser",
+    "clearWorkflows": "Clear all workflows",
+    "clearWorkflowsDesc": "Permanently delete every workflow in this workspace, along with their chats and history.",
+    "clearWorkflowsButton": "Clear all",
+    "clearWorkflowsTitle": "Clear all workflows",
+    "clearWorkflowsCannotUndo": "This can't be undone",
+    "clearWorkflowsWarning": "This will permanently delete all {count} workflows in this workspace, along with their chats and history. This action cannot be undone.",
+    "clearWorkflowsConfirm": "Clear all workflows",
+    "clearWorkflowsClearing": "Clearing…",
+    "clearWorkflowsDone": "Cleared {count} workflows",
+    "clearWorkflowsError": "Failed to clear workflows. Please try again.",
+    "clearWorkflowsPartialError": "Couldn't delete {count} workflows. Please try again.",
     "voiceAutoShutoff": "Voice auto-shutoff",
     "voiceAutoShutoffHint": "Seconds of silence before voice input turns off automatically (default 5). Set to 0 to turn off manually only.",
     "cloakedBrowser": "Cloaked browser",
@@ -246,9 +266,11 @@
     "expandedBrowserPreview": "Expanded browser preview",
     "removeAttachment": "Remove attachment",
     "fileUploadError": "Failed to upload {name}",
+    "loadHistoryError": "Couldn't load this chat history.",
     "chatView": "Chat",
     "viewportView": "View",
     "flowView": "Flow",
+    "discussInConsole": "Discuss in Console",
     "spawnBrowserAgent": "Spawn browser agent",
     "voiceListening": "Listening…",
     "voiceUnsupported": "Voice input isn't supported in this browser. Try Chrome, Edge, or Safari.",
@@ -262,7 +284,31 @@
     "copyToClipboard": "Copy to clipboard",
     "openFileRef": "Open file",
     "openFolderRef": "Open folder",
-    "openArtifactRef": "Open artifact"
+    "openArtifactRef": "Open artifact",
+    "welcomeSuggestion": "Show me something cool",
+    "welcomeSubtitle": "Ask anything, or describe what you want to automate.",
+    "welcomeSuggestions": {
+      "automate": {
+        "title": "Set up an automation",
+        "description": "Plan, build, and test the whole flow",
+        "prompt": "Help me set up an end-to-end automation: clarify the goal, map the steps, build the workflow, and test that it works."
+      },
+      "browse": {
+        "title": "Research to decision",
+        "description": "Browse, compare, and recommend next steps",
+        "prompt": "Research this end to end: browse the relevant sources, compare the options, summarize the tradeoffs, and recommend what to do next."
+      },
+      "summarize": {
+        "title": "Extract to report",
+        "description": "Gather sources and produce a clean output",
+        "prompt": "Turn source material into a finished output: gather the relevant pages or files, extract the key details, and produce a concise report."
+      },
+      "draft": {
+        "title": "Draft to follow-up",
+        "description": "Write, review, and prep the next action",
+        "prompt": "Help me handle this communication end to end: understand the context, draft the message, refine it, and suggest the follow-up."
+      }
+    }
   },
   "workflow": {
     "untitledNode": "Untitled step",
@@ -303,8 +349,8 @@
     "viewing": "Viewing",
     "rerunFromHere": "Run from here",
     "deleteNode": "Delete step",
-    "emptySubtitle": "No steps yet. Start a chat to build this workflow.",
-    "noWorkflowsSubtitle": "No workflow yet — it'll appear here as the agent builds one.",
+    "emptySubtitle": "No steps yet. Start a chat to build this Flow.",
+    "noWorkflowsSubtitle": "No Flow yet — it'll appear here as the agent builds one.",
     "title": "Title",
     "titlePlaceholder": "Short name of what this step achieves",
     "actions": "Actions",
@@ -314,14 +360,25 @@
     "actionsEmpty": "No actions yet — add one to describe how the title is achieved.",
     "details": "Details",
     "detailsPlaceholder": "Execution context the agent reads and updates during runs",
+    "checks": "Checks",
+    "addCheck": "Add check",
+    "removeCheck": "Remove check",
+    "checksEmpty": "No checks yet — add one to verify expected behaviour from run evidence.",
+    "checkLabelPlaceholder": "Expected behaviour",
+    "checkExpectationPlaceholder": "What evidence should prove this is correct?",
+    "checkMode": {
+      "auto": "Auto",
+      "comparison": "Compare",
+      "review": "Review"
+    },
     "notes": "Notes",
     "notesPlaceholder": "Your private notes — the agent does not read or modify these",
-    "savedToast": "Workflow saved",
-    "saveFailedToast": "Failed to save workflow",
-    "versionConflictToast": "Workflow was updated elsewhere. Latest version loaded — redo your edits.",
-    "saveRejectedToast": "Workflow changes couldn't be saved: {name} — {reason}",
-    "remoteSaveWhileDirty": "The agent saved new changes to this workflow. Save or discard your edits to see them.",
-    "agentSavedOther": "The agent saved workflow '{name}' — not the one you're viewing",
+    "savedToast": "Flow saved",
+    "saveFailedToast": "Failed to save Flow",
+    "versionConflictToast": "Flow was updated elsewhere. Latest version loaded — redo your edits.",
+    "saveRejectedToast": "Flow changes couldn't be saved: {name} — {reason}",
+    "remoteSaveWhileDirty": "The agent saved new changes to this Flow. Save or discard your edits to see them.",
+    "agentSavedOther": "The agent saved Flow '{name}' — not the one you're viewing",
     "runFailedToast": "Failed to start run",
     "saveBeforeRun": "Save your edits before running",
     "runLabel": "Run",
@@ -350,7 +407,8 @@
     "clearSelection": "Clear selection",
     "tabs": {
       "agent": "Agent",
-      "schedule": "Schedule",
+      "runs": "Runs",
+      "schedule": "Automations",
       "artifacts": "Artifacts",
       "stealth": "Settings"
     },
@@ -441,7 +499,55 @@
     "nextRunDue": "Due now",
     "inMinutes": "in {n}m",
     "inHours": "in {n}h",
-    "inDays": "in {n}d"
+    "inDays": "in {n}d",
+    "composerPlaceholder": "Message the core…",
+    "assistant": {
+      "title": "Core",
+      "subtitle": "Workspace assistant",
+      "connected": "MCP · CLI connected",
+      "connecting": "Connecting…",
+      "welcomeTitle": "Talk to the core",
+      "welcomeBody": "Your workspace assistant. Ask it to run work, recall context, or pick up a shelved focus."
+    },
+    "focuses": {
+      "title": "Focuses",
+      "new": "New focus",
+      "placeholderNote": "Shelved memory contexts. Live focus rail coming soon.",
+      "stubCurrent": "Current session",
+      "stubResearch": "Market research",
+      "stubInvoices": "Invoice triage"
+    },
+    "hindsight": {
+      "title": "Hindsight",
+      "subtitle": "Shared memory · {n} notes",
+      "view": "View memory",
+      "placeholderNote": "One shared workspace memory. Live source coming soon.",
+      "stubNote1": "Prefers concise summaries over long write-ups.",
+      "stubNote2": "Primary timezone is UTC; schedule runs accordingly.",
+      "stubNote3": "Always confirm before saving or editing a workflow."
+    }
+  },
+  "sidebar": {
+    "console": "Console",
+    "chat": "Chat",
+    "browse": "Browse"
+  },
+  "chats": {
+    "searchPlaceholder": "Search chats",
+    "newChat": "New Chat",
+    "untitled": "New chat",
+    "empty": "No chats yet",
+    "noResults": "No chats match",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archivedTitle": "Archived chats",
+    "resizeArchive": "Drag to resize",
+    "archivedSubtitle": "Archived chats are hidden from your chat list.",
+    "archiveEmpty": "No archived chats",
+    "clearArchive": "Clear archive",
+    "clearArchiveConfirm": "Permanently delete all archived chats?",
+    "clearArchiveConfirmButton": "Delete all",
+    "openingChat": "Opening chat…"
   },
   "search": {
     "placeholder": "Search workflows…",
@@ -507,6 +613,7 @@
   "integrations": {
     "installed": "Installed",
     "marketplace": "Marketplace",
+    "browse": "Browse",
     "publish": "Publish",
     "editorSubtitle": "Publish workflows, integrations, and plugins",
     "editorEmpty": "Nothing published yet",
@@ -585,6 +692,17 @@
     "filterLayouts": "Layouts",
     "filterIntegrations": "Connections",
     "filterInstalled": "Installed",
+    "filterAvailable": "Available",
+    "filterStatus": "Status",
+    "filterCategory": "Category",
+    "filterClear": "Clear filters",
+    "searchAllPlaceholder": "Search plugins…",
+    "colName": "Name",
+    "colDescription": "Description",
+    "colStatus": "Status",
+    "colInstalls": "Installs",
+    "colActions": "Open",
+    "installsCount": "{count} installs",
     "tagFilterBanner": "Showing listings tagged \"{tag}\".",
     "tagFilterClear": "Clear tag",
     "sortPopularity": "Popularity",
@@ -909,6 +1027,15 @@
       "partialSuccess": "Shared with {n} workspace(s) — some failed",
       "sharedItemsWithWorkspaces": "Shared {items} item(s) with {n} workspace(s)"
     },
+    "fileInfo": {
+      "type": "Type",
+      "location": "Location",
+      "storage": "Storage",
+      "size": "Size",
+      "created": "Created",
+      "kindFolder": "Folder",
+      "kindFile": "File"
+    },
     "settings": {
       "title": "Storage settings",
       "subtitle": "Control how files are saved across your storage providers.",
@@ -928,7 +1055,7 @@
       "providerLocalDesc": "On-device storage in this browser only.",
       "providerCloudDesc": "Polymux-managed storage shared with all workspace members.",
       "connectionsTitle": "Connections",
-      "connectionsDesc": "Connect or disconnect storage providers for this workspace.",
+      "connectionsDesc": "Work with Polymux across your favorite tools.",
       "connectionDeviceCapability": "Device",
       "migrationNeedsTwoProviders": "Connect at least two providers in Connections to migrate files between them.",
       "statusAvailable": "Available",
@@ -1214,8 +1341,8 @@
   "landing": {
     "useNow": "Use now",
     "meta": {
-      "title": "AI Agents for Browser Automation",
-      "description": "Polymux orchestrates AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs — built for teams."
+      "title": "Automated End-to-End Flow Testing",
+      "description": "Polymux captures user journeys as reusable Flows, runs them through platform runners, and verifies behaviour with Checks, Artifacts, and replayable evidence — built for teams."
     },
     "hero": {
       "title": "AI agents for the live web",
@@ -1557,9 +1684,67 @@
       "updatedAgo": "Updated {when}",
       "forget": "Forget"
     },
+    "credentials": {
+      "searchPlaceholder": "Search credentials…",
+      "empty": "No credentials saved yet",
+      "addCta": "Add a credential",
+      "noResults": "No credentials match your filters.",
+      "secretLabel": "Secret",
+      "use": "Use",
+      "edit": "Edit",
+      "more": "More actions",
+      "secured": "Secured",
+      "securedTooltip": "Encrypted at rest. Agents use it without it ever being revealed or copied.",
+      "neverUsed": "Never used",
+      "lastUsedAgo": "Used {when}",
+      "lastUsedByAgo": "Used by {name} · {when}",
+      "col": {
+        "name": "Name",
+        "username": "Identifier",
+        "agentAccess": "Agent access",
+        "lastUsed": "Last used",
+        "actions": "Actions"
+      },
+      "filters": {
+        "type": "Type",
+        "agentAccess": "Agent access",
+        "allTypes": "All",
+        "logins": "Logins",
+        "secrets": "Secrets",
+        "savedSignIns": "Saved sign-ins",
+        "allAccess": "All",
+        "clear": "Clear filters"
+      },
+      "access": {
+        "title": "Agent access",
+        "allowed": "Allow",
+        "consentRequired": "Ask",
+        "blocked": "Block",
+        "allowedHint": "Agents can use this credential without asking.",
+        "consentRequiredHint": "Agents must ask before each use.",
+        "blockedHint": "Agents can never use this credential.",
+        "updateFailed": "Couldn't update agent access."
+      },
+      "add": {
+        "title": "Add credential",
+        "typeLogin": "Login",
+        "typeSecret": "Secret / API key",
+        "secretNameLabel": "Name",
+        "secretNamePlaceholder": "e.g. OpenAI API key",
+        "secretValueLabel": "Secret value",
+        "secretValuePlaceholder": "Paste the key or token",
+        "secretScopeLabel": "Scope (optional)",
+        "secretScopePlaceholder": "e.g. production, read-only",
+        "consentNote": "New credentials require agent consent by default. You can change this anytime."
+      },
+      "addShort": "Add",
+      "usedBy": "Used by {name}"
+    },
     "tabs": {
-      "accounts": "Accounts",
-      "wallet": "Wallet"
+      "files": "Files",
+      "credentials": "Credentials",
+      "wallet": "Wallet",
+      "settings": "Settings"
     },
     "wallet": {
       "comingSoon": {
@@ -1570,7 +1755,9 @@
         "overview": "Overview",
         "activity": "Activity",
         "workflows": "Workflows",
-        "policies": "Policies"
+        "policies": "Policies",
+        "transactions": "Transactions",
+        "budgets": "Budgets"
       },
       "banner": {
         "topUpCompleted": "Top-up completed. Your balance has been updated.",
@@ -1580,6 +1767,7 @@
         "availableBalance": "Available balance",
         "autoTopUp": "Auto top-up",
         "autoTopUpOn": "On",
+        "autoTopUpSummary": "Refills to {amount} when it drops below {threshold}",
         "topUp": "Top up"
       },
       "activity": {
@@ -1646,6 +1834,8 @@
         "refund": "Refunds",
         "adjustment": "Adjustments"
       },
+      "dateYesterday": "Yesterday",
+      "dateDaysAgo": "{n}d ago",
       "workflowsView": {
         "workflowsLabel": "Workflows",
         "emptyAside": "No workflows yet.",
@@ -1761,15 +1951,50 @@
     "cancelledSummary": "2FA request cancelled for {site}."
   },
   "schedule": {
-    "title": "Schedule",
-    "subtitle": "Run \"{workflow}\" automatically on a recurring schedule",
+    "title": "Automations",
+    "subtitle": "Run \"{workflow}\" automatically",
+    "overviewSubtitle": "Set up automatic runs for your Flows",
+    "calendarSubtitle": "Arrange schedule automations on the calendar",
+    "overviewEmpty": "No Flows yet — create one, then automate it here.",
+    "scheduleWorkflow": "New automation",
+    "todayBtn": "Today",
+    "upcomingLabel": "Upcoming",
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "list": "List"
+    },
+    "addTitle": "Create automation",
+    "editTitle": "Edit automation",
+    "workflow": "Flow",
+    "workflows": "Automations",
+    "change": "Change",
+    "searchWorkflows": "Search Flows…",
+    "noWorkflows": "No Flows found",
+    "addToCalendar": "Add to calendar",
+    "removeSchedule": "Remove automation",
+    "removed": "Automation removed",
+    "nextRunAt": "next {when}",
+    "nextBadge": "Next",
+    "oneOff": "One-off",
+    "moreRuns": "+{n} more",
+    "showRuns": "Show on calendar",
+    "hideRuns": "Hide from calendar",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDaysShort": "in {n}d",
+    "weekdaysShort": "Wkdy",
+    "daysShort": "d",
+    "runsPerMonth": "~{n}/month",
     "interval": "Interval",
     "when": "When",
     "preview": "Preview",
-    "save": "Save schedule",
-    "saved": "Schedule saved",
+    "save": "Save automation",
+    "saved": "Automation saved",
     "activeOn": "Active",
     "activeOff": "Paused",
+    "launchStatus": "Launch status",
+    "launchStatusHint": "Choose how this automation starts",
     "atMinute": "At minute",
     "atTime": "At time",
     "onDays": "On these days",
@@ -1799,7 +2024,18 @@
     "lastDay": "Last",
     "noRuns": "No upcoming runs in the next 60 days",
     "weeklyNoDays": "Select at least one day",
-    "activeNeedsVersion": "Save a workflow version before enabling the schedule. The scheduler skips workflows without a saved version.",
+    "activeNeedsVersion": "Save a Flow version before enabling this automation. Runners skip Flows without a saved version.",
+    "automationName": "Automation name",
+    "trigger": {
+      "schedule": "Schedule",
+      "integration": "Integration",
+      "webhook": "Webhook"
+    },
+    "integrationProvider": "Provider",
+    "integrationEvent": "Event",
+    "integrationRepo": "Repository",
+    "integrationBranch": "Branch",
+    "webhookEndpoint": "Webhook endpoint",
     "freq": {
       "none": "None",
       "noneHint": "Specific dates only",
@@ -1939,7 +2175,7 @@
   },
   "blog": {
     "metaTitle": "Polymux Blog",
-    "metaDescription": "Updates, deep-dives, and case studies on AI agents, browser automation, and multi-agent orchestration with Polymux.",
+    "metaDescription": "Updates, deep-dives, and case studies on automated end-to-end Flows, Checks, Artifacts, and runner orchestration with Polymux.",
     "title": "Polymux Blog",
     "subtitle": "Product updates, engineering notes, and guides for teams building with Polymux — orchestrate agents, watch live browser sessions, and ship automations you can trust.",
     "subscribeHint": "New posts a few times a month",

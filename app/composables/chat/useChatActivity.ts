@@ -9,7 +9,7 @@ export interface ChatActivitySources {
 }
 
 /**
- * Unified chat activity signals for the side-panel spinner and the chat
+ * Unified chat activity signals for the sidebar spinner and the chat
  * three-dot working indicator. Keeps both surfaces in sync.
  */
 export function useChatActivity(sources: ChatActivitySources) {

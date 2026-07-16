@@ -1,6 +1,6 @@
 import { ref, readonly, watch, onUnmounted } from 'vue'
 import type { SessionHandle } from '../workflows/useWorkflowSession'
-import type { CursorClickPayload, CursorPositionPayload, CursorState, PageNavigatedPayload } from '../types'
+import type { CursorClickPayload, CursorDragPayload, CursorPositionPayload, CursorState, PageNavigatedPayload } from '../types'
 import { NAVIGATION_FREEZE_MS } from './navigationTiming'
 
 const decoder = new TextDecoder()
@@ -18,10 +18,12 @@ export function useScreencast(session: SessionHandle) {
   // agent's screencast frame URL goes away (close / navigation reset).
   const cursorPositions = ref<Map<string, CursorState>>(new Map())
   // Per-agent click counters. Each driver-dispatched click bumps the agent's
-  // count; the cursor overlay watches it to replay a one-shot ripple from the
-  // current hotspot. A monotonic counter (not a boolean) so back-to-back clicks
-  // each retrigger the animation.
+  // count; the cursor overlay watches it to replay a one-shot gold fill. A
+  // monotonic counter (not a boolean) so back-to-back clicks each retrigger.
   const cursorClicks = ref<Map<string, number>>(new Map())
+  // Per-agent drag state — true while the driver is mid-drag. The cursor overlay
+  // holds its gold fill while true and drains it when it flips back to false.
+  const cursorDragging = ref<Map<string, boolean>>(new Map())
 
   function revokeAll() {
     for (const url of frameUrls.value.values()) {
@@ -99,10 +101,18 @@ export function useScreencast(session: SessionHandle) {
     cursorClicks.value = next
   }
 
+  function handleCursorDrag(p: CursorDragPayload) {
+    if (!p.agent_id) return
+    const next = new Map(cursorDragging.value)
+    next.set(p.agent_id, !!p.dragging)
+    cursorDragging.value = next
+  }
+
   session.onBinary(handleBinaryFrame)
   session.on<PageNavigatedPayload>('page_navigated', handlePageNavigated)
   session.on<CursorPositionPayload>('cursor_position', handleCursorPosition)
   session.on<CursorClickPayload>('cursor_click', handleCursorClick)
+  session.on<CursorDragPayload>('cursor_drag', handleCursorDrag)
 
   // Clear stale frames when the session resets (navigation to a different
   // session sets sessionState to null before the new session connects).
@@ -114,6 +124,7 @@ export function useScreencast(session: SessionHandle) {
         freezeUntil.clear()
         cursorPositions.value = new Map()
         cursorClicks.value = new Map()
+        cursorDragging.value = new Map()
       }
     },
   )
@@ -123,10 +134,12 @@ export function useScreencast(session: SessionHandle) {
     session.off('page_navigated', handlePageNavigated)
     session.off('cursor_position', handleCursorPosition)
     session.off('cursor_click', handleCursorClick)
+    session.off('cursor_drag', handleCursorDrag)
     freezeUntil.clear()
     revokeAll()
     cursorPositions.value = new Map()
     cursorClicks.value = new Map()
+    cursorDragging.value = new Map()
   }
 
   onUnmounted(cleanup)
@@ -135,6 +148,7 @@ export function useScreencast(session: SessionHandle) {
     frameUrls: readonly(frameUrls),
     cursorPositions: readonly(cursorPositions),
     cursorClicks: readonly(cursorClicks),
+    cursorDragging: readonly(cursorDragging),
     cleanup,
   }
 }

@@ -139,7 +139,7 @@ export interface SessionStatePayload {
    *  workflow-list shimmer and the chat working-dots so a reloaded but idle
    *  workflow stops looking like it's working. */
   is_running?: boolean
-  /** Classifies what's behind is_running so the SidePanel renders the right
+  /** Classifies what's behind is_running so the Sidebar renders the right
    *  indicator: 'workflow' = workflow_run engine (manual run-from-dock or
    *  scheduled cron), 'chat' = orchestrator/agent activity in service of a
    *  chat turn. Empty/undefined when nothing is running. */
@@ -156,6 +156,74 @@ export interface SessionStatePayload {
   /** Per-session cloaked-browser choice (Stealth tab). Echoed like humanize so
    *  the toggle hydrates on reconnect. Only the midas browser driver acts on it. */
   cloaked?: boolean
+}
+
+// ── Stage-3 workspace general-chat payloads ─────────────────────────────────
+//
+// ADDITIVE. The Stage-2 server's /workspace/{id} WS reuses the same Envelope and
+// the same agent_message / agent_thinking / credential_request / otp_request
+// frames as the per-workflow session WS, but its session_state and history
+// frames are workspace-scoped (focuses + active focus) rather than browser-agent
+// scoped. These types mirror the frames in internal/server/workspace_ws.go.
+
+/**
+ * WorkspaceFocus mirrors a focus.Focus row sent in the workspace session_state
+ * `focuses` list. A FOCUS is SHELVED MEMORY — a named, set-aside slice of the
+ * workspace Core's conversation/context you switch away from and resume — NOT a
+ * workflow grouping. `closed_at` non-null marks a shelved focus.
+ */
+export interface WorkspaceFocus {
+  id: string
+  workspace_id: string
+  name: string
+  /** Compact recap injected when this focus is resumed. */
+  hindsight_summary?: string
+  context_start_index?: number
+  context_end_index?: number
+  created_by?: string | null
+  created_at?: string
+  updated_at?: string
+  /** Non-null/non-empty = shelved (set aside); null = active. */
+  closed_at?: string | null
+}
+
+/**
+ * WorkspaceSessionStatePayload is the workspace counterpart of
+ * SessionStatePayload. It lands on every WS (re)connect and carries the
+ * shelvable-memory focus rail (active focuses) plus the currently active focus
+ * id, NOT a browser-agent roster. Sent on the `session_state` frame.
+ */
+export interface WorkspaceSessionStatePayload {
+  workspace_id: string
+  /** Active (un-shelved) focuses — the focus rail. */
+  focuses: WorkspaceFocus[]
+  /** Id of the currently active focus, or "" when none has been selected. */
+  active_focus: string
+}
+
+/**
+ * WorkspaceChatMessageRow mirrors a focus.ChatMessage row in the `chat_history`
+ * frame the workspace WS sends on connect to seed the Core chat panel.
+ */
+export interface WorkspaceChatMessageRow {
+  id?: string
+  workspace_id: string
+  focus_id?: string | null
+  /** 'user' | 'agent' | 'tool' (DB CHECK set). */
+  role: string
+  content?: string
+  agent_id?: string
+  created_by?: string | null
+  created_at?: string
+}
+
+/**
+ * WorkspaceChatHistoryPayload is the `chat_history` frame the workspace WS sends
+ * once on connect: the recent active-focus chat window plus its focus id.
+ */
+export interface WorkspaceChatHistoryPayload {
+  focus_id: string
+  messages: WorkspaceChatMessageRow[]
 }
 
 export interface WorkflowSaveRejectedPayload {
@@ -292,6 +360,16 @@ export interface CursorClickPayload {
   y: number
   vw: number
   vh: number
+}
+
+/**
+ * CursorDragPayload toggles an agent's drag state — true when the driver starts
+ * a drag (mouse held + moving), false on release. The cursor overlay holds its
+ * gold fill while dragging and drains it on release.
+ */
+export interface CursorDragPayload {
+  agent_id: string
+  dragging: boolean
 }
 
 // ── Client → Server payloads ──────────────────────────────────────────────────

@@ -112,9 +112,7 @@ async function onSubmit() {
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
-    <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
-    </header>
+    <SubNav :tabs="headerTabs" :custom-tabs="customTabs" raw-tab-labels />
 
     <TabPanel class="min-h-0 min-w-0 flex-1">
       <div class="mx-auto flex w-full max-w-2xl flex-col gap-6" style="padding: 2.5rem 1.5rem">

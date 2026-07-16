@@ -146,6 +146,24 @@ export function computePastRuns(expr: string, tz: string, count = 12): Date[] {
   return walkRuns(sets, tz, end, -1, horizon, count)
 }
 
+// Expand a cron expression into every run instant that falls within
+// [startMs, endMs) in the schedule's own timezone. Used by the calendar to
+// place recurring runs on the grid. `cap` bounds the walk (walkRuns also has
+// its own internal safety limit).
+export function computeRunsInRange(
+  expr: string,
+  tz: string,
+  startMs: number,
+  endMs: number,
+  cap = 750,
+): Date[] {
+  const sets = parseCron(expr)
+  if (!sets) return []
+  const start = Math.ceil(startMs / 60000) * 60000
+  if (start >= endMs) return []
+  return walkRuns(sets, tz, start, 1, endMs, cap)
+}
+
 // Count expected runs over the next N days from `fromMs`. Used by the usage
 // dashboard to project monthly recurring cost. Capped at 2000 internally
 // because walkRuns has its own safety limit.

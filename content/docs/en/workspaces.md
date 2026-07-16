@@ -4,7 +4,7 @@ A workspace is the shared container for everything a team builds in Polymux: wor
 
 ## Creating a workspace
 
-From the side panel, open the workspace switcher and choose **+ New workspace**. Give it a name and an optional avatar. The new workspace is empty: no workflows, no vault entries, no shared files. The user who creates a workspace is its first **owner**.
+From the sidebar, open the workspace switcher and choose **+ New workspace**. Give it a name and an optional avatar. The new workspace is empty: no workflows, no vault entries, no shared files. The user who creates a workspace is its first **owner**.
 
 ## Roles
 
@@ -27,7 +27,7 @@ If the invitee already has a Polymux account on the same email, accepting the in
 
 ## Switching workspaces
 
-The workspace switcher in the side panel shows every workspace you belong to. Switching changes the entire context: the side panel reloads with that workspace's workflows, the vault and storage tabs scope to it, and any new workflow you create is owned by it. Nothing leaks across workspaces.
+The workspace switcher in the sidebar shows every workspace you belong to. Switching changes the entire context: the sidebar reloads with that workspace's workflows, the vault and storage tabs scope to it, and any new workflow you create is owned by it. Nothing leaks across workspaces.
 
 ## Sharing inside a workspace
 

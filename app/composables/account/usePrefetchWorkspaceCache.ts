@@ -41,7 +41,7 @@ export function usePrefetchWorkspaceCache() {
       }),
       // Members — already SWR-aware (seeds display count, updates only on change).
       fetchMembers(workspaceId),
-      // Storage root — so /storage/files (and deeplinks) paint immediately.
+      // Storage root — so /files (and deeplinks) paint immediately.
       prefetchDirectory([]),
     ]
 

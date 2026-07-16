@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { onClickOutside } from '@vueuse/core'
 
+const props = withDefaults(
+  defineProps<{
+    /** Popup horizontal anchor. `right` (default) suits the top-right header;
+     *  `left` suits the sidebar so a left-edge trigger opens on-screen toward
+     *  the right instead of off the left edge. */
+    align?: 'left' | 'right'
+    /** Slimmer 28px trigger matching the sidebar workspace-row chevron. */
+    compact?: boolean
+  }>(),
+  { align: 'right', compact: false },
+)
+
 const { t } = useI18n()
 const user = useSupabaseUser()
 const {
@@ -112,7 +124,10 @@ watch(user, (u) => {
   <div ref="containerRef" class="relative">
     <button
       type="button"
-      class="relative flex size-9 items-center justify-center rounded-lg text-neutral-500 outline-none transition-colors hover:text-neutral-950"
+      :class="[
+        'relative flex items-center justify-center text-neutral-500 outline-none transition-colors',
+        compact ? 'size-[28px] rounded-md hover:bg-neutral-300/60 hover:text-neutral-900' : 'size-9 rounded-lg hover:text-neutral-950',
+      ]"
       :aria-label="t('notifications.title')"
       @click="toggle"
     >
@@ -123,7 +138,7 @@ watch(user, (u) => {
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        class="size-4"
+        :class="compact ? 'size-4.5' : 'size-4'"
         aria-hidden="true"
       >
         <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
@@ -131,13 +146,15 @@ watch(user, (u) => {
       </svg>
       <span
         v-if="hasUnread"
-        class="absolute right-2 top-2 block size-1.5 rounded-full bg-red-500 ring-2 ring-white"
+        :class="[
+          'absolute block size-1.5 rounded-full bg-red-500 ring-2 ring-white',
+          compact ? 'right-1 top-1' : 'right-2 top-2',
+        ]"
         aria-hidden="true"
       />
     </button>
 
-    <div class="sm:-mr-4">
-      <Menu ref="menuRef" :open="open" align="right" width="w-96">
+    <Menu ref="menuRef" :open="open" :align="align" width="w-96">
       <div class="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
         <span class="text-sm font-semibold text-neutral-950">{{ t('notifications.title') }}</span>
         <button
@@ -164,6 +181,5 @@ watch(user, (u) => {
         </li>
       </ul>
     </Menu>
-    </div>
   </div>
 </template>

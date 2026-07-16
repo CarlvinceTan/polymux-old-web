@@ -41,12 +41,14 @@ defineExpose({ bodyScrollEl })
 </script>
 
 <template>
+  <!-- The app shell (layouts/default.vue) now provides the white content card
+       (border + rounded + sidebar-coloured background), so TabPanel is just a
+       transparent scroll container — no own panel chrome, so pages don't render
+       a card-inside-a-card. The `transparent` prop is kept for back-compat but is
+       now a no-op. -->
   <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-    <div
-      class="ghost-panel flex min-h-0 min-w-0 flex-1 flex-col rounded-[1.25rem]"
-      :class="transparent ? 'bg-transparent' : 'bg-white'"
-    >
-      <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem]">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <template v-if="$slots.header || $slots.title || $slots.actions">
           <div class="shrink-0">
             <div class="px-3 py-2.5 sm:px-4 sm:py-3">

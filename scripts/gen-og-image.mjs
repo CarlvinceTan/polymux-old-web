@@ -18,8 +18,8 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" v
     <path fill="#0a0a0a" transform="translate(-10 0)" d="M 40 40 L 120 40 A 60 60 0 0 1 120 160 L 40 160 L 70 120 L 110 120 A 20 20 0 0 0 110 80 L 70 80 Z"/>
   </g>
   <text x="380" y="305" font-family="sans-serif" font-size="92" font-weight="700" fill="#ffffff">Polymux</text>
-  <text x="380" y="375" font-family="sans-serif" font-size="38" font-weight="400" fill="#a3a3a3">AI Agents for Browser Automation</text>
-  <text x="380" y="445" font-family="sans-serif" font-size="26" font-weight="400" fill="#737373">Multi-agent workflows · Live browser sessions · Secure vault</text>
+  <text x="380" y="375" font-family="sans-serif" font-size="38" font-weight="400" fill="#a3a3a3">Automated End-to-End Flow Testing</text>
+  <text x="380" y="445" font-family="sans-serif" font-size="26" font-weight="400" fill="#737373">Flows · Checks · Artifacts · Runners</text>
 </svg>`;
 
 await sharp(Buffer.from(svg))

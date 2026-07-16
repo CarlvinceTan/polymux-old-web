@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { isAdmin, isInstalled, install, uninstall, connectionFor } = useMarketplace()
+const toast = useAppToast()
 
 // Marketplace ids that map 1:1 to a StorageProvider. Disconnecting these
 // might strand workspace files, so we route them through the disconnect
@@ -43,6 +44,34 @@ const connection = computed(() =>
   props.item ? connectionFor(props.item.id) : null,
 )
 const connectedEmail = computed(() => connection.value?.account_email ?? null)
+const isTriggerProvider = computed(() => props.item?.id === 'github' || props.item?.id === 'gitlab')
+const triggerProviderName = computed(() => props.item?.id === 'gitlab' ? 'GitLab' : 'GitHub')
+const triggerWebhookPath = computed(() => props.item ? `/api/flow-automations/${props.item.id}` : '')
+const triggerWebhookUrl = computed(() => {
+  if (!triggerWebhookPath.value) return ''
+  if (!import.meta.client) return triggerWebhookPath.value
+  return `${window.location.origin}${triggerWebhookPath.value}`
+})
+const triggerWebhookSecret = computed(() => {
+  const secret = connection.value?.metadata?.webhook_secret
+  return typeof secret === 'string' ? secret : ''
+})
+const triggerSetupRows = computed(() => {
+  if (props.item?.id === 'gitlab') {
+    return [
+      'Use the URL below in Project or Group Settings > Webhooks.',
+      triggerWebhookSecret.value.startsWith('whsec_')
+        ? 'Paste the secret into GitLab as a Signing token.'
+        : 'Paste the secret into GitLab as the Secret token.',
+      'Enable Push events, Tag push events, Merge request events, Pipeline events, Job events, Deployment events, and Release events as needed.',
+    ]
+  }
+  return [
+    'Use the URL below in Repository or Organization Settings > Webhooks.',
+    'Paste the secret into GitHub’s Secret field and use application/json.',
+    'Enable Pushes, Pull requests, Deployments, Deployment statuses, and Workflow runs as needed.',
+  ]
+})
 
 const primaryActionLabel = computed(() => {
   if (!props.item) return ''
@@ -54,6 +83,12 @@ const primaryActionLabel = computed(() => {
 
 function close() {
   emit('update:open', false)
+}
+
+async function copyText(value: string) {
+  if (!value || !import.meta.client) return
+  await navigator.clipboard.writeText(value)
+  toast.show('Copied', 'info', 1500)
 }
 
 function onPrimaryAction() {
@@ -225,6 +260,47 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                       <p class="truncate text-label-md text-neutral-500">
                         {{ t('integrations.connectedBy', { email: connectedEmail }) }}
                       </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section v-if="installed && isTriggerProvider" class="mt-6">
+                  <h3 class="mb-2 text-body-md font-semibold tracking-tight text-neutral-950">
+                    Automation trigger setup
+                  </h3>
+                  <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                    <ol class="mb-3 space-y-1 text-caption leading-5 text-neutral-600">
+                      <li v-for="row in triggerSetupRows" :key="row">
+                        {{ row }}
+                      </li>
+                    </ol>
+
+                    <div class="space-y-2">
+                      <div>
+                        <div class="mb-1 text-2xs font-semibold uppercase tracking-wider text-neutral-500">Webhook URL</div>
+                        <button
+                          type="button"
+                          class="flex w-full items-center gap-2 rounded-md bg-white px-2 py-1.5 text-left font-mono text-2xs text-neutral-700 ring-1 ring-neutral-200 transition-colors hover:ring-neutral-400"
+                          @click="copyText(triggerWebhookUrl)"
+                        >
+                          <span class="min-w-0 flex-1 break-all">{{ triggerWebhookUrl }}</span>
+                          <UIcon name="i-heroicons-clipboard-document-20-solid" class="size-3.5 shrink-0 text-neutral-400" />
+                        </button>
+                      </div>
+
+                      <div>
+                        <div class="mb-1 text-2xs font-semibold uppercase tracking-wider text-neutral-500">
+                          {{ triggerProviderName }} secret
+                        </div>
+                        <button
+                          type="button"
+                          class="flex w-full items-center gap-2 rounded-md bg-white px-2 py-1.5 text-left font-mono text-2xs text-neutral-700 ring-1 ring-neutral-200 transition-colors hover:ring-neutral-400"
+                          @click="copyText(triggerWebhookSecret)"
+                        >
+                          <span class="min-w-0 flex-1 break-all">{{ triggerWebhookSecret }}</span>
+                          <UIcon name="i-heroicons-clipboard-document-20-solid" class="size-3.5 shrink-0 text-neutral-400" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </section>

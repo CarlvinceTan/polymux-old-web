@@ -72,6 +72,7 @@ const { browserAgentsActive, chatActive, showWorkingIndicator } = useChatActivit
 })
 
 const { consumePendingPrompt } = useWorkflowList()
+const { commitPendingDraftFolder } = useFlowFolders()
 
 // All chat goes to the orchestrator. Individual browser-agent chat is
 // intentionally unreachable — the orchestrator is the sole manager.
@@ -169,13 +170,23 @@ function onTogglePinViewport(agentId: string) {
 // socket reaches OPEN, so we don't have to wait here.
 onMounted(() => {
   const pending = consumePendingPrompt(sessionId.value)
-  if (!pending) return
-  const trimmed = pending.text.trim()
-  // Sync gate only — onSend itself folds the async weekly-cap check into the
-  // wireGuard it passes to sendMessage, so awaiting it here would re-introduce
-  // the delay we just eliminated and the welcome view would linger past mount.
-  if (!canSendPromptSync(trimmed)) return
-  onSend(pending.text, pending.attachments)
+  if (pending) {
+    const trimmed = pending.text.trim()
+    // Sync gate only — onSend itself folds the async weekly-cap check into the
+    // wireGuard it passes to sendMessage, so awaiting it here would re-introduce
+    // the delay we just eliminated and the welcome view would linger past mount.
+    if (canSendPromptSync(trimmed)) onSend(pending.text, pending.attachments)
+  }
+
+  // A promoted draft's first user_message is buffered until this socket opens.
+  // Start folder assignment only once that buffer has been flushed, then the
+  // narrow retry in useFlowFolders bridges the server's synchronous row insert.
+  let stopWatching: (() => void) | undefined
+  stopWatching = watch(session.status, (status) => {
+    if (status !== 'connected') return
+    stopWatching?.()
+    void commitPendingDraftFolder(sessionId.value)
+  }, { immediate: true })
 })
 </script>
 
@@ -199,6 +210,7 @@ onMounted(() => {
     :frame-urls="(screencast.frameUrls.value as Map<string, string>)"
     :cursor-positions="(screencast.cursorPositions.value as Map<string, CursorState>)"
     :cursor-clicks="(screencast.cursorClicks.value as Map<string, number>)"
+    :cursor-dragging="(screencast.cursorDragging.value as Map<string, boolean>)"
     :show-cursor="showCursor"
     :session-id="sessionId"
     :workspace-id="workflowWorkspaceId"

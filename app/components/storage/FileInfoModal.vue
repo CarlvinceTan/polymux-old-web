@@ -35,15 +35,18 @@ const { providerLabel } = useStoragePreferences()
 
 const rows = computed(() => {
   const items: { label: string; value: string }[] = [
-    { label: 'Type', value: props.item.kind === 'folder' ? 'Folder' : 'File' },
-    { label: 'Location', value: location.value },
-    { label: 'Storage', value: providerLabel(props.item.provider) },
+    {
+      label: t('storage.fileInfo.type'),
+      value: props.item.kind === 'folder' ? t('storage.fileInfo.kindFolder') : t('storage.fileInfo.kindFile'),
+    },
+    { label: t('storage.fileInfo.location'), value: location.value },
+    { label: t('storage.fileInfo.storage'), value: providerLabel(props.item.provider) },
   ]
   if (props.size !== undefined) {
-    items.splice(1, 0, { label: 'Size', value: formatSize(props.size) })
+    items.splice(1, 0, { label: t('storage.fileInfo.size'), value: formatSize(props.size) })
   }
   if (props.createdAt) {
-    items.push({ label: 'Created', value: formatDate(props.createdAt) })
+    items.push({ label: t('storage.fileInfo.created'), value: formatDate(props.createdAt) })
   }
   return items
 })

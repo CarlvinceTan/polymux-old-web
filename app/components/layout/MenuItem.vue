@@ -21,10 +21,10 @@ function handleClick(event: MouseEvent) {
   <div v-if="hasDivider" class="my-0.5 h-px bg-neutral-200 mx-2"></div>
   <button
     v-bind="$attrs"
-    class="grid grid-cols-[minmax(0,_1fr)_auto] w-full items-center px-3 py-1.5 text-sm cursor-pointer transition-colors outline-none"
+    class="grid grid-cols-[minmax(0,_1fr)_auto] w-[calc(100%_-_0.75rem)] mx-1.5 my-0.5 items-center rounded-lg px-2.5 py-1.5 text-sm cursor-pointer transition-colors outline-none"
     :class="[
-      destructive ? 'text-red-600 hover:bg-red-50' : 'text-neutral-950 hover:bg-neutral-100',
-      active && !destructive ? 'bg-neutral-100' : '',
+      destructive ? 'text-red-600 hover:bg-red-100' : 'text-neutral-950 hover:bg-neutral-200',
+      active && !destructive ? 'bg-neutral-200' : '',
     ]"
     @click="handleClick"
   >

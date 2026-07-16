@@ -12,6 +12,14 @@ const PROVIDER_ICONS: Record<string, IntegrationIconMeta> = {
     iconName: 'i-simple-icons-googledrive',
     tintClass: 'bg-google-drive-tint text-google-drive',
   },
+  github: {
+    iconName: 'i-simple-icons-github',
+    tintClass: 'bg-neutral-950 text-white',
+  },
+  gitlab: {
+    iconName: 'i-simple-icons-gitlab',
+    tintClass: 'bg-orange-50 text-orange-600',
+  },
 }
 
 const CATEGORY_FALLBACK: Record<ItemCategory, IntegrationIconMeta> = {

@@ -1,22 +1,30 @@
 import { runsInNextDays } from '~/utils/cron'
 
-// Database-backed schedule store. The Schedule tab under /workflow/[id]
-// upserts rows here; dashboard/console lists active rows. Rows are keyed by
-// workflow_id — workflows now own all durable state (see migration
-// 20260427000000_workflow_runtime_collapse).
+// Database-backed Automation store. The calendar still consumes schedule-like
+// fields, but rows are keyed by automation id so a single Flow can have several
+// triggers: schedule, integration, and webhook.
 
 export type ScheduleFrequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
+export type AutomationTrigger = 'schedule' | 'integration' | 'webhook'
 
 export interface ScheduledWorkflowConfig {
+  id: string
+  automation_id: string
+  flow_id: string
   workflow_id: string
   workspace_id: string
+  name: string
   active: boolean
+  trigger_type: AutomationTrigger
   frequency: ScheduleFrequency
   cron_expression: string
   weekdays: number[]
   timezone: string
   one_off_ms: number[]
-  updated_by: string
+  integration_config: Record<string, unknown>
+  webhook_config: Record<string, unknown>
+  runner_config: Record<string, unknown>
+  updated_by: string | null
   created_at: string
   updated_at: string
 }
@@ -28,16 +36,28 @@ export interface ScheduledWorkflowView extends ScheduledWorkflowConfig {
 export type ScheduleUpsertInput = Pick<
   ScheduledWorkflowConfig,
   'active' | 'frequency' | 'cron_expression' | 'weekdays' | 'timezone' | 'one_off_ms'
->
+> & Partial<Pick<ScheduledWorkflowConfig, 'id' | 'name' | 'trigger_type' | 'integration_config' | 'webhook_config' | 'runner_config'>>
+
+function normalizeAutomation(row: ScheduledWorkflowConfig): ScheduledWorkflowConfig {
+  return {
+    ...row,
+    automation_id: row.automation_id || row.id,
+    flow_id: row.flow_id || row.workflow_id,
+    workflow_id: row.workflow_id || row.flow_id,
+    trigger_type: row.trigger_type || 'schedule',
+    integration_config: row.integration_config ?? {},
+    webhook_config: row.webhook_config ?? {},
+    runner_config: row.runner_config ?? { platform: 'web' },
+  }
+}
 
 export function useScheduledWorkflows() {
   const { currentWorkspaceId } = useWorkspaces()
   const { sessions } = useWorkflowList()
 
-  // Shared workflow-level state so consumers on multiple pages de-duplicate.
-  const list = useState<ScheduledWorkflowConfig[]>('workflow-schedules', () => [])
-  const loaded = useState<boolean>('workflow-schedules-loaded', () => false)
-  const loading = useState<boolean>('workflow-schedules-loading', () => false)
+  const list = useState<ScheduledWorkflowConfig[]>('flow-automations', () => [])
+  const loaded = useState<boolean>('flow-automations-loaded', () => false)
+  const loading = useState<boolean>('flow-automations-loading', () => false)
 
   async function fetchList(force = false) {
     if (!force && (loaded.value || loading.value)) return
@@ -46,9 +66,9 @@ export function useScheduledWorkflows() {
     loading.value = true
     try {
       const data = await $fetch<ScheduledWorkflowConfig[]>(
-        `/api/workspaces/${wsId}/workflow-schedules`,
+        `/api/workspaces/${wsId}/flow-automations`,
       )
-      list.value = data ?? []
+      list.value = (data ?? []).map(normalizeAutomation)
       loaded.value = true
     }
     catch (err) {
@@ -72,36 +92,45 @@ export function useScheduledWorkflows() {
     if (currentWorkspaceId.value) fetchList(true).catch(() => {})
   })
 
-  const nameFor = (workflowId: string): string => {
-    const s = sessions.value.find(x => x.id === workflowId)
-    return s?.title || `Workflow ${workflowId.slice(0, 8)}`
+  const nameFor = (flowId: string): string => {
+    const s = sessions.value.find(x => x.id === flowId)
+    return s?.title || `Flow ${flowId.slice(0, 8)}`
   }
 
   const views = computed<ScheduledWorkflowView[]>(() =>
-    list.value.map(c => ({ ...c, workflow_name: nameFor(c.workflow_id) })),
+    list.value.map(c => ({ ...c, workflow_name: nameFor(c.flow_id) })),
   )
   const active = computed<ScheduledWorkflowView[]>(() => views.value.filter(c => c.active))
 
-  function get(workflowId: string): ScheduledWorkflowView | null {
-    return views.value.find(c => c.workflow_id === workflowId) ?? null
+  function get(flowId: string): ScheduledWorkflowView | null {
+    return views.value.find(c => c.flow_id === flowId && c.trigger_type === 'schedule') ?? null
   }
 
-  async function upsert(workflowId: string, input: ScheduleUpsertInput): Promise<ScheduledWorkflowConfig | null> {
+  function getAutomation(automationId: string): ScheduledWorkflowView | null {
+    return views.value.find(c => c.id === automationId || c.automation_id === automationId) ?? null
+  }
+
+  async function upsert(flowId: string, input: ScheduleUpsertInput): Promise<ScheduledWorkflowConfig | null> {
     const wsId = currentWorkspaceId.value
     if (!wsId) return null
+    const automationId = input.id
+    const body = { ...input, flow_id: flowId, trigger_type: input.trigger_type ?? 'schedule' }
     try {
       const saved = await $fetch<ScheduledWorkflowConfig>(
-        `/api/workspaces/${wsId}/workflow-schedules/${workflowId}`,
-        { method: 'PUT', body: input },
+        automationId
+          ? `/api/workspaces/${wsId}/flow-automations/${automationId}`
+          : `/api/workspaces/${wsId}/flow-automations`,
+        { method: automationId ? 'PUT' : 'POST', body },
       )
-      const idx = list.value.findIndex(c => c.workflow_id === workflowId)
-      if (idx === -1) list.value = [saved, ...list.value]
+      const normalized = normalizeAutomation(saved)
+      const idx = list.value.findIndex(c => c.id === normalized.id)
+      if (idx === -1) list.value = [normalized, ...list.value]
       else {
         const next = [...list.value]
-        next[idx] = saved
+        next[idx] = normalized
         list.value = next
       }
-      return saved
+      return normalized
     }
     catch (err) {
       console.error('[useScheduledWorkflows] upsert failed', err)
@@ -109,12 +138,12 @@ export function useScheduledWorkflows() {
     }
   }
 
-  async function remove(workflowId: string): Promise<boolean> {
+  async function remove(id: string): Promise<boolean> {
     const wsId = currentWorkspaceId.value
     if (!wsId) return false
     try {
-      await $fetch(`/api/workspaces/${wsId}/workflow-schedules/${workflowId}`, { method: 'DELETE' })
-      list.value = list.value.filter(c => c.workflow_id !== workflowId)
+      await $fetch(`/api/workspaces/${wsId}/flow-automations/${id}`, { method: 'DELETE' })
+      list.value = list.value.filter(c => c.id !== id && c.automation_id !== id)
       return true
     }
     catch (err) {
@@ -142,5 +171,5 @@ export function useScheduledWorkflows() {
     }
   }
 
-  return { list, active, get, upsert, remove, runsPerMonth, fetchList, loaded, loading }
+  return { list, active, get, getAutomation, upsert, remove, runsPerMonth, fetchList, loaded, loading }
 }

@@ -20,7 +20,7 @@ Free tier data is retained indefinitely. Paid plans are downgraded to the free t
 
 ### Why did my session disconnect?
 
-Sessions are kept alive on the server. If your local browser tab closes or loses network, the session keeps running and you can re-attach from the side panel. If the session itself ends, you will see a status code in the top of the chat — `idle_timeout`, `budget_exceeded`, or `error` are the common ones.
+Sessions are kept alive on the server. If your local browser tab closes or loses network, the session keeps running and you can re-attach from the sidebar. If the session itself ends, you will see a status code in the top of the chat — `idle_timeout`, `budget_exceeded`, or `error` are the common ones.
 
 ### How long can a session run?
 

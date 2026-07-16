@@ -46,6 +46,12 @@ const POSTHOG_SEEN_PREFIX = 'seenSurvey_'
 const WORKSPACE_ROUTE_PREFIXES = [
   '/workflow',
   '/dashboard',
+  '/schedule',
+  '/connections',
+  '/files',
+  '/credentials',
+  '/wallet',
+  // Legacy bases kept so in-flight redirects still count as workspace routes.
   '/storage',
   '/vault',
   '/integrations',

@@ -63,9 +63,11 @@ export function useMarketplace() {
   // `serverSupabaseUser`, and routing the request through Nuxt SSR added
   // hundreds of ms to first paint with no UX upside — the spinner already
   // covers the pre-load moment, and the in-memory payload is reused across
-  // navigations. `immediate: false` keeps the request from racing the auth
-  // bootstrap; we kick it off explicitly via the watcher below once we're
-  // on the client.
+  // navigations. `server: false` keeps it out of SSR while `lazy: true` lets
+  // Nuxt schedule the first client request during mount. Avoid
+  // `immediate: false` here: Nuxt can initialize the entry in an idle/pending
+  // state that makes a manual `refresh()` a no-op, leaving the marketplace
+  // stuck on loading.
   //
   // `finally` flips `catalogLoaded` regardless of success/failure so the
   // loading placeholder never gets stuck — without it a single failed fetch
@@ -96,19 +98,12 @@ export function useMarketplace() {
       default: () => [],
       lazy: true,
       server: false,
-      immediate: false,
       getCachedData(key, nuxtApp, ctx) {
         if (ctx.cause === 'refresh:manual' || ctx.cause === 'refresh:hook') return undefined
         return nuxtApp.payload.data[key] as MarketplaceItem[] | undefined
       },
     },
   )
-
-  if (import.meta.client) {
-    onMounted(() => {
-      if (!catalogLoaded.value && !catalogPending.value) refreshCatalog()
-    })
-  }
 
   const { data: connections, refresh: refreshConnections } = useAsyncData<WorkspaceIntegration[]>(
     'workspace-integrations',

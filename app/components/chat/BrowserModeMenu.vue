@@ -1,35 +1,42 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useExtensionStatus } from '~/composables/extension/useExtensionStatus'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 export type BrowserMode = 'server' | 'extension'
 
+// modelValue / featureEnabled are retained for the browser-mode contract that
+// PromptInput binds, but the browser-mode (Polymux server / local browser)
+// toggle is no longer surfaced here.
+//
+// `context` decides which options this OPTIONS menu shows:
+//   - 'workflow' (default): browser-agent options — currently just "Show cursor"
+//     (the agent-cursor overlay over viewports).
+//   - 'console': the general Chat assistant. It has no viewports, so the cursor
+//     toggle is omitted. The OPTIONS button is STILL shown (so the affordance is
+//     there), but its menu opens empty for now — Chat will get its own menu
+//     items later.
 const props = withDefaults(
   defineProps<{
     modelValue?: BrowserMode
-    /**
-     * Whether the extension-mode feature is globally enabled (PostHog
-     * `extension_mode`). When false the menu still renders so the SETTINGS
-     * affordance stays in place, but the toggle is locked to Server and a
-     * short copy line explains why — hiding the menu outright was confusing
-     * because the chip would vanish without trace.
-     */
     featureEnabled?: boolean
+    context?: 'workflow' | 'console'
   }>(),
-  { modelValue: 'server', featureEnabled: true },
+  { modelValue: 'server', featureEnabled: true, context: 'workflow' },
 )
 
-const emit = defineEmits<{
+// Show-cursor is a workflow/viewport concern only — omitted in the Chat menu.
+const showCursorOption = computed(() => props.context === 'workflow')
+
+defineEmits<{
   'update:modelValue': [value: BrowserMode]
 }>()
 
 const { t } = useI18n()
-const { state, refresh } = useExtensionStatus()
 
-// "Show cursor" lives in this same SETTINGS menu so it's one click from the
-// chat. It's backed by the persisted `show_cursor_overlay` user setting, which
-// is reactive + Supabase-realtime, so flipping it shows/hides every agent
-// cursor instantly and the choice sticks across sessions.
+// "Show cursor" — the agent-cursor overlay. Backed by the persisted
+// `show_cursor_overlay` user setting via useUserSettings, which is a reactive
+// singleton with an optimistic save, so flipping it shows/hides every agent
+// cursor in realtime (even while a browser sub-agent is mid-run) and the choice
+// sticks across sessions.
 const { settings: userSettings, saveSettings } = useUserSettings()
 const showCursorOverlay = computed(() => userSettings.value.show_cursor_overlay)
 async function onShowCursorToggle(value: boolean) {
@@ -37,54 +44,19 @@ async function onShowCursorToggle(value: boolean) {
     await saveSettings({ show_cursor_overlay: value })
   }
   catch (e) {
-    console.error('[browser-menu] Error saving show_cursor_overlay:', e)
+    console.error('[options-menu] Error saving show_cursor_overlay:', e)
   }
 }
 
 const open = ref(false)
 const wrapperRef = ref<HTMLElement | null>(null)
-const triggerRef = ref<HTMLElement | null>(null)
-
-// Two distinct "you can't pick extension" states that share the toggle UI:
-//   - extensionUnavailable: the user's browser/extension isn't responding
-//     (no pairing, popup not opened, etc.). Recoverable via Connect.
-//   - featureGloballyOff: the org-level `extension_mode` PostHog flag is
-//     false. No user action will help — just an FYI.
-// The disabled style applies to both; the body copy below differs.
-const extensionUnavailable = computed(() => state.value === 'unavailable')
-const featureGloballyOff = computed(() => !props.featureEnabled)
-const extensionDisabled = computed(
-  () => extensionUnavailable.value || featureGloballyOff.value,
-)
-
-const modeLabel = computed(() =>
-  props.modelValue === 'server'
-    ? t('browser.modeServer')
-    : t('browser.modeLocalBrowser'),
-)
-
-function openMenu() {
-  open.value = true
-  // Skip the extension-status probe when the feature flag itself is off —
-  // the menu won't surface a Connect affordance, so the result is unused.
-  if (!featureGloballyOff.value) {
-    void refresh(true)
-  }
-}
 
 function closeMenu() {
   open.value = false
 }
 
 function toggleMenu() {
-  if (open.value) closeMenu()
-  else openMenu()
-}
-
-function onServerToggle(serverOn: boolean) {
-  if (!serverOn && extensionDisabled.value) return
-  const next: BrowserMode = serverOn ? 'server' : 'extension'
-  if (props.modelValue !== next) emit('update:modelValue', next)
+  open.value = !open.value
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -108,25 +80,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleKey)
 })
-
-watch(
-  [() => props.modelValue, state, featureGloballyOff],
-  ([mode, current, off]) => {
-    // Force-reset to server when the extension chrome is unreachable; the
-    // global-off case is intentionally not auto-rewritten (see PromptInput),
-    // so the disabled message keeps explaining what changed.
-    if (mode === 'extension' && current === 'unavailable' && !off) {
-      emit('update:modelValue', 'server')
-    }
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
   <div ref="wrapperRef" class="relative inline-flex">
     <button
-      ref="triggerRef"
       type="button"
       class="inline-flex items-center gap-1 whitespace-nowrap transition-opacity hover:opacity-70"
       :aria-haspopup="true"
@@ -134,34 +92,13 @@ watch(
       @click.stop="toggleMenu"
     >
       <UIcon name="i-heroicons-adjustments-vertical-20-solid" class="shrink-0 size-3.5" />
-      <span>{{ t('common.settings').toUpperCase() }}</span>
+      <span>{{ t('common.options').toUpperCase() }}</span>
     </button>
     <Menu :open="open" placement="above" align="center" width="w-64" compact>
+      <!-- Show cursor — workflow/viewport only. -->
       <div
+        v-if="showCursorOption"
         class="flex items-center justify-between gap-3 px-3 py-2.5"
-        @click.stop
-      >
-        <span
-          class="min-w-0 flex-1 text-[13px] font-medium leading-snug text-neutral-900"
-          :class="extensionDisabled ? 'text-neutral-500' : ''"
-        >
-          {{ modeLabel }}
-        </span>
-        <SettingsToggle
-          :model-value="modelValue === 'server'"
-          :disabled="extensionDisabled"
-          @update:model-value="onServerToggle"
-        />
-      </div>
-      <div
-        v-if="featureGloballyOff"
-        class="border-t border-neutral-100 px-3 py-2 text-[12px] leading-snug text-neutral-500"
-        @click.stop
-      >
-        {{ t('browser.extensionFeatureDisabled') }}
-      </div>
-      <div
-        class="flex items-center justify-between gap-3 border-t border-neutral-100 px-3 py-2.5"
         @click.stop
       >
         <div class="min-w-0 flex-1">

@@ -1,5 +1,13 @@
 <script setup lang="ts">
+const props = withDefaults(defineProps<{
+  inline?: boolean
+}>(), {
+  inline: false,
+})
+
 const isOpen = defineModel<boolean>('open', { default: false })
+const isInline = computed(() => props.inline)
+const isPanelVisible = computed(() => isInline.value || isOpen.value)
 
 const { t, locale, locales, setLocale } = useI18n()
 const supabase = useSupabaseClient()
@@ -27,11 +35,11 @@ watch(avatarUrl, () => { avatarError.value = false })
 
 const initials = computed(() => {
   const name = displayName.value.trim() || 'U'
-  return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+  return name.charAt(0).toUpperCase()
 })
 
 async function onLogOut() {
-  isOpen.value = false
+  if (!isInline.value) isOpen.value = false
   const { signOut } = useSignOut()
   await signOut()
 }
@@ -79,11 +87,20 @@ async function saveProfile() {
 const { settings: userSettings, saving: blogSubscriptionSaving, fetchSettings } = useUserSettings()
 const { open: openImportModal } = usePasswordImportModal()
 
-watch(isOpen, async (open) => {
-  if (open && user.value) {
-    await fetchSettings(true)
-  }
-})
+function openImportPasswords() {
+  openImportModal()
+  if (!isInline.value) isOpen.value = false
+}
+
+watch(
+  () => [isPanelVisible.value, user.value?.id] as const,
+  async ([visible]) => {
+    if (visible && user.value) {
+      await fetchSettings(true)
+    }
+  },
+  { immediate: true },
+)
 
 const languageOptions = computed(() =>
   (locales.value as Array<{ code: string; name: string }>).map(l => ({
@@ -155,7 +172,7 @@ const locationDescription = computed(() => {
 })
 
 /* ---- Navigation ---- */
-type SettingsTab = 'general' | 'appearance' | 'account' | 'notifications' | 'data' | 'privacy'
+type SettingsTab = 'general' | 'appearance' | 'account' | 'notifications' | 'privacy'
 
 const activeTab = ref<SettingsTab>('general')
 
@@ -163,7 +180,6 @@ const tabs = computed(() => [
   { key: 'general' as const, label: t('settings.general'), icon: 'i-heroicons-cog-6-tooth' },
   { key: 'appearance' as const, label: t('settings.appearance'), icon: 'i-heroicons-swatch' },
   { key: 'notifications' as const, label: t('settings.notifications'), icon: 'i-heroicons-bell' },
-  { key: 'data' as const, label: t('settings.dataControls'), icon: 'i-heroicons-circle-stack' },
   { key: 'account' as const, label: t('settings.account'), icon: 'i-heroicons-user-circle' },
   { key: 'privacy' as const, label: t('settings.privacyLegal'), icon: 'i-heroicons-lock-closed' },
 ])
@@ -178,7 +194,8 @@ function openPayment() {
 }
 
 function openLegalPage(path: '/terms-of-service' | '/privacy-policy' | '/cookie-policy') {
-  closeModal()
+  if (isInline.value) closeSubpage()
+  else closeModal()
   navigateTo(path)
 }
 
@@ -266,6 +283,7 @@ function closeModal() {
   closeSubpage()
   editingProfile.value = false
   activeTab.value = 'general'
+  if (isInline.value) return
   isOpen.value = false
 }
 
@@ -276,8 +294,8 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-watch(isOpen, (open) => {
-  if (open) document.addEventListener('keydown', handleKeydown)
+watch(isPanelVisible, (open) => {
+  if (open && !isInline.value) document.addEventListener('keydown', handleKeydown)
   else document.removeEventListener('keydown', handleKeydown)
 })
 
@@ -286,30 +304,37 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
 <template>
   <ClientOnly>
-    <Teleport to="body">
+    <Teleport to="body" :disabled="isInline">
       <Transition
+        :css="!isInline"
         enter-active-class="transition-all duration-200 ease-out"
         leave-active-class="transition-all duration-150 ease-in"
         enter-from-class="opacity-0"
         leave-to-class="opacity-0"
       >
         <div
-          v-if="isOpen"
-          class="fixed inset-0 z-[9997] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4"
-          @click="closeModal"
+          v-if="isPanelVisible"
+          :class="isInline
+            ? 'flex min-h-0 min-w-0 flex-1 flex-col'
+            : 'fixed inset-0 z-[9997] flex items-stretch justify-end bg-black/25 p-2 backdrop-blur-[2px] sm:p-4'"
+          @click="!isInline && closeModal()"
         >
           <Transition
+            :css="!isInline"
             enter-active-class="transition-all duration-200 ease-out"
             leave-active-class="transition-all duration-150 ease-in"
-            enter-from-class="scale-95 opacity-0"
-            leave-to-class="scale-95 opacity-0"
+            enter-from-class="translate-x-5 opacity-0"
+            leave-to-class="translate-x-5 opacity-0"
           >
             <div
-              v-if="isOpen"
-              class="modal-surface relative flex w-full max-w-[43rem] flex-col overflow-hidden rounded-2xl bg-white sm:h-[30rem]"
-              style="max-height: 88svh"
-              role="dialog"
-              aria-modal="true"
+              v-if="isPanelVisible"
+              class="relative flex w-full flex-col overflow-hidden"
+              :class="isInline
+                ? 'min-h-0 flex-1 bg-transparent'
+                : 'modal-surface h-full max-w-xl rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]'"
+              :style="isInline ? undefined : 'max-height: calc(100svh - 1rem)'"
+              :role="isInline ? undefined : 'dialog'"
+              :aria-modal="isInline ? undefined : 'true'"
               :aria-label="t('settings.title')"
               @click.stop
             >
@@ -327,6 +352,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <h2 class="truncate text-[1.375rem] font-semibold tracking-tight text-neutral-950">{{ paneTitle }}</h2>
                 </div>
                 <button
+                  v-if="!isInline"
                   type="button"
                   class="rounded-md p-1 text-neutral-400 transition-colors hover:text-neutral-700"
                   :aria-label="t('common.close')"
@@ -429,7 +455,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                           >
                         </template>
                       </SettingsSectionRow>
-                      <SettingsSectionRow clickable @click="openImportModal(); isOpen = false">
+                      <SettingsSectionRow clickable @click="openImportPasswords">
                         <template #label>{{ t('settings.importPasswords') }}</template>
                         <template #description>{{ t('settings.importPasswordsHint') }}</template>
                         <template #trailing>
@@ -449,19 +475,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                         :visible-count="5"
                         @update:model-value="changeLocale($event)"
                       />
-                    </SettingsSection>
-                  </template>
-
-                  <!-- ===== Data controls ===== -->
-                  <template v-else-if="activeTab === 'data'">
-                    <SettingsSection>
-                      <SettingsSectionRow>
-                        <template #label>{{ t('settings.locationSharing') }}</template>
-                        <template #description>{{ locationDescription }}</template>
-                        <template #trailing>
-                          <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
-                        </template>
-                      </SettingsSectionRow>
                     </SettingsSection>
                   </template>
 
@@ -572,6 +585,13 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
                   <!-- ===== Privacy & legal ===== -->
                   <template v-else-if="activeTab === 'privacy'">
                     <SettingsSection>
+                      <SettingsSectionRow>
+                        <template #label>{{ t('settings.locationSharing') }}</template>
+                        <template #description>{{ locationDescription }}</template>
+                        <template #trailing>
+                          <SettingsToggle :model-value="geo.enabled.value" @update:model-value="geo.toggle()" />
+                        </template>
+                      </SettingsSectionRow>
                       <SettingsSectionRow clickable @click="openLegalPage('/terms-of-service')">
                         <template #label>{{ t('settings.termsAndConditions') }}</template>
                         <template #trailing><UIcon name="i-heroicons-arrow-up-right-20-solid" class="size-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" /></template>
@@ -592,5 +612,6 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
         </div>
       </Transition>
     </Teleport>
+
   </ClientOnly>
 </template>

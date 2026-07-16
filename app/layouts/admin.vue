@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Admin/maintainer shell — used by everything under /admin (i.e. the admin
-// subdomain). Deliberately has NO product SidePanel; a slim top bar instead.
+// subdomain). Deliberately has NO product Sidebar; a slim top bar instead.
 const user = useSupabaseUser()
 const route = useRoute()
 // Centralised sign-out: clears all auth-cookie scopes (incl. `.polymux.com`) and

@@ -12,6 +12,7 @@ const props = defineProps<{
   frameUrls?: Map<string, string>
   cursorPositions?: Map<string, CursorState>
   cursorClicks?: Map<string, number>
+  cursorDragging?: Map<string, boolean>
   showCursor?: boolean
   browserAgentCap?: number
   browserAgentCapResolved?: boolean
@@ -39,7 +40,7 @@ const expandedFrameUrl = computed(() => {
 // Running-kind classifier — drives the per-viewport indicator. 'workflow'
 // kicks in only while the workflow_run engine is actively executing the
 // persisted node graph; everything else (orchestrator agents working in
-// service of chat) falls through to 'chat'. Matches the SidePanel
+// service of chat) falls through to 'chat'. Matches the Sidebar
 // running-indicator contract so the two surfaces stay visually aligned.
 const workflowRun = inject<{ runStatus: Ref<string | null> } | null>('workflow-run', null)
 const runningKind = computed<'chat' | 'workflow' | null>(() => {
@@ -334,7 +335,7 @@ function viewportHandlers(agentId: string) {
           @keydown.space.prevent="onExpand(vp.agentId)"
         >
           <Viewport
-            v-bind="{ ...vp, ...viewportHandlers(vp.agentId), frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), clickNonce: cursorClicks?.get(vp.agentId), showCursor }"
+            v-bind="{ ...vp, ...viewportHandlers(vp.agentId), frameUrl: frameUrls?.get(vp.agentId), cursor: cursorPositions?.get(vp.agentId), clickNonce: cursorClicks?.get(vp.agentId), dragging: cursorDragging?.get(vp.agentId), showCursor }"
             :thumbnail="compactInGallery"
             :show-bar="showBarInGallery"
             :show-action-text="!compactInGallery"
@@ -456,6 +457,7 @@ function viewportHandlers(agentId: string) {
     :frame-url="expandedFrameUrl"
     :cursor="cursorPositions?.get(expandedViewport.agentId)"
     :click-nonce="cursorClicks?.get(expandedViewport.agentId)"
+    :dragging="cursorDragging?.get(expandedViewport.agentId)"
     :show-cursor="showCursor"
     @close="expandedAgentId = null"
   />

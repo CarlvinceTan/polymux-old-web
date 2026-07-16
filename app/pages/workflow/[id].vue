@@ -28,7 +28,7 @@ const headerTabs = computed(() => {
   const base = `/workflow/${workflowId.value}`
   return {
     [t('workflow.tabs.agent')]: `${base}/agent`,
-    [t('workflow.tabs.schedule')]: `${base}/schedule`,
+    [t('workflow.tabs.runs')]: `${base}/runs`,
     [t('workflow.tabs.artifacts')]: `${base}/artifacts`,
     [t('workflow.tabs.stealth')]: `${base}/stealth`,
   } satisfies Record<string, string>
@@ -107,6 +107,7 @@ const screencast = {
   frameUrls: readonly(mergedFrameUrls),
   cursorPositions: wsScreencast.cursorPositions,
   cursorClicks: wsScreencast.cursorClicks,
+  cursorDragging: wsScreencast.cursorDragging,
   cleanup: () => {
     wsScreencast.cleanup()
     extScreencast.cleanup()
@@ -127,7 +128,7 @@ watch(
 )
 const geo = useGeolocation()
 const toast = useAppToast()
-// Owns workflow_run state at the page level so the SidePanel "running kind"
+// Owns workflow_run state at the page level so the Sidebar "running kind"
 // watch below can distinguish node-driven runs (progress arc) from
 // chat-driven activity (spinner). Each `workflow_run_*` WS event is handled
 // exactly once by this single instance; WorkflowNodeCanvas injects it for
@@ -358,7 +359,7 @@ onUnmounted(() => screencast.cleanup())
 // start operating the workflow, which is reserved for explicit user prompts
 // or scheduled cloud runs.
 
-// Drive the SidePanel running-indicator. Two distinct activity modes share
+// Drive the Sidebar running-indicator. Two distinct activity modes share
 // the workflow row's "running" slot, and they MUST stay distinguishable —
 // they represent fundamentally different things the user is doing:
 //
@@ -378,7 +379,7 @@ onUnmounted(() => screencast.cleanup())
 // local signal is present we defer to the server's running_kind (carried on
 // session_state), which is computed from activeRuns vs agent statuses on
 // the same session — so 'chat' there means "agents are still working in the
-// background", which the SidePanel must NOT misrepresent as a workflow_run.
+// background", which the Sidebar must NOT misrepresent as a workflow_run.
 const workflowRunActive = computed(() =>
   workflowRun.runStatus.value === 'running' || workflowRun.runStatus.value === 'pending',
 )
@@ -415,7 +416,7 @@ watch(
   { immediate: true },
 )
 
-// Release the override when this page tears down so the SidePanel falls back
+// Release the override when this page tears down so the Sidebar falls back
 // to server-authoritative is_running for this row. Otherwise the last-known
 // override would linger and the indicator could keep painting (or hiding)
 // activity after we've lost the local signals to update it.
@@ -771,9 +772,7 @@ provide('chat-message-feedback', messageFeedback)
 <template>
   <FeatureGate name="workflows">
   <div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-4 pt-2">
-    <header class="shrink-0">
-      <PageHeader :tabs="headerTabs" />
-    </header>
+    <SubNav :tabs="headerTabs" />
     <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       <!-- Key by workflow id only so Agent / Schedule / Artifacts swaps (and query
            changes such as artifact deeplinks) don't destroy sibling pages outright.

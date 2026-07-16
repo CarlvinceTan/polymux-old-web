@@ -245,10 +245,10 @@ async function navigateRef(kind: RefKind, id: string) {
     await router.push({ path: `/workflow/${workflowId}/artifacts`, query: { artifact: id } })
     return
   }
-  // file / folder: storage/files paints the FileBrowser at the requested path.
+  // file / folder: the Files page paints the FileBrowser at the requested path.
   // For files, we pass the full path; the page splits it into the parent
   // directory + selected filename. For folders, the whole path is the dir.
-  await router.push({ path: '/storage/files', query: { path: id, kind } })
+  await router.push({ path: '/files', query: { path: id, kind } })
 }
 </script>
 

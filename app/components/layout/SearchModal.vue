@@ -6,12 +6,22 @@ const isOpen = defineModel<boolean>('open', { default: false })
 
 const searchQuery = ref('')
 const inputRef = ref<HTMLInputElement>()
+const { relativeOrAbsoluteTime } = useRelativeTime()
+
+const queryText = computed(() => searchQuery.value.trim().toLowerCase())
 
 const filteredSessions = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return []
-  return sessions.value.filter(s => s.title.toLowerCase().includes(q)).slice(0, 8)
+  const q = queryText.value
+  const realSessions = sessions.value.filter(s => !s.is_draft)
+  if (!q) return realSessions.slice(0, 8)
+  return realSessions.filter(s => s.title.toLowerCase().includes(q)).slice(0, 8)
 })
+
+const hasQuery = computed(() => queryText.value.length > 0)
+
+function workflowMeta(updatedAt: string) {
+  return relativeOrAbsoluteTime(updatedAt)
+}
 
 function handleClear() {
   if (searchQuery.value) {
@@ -65,12 +75,15 @@ onUnmounted(() => {
       >
         <div
           v-if="isOpen"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-surface/80 backdrop-blur-[2px] p-4"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-white/60 p-4 backdrop-blur-[4px]"
           @click="isOpen = false"
         >
-          <div class="w-full max-w-lg rounded-lg glass shadow-soft overflow-hidden" @click.stop>
-            <div class="flex items-center gap-3 px-4 py-3 bg-surface-container-low">
-              <svg class="size-[1.125em] shrink-0 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div
+            class="w-full max-w-2xl overflow-hidden rounded-xl border border-neutral-300/80 bg-white shadow-[0_28px_80px_rgba(26,28,28,0.18),0_1px_0_rgba(255,255,255,0.9)_inset]"
+            @click.stop
+          >
+            <div class="flex min-h-[62px] items-center gap-3 border-b border-neutral-200 px-4 bg-white">
+              <svg class="size-5 shrink-0 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
@@ -80,44 +93,65 @@ onUnmounted(() => {
                 name="global-search"
                 type="text"
                 :placeholder="t('search.placeholder')"
-                class="flex-1 bg-transparent text-body-lg outline-none placeholder:text-secondary text-on-surface"
+                class="min-w-0 flex-1 bg-transparent text-body-lg font-medium text-neutral-950 outline-none placeholder:text-neutral-500"
               />
               <button
-                class="p-1 text-secondary hover:text-on-surface transition-colors"
+                type="button"
+                class="flex size-8 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-950"
+                :aria-label="t('common.close')"
                 @click="handleClear"
               >
-                <svg class="size-[1.125em]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <svg class="size-[1.125em]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round">
                   <path d="M18 6 6 18" />
                   <path d="M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div class="max-h-80 overflow-y-auto p-2 bg-surface-container-lowest">
-              <template v-if="searchQuery.trim()">
-                <div v-if="filteredSessions.length === 0" class="px-3 py-8 text-center text-body-md text-secondary">
-                  {{ t('search.noResults') }}
+            <div class="max-h-[25rem] overflow-y-auto bg-neutral-50 p-2">
+              <div v-if="filteredSessions.length === 0" class="px-3 py-10 text-center text-body-md text-neutral-500">
+                {{ hasQuery ? t('search.noResults') : t('search.emptyState') }}
+              </div>
+              <template v-else>
+                <div class="px-2 pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
+                  {{ t('nav.workflows') }}
                 </div>
-                <ul v-else class="space-y-0.5">
+                <ul class="space-y-1">
                   <li v-for="session in filteredSessions" :key="session.id">
                     <button
                       type="button"
-                      class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-start text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+                      class="grid min-h-[54px] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 py-2 text-start transition-colors hover:bg-white hover:shadow-[inset_0_0_0_1px_rgba(198,198,198,0.7)]"
                       @click="handleResultClick(session.id)"
                     >
-                      <svg class="size-4 shrink-0 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2 2 7l10 5 10-5-10-5z" />
-                        <path d="m2 12 10 5 10-5" />
-                        <path d="m2 17 10 5 10-5" />
-                      </svg>
-                      <span class="truncate">{{ session.title }}</span>
+                      <span class="grid size-[32px] shrink-0 place-items-center rounded-lg border border-neutral-200 bg-white text-neutral-500">
+                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M12 2 2 7l10 5 10-5-10-5z" />
+                          <path d="m2 12 10 5 10-5" />
+                          <path d="m2 17 10 5 10-5" />
+                        </svg>
+                      </span>
+                      <span class="min-w-0">
+                        <span class="block truncate text-body-md font-semibold text-neutral-950">
+                          {{ session.title }}
+                        </span>
+                        <span
+                          v-if="workflowMeta(session.updated_at)"
+                          class="mt-0.5 block truncate text-xs text-neutral-500"
+                        >
+                          {{ workflowMeta(session.updated_at) }}
+                        </span>
+                      </span>
+                      <span
+                        v-if="session.is_running"
+                        class="inline-flex shrink-0 items-center gap-1.5 text-xs text-neutral-500"
+                      >
+                        <span class="size-1.5 rounded-full bg-gold" aria-hidden="true" />
+                        <span>{{ t('workflow.running') }}</span>
+                      </span>
                     </button>
                   </li>
                 </ul>
               </template>
-              <div v-else class="px-3 py-8 text-center text-body-md text-secondary">
-                {{ t('search.emptyState') }}
-              </div>
             </div>
           </div>
         </div>

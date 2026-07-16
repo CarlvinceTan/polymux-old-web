@@ -11,12 +11,12 @@ const canonical = computed(() => {
 useHead({
   htmlAttrs: { lang: locale },
   titleTemplate: (title?: string) =>
-    title ? `${title} | Polymux` : 'Polymux — AI Agents for Browser Automation',
+    title ? `${title} | Polymux` : 'Polymux — Automated End-to-End Flow Testing',
   link: [{ rel: 'canonical', href: canonical }],
   meta: [{ property: 'og:url', content: canonical }],
 })
 
-const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/storage', '/vault', '/integrations', '/session']
+const APP_ROUTE_PREFIXES = ['/workflow', '/dashboard', '/schedule', '/connections', '/files', '/credentials', '/wallet', '/storage', '/vault', '/integrations', '/session']
 
 const isAppRoute = computed(() =>
   APP_ROUTE_PREFIXES.some(p => route.path === p || route.path.startsWith(p + '/')),

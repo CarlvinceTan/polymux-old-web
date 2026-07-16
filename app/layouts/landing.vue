@@ -45,7 +45,7 @@ function toggleLocaleDropdown() {
 
 function handleLandingSettings() {
     closeProfileDropdown()
-    navigateTo('/dashboard/console')
+    navigateTo('/workflow/new')
 }
 
 async function handleLandingSignOut() {
@@ -87,7 +87,7 @@ const avatarUrl = computed(() => {
 
 const initials = computed(() => {
     const name = displayName.value.trim() || 'U'
-    return name.split(/\s+/).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+    return name.charAt(0).toUpperCase()
 })
 const activeSection = ref<string | null>(null)
 
@@ -606,7 +606,7 @@ const linkGroups = computed(() => [
                         </div>
 
                         <!-- Authenticated: profile row -->
-                        <NuxtLink v-if="user" to="/dashboard/console"
+                        <NuxtLink v-if="user" to="/workflow/new"
                             class="flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors hover:bg-neutral-50"
                             @click="mobileOpen = false">
                             <span v-if="avatarUrl" class="size-6 shrink-0 overflow-hidden rounded-md">

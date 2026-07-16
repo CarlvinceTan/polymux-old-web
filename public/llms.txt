@@ -1,6 +1,6 @@
 # Polymux
 
-> Polymux orchestrates AI agents for browser automation. Deploy and coordinate multi-agent workflows with live browser sessions, a secure vault for credentials, and replayable runs. Built for teams who need reliable, observable automation on the live web.
+> Polymux captures user journeys as reusable Flows, runs them through platform runners, and verifies expected behaviour with Checks, Artifacts, and replayable evidence. Built for teams who need reliable, observable end-to-end testing.
 
 ## Product
 

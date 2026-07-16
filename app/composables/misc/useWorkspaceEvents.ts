@@ -6,7 +6,7 @@ import type { Ref } from 'vue'
 // Subscribes to Supabase Realtime postgres_changes on the `workspaces` and
 // `workflows` tables. On any change the client is allowed to see (RLS applies),
 // it re-fetches workspace data or invalidates the Vue Query session cache so
-// SidePanel sees fresh data without polling.
+// Sidebar sees fresh data without polling.
 //
 // Requirements:
 //   - Realtime must be enabled on the `workspaces` and `workflows` tables in
@@ -36,7 +36,7 @@ let _workspacesTimer: ReturnType<typeof setTimeout> | null = null
 let _filesTimer: ReturnType<typeof setTimeout> | null = null
 const INVALIDATE_DEBOUNCE_MS = 800
 
-// Fields the SidePanel actually renders for a workflow row, as
+// Fields the Sidebar actually renders for a workflow row, as
 // [realtime payload column (DB name) -> cached /sessions row field (API name)].
 // The realtime postgres_changes payload is keyed by raw DB columns (`name`,
 // not the API's `title`), so the mapping is load-bearing — comparing the wrong

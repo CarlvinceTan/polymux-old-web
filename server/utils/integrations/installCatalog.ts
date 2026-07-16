@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
 import { isConnectorId } from '~~/server/connectors/registry'
 import { validateManifest } from './integrationManifest'
 import { isLayoutTargetSection, type LayoutTargetSection } from './layoutSections'
@@ -25,6 +26,15 @@ interface CatalogRow {
   is_first_party: boolean
   current_version_id: string | null
   name?: string | null
+}
+
+const TRIGGER_PROVIDER_SLUGS = new Set(['github', 'gitlab'])
+
+function newTriggerProviderSecret(provider: string): string {
+  if (provider === 'gitlab') {
+    return `whsec_${randomBytes(32).toString('base64')}`
+  }
+  return randomBytes(32).toString('base64url')
 }
 
 /** Per-install configuration for kind='layout'. */
@@ -240,8 +250,11 @@ async function computeNextTabIndex(ctx: InstallContext, section: string): Promis
 async function installIntegrationKind(ctx: InstallContext, row: CatalogRow): Promise<InstallOutcome> {
   const sb = ctx.admin as unknown as Sb
 
-  if (row.is_first_party) {
+  if (row.is_first_party && !TRIGGER_PROVIDER_SLUGS.has(row.slug)) {
     return { kind: 'requires_oauth', slug: row.slug }
+  }
+  if (TRIGGER_PROVIDER_SLUGS.has(row.slug)) {
+    return installTriggerProviderKind(ctx, row)
   }
   if (!row.current_version_id) {
     return { kind: 'error', slug: row.slug, message: 'Integration has no published version.' }
@@ -301,6 +314,43 @@ async function installIntegrationKind(ctx: InstallContext, row: CatalogRow): Pro
     to_version_id: version.id,
     actor_user_id: ctx.userId,
     metadata: { slug: row.slug, kind: 'integration', version: manifest.identity.version, installed_via_plugin_id: ctx.installedViaPluginId ?? null },
+  })
+
+  return { kind: 'installed', workspaceIntegrationId: installId, slug: row.slug }
+}
+
+async function installTriggerProviderKind(ctx: InstallContext, row: CatalogRow): Promise<InstallOutcome> {
+  const sb = ctx.admin as unknown as Sb
+  const insert = sb.from('workspace_integrations').insert({
+    workspace_id: ctx.workspaceId,
+    provider: row.slug,
+    connected_by: ctx.userId,
+    scopes: ['automation:trigger'],
+    metadata: {
+      kind: 'trigger_provider',
+      webhook_secret: newTriggerProviderSecret(row.slug),
+      webhook_endpoint: `/api/flow-automations/${row.slug}`,
+    },
+    integration_version_id: row.current_version_id,
+    status: 'active',
+    auto_update_channel: 'pinned',
+    installed_via_plugin_id: ctx.installedViaPluginId ?? null,
+  })
+  const installRes = await insert.select?.('id').single()
+  if (!installRes || installRes.error || !installRes.data) {
+    const msg = installRes?.error?.message ?? 'Insert failed.'
+    console.error('[installCatalog] trigger provider install failed', installRes?.error)
+    return { kind: 'error', slug: row.slug, message: msg }
+  }
+  const installId = (installRes.data as { id: string }).id
+
+  await sb.from('integration_install_events').insert({
+    workspace_id: ctx.workspaceId,
+    integration_id: row.id,
+    event_type: 'install',
+    to_version_id: row.current_version_id,
+    actor_user_id: ctx.userId,
+    metadata: { slug: row.slug, kind: 'trigger_provider', installed_via_plugin_id: ctx.installedViaPluginId ?? null },
   })
 
   return { kind: 'installed', workspaceIntegrationId: installId, slug: row.slug }

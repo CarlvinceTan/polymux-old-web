@@ -123,13 +123,13 @@ In **~12–15 s after recast**, the viewer should grasp:
 
 | Beat | Works on typical demo account (often 1 workspace) | Needs setup / flags |
 |------|-----------------------------------------------------|---------------------|
-| Console backdrop (`/dashboard/console`) | Yes — schedules/runs if workflows exist; empty states OK | Named workspace (not “Loading…”) |
+| Flow draft backdrop (`/workflow/new`) | Yes — enough for workspace and sidebar context | Named workspace (not “Loading…”) |
 | Open workspace dropdown (`data-testid=workspace-dropdown-trigger`) | Yes — name, role line, plan label, member count, Settings, Manage members, **Add workspace** | Member count > 1 reads better for “invite” copy |
-| **Other workspaces** list + live switch (`data-testid=workspace-option`) | **No** if user has only one workspace — section hidden in `SidePanel.vue` | Second workspace on demo user (personal + team, or two named sandboxes) |
+| **Other workspaces** list + live switch (`data-testid=workspace-option`) | **No** if user has only one workspace — section hidden in `Sidebar.vue` | Second workspace on demo user (personal + team, or two named sandboxes) |
 | Sidebar → Storage (`/storage/files`) | Yes (route + nav link) | Populated files optional; empty folder still OK for welcome |
 | Sidebar → Integrations (`/integrations/installed`) | Yes if `integrations` feature flag on | Flag off → gate/empty — prefer marketplace only when flag confirmed |
 | Sidebar → Vault (`/vault/accounts`) | Yes | Account rows optional; empty list OK |
-| Workflow list in sidebar | Yes | ≥1 saved workflow makes console + sidebar feel “lived-in” |
+| Workflow list in sidebar | Yes | ≥1 saved workflow makes the sidebar feel “lived-in” |
 | **Manage members** modal peek | Yes (open + Escape — no submit) | — |
 | **Create workspace** modal peek (name + invite rows) | Yes (open + Escape — no submit) | Avoid real `createWorkspace` in recorder |
 | Actual workspace switch in video | **No** without ≥2 workspaces | Seed second workspace; manifest step: click `[data-testid=workspace-option]` |
@@ -197,7 +197,7 @@ Before locking manifest + re-record:
 
 ### Current recording (`manifest.json`) — unchanged until storyboard approved
 
-- Route: `/dashboard/console`
+- Route: `/workflow/new`
 - Steps: dropdown toggle ×2, `a[href="/storage/files"]`, `a[href="/integrations/installed"]`, dropdown again.
 - Does **not** show: switch, invite UI, vault, modals, or “Add workspace.”
 

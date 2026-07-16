@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       agreement_acceptances: {
@@ -94,6 +119,57 @@ export type Database = {
           },
           {
             foreignKeyName: "artifacts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chats: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_message_at: string | null
+          metadata: Json
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json
+          title?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chats_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2245,6 +2321,7 @@ export type Database = {
       }
       workspace_passwords: {
         Row: {
+          agent_access: Database["public"]["Enums"]["agent_access_policy"]
           created_at: string
           created_by: string | null
           id: string
@@ -2252,6 +2329,7 @@ export type Database = {
           last_used_at: string | null
           last_used_by: string | null
           name: string
+          type: Database["public"]["Enums"]["credential_type"]
           updated_at: string
           url: string
           usage_count: number
@@ -2260,6 +2338,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          agent_access?: Database["public"]["Enums"]["agent_access_policy"]
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2267,6 +2346,7 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name: string
+          type?: Database["public"]["Enums"]["credential_type"]
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2275,6 +2355,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          agent_access?: Database["public"]["Enums"]["agent_access_policy"]
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2282,6 +2363,7 @@ export type Database = {
           last_used_at?: string | null
           last_used_by?: string | null
           name?: string
+          type?: Database["public"]["Enums"]["credential_type"]
           updated_at?: string
           url?: string
           usage_count?: number
@@ -2464,14 +2546,17 @@ export type Database = {
       }
       create_workspace_password: {
         Args: {
+          p_agent_access?: Database["public"]["Enums"]["agent_access_policy"]
           p_is_weak?: boolean
           p_name: string
           p_password: string
+          p_type?: Database["public"]["Enums"]["credential_type"]
           p_url: string
           p_username: string
           p_workspace_id: string
         }
         Returns: {
+          agent_access: Database["public"]["Enums"]["agent_access_policy"]
           created_at: string
           created_by: string | null
           id: string
@@ -2479,6 +2564,7 @@ export type Database = {
           last_used_at: string | null
           last_used_by: string | null
           name: string
+          type: Database["public"]["Enums"]["credential_type"]
           updated_at: string
           url: string
           usage_count: number
@@ -2558,6 +2644,29 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_workspace_credentials: {
+        Args: {
+          p_agent_access?: Database["public"]["Enums"]["agent_access_policy"]
+          p_search_term?: string
+          p_type?: Database["public"]["Enums"]["credential_type"]
+          p_workspace_id: string
+        }
+        Returns: {
+          agent_access: Database["public"]["Enums"]["agent_access_policy"]
+          created_at: string
+          created_by: string
+          id: string
+          is_weak: boolean
+          last_used_at: string
+          last_used_by: string
+          name: string
+          type: Database["public"]["Enums"]["credential_type"]
+          updated_at: string
+          url: string
+          usage_count: number
+          username: string
+        }[]
       }
       get_workspace_role: {
         Args: { ws_id: string }
@@ -2680,16 +2789,13 @@ export type Database = {
         Args: { p_origin: string; p_used_by: string; p_workspace_id: string }
         Returns: undefined
       }
-      update_workspace_password: {
+      update_credential_agent_access: {
         Args: {
-          p_is_weak?: boolean
-          p_name: string
-          p_password?: string
-          p_password_id: string
-          p_url: string
-          p_username: string
+          p_agent_access: Database["public"]["Enums"]["agent_access_policy"]
+          p_credential_id: string
         }
         Returns: {
+          agent_access: Database["public"]["Enums"]["agent_access_policy"]
           created_at: string
           created_by: string | null
           id: string
@@ -2697,6 +2803,42 @@ export type Database = {
           last_used_at: string | null
           last_used_by: string | null
           name: string
+          type: Database["public"]["Enums"]["credential_type"]
+          updated_at: string
+          url: string
+          usage_count: number
+          username: string
+          vault_secret_id: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspace_passwords"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_workspace_password: {
+        Args: {
+          p_agent_access?: Database["public"]["Enums"]["agent_access_policy"]
+          p_is_weak?: boolean
+          p_name: string
+          p_password?: string
+          p_password_id: string
+          p_type?: Database["public"]["Enums"]["credential_type"]
+          p_url: string
+          p_username: string
+        }
+        Returns: {
+          agent_access: Database["public"]["Enums"]["agent_access_policy"]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_weak: boolean
+          last_used_at: string | null
+          last_used_by: string | null
+          name: string
+          type: Database["public"]["Enums"]["credential_type"]
           updated_at: string
           url: string
           usage_count: number
@@ -2754,6 +2896,8 @@ export type Database = {
       }
     }
     Enums: {
+      agent_access_policy: "allowed" | "consent_required" | "blocked"
+      credential_type: "login" | "secret"
       share_permission_level: "viewer" | "editor"
       workspace_role: "owner" | "admin" | "member" | "viewer"
     }
@@ -2881,8 +3025,13 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
+      agent_access_policy: ["allowed", "consent_required", "blocked"],
+      credential_type: ["login", "secret"],
       share_permission_level: ["viewer", "editor"],
       workspace_role: ["owner", "admin", "member", "viewer"],
     },

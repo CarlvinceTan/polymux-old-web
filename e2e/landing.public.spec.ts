@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test'
 
 const HERO_TITLE = 'AI agents for the live web'
-const PAGE_TITLE = /AI Agents for Browser Automation/
+const PAGE_TITLE = /Automated End-to-End Flow Testing/
 const ROTATING_PHRASES = [
   'Live browser sessions.',
   'Multi-agent handoffs.',

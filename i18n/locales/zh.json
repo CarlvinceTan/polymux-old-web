@@ -21,6 +21,7 @@
     "attach": "附件",
     "voice": "语音",
     "settings": "设置",
+    "options": "选项",
     "upgrade": "升级",
     "upgradePlan": "升级方案",
     "installApp": "安装应用",
@@ -44,9 +45,11 @@
     "download": "下载",
     "workspace": "工作区",
     "retry": "重试",
-    "unknownError": "Unknown error",
-    "expand": "Expand",
-    "collapse": "Collapse"
+    "unknownError": "未知错误",
+    "expand": "展开",
+    "collapse": "折叠",
+    "doubleClickToEdit": "双击编辑",
+    "preferences": "偏好设置"
   },
   "upgradePlan": {
     "title": "升级您的方案",
@@ -57,7 +60,7 @@
     "custom": "定制",
     "currentPlanNote": "您当前使用的是 {current} 方案。请在定价页面选择更高级别的方案。",
     "planNames": {
-      "free": "Free",
+      "free": "免费",
       "pro": "Pro",
       "max": "Max",
       "enterprise": "Enterprise"
@@ -105,7 +108,13 @@
     "mainSidebar": "主侧边栏",
     "toggleSidebar": "切换侧边栏",
     "main": "主菜单",
-    "userProfile": "用户资料"
+    "userProfile": "用户资料",
+    "plugins": "插件",
+    "tools": "工具",
+    "connections": "Connections",
+    "console": "Console",
+    "moveToFolder": "Move to folder",
+    "noFolder": "No folder"
   },
   "notifications": {
     "title": "通知",
@@ -176,7 +185,7 @@
     "returnToSignIn": "返回登录"
   },
   "settings": {
-    "title": "设置",
+    "title": "偏好设置",
     "editProfile": "编辑资料",
     "freePlan": "免费套餐",
     "proPlan": "Pro 套餐",
@@ -234,7 +243,18 @@
     "checkoutSuccess": "您的套餐已成功升级！",
     "importPasswords": "导入密码",
     "importPasswordsHint": "将 Chrome、Firefox 或 Safari 中保存的登录信息导入工作区保险库。",
-    "allNotificationsHint": "应用发送的非必要邮件（工作区邀请、新闻通讯等）的总开关。重要账户消息仍会送达。"
+    "allNotificationsHint": "应用发送的非必要邮件（工作区邀请、新闻通讯等）的总开关。重要账户消息仍会送达。",
+    "clearWorkflows": "清除所有工作流",
+    "clearWorkflowsDesc": "永久删除此工作区中的所有工作流，以及它们的聊天记录和历史。",
+    "clearWorkflowsButton": "全部清除",
+    "clearWorkflowsTitle": "清除所有工作流",
+    "clearWorkflowsCannotUndo": "此操作无法撤消",
+    "clearWorkflowsWarning": "这将永久删除此工作区中的全部 {count} 个工作流，以及它们的聊天记录和历史。此操作无法撤消。",
+    "clearWorkflowsConfirm": "清除所有工作流",
+    "clearWorkflowsClearing": "正在清除…",
+    "clearWorkflowsDone": "已清除 {count} 个工作流",
+    "clearWorkflowsError": "无法清除工作流，请重试。",
+    "clearWorkflowsPartialError": "无法删除 {count} 个工作流，请重试。"
   },
   "chat": {
     "welcomeGreeting": "{name}，有什么可以帮您的吗？",
@@ -246,6 +266,7 @@
     "expandedBrowserPreview": "展开的浏览器预览",
     "removeAttachment": "移除附件",
     "fileUploadError": "{name} 上传失败",
+    "loadHistoryError": "无法加载此聊天记录。",
     "chatView": "聊天",
     "viewportView": "视图",
     "flowView": "流程",
@@ -262,7 +283,32 @@
     "copyToClipboard": "复制到剪贴板",
     "openFileRef": "打开文件",
     "openFolderRef": "打开文件夹",
-    "openArtifactRef": "打开工件"
+    "openArtifactRef": "打开工件",
+    "welcomeSuggestion": "给我看点酷的东西",
+    "discussInConsole": "在控制台中讨论",
+    "welcomeSubtitle": "Ask anything, or describe what you want to automate.",
+    "welcomeSuggestions": {
+      "automate": {
+        "title": "Set up an automation",
+        "description": "Plan, build, and test the whole flow",
+        "prompt": "Help me set up an end-to-end automation: clarify the goal, map the steps, build the workflow, and test that it works."
+      },
+      "browse": {
+        "title": "Research to decision",
+        "description": "Browse, compare, and recommend next steps",
+        "prompt": "Research this end to end: browse the relevant sources, compare the options, summarize the tradeoffs, and recommend what to do next."
+      },
+      "summarize": {
+        "title": "Extract to report",
+        "description": "Gather sources and produce a clean output",
+        "prompt": "Turn source material into a finished output: gather the relevant pages or files, extract the key details, and produce a concise report."
+      },
+      "draft": {
+        "title": "Draft to follow-up",
+        "description": "Write, review, and prep the next action",
+        "prompt": "Help me handle this communication end to end: understand the context, draft the message, refine it, and suggest the follow-up."
+      }
+    }
   },
   "workflow": {
     "untitledNode": "未命名步骤",
@@ -312,7 +358,7 @@
     "addAction": "添加操作",
     "removeAction": "移除操作",
     "actionsEmpty": "还没有操作 — 添加一个以描述如何达成标题。",
-    "details": "详细信息",
+    "details": "详情",
     "detailsPlaceholder": "代理在运行期间读取和更新的执行上下文",
     "notes": "备注",
     "notesPlaceholder": "您的私人备注 — 代理不会读取或修改这些内容",
@@ -352,7 +398,8 @@
       "agent": "智能体",
       "schedule": "计划",
       "artifacts": "工件",
-      "stealth": "设置"
+      "stealth": "设置",
+      "runs": "Runs"
     },
     "liveBadge": "实时",
     "resizeNode": "调整大小",
@@ -398,11 +445,22 @@
     "embedPendingTitle": "选择一个工作流",
     "embedUnboundToast": "此嵌入未选择工作流 — 请在信息面板中选择。",
     "embedOpen": "打开引用的工作流 →",
-    "peekTitle": "Workflow",
-    "peekOpenFlow": "Open flow",
-    "peekNodeCount": "{n} nodes",
-    "peekParallel": "{n} parallel branches",
-    "peekAlt": "Preview of the workflow graph — open the Flow view"
+    "peekTitle": "工作流",
+    "peekOpenFlow": "打开流程",
+    "peekNodeCount": "{n} 个节点",
+    "peekParallel": "{n} 个并行分支",
+    "peekAlt": "工作流图预览 — 打开流程视图",
+    "checks": "Checks",
+    "addCheck": "Add check",
+    "removeCheck": "Remove check",
+    "checksEmpty": "No checks yet — add one to verify expected behaviour from run evidence.",
+    "checkLabelPlaceholder": "Expected behaviour",
+    "checkExpectationPlaceholder": "What evidence should prove this is correct?",
+    "checkMode": {
+      "auto": "Auto",
+      "comparison": "Compare",
+      "review": "Review"
+    }
   },
   "dashboard": {
     "console": "控制台",
@@ -441,7 +499,33 @@
     "nextRunDue": "现在到期",
     "inMinutes": "{n}分钟后",
     "inHours": "{n}小时后",
-    "inDays": "{n}天后"
+    "inDays": "{n}天后",
+    "composerPlaceholder": "给核心发消息…",
+    "assistant": {
+      "title": "Core",
+      "subtitle": "工作区助手",
+      "connected": "MCP · CLI 已连接",
+      "connecting": "连接中…",
+      "welcomeTitle": "与核心对话",
+      "welcomeBody": "您的工作区助手。可让它执行任务、回忆上下文或恢复搁置的焦点。"
+    },
+    "focuses": {
+      "title": "焦点",
+      "new": "新建焦点",
+      "placeholderNote": "搁置的内存上下文。实时焦点栏即将推出。",
+      "stubCurrent": "当前会话",
+      "stubResearch": "市场研究",
+      "stubInvoices": "发票分类"
+    },
+    "hindsight": {
+      "title": "Hindsight",
+      "subtitle": "共享记忆 · {n} 条笔记",
+      "view": "查看记忆",
+      "placeholderNote": "一个共享的工作区记忆。实时来源即将推出。",
+      "stubNote1": "偏好简洁摘要而非长篇内容。",
+      "stubNote2": "主时区为 UTC；计划任务据此运行。",
+      "stubNote3": "保存或编辑工作流前务必确认。"
+    }
   },
   "search": {
     "placeholder": "搜索工作流…",
@@ -458,7 +542,7 @@
     "pinBrowser": "固定浏览器智能体",
     "unpinBrowser": "取消固定浏览器智能体",
     "demoLabel": "Demo",
-    "demoLabelN": "Demo {n}"
+    "demoLabelN": "演示 {n}"
   },
   "browser": {
     "addAgent": "添加浏览器代理",
@@ -524,7 +608,7 @@
     "editorSlug": "Slug",
     "editorSlugHelp": "小写，可使用 author/name 命名空间。",
     "editorSlugAutoHelp": "根据你的标识和上方名称自动生成。",
-    "editorSlugPreviewEmpty": "author/name",
+    "editorSlugPreviewEmpty": "作者/名称",
     "editorName": "名称",
     "editorDescription": "描述",
     "editorTags": "标签",
@@ -613,11 +697,23 @@
     "categoryLayout": "布局",
     "official": "官方",
     "editorListingNotFound": "找不到此列表。",
-    "connectedTooltip": "{n} connected",
-    "publishFailed": "Publish failed",
-    "saveFailed": "Save failed",
-    "yankFailed": "Yank failed",
-    "disconnectFailed": "Failed to disconnect integration."
+    "connectedTooltip": "已连接 {n} 个",
+    "publishFailed": "发布失败",
+    "saveFailed": "保存失败",
+    "yankFailed": "移除失败",
+    "disconnectFailed": "断开集成失败。",
+    "browse": "浏览",
+    "filterAvailable": "可用",
+    "filterStatus": "状态",
+    "filterCategory": "类别",
+    "filterClear": "清除筛选",
+    "searchAllPlaceholder": "搜索插件…",
+    "colName": "名称",
+    "colDescription": "描述",
+    "colStatus": "状态",
+    "colInstalls": "安装量",
+    "colActions": "打开",
+    "installsCount": "{count} 次安装"
   },
   "workspace": {
     "team": "团队",
@@ -631,7 +727,7 @@
     "title": "创建工作区",
     "subtitle": "为您的团队设置新的工作区。",
     "billingNote": "新工作区以 {plan} 计划开始。计划和限制按工作区适用 — 您可以从定价页面单独升级每个工作区。",
-    "freePlanName": "Free",
+    "freePlanName": "免费",
     "nameLabel": "工作区名称",
     "namePlaceholder": "例如：我的团队",
     "invitesLabel": "邀请成员",
@@ -641,10 +737,10 @@
     "creating": "创建中…",
     "submit": "创建工作区",
     "errorFallback": "创建工作区失败。请重试。",
-    "nameRequired": "Workspace name is required.",
-    "nameTooLong": "Workspace name must be {max} characters or fewer.",
-    "nameInvalidChars": "Only letters, numbers, and spaces are allowed.",
-    "inviteFailed": "Failed to send invitation."
+    "nameRequired": "工作区名称为必填项。",
+    "nameTooLong": "工作区名称不得超过 {max} 个字符。",
+    "nameInvalidChars": "仅允许字母、数字和空格。",
+    "inviteFailed": "发送邀请失败。"
   },
   "workspaceMenu": {
     "memberCountOne": "1 位成员",
@@ -731,19 +827,19 @@
     "identityUpdateError": "无法更新工作区,请重试。",
     "llmKeysTitle": "LLM API 密钥",
     "llmKeysDesc": "使用您自己的 LLM API 密钥。设置后，此工作区中的每次运行都将使用您的密钥而非共享密钥——令牌从您的提供商账户扣费，而非您的每周预算。",
-    "transferOwnershipFailed": "Failed to transfer ownership. Please try again.",
-    "deleteWorkspaceFailed": "Failed to delete workspace. Please try again.",
+    "transferOwnershipFailed": "转移所有权失败。请重试。",
+    "deleteWorkspaceFailed": "删除工作区失败。请重试。",
     "inviteEmailsPlaceholder": "alice{'@'}example.com, bob{'@'}example.com",
-    "managePlan": "Manage plan",
-    "managePlanDesc": "Cancel or change your plan. Changes take effect at the end of the current billing period.",
-    "cancelPlan": "Cancel plan",
-    "downgradeToPro": "Downgrade to Pro",
-    "scheduledCancelBanner": "Your {plan} plan is scheduled to end on {date}. This workspace will move to the Free plan then.",
-    "scheduledCancelBannerNoDate": "Your {plan} plan is scheduled to be cancelled. This workspace will move to the Free plan at the end of the current billing period.",
-    "scheduledDowngradeBanner": "Your {plan} plan is scheduled to change to {target} on {date}.",
-    "scheduledDowngradeBannerNoDate": "Your {plan} plan is scheduled to change to {target} at the end of the current billing period.",
-    "keepPlan": "Keep my plan",
-    "keeping": "Keeping…"
+    "managePlan": "管理套餐",
+    "managePlanDesc": "取消或更改您的套餐。更改将在当前计费周期结束时生效。",
+    "cancelPlan": "取消套餐",
+    "downgradeToPro": "降级至 Pro",
+    "scheduledCancelBanner": "您的 {plan} 套餐将于 {date} 结束。届时此工作区将转为免费套餐。",
+    "scheduledCancelBannerNoDate": "您的 {plan} 套餐已计划取消。此工作区将在当前计费周期结束时转为免费套餐。",
+    "scheduledDowngradeBanner": "您的 {plan} 套餐将于 {date} 变更为 {target}。",
+    "scheduledDowngradeBannerNoDate": "您的 {plan} 套餐将在当前计费周期结束时变更为 {target}。",
+    "keepPlan": "保留我的套餐",
+    "keeping": "保留中…"
   },
   "storage": {
     "workspace": "工作区",
@@ -813,12 +909,12 @@
       "saveOrderEmpty": "尚未连接任何提供商。在下方“连接”中连接一个以开始保存文件。",
       "providerGoogleDrive": "Google 云端硬盘",
       "providerLocal": "本地",
-      "providerCloud": "云存储",
+      "providerCloud": "云",
       "providerGoogleDriveDesc": "保存到工作区 Google 云端硬盘文件夹的文件。",
       "providerLocalDesc": "仅在此浏览器中的本机存储。",
       "providerCloudDesc": "由 Polymux 管理的存储，与所有工作区成员共享。",
       "connectionsTitle": "连接",
-      "connectionsDesc": "连接或断开此工作区的存储提供商。",
+      "connectionsDesc": "在你常用的工具中使用 Polymux。",
       "connectionDeviceCapability": "设备",
       "migrationNeedsTwoProviders": "请在“连接”中连接至少两个提供商，才能在它们之间迁移文件。",
       "statusAvailable": "可用",
@@ -862,7 +958,7 @@
       "migrationAccessLossLoading": "正在加载受影响的成员…",
       "migrationAccessLossNone": "目前没有其他人可以访问。",
       "migrationToastView": "查看进度",
-      "providerThisDevice": "This device"
+      "providerThisDevice": "此设备"
     },
     "disconnect": {
       "title": "要断开 {provider} 吗？",
@@ -920,8 +1016,8 @@
       "searchFiles": "搜索文件",
       "searchPlaceholder": "搜索...",
       "selectedCount": "已选择 {n} 项",
-      "expand": "Expand",
-      "collapse": "Collapse"
+      "expand": "展开",
+      "collapse": "折叠"
     },
     "filters": {
       "all": "所有文件",
@@ -977,6 +1073,15 @@
       "localCopyMissing": "此设备上未找到本地副本。",
       "downloadFailedStatus": "下载失败 ({status})",
       "downloadFailed": "文件下载失败"
+    },
+    "fileInfo": {
+      "type": "类型",
+      "location": "位置",
+      "storage": "存储",
+      "size": "大小",
+      "created": "创建时间",
+      "kindFolder": "文件夹",
+      "kindFile": "文件"
     }
   },
   "contact": {
@@ -995,8 +1100,8 @@
     "errorEmail": "请输入有效的电子邮件地址。",
     "errorContent": "请输入您的消息。",
     "enterprisePrefill": "对企业方案感兴趣",
-    "metaTitle": "Contact",
-    "metaDescription": "Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries."
+    "metaTitle": "联系我们",
+    "metaDescription": "联系 Polymux 团队。销售、合作、支持和媒体咨询。"
   },
   "forum": {
     "pageTitle": "论坛",
@@ -1106,7 +1211,7 @@
     "noPreviewDesc": "下载此文件以查看其内容。",
     "viewMode": "制品查看模式",
     "preview": "预览",
-    "raw": "Raw",
+    "raw": "原始",
     "rawLoading": "正在加载 raw 文件...",
     "rawUnavailable": "此文件不支持 Raw 视图。",
     "rawLoadError": "Raw 视图加载失败。",
@@ -1136,20 +1241,20 @@
     "viewGrid": "网格视图",
     "viewList": "列表视图",
     "noPreviewShort": "无预览",
-    "select": "Select",
-    "selectAll": "Select all",
-    "clearSelection": "Clear selection",
-    "selectedCount": "{count} selected",
-    "cancel": "Cancel",
-    "bulkDeleteConfirm": "Delete {count} file? | Delete {count} files?",
-    "bulkSaved": "Saved {count} file to storage | Saved {count} files to storage",
-    "sortBy": "Sort",
-    "sortNewest": "Newest first",
-    "sortOldest": "Oldest first",
-    "sortNameAsc": "Name (A–Z)",
-    "sortNameDesc": "Name (Z–A)",
-    "sortSizeDesc": "Largest first",
-    "sortSizeAsc": "Smallest first"
+    "select": "选择",
+    "selectAll": "全选",
+    "clearSelection": "清除选择",
+    "selectedCount": "已选 {count} 项",
+    "cancel": "取消",
+    "bulkDeleteConfirm": "删除 {count} 个文件？ | 删除 {count} 个文件？",
+    "bulkSaved": "已将 {count} 个文件保存到存储 | 已将 {count} 个文件保存到存储",
+    "sortBy": "排序",
+    "sortNewest": "最新优先",
+    "sortOldest": "最旧优先",
+    "sortNameAsc": "名称 (A–Z)",
+    "sortNameDesc": "名称 (Z–A)",
+    "sortSizeDesc": "最大优先",
+    "sortSizeAsc": "最小优先"
   },
   "landing": {
     "useNow": "立即使用",
@@ -1167,7 +1272,7 @@
         "vault": "保险库安全密钥。",
         "replayable": "可重放的工作流。"
       },
-      "rotatingEmpty": "Add phrases to rotate."
+      "rotatingEmpty": "添加要轮播的短语。"
     },
     "features": {
       "title": "自动化所需的一切",
@@ -1200,7 +1305,7 @@
       "purchaseNow": "立即购买",
       "plans": {
         "free": {
-          "name": "Free",
+          "name": "免费",
           "cta": "开始使用"
         },
         "pro": {
@@ -1482,13 +1587,13 @@
         "done": "完成"
       },
       "errors": {
-        "saveFailed": "Failed to save password",
-        "revealFailed": "Failed to reveal password",
+        "saveFailed": "保存密码失败",
+        "revealFailed": "显示密码失败",
         "revealTotpFailed": "无法显示验证器密钥",
-        "updateFailed": "Failed to update password",
-        "deleteFailed": "Failed to delete password"
+        "updateFailed": "更新密码失败",
+        "deleteFailed": "删除密码失败"
       },
-      "passwordsLockedNote": "Passwords are encrypted and can't be revealed or copied."
+      "passwordsLockedNote": "密码已加密，无法显示或复制。"
     },
     "signIns": {
       "sectionTitle": "已保存的登录",
@@ -1498,8 +1603,10 @@
       "forget": "忘记"
     },
     "tabs": {
-      "accounts": "账户",
-      "wallet": "钱包"
+      "files": "文件",
+      "credentials": "凭据",
+      "wallet": "钱包",
+      "settings": "设置"
     },
     "wallet": {
       "comingSoon": {
@@ -1510,7 +1617,9 @@
         "overview": "概览",
         "activity": "活动",
         "workflows": "工作流",
-        "policies": "策略"
+        "policies": "策略",
+        "transactions": "交易记录",
+        "budgets": "预算"
       },
       "banner": {
         "topUpCompleted": "充值完成。余额已更新。",
@@ -1520,7 +1629,8 @@
         "availableBalance": "可用余额",
         "autoTopUp": "自动充值",
         "autoTopUpOn": "已开启",
-        "topUp": "充值"
+        "topUp": "充值",
+        "autoTopUpSummary": "余额低于{threshold}时充值至{amount}"
       },
       "activity": {
         "title": "消费活动",
@@ -1609,7 +1719,7 @@
         "cancel": "取消",
         "redirecting": "正在跳转…",
         "continueToStripe": "继续前往 Stripe",
-        "amountPlaceholder": "0.00",
+        "amountPlaceholder": "0,00",
         "currencyUsd": "USD"
       },
       "autoTopUpModal": {
@@ -1664,7 +1774,65 @@
         "howApply2": "阻止列表：除已列出的域名外其余可访问。",
         "howApply3": "子域名会被自动匹配。",
         "howApply4": "更改将在下一次运行生效。"
-      }
+      },
+      "dateYesterday": "昨天",
+      "dateDaysAgo": "{n}天前"
+    },
+    "credentials": {
+      "searchPlaceholder": "搜索凭据…",
+      "empty": "尚无已保存的凭据",
+      "addCta": "添加凭据",
+      "noResults": "没有符合筛选条件的凭据。",
+      "secretLabel": "密钥",
+      "use": "使用",
+      "edit": "编辑",
+      "more": "更多操作",
+      "secured": "已保护",
+      "securedTooltip": "静态加密存储。智能体使用时不会显示或复制。",
+      "neverUsed": "从未使用",
+      "lastUsedAgo": "于 {when} 使用",
+      "lastUsedByAgo": "由 {name} 于 {when} 使用",
+      "col": {
+        "name": "名称",
+        "username": "用户名 / 范围",
+        "agentAccess": "智能体访问",
+        "lastUsed": "上次使用",
+        "actions": "操作"
+      },
+      "filters": {
+        "type": "类型",
+        "agentAccess": "智能体访问",
+        "allTypes": "全部",
+        "logins": "登录",
+        "secrets": "密钥",
+        "savedSignIns": "已保存的登录",
+        "allAccess": "全部",
+        "clear": "清除筛选"
+      },
+      "access": {
+        "title": "智能体访问",
+        "allowed": "允许",
+        "consentRequired": "询问",
+        "blocked": "阻止",
+        "allowedHint": "智能体可无需询问即使用此凭据。",
+        "consentRequiredHint": "智能体每次使用前必须询问。",
+        "blockedHint": "智能体永远无法使用此凭据。",
+        "updateFailed": "无法更新智能体访问权限。"
+      },
+      "add": {
+        "title": "添加凭据",
+        "typeLogin": "登录",
+        "typeSecret": "密钥 / API 密钥",
+        "secretNameLabel": "名称",
+        "secretNamePlaceholder": "例如 OpenAI API 密钥",
+        "secretValueLabel": "密钥值",
+        "secretValuePlaceholder": "粘贴密钥或令牌",
+        "secretScopeLabel": "范围（可选）",
+        "secretScopePlaceholder": "例如 production、read-only",
+        "consentNote": "新凭据默认需要智能体同意。您可随时更改。"
+      },
+      "addShort": "添加",
+      "usedBy": "由 {name} 使用"
     }
   },
   "credentialRequest": {
@@ -1688,7 +1856,7 @@
     "hideDetails": "隐藏详情",
     "completedSummary": "已为 {site} 提供凭据。",
     "cancelledSummary": "已取消 {site} 的登录。",
-    "allowAgentFill": "Allow the agent to type this in directly if secure auto-login isn't possible (less isolated)."
+    "allowAgentFill": "如果无法安全自动登录，允许智能体直接输入（隔离性较低）。"
   },
   "schedule": {
     "title": "计划",
@@ -1700,6 +1868,8 @@
     "saved": "计划已保存",
     "activeOn": "已启用",
     "activeOff": "已暂停",
+    "launchStatus": "启动状态",
+    "launchStatusHint": "选择此自动化的启动方式",
     "atMinute": "分钟",
     "atTime": "时间",
     "onDays": "星期",
@@ -1776,7 +1946,51 @@
       "minutesAgo": "{n} 分钟前",
       "hoursAgo": "{n} 小时前",
       "daysAgo": "{n} 天前"
-    }
+    },
+    "overviewSubtitle": "Workflows set to run automatically in this workspace",
+    "overviewEmpty": "No scheduled workflows yet. Open a workflow's Schedule tab to set one up.",
+    "runsPerMonth": "~{n}/month",
+    "calendarSubtitle": "Arrange your workflows on the calendar",
+    "scheduleWorkflow": "Schedule workflow",
+    "todayBtn": "Today",
+    "upcomingLabel": "Upcoming",
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "list": "List"
+    },
+    "addTitle": "Schedule a workflow",
+    "editTitle": "Edit schedule",
+    "workflow": "Workflow",
+    "workflows": "Workflows",
+    "change": "Change",
+    "searchWorkflows": "Search workflows…",
+    "noWorkflows": "No workflows found",
+    "addToCalendar": "Add to calendar",
+    "removeSchedule": "Remove schedule",
+    "removed": "Schedule removed",
+    "nextRunAt": "next {when}",
+    "nextBadge": "Next",
+    "oneOff": "One-off",
+    "moreRuns": "+{n} more",
+    "showRuns": "Show on calendar",
+    "hideRuns": "Hide from calendar",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDaysShort": "in {n}d",
+    "weekdaysShort": "Wkdy",
+    "daysShort": "d",
+    "automationName": "Automation name",
+    "trigger": {
+      "schedule": "Schedule",
+      "integration": "Integration",
+      "webhook": "Webhook"
+    },
+    "integrationProvider": "Provider",
+    "integrationEvent": "Event",
+    "integrationRepo": "Repository",
+    "integrationBranch": "Branch",
+    "webhookEndpoint": "Webhook endpoint"
   },
   "permissions": {
     "title": "管理访问权限：",
@@ -1881,7 +2095,7 @@
       "heading": "移动应用",
       "subtitle": "原生伴侣应用正在开发中。随时随地查看代理、批准操作，并紧贴您的工作流。",
       "comingSoon": "即将推出",
-      "polymuxFor": "Polymux for {name}",
+      "polymuxFor": "适用于 {name} 的 Polymux",
       "getNotified": "发布时获取通知",
       "ios": "把 Polymux 带到 iPhone 和 iPad。随时跟踪会话并查看代理工作。",
       "android": "用于监控工作流并随时批准代理操作的原生 Android 伴侣应用。"
@@ -1898,15 +2112,15 @@
       "subtitle": "连接 Polymux 扩展，在本地浏览器中运行智能体。",
       "chromeLabel": "安装 Chrome 版"
     },
-    "metaTitle": "Install Apps",
-    "metaDescription": "Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.",
-    "desktopComingSoon": "Desktop Apps Coming Soon",
-    "alsoAvailableFor": "Also available for",
-    "availableFor": "Available for",
-    "platformAnd": "and",
-    "mobileExtensionsHeading": "Browser Extension & Mobile Apps",
-    "mobileExtensionsSubtitle": "Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.",
-    "lookingForMobileExtensions": "Looking for Mobile & Extensions?"
+    "metaTitle": "安装应用",
+    "metaDescription": "下载适用于 macOS、Windows 和 Linux 的 Polymux 原生应用。在本地运行 AI 智能体，完整系统集成。",
+    "desktopComingSoon": "桌面应用即将推出",
+    "alsoAvailableFor": "也可用于",
+    "availableFor": "适用于",
+    "platformAnd": "和",
+    "mobileExtensionsHeading": "浏览器扩展和移动应用",
+    "mobileExtensionsSubtitle": "进一步扩展您的工作流。添加扩展以连接浏览器，并在移动应用发布时收到通知。",
+    "lookingForMobileExtensions": "在找移动版和扩展？"
   },
   "docs": {
     "searchPlaceholder": "搜索文档…",
@@ -1921,33 +2135,33 @@
     "next": "下一页",
     "contact": "联系我们",
     "onThisPage": "本页内容",
-    "navLabel": "Docs",
-    "openNavigation": "Open navigation",
-    "fallbackTitle": "Documentation",
+    "navLabel": "文档",
+    "openNavigation": "打开导航",
+    "fallbackTitle": "文档",
     "nav": {
       "sections": {
-        "gettingStarted": "Getting started",
-        "usingPolymux": "Using Polymux",
-        "buildingPlugins": "Building plugins",
-        "connections": "Connections",
+        "gettingStarted": "入门",
+        "usingPolymux": "使用 Polymux",
+        "buildingPlugins": "构建插件",
+        "connections": "连接",
         "api": "API"
       },
       "entries": {
-        "introduction": "Introduction",
-        "quickstart": "Quickstart",
-        "installation": "Installation",
-        "workspaces": "Workspaces and members",
-        "vault": "Vault basics",
+        "introduction": "简介",
+        "quickstart": "快速入门",
+        "installation": "安装",
+        "workspaces": "工作区和成员",
+        "vault": "保险库基础",
         "faq": "FAQ",
-        "pluginOverview": "Plugin overview",
-        "pluginBuild": "Build your first plugin",
-        "pluginManifest": "Manifest reference",
-        "publishing": "Publishing checklist",
-        "connectionsOverview": "Connections overview",
-        "connectionsBuild": "Building a connection",
-        "connectionsPort": "Port a Hermes/OpenClaw plugin",
-        "apiOverview": "API overview",
-        "authentication": "Authentication"
+        "pluginOverview": "插件概览",
+        "pluginBuild": "构建您的第一个插件",
+        "pluginManifest": "清单参考",
+        "publishing": "发布清单",
+        "connectionsOverview": "连接概览",
+        "connectionsBuild": "构建连接",
+        "connectionsPort": "移植 Hermes/OpenClaw 插件",
+        "apiOverview": "API 概览",
+        "authentication": "身份验证"
       }
     }
   },
@@ -1962,26 +2176,26 @@
     "terms": {
       "title": "服务条款",
       "subtitle": "使用 Polymux 产品和服务的规则和条件。",
-      "metaTitle": "Terms of Service",
-      "metaDescription": "Terms of service governing your use of Polymux. Acceptable use, billing, account termination, and limitations of liability."
+      "metaTitle": "服务条款",
+      "metaDescription": "规范您使用 Polymux 的服务条款。可接受的使用、计费、账户终止和责任限制。"
     },
     "about": {
       "title": "关于我们",
       "subtitle": "Polymux 正在构建什么以及我们服务的对象。",
-      "metaTitle": "About Us",
-      "metaDescription": "Polymux builds the orchestration layer for AI agents on the live web. Learn about our mission, team, and roadmap."
+      "metaTitle": "关于我们",
+      "metaDescription": "Polymux 为实时 Web 上的 AI 智能体构建编排层。了解我们的使命、团队和路线图。"
     },
     "apiReference": {
       "title": "API 参考",
       "subtitle": "面向开发者的 HTTP 端点、身份验证和集成详情。",
-      "metaTitle": "API Reference",
-      "metaDescription": "HTTP endpoints, auth, and integration details for developers building on Polymux."
+      "metaTitle": "API 参考",
+      "metaDescription": "面向在 Polymux 上构建的开发者的 HTTP 端点、身份验证和集成详情。"
     },
     "cookies": {
       "title": "Cookie 政策",
       "subtitle": "我们如何在网站和服务中使用 Cookie 和类似技术。",
-      "metaTitle": "Cookie Policy",
-      "metaDescription": "How Polymux uses cookies and similar technologies on our websites and services."
+      "metaTitle": "Cookie 政策",
+      "metaDescription": "Polymux 如何在我们的网站和服务中使用 Cookie 及类似技术。"
     }
   },
   "bugReport": {
@@ -2110,11 +2324,11 @@
       "gemini": "AIza…"
     },
     "baseUrlDefaults": {
-      "anthropic": "https://api.anthropic.com (default)",
-      "openai": "https://api.openai.com/v1 (default)",
-      "gemini": "https://generativelanguage.googleapis.com (default)"
+      "anthropic": "https://api.anthropic.com (默认)",
+      "openai": "https://api.openai.com/v1 (默认)",
+      "gemini": "https://generativelanguage.googleapis.com (默认)"
     },
-    "noWorkspaceSelected": "No workspace selected."
+    "noWorkspaceSelected": "未选择工作区。"
   },
   "community": {
     "metaTitle": "社区",
@@ -2157,15 +2371,15 @@
     "emailLabel": "邮箱",
     "subtitle": "面向使用 Polymux 构建的团队的产品更新、工程笔记和指南 — 编排智能体、观看实时浏览器会话并交付可信赖的自动化。",
     "subscribeHint": "每月发布几次新文章",
-    "newsletterHeading": "Never miss a post",
-    "newsletterBody": "Occasional email with releases and deep dives. No spam — unsubscribe anytime.",
-    "verifyEmailPrompt": "Check your email to verify your subscription",
-    "subscribing": "Subscribing…",
-    "subscribed": "Subscribed",
-    "subscribeFailed": "Failed to subscribe",
-    "subscribeFailedRetry": "Failed to subscribe. Please try again.",
-    "emailRequired": "Email required",
-    "invalidEmail": "Please enter a valid email"
+    "newsletterHeading": "不错过任何文章",
+    "newsletterBody": "偶尔发送版本发布和深度分析邮件。无垃圾邮件 — 随时可取消订阅。",
+    "verifyEmailPrompt": "请查收邮件以验证您的订阅",
+    "subscribing": "订阅中…",
+    "subscribed": "已订阅",
+    "subscribeFailed": "订阅失败",
+    "subscribeFailedRetry": "订阅失败。请重试。",
+    "emailRequired": "需要电子邮件",
+    "invalidEmail": "请输入有效的电子邮件"
   },
   "verifyEmail": {
     "title": "验证邮箱",
@@ -2207,7 +2421,7 @@
     "loadFailed": "布局加载失败。",
     "retry": "重试",
     "loading": "正在加载布局…",
-    "customLayoutFallback": "Custom layout"
+    "customLayoutFallback": "自定义布局"
   },
   "marketplace": {
     "adminOnly": "仅工作区所有者和管理员可管理集成。",
@@ -2220,82 +2434,82 @@
     "exceedsLimit": "「{name}」超过 {limit} 的上传限制"
   },
   "geolocation": {
-    "notSupported": "Geolocation not supported"
+    "notSupported": "不支持地理定位"
   },
   "billing": {
-    "cancelTitle": "Cancel your {plan} plan?",
-    "downgradeTitle": "Downgrade to {plan}?",
-    "cancelLead": "Your plan stays active until {date}. After that, this workspace moves to the Free plan.",
-    "cancelLeadNoDate": "Your plan stays active until the end of the current billing period. After that, this workspace moves to the Free plan.",
-    "downgradeLead": "Your {current} plan stays active until {date}. After that, this workspace switches to {target}.",
-    "downgradeLeadNoDate": "Your {current} plan stays active until the end of the current billing period. After that, this workspace switches to {target}.",
-    "keepUntilPeriodEnd": "You keep every {plan} feature until then — nothing changes today.",
-    "whatChanges": "What changes at period end",
-    "whatChangesOn": "What changes on {date}",
-    "unlimited": "Unlimited",
-    "rowAgents": "Browser agents",
-    "rowTokens": "Weekly tokens",
-    "rowRuns": "Monthly workflow runs",
-    "rowMembers": "Workspace members",
-    "rowFileSize": "Max file size",
-    "confirmCancel": "Cancel at period end",
-    "confirmDowngrade": "Schedule downgrade",
-    "scheduling": "Scheduling…",
-    "keepCurrent": "Never mind"
+    "cancelTitle": "取消您的 {plan} 套餐？",
+    "downgradeTitle": "降级至 {plan}？",
+    "cancelLead": "您的套餐将保持有效至 {date}。之后此工作区将转为免费套餐。",
+    "cancelLeadNoDate": "您的套餐将保持有效至当前计费周期结束。之后此工作区将转为免费套餐。",
+    "downgradeLead": "您的 {current} 套餐将保持有效至 {date}。之后此工作区将切换至 {target}。",
+    "downgradeLeadNoDate": "您的 {current} 套餐将保持有效至当前计费周期结束。之后此工作区将切换至 {target}。",
+    "keepUntilPeriodEnd": "在此之前您保留所有 {plan} 功能 — 今天没有任何变化。",
+    "whatChanges": "周期结束时的变化",
+    "whatChangesOn": "{date} 的变化",
+    "unlimited": "无限制",
+    "rowAgents": "浏览器智能体",
+    "rowTokens": "每周令牌",
+    "rowRuns": "每月工作流运行",
+    "rowMembers": "工作区成员",
+    "rowFileSize": "最大文件大小",
+    "confirmCancel": "在周期结束时取消",
+    "confirmDowngrade": "安排降级",
+    "scheduling": "安排中…",
+    "keepCurrent": "算了"
   },
   "checkout": {
-    "title": "Subscribe to {plan}",
-    "loading": "Loading secure checkout…",
-    "notConfigured": "Payments aren't configured yet. Please try again later.",
-    "loadFailed": "Couldn't load the payment form. Check your connection and try again.",
-    "failed": "Something went wrong starting checkout. Please try again.",
-    "retry": "Try again",
-    "successTitle": "You're on {plan}!",
-    "successBody": "Payment received. Your plan is being activated — this can take a moment.",
-    "done": "Done",
-    "billedAnnually": "billed annually",
-    "billedMonthly": "billed monthly",
-    "toastActivated": "{plan} activated for this workspace.",
-    "pageTitle": "Complete your upgrade",
-    "successHeading": "Upgrade complete",
-    "orderSummary": "Order summary",
-    "forWorkspace": "for {name}",
-    "perMonth": "/mo",
-    "included": "What's included",
-    "featAgents": "{n} browser agents",
-    "featTokens": "{n} weekly tokens",
-    "featRuns": "{n} workflow runs / month",
-    "featMembers": "Up to {n} members",
-    "backToPlans": "Back to plans",
-    "goToDashboard": "Go to dashboard",
-    "securedByStripe": "Secured by Stripe",
-    "paymentFailed": "Payment couldn't be completed. Please check your details or try another card.",
-    "subscribe": "Subscribe",
-    "subscribeFor": "Subscribe · {price}",
-    "processing": "Processing…",
-    "planHeading": "{plan} plan",
-    "billedAnnuallyTotal": "billed annually ({total} / yr)",
-    "currency": "Currency"
+    "title": "订阅 {plan}",
+    "loading": "正在加载安全结账…",
+    "notConfigured": "支付尚未配置。请稍后重试。",
+    "loadFailed": "无法加载支付表单。请检查网络连接后重试。",
+    "failed": "启动结账时出错。请重试。",
+    "retry": "重试",
+    "successTitle": "您已使用 {plan}！",
+    "successBody": "已收到付款。正在激活您的套餐 — 可能需要片刻。",
+    "done": "完成",
+    "billedAnnually": "按年计费",
+    "billedMonthly": "按月计费",
+    "toastActivated": "已为此工作区激活 {plan}。",
+    "pageTitle": "完成升级",
+    "successHeading": "升级完成",
+    "orderSummary": "订单摘要",
+    "forWorkspace": "适用于 {name}",
+    "perMonth": "/月",
+    "included": "包含内容",
+    "featAgents": "{n} 个浏览器智能体",
+    "featTokens": "每周 {n} 个令牌",
+    "featRuns": "每月 {n} 次工作流运行",
+    "featMembers": "最多 {n} 名成员",
+    "backToPlans": "返回套餐",
+    "goToDashboard": "前往控制台",
+    "securedByStripe": "由 Stripe 保障安全",
+    "paymentFailed": "无法完成支付。请检查您的信息或尝试其他银行卡。",
+    "subscribe": "订阅",
+    "subscribeFor": "订阅 · {price}",
+    "processing": "处理中…",
+    "planHeading": "{plan} 套餐",
+    "billedAnnuallyTotal": "按年计费 ({total} / 年)",
+    "currency": "货币"
   },
   "stealth": {
     "title": "设置",
     "mode": {
-      "label": "Browser mode",
-      "description": "Where this workflow's agents run. Change it from the chat input."
+      "label": "浏览器模式",
+      "description": "此工作流的智能体运行位置。可在聊天输入框中更改。"
     },
     "cloaked": {
-      "label": "Cloaked browser",
-      "description": "Route blocked sites through CloakBrowser to get past bot walls."
+      "label": "隐身浏览器",
+      "description": "通过 CloakBrowser 路由被封锁的网站，以绕过机器人拦截。"
     },
     "humanizer": {
       "label": "Agent Humaniser",
-      "description": "Human-like mouse movement and typing so actions don't look automated."
+      "description": "模拟人类的鼠标移动和输入，使操作看起来不像自动化。"
     },
     "risk": {
-      "humanizer": "Detection risk: Agent Humaniser is off — instant clicks & typing may be flagged by bot-detection sites.",
-      "cloaked": "Detection risk: cloaked browser is off — sites with bot protection (e.g. Cloudflare) may detect or block the agent.",
-      "both": "Detection risk: Agent Humaniser and cloaked browser are off — sites with bot protection may detect or block the agent.",
-      "extension": "Detection risk: the agent runs in your own browser, so cloaking and humanising don't apply — sites may detect automation."
+      "humanizer": "检测风险：Agent Humaniser 已关闭 — 即时点击和输入可能被机器人检测网站标记。",
+      "cloaked": "检测风险：隐身浏览器已关闭 — 有机器人保护的网站（如 Cloudflare）可能检测或阻止智能体。",
+      "both": "检测风险：Agent Humaniser 和隐身浏览器均已关闭 — 有机器人保护的网站可能检测或阻止智能体。",
+      "extension": "检测风险：智能体在您的浏览器中运行，因此隐身和拟人化不适用 — 网站可能检测到自动化。"
     }
   },
   "otpRequest": {
@@ -2307,5 +2521,28 @@
     "working": "提交中…",
     "completedSummary": "已为 {site} 输入两步验证代码。",
     "cancelledSummary": "已取消 {site} 的两步验证请求。"
+  },
+  "sidebar": {
+    "console": "控制台",
+    "chat": "聊天",
+    "build": "Build",
+    "browse": "浏览"
+  },
+  "chats": {
+    "searchPlaceholder": "搜索聊天",
+    "newChat": "新聊天",
+    "untitled": "新聊天",
+    "empty": "暂无聊天",
+    "noResults": "没有匹配的聊天",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "archivedTitle": "已归档聊天",
+    "archivedSubtitle": "已归档聊天不会在聊天列表中显示。",
+    "archiveEmpty": "没有已归档聊天",
+    "clearArchive": "清空归档",
+    "clearArchiveConfirm": "永久删除所有已归档聊天？",
+    "clearArchiveConfirmButton": "全部删除",
+    "resizeArchive": "拖动以调整大小",
+    "openingChat": "正在打开聊天…"
   }
 }

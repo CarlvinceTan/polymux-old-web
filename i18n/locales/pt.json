@@ -21,6 +21,7 @@
     "attach": "Anexar",
     "voice": "Voz",
     "settings": "Configurações",
+    "options": "Opções",
     "upgrade": "Atualizar plano",
     "upgradePlan": "Atualizar plano",
     "installApp": "Instalar apps",
@@ -40,13 +41,15 @@
       "loading": "Carregando…"
     },
     "duplicate": "Duplicar",
-    "info": "Info",
+    "info": "Informação",
     "download": "Baixar",
-    "workspace": "Workspace",
+    "workspace": "Espaço de trabalho",
     "retry": "Tentar novamente",
-    "unknownError": "Unknown error",
-    "expand": "Expand",
-    "collapse": "Collapse"
+    "unknownError": "Erro desconhecido",
+    "expand": "Expandir",
+    "collapse": "Recolher",
+    "doubleClickToEdit": "Clique duas vezes para editar",
+    "preferences": "Preferências"
   },
   "upgradePlan": {
     "title": "Atualizar seu plano",
@@ -57,7 +60,7 @@
     "custom": "Personalizado",
     "currentPlanNote": "Você está no {current}. Escolha um plano superior na página de preços.",
     "planNames": {
-      "free": "Free",
+      "free": "Grátis",
       "pro": "Pro",
       "max": "Max",
       "enterprise": "Enterprise"
@@ -105,7 +108,13 @@
     "mainSidebar": "Barra lateral principal",
     "toggleSidebar": "Alternar barra lateral",
     "main": "Principal",
-    "userProfile": "Perfil do usuário"
+    "userProfile": "Perfil do usuário",
+    "plugins": "Extensões",
+    "tools": "Ferramentas",
+    "connections": "Connections",
+    "console": "Console",
+    "moveToFolder": "Move to folder",
+    "noFolder": "No folder"
   },
   "notifications": {
     "title": "Notificações",
@@ -176,7 +185,7 @@
     "returnToSignIn": "Voltar para o login"
   },
   "settings": {
-    "title": "Configurações",
+    "title": "Preferências",
     "editProfile": "Editar perfil",
     "freePlan": "Plano gratuito",
     "proPlan": "Plano Pro",
@@ -201,7 +210,7 @@
     "notifications": "Notificações",
     "allNotifications": "Todas as notificações",
     "emailNotif": "E-mail",
-    "pushNotif": "Push",
+    "pushNotif": "Notificações push",
     "productUpdates": "Atualizações do produto",
     "responseCompletions": "Respostas concluídas",
     "blogNewsletter": "Boletim do blog",
@@ -234,7 +243,18 @@
     "checkoutSuccess": "O seu plano foi atualizado com sucesso!",
     "importPasswords": "Importar senhas",
     "importPasswordsHint": "Traga logins salvos do Chrome, Firefox ou Safari para o cofre do seu workspace.",
-    "allNotificationsHint": "Interruptor principal para e-mails não essenciais enviados pelo app (convites ao workspace, newsletter, etc.). Mensagens importantes da conta continuarão chegando."
+    "allNotificationsHint": "Interruptor principal para e-mails não essenciais enviados pelo app (convites ao workspace, newsletter, etc.). Mensagens importantes da conta continuarão chegando.",
+    "clearWorkflows": "Apagar todos os fluxos de trabalho",
+    "clearWorkflowsDesc": "Apaga permanentemente todos os fluxos de trabalho deste workspace, juntamente com os seus chats e histórico.",
+    "clearWorkflowsButton": "Apagar tudo",
+    "clearWorkflowsTitle": "Apagar todos os fluxos de trabalho",
+    "clearWorkflowsCannotUndo": "Esta ação não pode ser desfeita",
+    "clearWorkflowsWarning": "Isto irá apagar permanentemente todos os {count} fluxos de trabalho deste workspace, juntamente com os seus chats e histórico. Esta ação não pode ser desfeita.",
+    "clearWorkflowsConfirm": "Apagar todos os fluxos de trabalho",
+    "clearWorkflowsClearing": "A apagar…",
+    "clearWorkflowsDone": "{count} fluxos de trabalho apagados",
+    "clearWorkflowsError": "Não foi possível apagar os fluxos de trabalho. Tente novamente.",
+    "clearWorkflowsPartialError": "Não foi possível apagar {count} fluxos de trabalho. Tente novamente."
   },
   "chat": {
     "welcomeGreeting": "Como posso ajudar, {name}?",
@@ -246,6 +266,7 @@
     "expandedBrowserPreview": "Visualização expandida do navegador",
     "removeAttachment": "Remover anexo",
     "fileUploadError": "Falha ao carregar {name}",
+    "loadHistoryError": "Não foi possível carregar o histórico deste chat.",
     "chatView": "Chat",
     "viewportView": "Visualização",
     "flowView": "Fluxo",
@@ -262,7 +283,32 @@
     "copyToClipboard": "Copiar para a área de transferência",
     "openFileRef": "Abrir arquivo",
     "openFolderRef": "Abrir pasta",
-    "openArtifactRef": "Abrir artefato"
+    "openArtifactRef": "Abrir artefato",
+    "welcomeSuggestion": "Mostre-me algo legal",
+    "discussInConsole": "Discutir no Console",
+    "welcomeSubtitle": "Ask anything, or describe what you want to automate.",
+    "welcomeSuggestions": {
+      "automate": {
+        "title": "Set up an automation",
+        "description": "Plan, build, and test the whole flow",
+        "prompt": "Help me set up an end-to-end automation: clarify the goal, map the steps, build the workflow, and test that it works."
+      },
+      "browse": {
+        "title": "Research to decision",
+        "description": "Browse, compare, and recommend next steps",
+        "prompt": "Research this end to end: browse the relevant sources, compare the options, summarize the tradeoffs, and recommend what to do next."
+      },
+      "summarize": {
+        "title": "Extract to report",
+        "description": "Gather sources and produce a clean output",
+        "prompt": "Turn source material into a finished output: gather the relevant pages or files, extract the key details, and produce a concise report."
+      },
+      "draft": {
+        "title": "Draft to follow-up",
+        "description": "Write, review, and prep the next action",
+        "prompt": "Help me handle this communication end to end: understand the context, draft the message, refine it, and suggest the follow-up."
+      }
+    }
   },
   "workflow": {
     "untitledNode": "Passo sem título",
@@ -337,7 +383,7 @@
     "zoomIn": "Aproximar",
     "zoomOut": "Afastar",
     "fitToView": "Ajustar à vista",
-    "resetLayout": "Auto",
+    "resetLayout": "Automático",
     "resetLayoutTitle": "Layout Automático",
     "spawnFromPort": "Adicionar um passo ligado nesta direção",
     "undo": "Desfazer",
@@ -352,7 +398,8 @@
       "agent": "Agente",
       "schedule": "Agenda",
       "artifacts": "Artefatos",
-      "stealth": "Configurações"
+      "stealth": "Configurações",
+      "runs": "Runs"
     },
     "liveBadge": "Ao vivo",
     "resizeNode": "Redimensionar",
@@ -390,7 +437,7 @@
     "addNodeBlankDesc": "Um novo passo para o qual você escreve as ações",
     "addNodeEmbed": "Workflow incorporado",
     "addNodeEmbedDesc": "Executar um workflow salvo como passo",
-    "embedWorkflowLabel": "Workflow",
+    "embedWorkflowLabel": "Fluxo de trabalho",
     "embedSelectWorkflow": "Selecionar workflow",
     "embedSearchPlaceholder": "Pesquisar workflows…",
     "embedNoWorkflows": "Nenhum workflow disponível",
@@ -398,21 +445,32 @@
     "embedPendingTitle": "Escolha um workflow",
     "embedUnboundToast": "Este incorporado não tem workflow selecionado — escolha um no painel de informações.",
     "embedOpen": "Abrir workflow referenciado →",
-    "peekTitle": "Workflow",
-    "peekOpenFlow": "Open flow",
-    "peekNodeCount": "{n} nodes",
-    "peekParallel": "{n} parallel branches",
-    "peekAlt": "Preview of the workflow graph — open the Flow view"
+    "peekTitle": "Fluxo de trabalho",
+    "peekOpenFlow": "Abrir fluxo",
+    "peekNodeCount": "{n} nós",
+    "peekParallel": "{n} ramificações paralelas",
+    "peekAlt": "Pré-visualização do grafo do workflow — abrir a visualização de fluxo",
+    "checks": "Checks",
+    "addCheck": "Add check",
+    "removeCheck": "Remove check",
+    "checksEmpty": "No checks yet — add one to verify expected behaviour from run evidence.",
+    "checkLabelPlaceholder": "Expected behaviour",
+    "checkExpectationPlaceholder": "What evidence should prove this is correct?",
+    "checkMode": {
+      "auto": "Auto",
+      "comparison": "Compare",
+      "review": "Review"
+    }
   },
   "dashboard": {
-    "console": "Console",
+    "console": "Consola",
     "untitledSession": "Sem título",
     "viewAll": "Ver tudo",
     "noSessions": "Sem sessões ainda",
     "noSessionsHint": "Inicie um chat para ver sessões aqui"
   },
   "console": {
-    "title": "Console",
+    "title": "Consola",
     "subtitle": "Execuções ativas, agendamentos e atividade recente neste espaço de trabalho.",
     "statActive": "Execuções ativas",
     "statSchedules": "Agendamentos",
@@ -441,7 +499,33 @@
     "nextRunDue": "Pendente agora",
     "inMinutes": "em {n}m",
     "inHours": "em {n}h",
-    "inDays": "em {n}d"
+    "inDays": "em {n}d",
+    "composerPlaceholder": "Mensagem ao core…",
+    "assistant": {
+      "title": "Core",
+      "subtitle": "Assistente do workspace",
+      "connected": "MCP · CLI conectado",
+      "connecting": "A conectar…",
+      "welcomeTitle": "Falar com o core",
+      "welcomeBody": "O seu assistente de workspace. Peça-lhe para executar trabalho, recuperar contexto ou retomar um foco arquivado."
+    },
+    "focuses": {
+      "title": "Focos",
+      "new": "Novo foco",
+      "placeholderNote": "Contextos de memória arquivados. Barra de foco em direto em breve.",
+      "stubCurrent": "Sessão atual",
+      "stubResearch": "Pesquisa de mercado",
+      "stubInvoices": "Triagem de faturas"
+    },
+    "hindsight": {
+      "title": "Hindsight",
+      "subtitle": "Memória partilhada · {n} notas",
+      "view": "Ver memória",
+      "placeholderNote": "Uma memória partilhada do workspace. Fonte em direto em breve.",
+      "stubNote1": "Prefere resumos concisos a textos longos.",
+      "stubNote2": "O fuso horário principal é UTC; as execuções seguem essa referência.",
+      "stubNote3": "Confirme sempre antes de guardar ou editar um fluxo de trabalho."
+    }
   },
   "search": {
     "placeholder": "Buscar fluxos de trabalho…",
@@ -485,7 +569,7 @@
   },
   "integrations": {
     "installed": "Instalados",
-    "marketplace": "Marketplace",
+    "marketplace": "Mercado",
     "publish": "Publicar",
     "editorSubtitle": "Publique fluxos de trabalho, integrações e plugins",
     "editorEmpty": "Nada publicado ainda",
@@ -496,7 +580,7 @@
     "editorNewIntegrationDesc": "Baseada em código — manifesto no seu repo, webhooks HTTPS.",
     "editorNewWorkflow": "Fluxo de trabalho",
     "editorNewWorkflowDesc": "Publique um fluxo de trabalho existente para que outros possam instalar.",
-    "editorNewPlugin": "Plugin",
+    "editorNewPlugin": "Complemento",
     "editorNewPluginDesc": "Agrupe conexões e fluxos de trabalho num único item instalável.",
     "editorBack": "Voltar",
     "editorPublish": "Publicar",
@@ -524,10 +608,10 @@
     "editorSlug": "Slug",
     "editorSlugHelp": "Minúsculas, opcionalmente com namespace author/name.",
     "editorSlugAutoHelp": "Gerado automaticamente a partir do seu identificador e do nome acima.",
-    "editorSlugPreviewEmpty": "author/name",
+    "editorSlugPreviewEmpty": "autor/nome",
     "editorName": "Nome",
     "editorDescription": "Descrição",
-    "editorTags": "Tags",
+    "editorTags": "Etiquetas",
     "editorTagsPlaceholder": "tags, separadas, por, vírgula",
     "editorIcon": "URL do ícone",
     "editorHomepage": "URL da página inicial",
@@ -553,7 +637,7 @@
     "sortBy": "Ordenar por",
     "filterAll": "Todos",
     "filterWorkflows": "Fluxos de trabalho",
-    "filterPlugins": "Plugins",
+    "filterPlugins": "Complementos",
     "filterIntegrations": "Conexões",
     "filterInstalled": "Instalados",
     "tagFilterBanner": "Mostrando itens com a etiqueta \"{tag}\".",
@@ -577,7 +661,7 @@
     "install": "Instalar",
     "connect": "Conectar",
     "categoryWorkflow": "Fluxo de trabalho",
-    "categoryPlugin": "Plugin",
+    "categoryPlugin": "Complemento",
     "categoryConnection": "Conexão",
     "categoryIntegration": "Integração",
     "connectedBy": "Conectado por {email}",
@@ -586,7 +670,7 @@
     "settingsTitle": "Configurações da integração",
     "settingsHeading": "Configurações",
     "aboutHeading": "Sobre",
-    "statusHeading": "Status",
+    "statusHeading": "Estado",
     "byAuthor": "por {author}",
     "github": "GitHub",
     "viewOnGithub": "Ver no GitHub",
@@ -603,21 +687,33 @@
     "localExporting": "Movendo arquivos para fora deste dispositivo…",
     "localExportDone": "Os arquivos do espaço de trabalho não estão mais apenas neste dispositivo.",
     "localExportFailed": "A migração não foi concluída.",
-    "editorNewLayout": "Layout",
+    "editorNewLayout": "Disposição",
     "editorNewLayoutDesc": "Crie HTML/CSS/JS personalizado que é renderizado como uma aba em páginas de seção do espaço de trabalho.",
     "editorLayoutSection": "Seção",
     "editorLayoutSectionHelp": "A qual seção do espaço de trabalho a aba é anexada.",
     "editorLayoutBody": "Conteúdo",
     "editorLayoutBodyHelp": "HTML, CSS e JS brutos. Renderizado dentro de um iframe isolado.",
-    "filterLayouts": "Layouts",
-    "categoryLayout": "Layout",
+    "filterLayouts": "Disposições",
+    "categoryLayout": "Disposição",
     "official": "Oficial",
     "editorListingNotFound": "Esta listagem não foi encontrada.",
-    "connectedTooltip": "{n} connected",
-    "publishFailed": "Publish failed",
-    "saveFailed": "Save failed",
-    "yankFailed": "Yank failed",
-    "disconnectFailed": "Failed to disconnect integration."
+    "connectedTooltip": "{n} conectados",
+    "publishFailed": "Falha ao publicar",
+    "saveFailed": "Falha ao salvar",
+    "yankFailed": "Falha ao remover",
+    "disconnectFailed": "Não foi possível desconectar a integração.",
+    "browse": "Explorar",
+    "filterAvailable": "Disponível",
+    "filterStatus": "Estado",
+    "filterCategory": "Categoria",
+    "filterClear": "Limpar filtros",
+    "searchAllPlaceholder": "Pesquisar plugins…",
+    "colName": "Nome",
+    "colDescription": "Descrição",
+    "colStatus": "Estado",
+    "colInstalls": "Instalações",
+    "colActions": "Abrir",
+    "installsCount": "{count} instalações"
   },
   "workspace": {
     "team": "Equipe",
@@ -631,7 +727,7 @@
     "title": "Criar área de trabalho",
     "subtitle": "Configure uma nova área de trabalho para a sua equipa.",
     "billingNote": "As novas áreas de trabalho começam no {plan}. Planos e limites aplicam-se por área de trabalho — pode atualizar cada uma separadamente na página de Preços.",
-    "freePlanName": "Free",
+    "freePlanName": "Grátis",
     "nameLabel": "Nome da área de trabalho",
     "namePlaceholder": "ex.: Minha equipa",
     "invitesLabel": "Convidar pessoas",
@@ -641,10 +737,10 @@
     "creating": "A criar…",
     "submit": "Criar área de trabalho",
     "errorFallback": "Não foi possível criar a área de trabalho. Tente novamente.",
-    "nameRequired": "Workspace name is required.",
-    "nameTooLong": "Workspace name must be {max} characters or fewer.",
-    "nameInvalidChars": "Only letters, numbers, and spaces are allowed.",
-    "inviteFailed": "Failed to send invitation."
+    "nameRequired": "O nome do workspace é obrigatório.",
+    "nameTooLong": "O nome do workspace deve ter {max} caracteres ou menos.",
+    "nameInvalidChars": "Somente letras, números e espaços são permitidos.",
+    "inviteFailed": "Não foi possível enviar o convite."
   },
   "workspaceMenu": {
     "memberCountOne": "1 membro",
@@ -731,19 +827,19 @@
     "identityUpdateError": "Não foi possível atualizar o espaço. Tente novamente.",
     "llmKeysTitle": "Chaves de API LLM",
     "llmKeysDesc": "Use sua própria chave de API LLM. Quando definida, cada execução neste workspace usa sua chave em vez da compartilhada — os tokens são debitados da sua conta do provedor, não do seu orçamento semanal.",
-    "transferOwnershipFailed": "Failed to transfer ownership. Please try again.",
-    "deleteWorkspaceFailed": "Failed to delete workspace. Please try again.",
+    "transferOwnershipFailed": "Falha ao transferir a propriedade. Tente novamente.",
+    "deleteWorkspaceFailed": "Não foi possível excluir o workspace. Tente novamente.",
     "inviteEmailsPlaceholder": "alice{'@'}example.com, bob{'@'}example.com",
-    "managePlan": "Manage plan",
-    "managePlanDesc": "Cancel or change your plan. Changes take effect at the end of the current billing period.",
-    "cancelPlan": "Cancel plan",
-    "downgradeToPro": "Downgrade to Pro",
-    "scheduledCancelBanner": "Your {plan} plan is scheduled to end on {date}. This workspace will move to the Free plan then.",
-    "scheduledCancelBannerNoDate": "Your {plan} plan is scheduled to be cancelled. This workspace will move to the Free plan at the end of the current billing period.",
-    "scheduledDowngradeBanner": "Your {plan} plan is scheduled to change to {target} on {date}.",
-    "scheduledDowngradeBannerNoDate": "Your {plan} plan is scheduled to change to {target} at the end of the current billing period.",
-    "keepPlan": "Keep my plan",
-    "keeping": "Keeping…"
+    "managePlan": "Gerenciar plano",
+    "managePlanDesc": "Cancele ou altere seu plano. As alterações entram em vigor no final do período de cobrança atual.",
+    "cancelPlan": "Cancelar plano",
+    "downgradeToPro": "Fazer downgrade para Pro",
+    "scheduledCancelBanner": "Seu plano {plan} está programado para terminar em {date}. Este workspace passará para o plano Grátis então.",
+    "scheduledCancelBannerNoDate": "Seu plano {plan} está programado para ser cancelado. Este workspace passará para o plano Grátis no final do período de cobrança atual.",
+    "scheduledDowngradeBanner": "Seu plano {plan} está programado para mudar para {target} em {date}.",
+    "scheduledDowngradeBannerNoDate": "Seu plano {plan} está programado para mudar para {target} no final do período de cobrança atual.",
+    "keepPlan": "Manter meu plano",
+    "keeping": "Mantendo…"
   },
   "storage": {
     "workspace": "Área de trabalho",
@@ -813,12 +909,12 @@
       "saveOrderEmpty": "Nenhum provedor conectado ainda. Conecte um em Conexões abaixo para começar a salvar arquivos.",
       "providerGoogleDrive": "Google Drive",
       "providerLocal": "Local",
-      "providerCloud": "Cloud",
+      "providerCloud": "Nuvem",
       "providerGoogleDriveDesc": "Arquivos salvos na pasta do Google Drive do seu espaço de trabalho.",
       "providerLocalDesc": "Armazenamento no dispositivo, somente neste navegador.",
       "providerCloudDesc": "Armazenamento gerenciado pela Polymux, compartilhado com todos os membros do workspace.",
       "connectionsTitle": "Conexões",
-      "connectionsDesc": "Conecte ou desconecte provedores de armazenamento para este espaço de trabalho.",
+      "connectionsDesc": "Trabalhe com o Polymux nas suas ferramentas favoritas.",
       "connectionDeviceCapability": "Dispositivo",
       "migrationNeedsTwoProviders": "Conecte pelo menos dois provedores em Conexões para migrar arquivos entre eles.",
       "statusAvailable": "Disponível",
@@ -862,7 +958,7 @@
       "migrationAccessLossLoading": "Carregando membros afetados…",
       "migrationAccessLossNone": "Atualmente, mais ninguém tem acesso.",
       "migrationToastView": "Ver progresso",
-      "providerThisDevice": "This device"
+      "providerThisDevice": "Este dispositivo"
     },
     "disconnect": {
       "title": "Desconectar {provider}?",
@@ -914,14 +1010,14 @@
       "listView": "Vista de lista",
       "newFolder": "Nova pasta",
       "upload": "Carregar",
-      "filter": "Filtro",
+      "filter": "Filtrar",
       "filterFiles": "Filtrar ficheiros",
       "search": "Pesquisar",
       "searchFiles": "Pesquisar ficheiros",
       "searchPlaceholder": "Pesquisar...",
       "selectedCount": "{n} selecionados",
-      "expand": "Expand",
-      "collapse": "Collapse"
+      "expand": "Expandir",
+      "collapse": "Recolher"
     },
     "filters": {
       "all": "Todos os ficheiros",
@@ -977,6 +1073,15 @@
       "localCopyMissing": "Cópia local não encontrada neste dispositivo.",
       "downloadFailedStatus": "Falha no download ({status})",
       "downloadFailed": "Falha ao baixar arquivo"
+    },
+    "fileInfo": {
+      "type": "Tipo",
+      "location": "Localização",
+      "storage": "Armazenamento",
+      "size": "Tamanho",
+      "created": "Criado",
+      "kindFolder": "Pasta",
+      "kindFile": "Arquivo"
     }
   },
   "contact": {
@@ -995,8 +1100,8 @@
     "errorEmail": "Por favor, introduza um e-mail válido.",
     "errorContent": "Por favor, introduza a sua mensagem.",
     "enterprisePrefill": "Interesse no plano Enterprise",
-    "metaTitle": "Contact",
-    "metaDescription": "Get in touch with the Polymux team. Sales, partnerships, support, and press inquiries."
+    "metaTitle": "Contato",
+    "metaDescription": "Entre em contato com a equipe Polymux. Vendas, parcerias, suporte e consultas de imprensa."
   },
   "forum": {
     "pageTitle": "Fórum",
@@ -1012,7 +1117,7 @@
     "allPosts": "Todas as publicações",
     "sort": {
       "latest": "Recentes",
-      "top": "Em destaque",
+      "top": "Destaques",
       "unanswered": "Sem resposta"
     },
     "loading": "A carregar…",
@@ -1106,7 +1211,7 @@
     "noPreviewDesc": "Descarregue este ficheiro para ver o seu conteúdo.",
     "viewMode": "Modo de visualização do artefacto",
     "preview": "Pré-visualização",
-    "raw": "Raw",
+    "raw": "Bruto",
     "rawLoading": "A carregar ficheiro raw...",
     "rawUnavailable": "A vista raw não está disponível para este ficheiro.",
     "rawLoadError": "Não foi possível carregar a vista raw.",
@@ -1136,20 +1241,20 @@
     "viewGrid": "Vista em grelha",
     "viewList": "Vista em lista",
     "noPreviewShort": "Sem pré-visualização",
-    "select": "Select",
-    "selectAll": "Select all",
-    "clearSelection": "Clear selection",
-    "selectedCount": "{count} selected",
-    "cancel": "Cancel",
-    "bulkDeleteConfirm": "Delete {count} file? | Delete {count} files?",
-    "bulkSaved": "Saved {count} file to storage | Saved {count} files to storage",
-    "sortBy": "Sort",
-    "sortNewest": "Newest first",
-    "sortOldest": "Oldest first",
-    "sortNameAsc": "Name (A–Z)",
-    "sortNameDesc": "Name (Z–A)",
-    "sortSizeDesc": "Largest first",
-    "sortSizeAsc": "Smallest first"
+    "select": "Selecionar",
+    "selectAll": "Selecionar tudo",
+    "clearSelection": "Limpar seleção",
+    "selectedCount": "{count} selecionados",
+    "cancel": "Cancelar",
+    "bulkDeleteConfirm": "Excluir {count} arquivo? | Excluir {count} arquivos?",
+    "bulkSaved": "{count} arquivo salvo no armazenamento | {count} arquivos salvos no armazenamento",
+    "sortBy": "Ordenar",
+    "sortNewest": "Mais recentes primeiro",
+    "sortOldest": "Mais antigos primeiro",
+    "sortNameAsc": "Nome (A–Z)",
+    "sortNameDesc": "Nome (Z–A)",
+    "sortSizeDesc": "Maiores primeiro",
+    "sortSizeAsc": "Menores primeiro"
   },
   "landing": {
     "useNow": "Usar agora",
@@ -1167,7 +1272,7 @@
         "vault": "Segredos protegidos no cofre.",
         "replayable": "Fluxos de trabalho reproduzíveis."
       },
-      "rotatingEmpty": "Add phrases to rotate."
+      "rotatingEmpty": "Adicione frases para rotacionar."
     },
     "features": {
       "title": "Tudo o que você precisa para automatizar",
@@ -1200,7 +1305,7 @@
       "purchaseNow": "Comprar agora",
       "plans": {
         "free": {
-          "name": "Free",
+          "name": "Grátis",
           "cta": "Começar"
         },
         "pro": {
@@ -1257,7 +1362,7 @@
       "product": "Produto",
       "community": "Comunidade",
       "company": "Empresa",
-      "legal": "Legal",
+      "legal": "Jurídico",
       "blog": "Blog",
       "documentation": "Documentação",
       "forum": "Fórum",
@@ -1470,7 +1575,7 @@
         "selectedCount": "{count} selecionados",
         "colName": "Nome",
         "colUsername": "Usuário",
-        "colSite": "Site",
+        "colSite": "Sítio",
         "duplicateHint": "Entradas já no seu cofre ficam desmarcadas por padrão.",
         "back": "Voltar",
         "importSelected": "Importar {count} senha | Importar {count} senhas",
@@ -1482,13 +1587,13 @@
         "done": "Concluído"
       },
       "errors": {
-        "saveFailed": "Failed to save password",
-        "revealFailed": "Failed to reveal password",
+        "saveFailed": "Falha ao salvar a senha",
+        "revealFailed": "Falha ao revelar a senha",
         "revealTotpFailed": "Não foi possível revelar a chave do autenticador",
-        "updateFailed": "Failed to update password",
-        "deleteFailed": "Failed to delete password"
+        "updateFailed": "Falha ao atualizar a senha",
+        "deleteFailed": "Falha ao excluir a senha"
       },
-      "passwordsLockedNote": "Passwords are encrypted and can't be revealed or copied."
+      "passwordsLockedNote": "As senhas são criptografadas e não podem ser reveladas ou copiadas."
     },
     "signIns": {
       "sectionTitle": "Logins salvos",
@@ -1498,8 +1603,10 @@
       "forget": "Esquecer"
     },
     "tabs": {
-      "accounts": "Contas",
-      "wallet": "Carteira"
+      "files": "Arquivos",
+      "credentials": "Credenciais",
+      "wallet": "Carteira",
+      "settings": "Configurações"
     },
     "wallet": {
       "comingSoon": {
@@ -1509,8 +1616,10 @@
       "sections": {
         "overview": "Visão geral",
         "activity": "Atividade",
-        "workflows": "Fluxos",
-        "policies": "Políticas"
+        "workflows": "Fluxos de trabalho",
+        "policies": "Políticas",
+        "transactions": "Transações",
+        "budgets": "Orçamentos"
       },
       "banner": {
         "topUpCompleted": "Recarga concluída. Seu saldo foi atualizado.",
@@ -1520,7 +1629,8 @@
         "availableBalance": "Saldo disponível",
         "autoTopUp": "Recarga automática",
         "autoTopUpOn": "Ativa",
-        "topUp": "Recarregar"
+        "topUp": "Recarregar",
+        "autoTopUpSummary": "Recarrega para {amount} quando fica abaixo de {threshold}"
       },
       "activity": {
         "title": "Atividade de gastos",
@@ -1563,11 +1673,11 @@
         "countSummary": "Mostrando {shown} de {total}",
         "type": "Tipo",
         "description": "Descrição",
-        "workflow": "Fluxo",
+        "workflow": "Fluxo de trabalho",
         "date": "Data",
         "amount": "Valor",
         "balance": "Saldo",
-        "workspaceTag": "Workspace",
+        "workspaceTag": "Espaço de trabalho",
         "loading": "Carregando transações…",
         "empty": "Nenhuma transação corresponde a estes filtros."
       },
@@ -1587,10 +1697,10 @@
         "adjustment": "Ajustes"
       },
       "workflowsView": {
-        "workflowsLabel": "Fluxos",
+        "workflowsLabel": "Fluxos de trabalho",
         "emptyAside": "Ainda não há fluxos.",
         "emptyDetail": "Selecione um fluxo para ver os detalhes.",
-        "workflow": "Fluxo",
+        "workflow": "Fluxo de trabalho",
         "createdAt": "Criado em {date}",
         "spent": "Gasto",
         "remaining": "Restante",
@@ -1609,7 +1719,7 @@
         "cancel": "Cancelar",
         "redirecting": "Redirecionando…",
         "continueToStripe": "Continuar para o Stripe",
-        "amountPlaceholder": "0.00",
+        "amountPlaceholder": "0,00",
         "currencyUsd": "USD"
       },
       "autoTopUpModal": {
@@ -1664,7 +1774,65 @@
         "howApply2": "Lista bloqueada: todos exceto os listados são acessíveis.",
         "howApply3": "Subdomínios são incluídos automaticamente.",
         "howApply4": "As alterações entram em vigor na próxima execução."
-      }
+      },
+      "dateYesterday": "Ontem",
+      "dateDaysAgo": "há {n} d"
+    },
+    "credentials": {
+      "searchPlaceholder": "Buscar credenciais…",
+      "empty": "Nenhuma credencial salva ainda",
+      "addCta": "Adicionar credencial",
+      "noResults": "Nenhuma credencial corresponde aos seus filtros.",
+      "secretLabel": "Segredo",
+      "use": "Usar",
+      "edit": "Editar",
+      "more": "Mais ações",
+      "secured": "Protegido",
+      "securedTooltip": "Criptografado em repouso. Agentes usam sem que seja revelado ou copiado.",
+      "neverUsed": "Nunca usado",
+      "lastUsedAgo": "Usado {when}",
+      "lastUsedByAgo": "Usado por {name} · {when}",
+      "col": {
+        "name": "Nome",
+        "username": "Usuário / escopo",
+        "agentAccess": "Acesso do agente",
+        "lastUsed": "Último uso",
+        "actions": "Ações"
+      },
+      "filters": {
+        "type": "Tipo",
+        "agentAccess": "Acesso do agente",
+        "allTypes": "Todos",
+        "logins": "Inícios de sessão",
+        "secrets": "Segredos",
+        "savedSignIns": "Logins salvos",
+        "allAccess": "Todos",
+        "clear": "Limpar filtros"
+      },
+      "access": {
+        "title": "Acesso do agente",
+        "allowed": "Permitir",
+        "consentRequired": "Perguntar",
+        "blocked": "Bloquear",
+        "allowedHint": "Agentes podem usar esta credencial sem perguntar.",
+        "consentRequiredHint": "Agentes devem perguntar antes de cada uso.",
+        "blockedHint": "Agentes nunca podem usar esta credencial.",
+        "updateFailed": "Não foi possível atualizar o acesso do agente."
+      },
+      "add": {
+        "title": "Adicionar credencial",
+        "typeLogin": "Início de sessão",
+        "typeSecret": "Segredo / chave API",
+        "secretNameLabel": "Nome",
+        "secretNamePlaceholder": "ex.: chave API OpenAI",
+        "secretValueLabel": "Valor do segredo",
+        "secretValuePlaceholder": "Cole a chave ou o token",
+        "secretScopeLabel": "Escopo (opcional)",
+        "secretScopePlaceholder": "ex.: produção, somente leitura",
+        "consentNote": "Novas credenciais exigem consentimento do agente por padrão. Você pode alterar isso a qualquer momento."
+      },
+      "addShort": "Adicionar",
+      "usedBy": "Usado por {name}"
     }
   },
   "credentialRequest": {
@@ -1688,7 +1856,7 @@
     "hideDetails": "Ocultar detalhes",
     "completedSummary": "Credenciais fornecidas para {site}.",
     "cancelledSummary": "Login cancelado para {site}.",
-    "allowAgentFill": "Allow the agent to type this in directly if secure auto-login isn't possible (less isolated)."
+    "allowAgentFill": "Permitir que o agente digite isso diretamente se o login automático seguro não for possível (menos isolado)."
   },
   "schedule": {
     "title": "Agendar",
@@ -1700,6 +1868,8 @@
     "saved": "Agendamento salvo",
     "activeOn": "Ativo",
     "activeOff": "Pausado",
+    "launchStatus": "Status inicial",
+    "launchStatusHint": "Escolha como esta automação começa",
     "atMinute": "No minuto",
     "atTime": "No horário",
     "onDays": "Nestes dias",
@@ -1707,7 +1877,7 @@
     "cronExpr": "Expressão cron",
     "invalidCron": "Expressão cron inválida",
     "timezone": "Fuso horário",
-    "tzLocal": "Local ({tz})",
+    "tzLocal": "Fuso local ({tz})",
     "tzSearch": "Buscar fusos horários…",
     "tzPinned": "Frequentes",
     "noTzResults": "Nenhum fuso encontrado",
@@ -1776,7 +1946,51 @@
       "minutesAgo": "há {n} min",
       "hoursAgo": "há {n} h",
       "daysAgo": "há {n} d"
-    }
+    },
+    "overviewSubtitle": "Workflows set to run automatically in this workspace",
+    "overviewEmpty": "No scheduled workflows yet. Open a workflow's Schedule tab to set one up.",
+    "runsPerMonth": "~{n}/month",
+    "calendarSubtitle": "Arrange your workflows on the calendar",
+    "scheduleWorkflow": "Schedule workflow",
+    "todayBtn": "Today",
+    "upcomingLabel": "Upcoming",
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "list": "List"
+    },
+    "addTitle": "Schedule a workflow",
+    "editTitle": "Edit schedule",
+    "workflow": "Workflow",
+    "workflows": "Workflows",
+    "change": "Change",
+    "searchWorkflows": "Search workflows…",
+    "noWorkflows": "No workflows found",
+    "addToCalendar": "Add to calendar",
+    "removeSchedule": "Remove schedule",
+    "removed": "Schedule removed",
+    "nextRunAt": "next {when}",
+    "nextBadge": "Next",
+    "oneOff": "One-off",
+    "moreRuns": "+{n} more",
+    "showRuns": "Show on calendar",
+    "hideRuns": "Hide from calendar",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "inDaysShort": "in {n}d",
+    "weekdaysShort": "Wkdy",
+    "daysShort": "d",
+    "automationName": "Automation name",
+    "trigger": {
+      "schedule": "Schedule",
+      "integration": "Integration",
+      "webhook": "Webhook"
+    },
+    "integrationProvider": "Provider",
+    "integrationEvent": "Event",
+    "integrationRepo": "Repository",
+    "integrationBranch": "Branch",
+    "webhookEndpoint": "Webhook endpoint"
   },
   "permissions": {
     "title": "Gerenciar acesso a",
@@ -1898,15 +2112,15 @@
       "subtitle": "Conecte a extensão Polymux para executar agentes localmente no seu próprio navegador.",
       "chromeLabel": "Instalar para Chrome"
     },
-    "metaTitle": "Install Apps",
-    "metaDescription": "Download Polymux native apps for macOS, Windows, and Linux. Run AI agents locally with full system integration.",
-    "desktopComingSoon": "Desktop Apps Coming Soon",
-    "alsoAvailableFor": "Also available for",
-    "availableFor": "Available for",
-    "platformAnd": "and",
-    "mobileExtensionsHeading": "Browser Extension & Mobile Apps",
-    "mobileExtensionsSubtitle": "Take your workflows further. Add the extension to connect your browser, and get notified when mobile apps launch.",
-    "lookingForMobileExtensions": "Looking for Mobile & Extensions?"
+    "metaTitle": "Instalar aplicativos",
+    "metaDescription": "Baixe os aplicativos nativos Polymux para macOS, Windows e Linux. Execute agentes de IA localmente com integração completa ao sistema.",
+    "desktopComingSoon": "Aplicativos de desktop em breve",
+    "alsoAvailableFor": "Também disponível para",
+    "availableFor": "Disponível para",
+    "platformAnd": "e",
+    "mobileExtensionsHeading": "Extensão do navegador e aplicativos móveis",
+    "mobileExtensionsSubtitle": "Leve seus workflows mais longe. Adicione a extensão para conectar seu navegador e seja notificado quando os apps móveis forem lançados.",
+    "lookingForMobileExtensions": "Procurando mobile e extensões?"
   },
   "docs": {
     "searchPlaceholder": "Pesquisar na documentação…",
@@ -1921,33 +2135,33 @@
     "next": "Próximo",
     "contact": "Contato",
     "onThisPage": "Nesta página",
-    "navLabel": "Docs",
-    "openNavigation": "Open navigation",
-    "fallbackTitle": "Documentation",
+    "navLabel": "Documentação",
+    "openNavigation": "Abrir navegação",
+    "fallbackTitle": "Documentação",
     "nav": {
       "sections": {
-        "gettingStarted": "Getting started",
-        "usingPolymux": "Using Polymux",
-        "buildingPlugins": "Building plugins",
-        "connections": "Connections",
+        "gettingStarted": "Primeiros passos",
+        "usingPolymux": "Usando Polymux",
+        "buildingPlugins": "Criando plugins",
+        "connections": "Conexões",
         "api": "API"
       },
       "entries": {
-        "introduction": "Introduction",
-        "quickstart": "Quickstart",
-        "installation": "Installation",
-        "workspaces": "Workspaces and members",
-        "vault": "Vault basics",
+        "introduction": "Introdução",
+        "quickstart": "Início rápido",
+        "installation": "Instalação",
+        "workspaces": "Workspaces e membros",
+        "vault": "Noções básicas do vault",
         "faq": "FAQ",
-        "pluginOverview": "Plugin overview",
-        "pluginBuild": "Build your first plugin",
-        "pluginManifest": "Manifest reference",
-        "publishing": "Publishing checklist",
-        "connectionsOverview": "Connections overview",
-        "connectionsBuild": "Building a connection",
-        "connectionsPort": "Port a Hermes/OpenClaw plugin",
-        "apiOverview": "API overview",
-        "authentication": "Authentication"
+        "pluginOverview": "Visão geral de plugins",
+        "pluginBuild": "Crie seu primeiro plugin",
+        "pluginManifest": "Referência do manifesto",
+        "publishing": "Checklist de publicação",
+        "connectionsOverview": "Visão geral de conexões",
+        "connectionsBuild": "Criando uma conexão",
+        "connectionsPort": "Portar um plugin Hermes/OpenClaw",
+        "apiOverview": "Visão geral da API",
+        "authentication": "Autenticação"
       }
     }
   },
@@ -1962,26 +2176,26 @@
     "terms": {
       "title": "Termos de serviço",
       "subtitle": "Regras e condições para usar os produtos e serviços do Polymux.",
-      "metaTitle": "Terms of Service",
-      "metaDescription": "Terms of service governing your use of Polymux. Acceptable use, billing, account termination, and limitations of liability."
+      "metaTitle": "Termos de serviço",
+      "metaDescription": "Termos de serviço que regem o uso do Polymux. Uso aceitável, cobrança, encerramento de conta e limitações de responsabilidade."
     },
     "about": {
       "title": "Sobre nós",
       "subtitle": "O que o Polymux está a construir e quem servimos.",
-      "metaTitle": "About Us",
-      "metaDescription": "Polymux builds the orchestration layer for AI agents on the live web. Learn about our mission, team, and roadmap."
+      "metaTitle": "Sobre nós",
+      "metaDescription": "Polymux constrói a camada de orquestração para agentes de IA na web ao vivo. Conheça nossa missão, equipe e roadmap."
     },
     "apiReference": {
       "title": "Referência da API",
       "subtitle": "Endpoints HTTP, autenticação e detalhes de integração para programadores.",
-      "metaTitle": "API Reference",
-      "metaDescription": "HTTP endpoints, auth, and integration details for developers building on Polymux."
+      "metaTitle": "Referência da API",
+      "metaDescription": "Endpoints HTTP, autenticação e detalhes de integração para desenvolvedores que constroem no Polymux."
     },
     "cookies": {
       "title": "Política de cookies",
       "subtitle": "Como usamos cookies e tecnologias semelhantes nos nossos sites e serviços.",
-      "metaTitle": "Cookie Policy",
-      "metaDescription": "How Polymux uses cookies and similar technologies on our websites and services."
+      "metaTitle": "Política de cookies",
+      "metaDescription": "Como o Polymux usa cookies e tecnologias similares em nossos sites e serviços."
     }
   },
   "bugReport": {
@@ -2110,11 +2324,11 @@
       "gemini": "AIza…"
     },
     "baseUrlDefaults": {
-      "anthropic": "https://api.anthropic.com (default)",
-      "openai": "https://api.openai.com/v1 (default)",
-      "gemini": "https://generativelanguage.googleapis.com (default)"
+      "anthropic": "https://api.anthropic.com (padrão)",
+      "openai": "https://api.openai.com/v1 (padrão)",
+      "gemini": "https://generativelanguage.googleapis.com (padrão)"
     },
-    "noWorkspaceSelected": "No workspace selected."
+    "noWorkspaceSelected": "Nenhum workspace selecionado."
   },
   "community": {
     "metaTitle": "Comunidade",
@@ -2157,15 +2371,15 @@
     "emailLabel": "E-mail",
     "subtitle": "Atualizações de produto, notas de engenharia e guias para equipes que constroem com Polymux — orquestre agentes, acompanhe sessões de navegador ao vivo e entregue automações confiáveis.",
     "subscribeHint": "Novos posts algumas vezes por mês",
-    "newsletterHeading": "Never miss a post",
-    "newsletterBody": "Occasional email with releases and deep dives. No spam — unsubscribe anytime.",
-    "verifyEmailPrompt": "Check your email to verify your subscription",
-    "subscribing": "Subscribing…",
-    "subscribed": "Subscribed",
-    "subscribeFailed": "Failed to subscribe",
-    "subscribeFailedRetry": "Failed to subscribe. Please try again.",
-    "emailRequired": "Email required",
-    "invalidEmail": "Please enter a valid email"
+    "newsletterHeading": "Não perca nenhuma publicação",
+    "newsletterBody": "E-mail ocasional com lançamentos e análises aprofundadas. Sem spam — cancele a inscrição a qualquer momento.",
+    "verifyEmailPrompt": "Verifique seu e-mail para confirmar sua inscrição",
+    "subscribing": "Inscrevendo…",
+    "subscribed": "Inscrito",
+    "subscribeFailed": "Falha ao inscrever-se",
+    "subscribeFailedRetry": "Falha ao inscrever-se. Tente novamente.",
+    "emailRequired": "E-mail obrigatório",
+    "invalidEmail": "Digite um e-mail válido"
   },
   "verifyEmail": {
     "title": "Verificar e-mail",
@@ -2207,7 +2421,7 @@
     "loadFailed": "Falha ao carregar o layout.",
     "retry": "Tentar novamente",
     "loading": "Carregando layout…",
-    "customLayoutFallback": "Custom layout"
+    "customLayoutFallback": "Layout personalizado"
   },
   "marketplace": {
     "adminOnly": "Somente proprietários e administradores do workspace podem gerenciar integrações.",
@@ -2220,82 +2434,82 @@
     "exceedsLimit": "\"{name}\" excede o limite de upload de {limit}"
   },
   "geolocation": {
-    "notSupported": "Geolocation not supported"
+    "notSupported": "Geolocalização não suportada"
   },
   "billing": {
-    "cancelTitle": "Cancel your {plan} plan?",
-    "downgradeTitle": "Downgrade to {plan}?",
-    "cancelLead": "Your plan stays active until {date}. After that, this workspace moves to the Free plan.",
-    "cancelLeadNoDate": "Your plan stays active until the end of the current billing period. After that, this workspace moves to the Free plan.",
-    "downgradeLead": "Your {current} plan stays active until {date}. After that, this workspace switches to {target}.",
-    "downgradeLeadNoDate": "Your {current} plan stays active until the end of the current billing period. After that, this workspace switches to {target}.",
-    "keepUntilPeriodEnd": "You keep every {plan} feature until then — nothing changes today.",
-    "whatChanges": "What changes at period end",
-    "whatChangesOn": "What changes on {date}",
-    "unlimited": "Unlimited",
-    "rowAgents": "Browser agents",
-    "rowTokens": "Weekly tokens",
-    "rowRuns": "Monthly workflow runs",
-    "rowMembers": "Workspace members",
-    "rowFileSize": "Max file size",
-    "confirmCancel": "Cancel at period end",
-    "confirmDowngrade": "Schedule downgrade",
-    "scheduling": "Scheduling…",
-    "keepCurrent": "Never mind"
+    "cancelTitle": "Cancelar seu plano {plan}?",
+    "downgradeTitle": "Fazer downgrade para {plan}?",
+    "cancelLead": "Seu plano permanece ativo até {date}. Depois, este workspace passará para o plano Grátis.",
+    "cancelLeadNoDate": "Seu plano permanece ativo até o final do período de cobrança atual. Depois, este workspace passará para o plano Grátis.",
+    "downgradeLead": "Seu plano {current} permanece ativo até {date}. Depois, este workspace mudará para {target}.",
+    "downgradeLeadNoDate": "Seu plano {current} permanece ativo até o final do período de cobrança atual. Depois, este workspace mudará para {target}.",
+    "keepUntilPeriodEnd": "Você mantém todos os recursos do {plan} até lá — nada muda hoje.",
+    "whatChanges": "O que muda no final do período",
+    "whatChangesOn": "O que muda em {date}",
+    "unlimited": "Ilimitado",
+    "rowAgents": "Agentes do navegador",
+    "rowTokens": "Tokens semanais",
+    "rowRuns": "Execuções de workflow mensais",
+    "rowMembers": "Membros do workspace",
+    "rowFileSize": "Tamanho máximo de arquivo",
+    "confirmCancel": "Cancelar no final do período",
+    "confirmDowngrade": "Agendar downgrade",
+    "scheduling": "Agendando…",
+    "keepCurrent": "Deixa pra lá"
   },
   "checkout": {
-    "title": "Subscribe to {plan}",
-    "loading": "Loading secure checkout…",
-    "notConfigured": "Payments aren't configured yet. Please try again later.",
-    "loadFailed": "Couldn't load the payment form. Check your connection and try again.",
-    "failed": "Something went wrong starting checkout. Please try again.",
-    "retry": "Try again",
-    "successTitle": "You're on {plan}!",
-    "successBody": "Payment received. Your plan is being activated — this can take a moment.",
-    "done": "Done",
-    "billedAnnually": "billed annually",
-    "billedMonthly": "billed monthly",
-    "toastActivated": "{plan} activated for this workspace.",
-    "pageTitle": "Complete your upgrade",
-    "successHeading": "Upgrade complete",
-    "orderSummary": "Order summary",
-    "forWorkspace": "for {name}",
-    "perMonth": "/mo",
-    "included": "What's included",
-    "featAgents": "{n} browser agents",
-    "featTokens": "{n} weekly tokens",
-    "featRuns": "{n} workflow runs / month",
-    "featMembers": "Up to {n} members",
-    "backToPlans": "Back to plans",
-    "goToDashboard": "Go to dashboard",
-    "securedByStripe": "Secured by Stripe",
-    "paymentFailed": "Payment couldn't be completed. Please check your details or try another card.",
-    "subscribe": "Subscribe",
-    "subscribeFor": "Subscribe · {price}",
-    "processing": "Processing…",
-    "planHeading": "{plan} plan",
-    "billedAnnuallyTotal": "billed annually ({total} / yr)",
-    "currency": "Currency"
+    "title": "Assinar {plan}",
+    "loading": "Carregando checkout seguro…",
+    "notConfigured": "Os pagamentos ainda não estão configurados. Tente novamente mais tarde.",
+    "loadFailed": "Não foi possível carregar o formulário de pagamento. Verifique sua conexão e tente novamente.",
+    "failed": "Algo deu errado ao iniciar o checkout. Tente novamente.",
+    "retry": "Tentar novamente",
+    "successTitle": "Você está no {plan}!",
+    "successBody": "Pagamento recebido. Seu plano está sendo ativado — isso pode levar um momento.",
+    "done": "Concluído",
+    "billedAnnually": "cobrado anualmente",
+    "billedMonthly": "cobrado mensalmente",
+    "toastActivated": "{plan} ativado para este workspace.",
+    "pageTitle": "Concluir upgrade",
+    "successHeading": "Upgrade concluído",
+    "orderSummary": "Resumo do pedido",
+    "forWorkspace": "para {name}",
+    "perMonth": "/mês",
+    "included": "O que está incluído",
+    "featAgents": "{n} agentes do navegador",
+    "featTokens": "{n} tokens semanais",
+    "featRuns": "{n} execuções de workflow / mês",
+    "featMembers": "Até {n} membros",
+    "backToPlans": "Voltar aos planos",
+    "goToDashboard": "Ir ao painel",
+    "securedByStripe": "Protegido por Stripe",
+    "paymentFailed": "Não foi possível concluir o pagamento. Verifique seus dados ou tente outro cartão.",
+    "subscribe": "Assinar",
+    "subscribeFor": "Assinar · {price}",
+    "processing": "Processando…",
+    "planHeading": "Plano {plan}",
+    "billedAnnuallyTotal": "cobrado anualmente ({total} / ano)",
+    "currency": "Moeda"
   },
   "stealth": {
     "title": "Configurações",
     "mode": {
-      "label": "Browser mode",
-      "description": "Where this workflow's agents run. Change it from the chat input."
+      "label": "Modo do navegador",
+      "description": "Onde os agentes deste workflow são executados. Altere na entrada do chat."
     },
     "cloaked": {
-      "label": "Cloaked browser",
-      "description": "Route blocked sites through CloakBrowser to get past bot walls."
+      "label": "Navegador oculto",
+      "description": "Encaminhe sites bloqueados pelo CloakBrowser para contornar barreiras anti-bot."
     },
     "humanizer": {
       "label": "Agent Humaniser",
-      "description": "Human-like mouse movement and typing so actions don't look automated."
+      "description": "Movimento do mouse e digitação semelhantes a humanos para que as ações não pareçam automatizadas."
     },
     "risk": {
-      "humanizer": "Detection risk: Agent Humaniser is off — instant clicks & typing may be flagged by bot-detection sites.",
-      "cloaked": "Detection risk: cloaked browser is off — sites with bot protection (e.g. Cloudflare) may detect or block the agent.",
-      "both": "Detection risk: Agent Humaniser and cloaked browser are off — sites with bot protection may detect or block the agent.",
-      "extension": "Detection risk: the agent runs in your own browser, so cloaking and humanising don't apply — sites may detect automation."
+      "humanizer": "Risco de detecção: Agent Humaniser está desativado — cliques e digitação instantâneos podem ser sinalizados por sites de detecção de bots.",
+      "cloaked": "Risco de detecção: navegador oculto está desativado — sites com proteção anti-bot (ex.: Cloudflare) podem detectar ou bloquear o agente.",
+      "both": "Risco de detecção: Agent Humaniser e navegador oculto estão desativados — sites com proteção anti-bot podem detectar ou bloquear o agente.",
+      "extension": "Risco de detecção: o agente é executado no seu próprio navegador, então ocultação e humanização não se aplicam — sites podem detectar automação."
     }
   },
   "otpRequest": {
@@ -2307,5 +2521,28 @@
     "working": "A enviar…",
     "completedSummary": "Código 2FA introduzido para {site}.",
     "cancelledSummary": "Pedido 2FA cancelado para {site}."
+  },
+  "sidebar": {
+    "console": "Consola",
+    "chat": "Chat",
+    "build": "Build",
+    "browse": "Explorar"
+  },
+  "chats": {
+    "searchPlaceholder": "Pesquisar chats",
+    "newChat": "Novo chat",
+    "untitled": "Novo chat",
+    "empty": "Ainda não há chats",
+    "noResults": "Nenhum chat corresponde",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archivedTitle": "Chats arquivados",
+    "archivedSubtitle": "Chats arquivados ficam ocultos na sua lista.",
+    "archiveEmpty": "Nenhum chat arquivado",
+    "clearArchive": "Limpar arquivo",
+    "clearArchiveConfirm": "Excluir permanentemente todos os chats arquivados?",
+    "clearArchiveConfirmButton": "Excluir tudo",
+    "resizeArchive": "Arraste para redimensionar",
+    "openingChat": "A abrir chat…"
   }
 }

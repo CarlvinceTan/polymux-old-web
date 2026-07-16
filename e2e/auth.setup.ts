@@ -63,6 +63,16 @@ setup('authenticate', async ({ page }) => {
   }
   expect(signedIn, 'Could not sign in after 4 attempts').toBeTruthy()
 
+  // Keep reusable auth state limited to auth/session data. UI policy caches are
+  // first-paint hints, and persisting them across specs can make the client
+  // hydrate a different feature-gated tree than the server rendered.
+  await page.evaluate(() => {
+    localStorage.removeItem('polymux_feature_flags_cache')
+    localStorage.removeItem('polymux_limit_policy')
+    localStorage.removeItem('polymux_workspace_plans')
+    localStorage.removeItem('polymux_workspace_member_counts')
+  })
+
   mkdirSync(dirname(AUTH_FILE), { recursive: true })
   await page.context().storageState({ path: AUTH_FILE })
 })

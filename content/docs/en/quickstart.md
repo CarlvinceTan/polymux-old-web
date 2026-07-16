@@ -10,7 +10,7 @@ The free plan includes three agents, two concurrent browser sessions, and 100 MB
 
 ## 2. Start your first workflow
 
-From the dashboard, press **+ New Workflow** in the left side panel. A draft workflow opens with a chat box and a live browser viewport docked next to it.
+From the dashboard, press **+ New Workflow** in the left sidebar. A draft workflow opens with a chat box and a live browser viewport docked next to it.
 
 Type a request like:
 
@@ -26,7 +26,7 @@ The viewport on the right shows exactly what the agent sees. You can:
 - **Take over** by clicking _Pause_ — the agent stops, you drive manually, and clicking _Resume_ hands control back.
 - **Switch views** between the live browser, the workflow graph, and the artifact gallery (screenshots, files, downloads) from the toggle above the viewport.
 
-Sessions stay live until you close them or they finish. Closing the tab does not end the session — it keeps running on the server and you can re-attach from the side panel.
+Sessions stay live until you close them or they finish. Closing the tab does not end the session — it keeps running on the server and you can re-attach from the sidebar.
 
 ## 4. Save it as a workflow
 

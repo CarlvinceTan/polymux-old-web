@@ -15,9 +15,12 @@ import { isLLMKeyError, useWorkspaceLLMKeys, type WorkspaceLLMKey } from '~/comp
 interface Props {
   workspaceId: string | null
   canManage: boolean
+  embedded?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  embedded: false,
+})
 
 const toast = useAppToast()
 const { t } = useI18n()
@@ -111,9 +114,9 @@ watchEffect(() => {
 </script>
 
 <template>
-  <section class="py-5">
+  <section :class="embedded ? 'py-0' : 'py-5'">
     <div class="mb-4 flex items-start justify-between gap-4">
-      <div class="min-w-0">
+      <div v-if="!embedded" class="min-w-0">
         <h3 class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
           {{ t('workspaceMenu.llmKeysTitle') }}
         </h3>
@@ -121,6 +124,9 @@ watchEffect(() => {
           {{ t('workspaceMenu.llmKeysDesc') }}
         </p>
       </div>
+      <p v-else class="min-w-0 text-sm leading-relaxed text-neutral-500">
+        {{ t('workspaceMenu.llmKeysDesc') }}
+      </p>
       <button
         v-if="canManage && !isAdding"
         type="button"

@@ -1,13 +1,16 @@
 # Layout Components
 
-## "New Workflow" draft entry in `SidePanel`
+## "New Workflow" draft entry + workflow list in `Sidebar`
 
-The sidebar's workflow list renders only persisted workflows (rows in the `workflows` table). The current in-flight "New Workflow" draft (client-only state in `useWorkflowList`'s `draft` ref) is intentionally **not** shown as a list row — it only exists to back the `/workflow/new` page (file uploads, the first-prompt commit) until the user sends their first prompt, at which point `markDraftCommitted` promotes it into the list. The following rules are load-bearing — keep them intact across refactors.
+Each workflow has its own orchestrator chat (`/workflow/[id]/agent`). The sidebar **Chat** tab opens standalone general-assistant chats under `/chat/[id]`; do not reintroduce `/dashboard/console` as the default workspace home. The sidebar's Workflows list renders only persisted workflows (rows in the `workflows` table). The following rules are load-bearing — keep them intact across refactors.
 
-1. **The draft never renders as a list row.** The draft lives only in `useWorkflowList`'s `draft` ref (allocated by `POST /draft-sessions`, persisted to `sessionStorage`). The `SidePanel` `displaySessions` watch projects `realSessions` only and must not prepend the draft. The Workflows list is allowed to be empty (a fresh workspace with no workflows shows an empty list) — do not re-add an "ensure at least one row" path.
+- ✓ Use `/workflow/new` as the no-workflow-selected browse home.
+- ✗ Do not point login, checkout, or workspace cleanup paths at `/dashboard/console`.
 
-2. **"New Workflow" is a nav button, highlighted like the other nav items.** Pressing it navigates to `/workflow/new`; while there, the button carries the same active highlight (`font-semibold` + left bar, guarded by `!isSearchOpen`) used by Integrations/Storage/Vault — see `isNewWorkflowActive`. This is the draft's only affordance in the sidebar.
+1. **The draft never renders as a list row.** The in-flight "New Workflow" draft lives only in `useWorkflowList`'s `draft` ref (allocated by `POST /draft-sessions`, persisted to `sessionStorage`). `displaySessions` projects `realSessions` only and must not prepend the draft. The Workflows list may be empty (a fresh workspace, or after deleting the last workflow) — do not re-add an "ensure at least one row" path.
 
-3. **Only one draft can exist at a time.** `createDraft` is idempotent: if a draft already exists in memory or `sessionStorage` for the current workspace, it returns that draft instead of allocating another. Any code path that creates drafts (the "New Workflow" button, `/workflow/new` mount, post-delete fallback navigation) must go through `createDraft` so the singleton invariant holds.
+2. **"New Workflow" is a nav button** (edit-pad icon), highlighted like the other nav items via `isNewWorkflowActive` while on `/workflow/new`. Pressing it calls `createWorkflow` → `createDraft` → navigates to `/workflow/${DRAFT_WORKFLOW_ID}` (`/workflow/new`), where the first prompt commits the draft into a real workflow with its own orchestrator. This button is the draft's only sidebar affordance.
 
-4. **Deleting the last workflow leaves an empty list.** An empty Workflows list is a valid state — "New Workflow" is the way back in. After deleting the active workflow when none remain, `runDeleteWorkflow` navigates to `/workflow/new` (whose `onMounted` re-creates the draft); it does not seed a row to keep the list non-empty. `canDeleteWorkflow` only blocks draft rows, which never render anyway.
+3. **Only one draft at a time.** `createDraft` is idempotent: an existing in-memory / `sessionStorage` draft for the current workspace is reused. Any path that creates drafts must go through `createDraft`.
+
+4. **Deleting the last workflow leaves an empty list.** An empty Workflows list is valid — "New Workflow" is the way back in. After deleting the active workflow when none remain, `runDeleteWorkflow` navigates to `/workflow/${DRAFT_WORKFLOW_ID}` (its `onMounted` re-creates the draft); it does not seed a row.

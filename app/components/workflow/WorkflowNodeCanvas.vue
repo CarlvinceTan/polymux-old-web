@@ -1534,7 +1534,7 @@ function isSelected(id: string) { return selected.value.has(id) }
 
 // ── Inline rename ───────────────────────────────────────────────────────────
 // Double-clicking a node title swaps the label for an autofocused input —
-// mirrors the SidePanel.vue rename pattern. Commits write to `title` (the
+// mirrors the Sidebar.vue rename pattern. Commits write to `title` (the
 // top field on the new node model — see workflow_graph.go).
 const renamingNodeId = ref<string | null>(null)
 const renamingValue = ref('')
@@ -3777,7 +3777,7 @@ interface WireGeom {
   // `clickable` — wire responds to clicks (selects + highlights). True for
   // both real graph wires (`wire:`) and synthetic spine wires (`spine:`).
   // `selectable` — wire supports full editing (endpoint drag, action bar,
-  // side panel form). True only for real graph wires.
+  // InfoPanel form). True only for real graph wires.
   clickable: boolean
   selectable: boolean
   fromId: string
@@ -4036,7 +4036,7 @@ const wireGeoms = computed<WireGeom[]>(() => {
       }
     }
     const toolbarAnchor = { x: bestCx, y: bestCy, orientation: bestOrientation }
-    // `selectable` = full editor (endpoint drag handles, side-panel form).
+    // `selectable` = full editor (endpoint drag handles, InfoPanel form).
     // Real graph edges (`wire:`) carry persisted metadata; canvas-local
     // extras (`user:`, e.g. wires the user dragged to a synthetic Start
     // / End) are also draggable so their endpoints participate in the
@@ -4206,7 +4206,7 @@ function wireDasharray(w: WireGeom): string | undefined {
 // hasWirePill returns true when a wire carries either an iteration cap
 // or a non-empty condition — those are the wires that get a mid-segment
 // rounded-rectangle pill so the loop / branching semantics are visible
-// without selecting the wire and reading the side panel.
+// without selecting the wire and opening the InfoPanel.
 function hasWirePill(w: WireGeom): boolean {
   return Boolean(w.condition && w.condition.trim() !== '') || (w.maxIterations ?? 0) > 0
 }

@@ -1,7 +1,7 @@
 {
   "name": "Polymux",
   "short_name": "Polymux",
-  "description": "AI agents for browser automation. Multi-agent workflows with live browser sessions, secure vaults, and replayable runs.",
+  "description": "Automated end-to-end Flow testing with Checks, Artifacts, runners, and replayable evidence.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -18,7 +18,10 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@ai-sdk/mcp": "^2.0.3",
+    "@ai-sdk/vue": "^3.0.208",
     "@iconify-json/heroicons": "^1.2.3",
+    "@iconify-json/lucide": "^1.2.116",
     "@iconify-json/ph": "^1.2.2",
     "@nuxt/ui": "^4.6.0",
     "@nuxtjs/i18n": "^10.2.4",
@@ -28,6 +31,7 @@
     "@types/node": "^25.5.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "ai": "^6.0.208",
     "dompurify": "^3.4.9",
     "marked": "^17.0.6",
     "nuxt": "^4.4.2",
